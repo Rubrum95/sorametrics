@@ -12,13 +12,28 @@ const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, ge
 
 
 const { WS_ENDPOINT, WHITELIST_URL } = require('./config');
-const { resolveEthSender } = require('./eth_helper');
+// eth_helper.js - DESACTIVADO temporalmente por memory leak
+// const { resolveEthSender } = require('./eth_helper');
+function resolveEthSender() { return Promise.resolve(null); }
+
+// Helper: queries con timeout (5 segundos) para evitar memory leak
+function withTimeout(promise, ms = 5000) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Query timeout')), ms);
+    });
+    
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+}
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// Helper: queries con timeout para evitar memory leak
 // Forzar carga de favicon
 app.get('/favicon.svg', (req, res) => res.sendFile(__dirname + '/favicon.svg'));
 
@@ -141,7 +156,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // --- CACHÉ INTELIGENTE ---
-const CACHE_TTL = 60 * 1000;
+const CACHE_TTL = 30 * 1000; // 30s para tokens
 let globalTokenCache = { timestamp: 0, data: null };
 
 let api = null;
@@ -149,6 +164,21 @@ let ASSETS = [];
 let tokenPrices = {};
 let holdersCache = {};
 const CACHE_DURATION = 5 * 60 * 1000;
+
+// Caché para endpoints
+let swapsCache = { data: null, timestamp: 0 };
+let transfersCache = { data: null, timestamp: 0 };
+let tokensCache = { data: null, timestamp: 0 };
+let poolsCache = { data: null, timestamp: 0 };
+let providersCache = { data: null, timestamp: 0 };
+let activityCache = { data: null, timestamp: 0 };
+
+const SWAPS_TTL = 24 * 1000;    // 24s
+const TRANSFERS_TTL = 60 * 1000; // 60s
+const TOKENS_TTL = 30 * 1000;   // 30s
+const POOLS_TTL = 60 * 1000;    // 60s
+const PROVIDERS_TTL = 90 * 1000; // 90s
+const ACTIVITY_TTL = 90 * 1000;  // 90s
 
 
 
@@ -217,7 +247,7 @@ function getAssetInfo(rawId) {
 
 async function getXorPriceInDai() {
     try {
-        const reserves = await api.query.poolXYK.reserves(XOR_ID, DAI_ID);
+        const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, DAI_ID));
         const jsonData = reserves.toJSON();
         if (!jsonData || jsonData.length < 2) return 0;
 
@@ -235,7 +265,7 @@ async function getXorPriceInDai() {
 
 async function getTokenPriceInXor(assetId, tokenDecimals) {
     try {
-        const reserves = await api.query.poolXYK.reserves(XOR_ID, assetId);
+        const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, assetId));
         const jsonData = reserves.toJSON();
         if (!jsonData || jsonData.length < 2) return 0;
 
@@ -255,8 +285,20 @@ async function getTokenPriceInXor(assetId, tokenDecimals) {
 
 async function getPriceInDai(assetId, decimals) {
     try {
+        // CHECK CACHE FIRST - evitar queries innecesarias
+        const cacheKey = `${assetId}_${decimals}`;
+        if (getPriceInDai.cache && getPriceInDai.cache[cacheKey] && (Date.now() - getPriceInDai.cacheTime < 60000)) {
+            return getPriceInDai.cache[cacheKey];
+        }
+        
         if (assetId === DAI_ID) return 1;
         if (!api) return 0;
+        
+        // Init cache if not exists
+        if (!getPriceInDai.cache) {
+            getPriceInDai.cache = {};
+            getPriceInDai.cacheTime = 0;
+        }
 
         // --- SPECIAL CASE: XST ---
         // The XOR-XST pool is deprecated or unbalanced. Use XST-XSTUSD pool instead.
@@ -271,7 +313,7 @@ async function getPriceInDai(assetId, decimals) {
 
             // 2. Get XST Price relative to XSTUSD (XST-XSTUSD pool)
             // Pair order: XSTUSD (0x020008...) < XST (0x020009...)
-            const reserves = await api.query.poolXYK.reserves(XSTUS_ID, XST_ID);
+            const reserves = await withTimeout(api.query.poolXYK.reserves(XSTUS_ID, XST_ID));
             const jsonData = reserves.toJSON();
 
             if (jsonData && jsonData.length >= 2) {
@@ -281,8 +323,12 @@ async function getPriceInDai(assetId, decimals) {
                     const baseNormal = baseRes.div('1e18');
                     const targetNormal = targetRes.div('1e18'); // Both 18 dec
                     const priceInXstUsd = baseNormal.div(targetNormal).toNumber();
-
-                    return priceInXstUsd * xstusdPrice;
+                    
+                    const finalPrice = priceInXstUsd * xstusdPrice;
+                    getPriceInDai.cache[cacheKey] = finalPrice;
+                    getPriceInDai.cacheTime = Date.now();
+                    
+                    return finalPrice;
                 }
             }
         }
@@ -290,12 +336,22 @@ async function getPriceInDai(assetId, decimals) {
 
         // 1. Get XOR Price in DAI (Anchor)
         const xorPrice = await getXorPriceInDai();
-        if (assetId === XOR_ID) return xorPrice;
+        if (assetId === XOR_ID) {
+            getPriceInDai.cache[cacheKey] = xorPrice;
+            getPriceInDai.cacheTime = Date.now();
+            return xorPrice;
+        }
         if (xorPrice === 0) return 0;
 
         // 2. Get Token Price relative to XOR
         const tokenPriceInXor = await getTokenPriceInXor(assetId, decimals);
-        return tokenPriceInXor * xorPrice;
+        const finalPrice = tokenPriceInXor * xorPrice;
+        
+        // SAVE TO CACHE
+        getPriceInDai.cache[cacheKey] = finalPrice;
+        getPriceInDai.cacheTime = Date.now();
+        
+        return finalPrice;
 
     } catch (e) {
         console.error(`CRITICAL ERROR in getPriceInDai for ${assetId}:`, e);
@@ -461,9 +517,18 @@ app.get('/pools', async (req, res) => {
     if (!api) return res.json({ data: [], total: 0 });
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const now = Date.now();
+    const cacheKey = `pools_${page}_${limit}_${req.query.base}`;
+
+    // Check cache (60s)
+    if (poolsCache.data && poolsCache.timestamp && (now - poolsCache.timestamp < POOLS_TTL)) {
+        const cached = JSON.parse(JSON.stringify(poolsCache.data));
+        const startIndex = (page - 1) * limit;
+        return res.json({ data: cached.slice(startIndex, startIndex + limit), total: cached.length, page, totalPages: Math.ceil(cached.length / limit) });
+    }
 
     try {
-        const entries = await api.query.poolXYK.reserves.entries();
+        const entries = await withTimeout(api.query.poolXYK.reserves.entries());
         let pools = [];
 
         for (const [key, value] of entries) {
@@ -503,6 +568,10 @@ app.get('/pools', async (req, res) => {
         const totalPages = Math.ceil(total / limit);
         const startIndex = (page - 1) * limit;
         const paginatedPools = pools.slice(startIndex, startIndex + limit);
+        
+        // Guardar en caché
+        poolsCache = { data: pools, timestamp: now };
+        
         res.json({ data: paginatedPools, total, page, totalPages });
     } catch (e) {
         console.error(e);
@@ -511,8 +580,17 @@ app.get('/pools', async (req, res) => {
 });
 
 app.get('/pool/providers', async (req, res) => {
+    const now = Date.now();
+    const { base, target } = req.query;
+    const cacheKey = `${base}_${target}`;
+    
+    // Check cache (90s)
+    if (providersCache.data && providersCache.timestamp && (now - providersCache.timestamp < PROVIDERS_TTL)) {
+        const cached = providersCache.data[cacheKey];
+        if (cached) return res.json(cached);
+    }
+    
     try {
-        const { base, target } = req.query;
         if (!base || !target) return res.status(400).json({ error: 'Missing base or target' });
         if (!api) return res.json([]);
 
@@ -521,7 +599,7 @@ app.get('/pool/providers', async (req, res) => {
         // Step 1: Find the Pool Account from properties storage
         let poolAccount = null;
 
-        const props = await api.query.poolXYK.properties(base, target);
+        const props = await withTimeout(api.query.poolXYK.properties(base, target));
         if (props && !props.isEmpty) {
             const propsHuman = props.toHuman();
             console.log('   Pool properties:', JSON.stringify(propsHuman).substring(0, 100));
@@ -534,7 +612,7 @@ app.get('/pool/providers', async (req, res) => {
 
         // Try reverse pair
         if (!poolAccount) {
-            const propsReverse = await api.query.poolXYK.properties(target, base);
+            const propsReverse = await withTimeout(api.query.poolXYK.properties(target, base));
             if (propsReverse && !propsReverse.isEmpty) {
                 const propsHuman = propsReverse.toHuman();
                 console.log('   Pool properties (reversed):', JSON.stringify(propsHuman).substring(0, 100));
@@ -552,7 +630,7 @@ app.get('/pool/providers', async (req, res) => {
         console.log(`   ✅ Pool account: ${String(poolAccount).substring(0, 20)}...`);
 
         // Step 2: Query poolProviders for this specific pool account
-        const providerEntries = await api.query.poolXYK.poolProviders.entries(poolAccount);
+        const providerEntries = await withTimeout(api.query.poolXYK.poolProviders.entries(poolAccount));
         console.log(`   Provider entries: ${providerEntries.length}`);
 
         const providers = providerEntries.map(([key, value]) => {
@@ -562,6 +640,12 @@ app.get('/pool/providers', async (req, res) => {
         }).sort((a, b) => b.balance - a.balance);
 
         console.log(`✅ Found ${providers.length} providers`);
+        
+        // Save to cache
+        if (!providersCache.data) providersCache.data = {};
+        providersCache.data[cacheKey] = providers;
+        providersCache.timestamp = now;
+        
         res.json(providers);
     } catch (e) {
         console.error(e);
@@ -670,12 +754,27 @@ app.get('/stats/trending-tokens', async (req, res) => {
 });
 
 app.get('/pool/activity', async (req, res) => {
+    const now = Date.now();
+    const { base, target } = req.query;
+    const cacheKey = `${base}_${target}`;
+    
+    // Check cache (90s)
+    if (activityCache.data && activityCache.timestamp && (now - activityCache.timestamp < ACTIVITY_TTL)) {
+        const cached = activityCache.data[cacheKey];
+        if (cached) return res.json(cached);
+    }
+    
     try {
-        const { base, target } = req.query;
         if (!base || !target) return res.status(400).json({ error: 'Missing base or target' });
 
         const limit = parseInt(req.query.limit) || 50;
         const activity = await getPoolActivity(base, target, limit);
+        
+        // Save to cache
+        if (!activityCache.data) activityCache.data = {};
+        activityCache.data[cacheKey] = activity || [];
+        activityCache.timestamp = now;
+        
         res.json(activity || []);
     } catch (e) {
         console.error(e);
@@ -705,7 +804,7 @@ app.get('/holders/:assetId', async (req, res) => {
             const XOR_ID = '0x0200000000000000000000000000000000000000000000000000000000000000';
 
             if (assetId === XOR_ID) {
-                const allEntries = await api.query.system.account.entries();
+                const allEntries = await withTimeout(api.query.system.account.entries());
                 for (const [key, value] of allEntries) {
                     const data = value.toJSON();
                     const free = (data.data && data.data.free) ? data.data.free.toString() : '0';
@@ -715,7 +814,7 @@ app.get('/holders/:assetId', async (req, res) => {
                     }
                 }
             } else {
-                const allEntries = await api.query.tokens.accounts.entries();
+                const allEntries = await withTimeout(api.query.tokens.accounts.entries());
                 for (const [key, value] of allEntries) {
                     const keyArgs = key.args;
                     let currentAssetId = keyArgs[1].toString();
@@ -750,7 +849,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
     const address = req.params.address;
     try {
         console.log(`Liquidity Check Start: ${address}`);
-        const allProps = await api.query.poolXYK.properties.entries();
+        const allProps = await withTimeout(api.query.poolXYK.properties.entries());
         console.log(`Total pools to scan: ${allProps.length}`);
 
         // OPTIMIZATION: Use larger chunks + multi query
@@ -782,7 +881,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
             if (chunkArgs.length === 0) continue;
 
             // Fetch ALL balances in one go
-            const balances = await api.query.poolXYK.poolProviders.multi(chunkArgs);
+            const balances = await withTimeout(api.query.poolXYK.poolProviders.multi(chunkArgs));
 
             // Process results (only non-zero)
             const activePools = [];
@@ -802,7 +901,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
                     const poolAccount = pool.account;
                     const userBalance = pool.balance;
 
-                    const totalIssuanceCodec = await api.query.poolXYK.totalIssuances(poolAccount);
+                    const totalIssuanceCodec = await withTimeout(api.query.poolXYK.totalIssuances(poolAccount));
                     const totalIssuance = new BigNumber(totalIssuanceCodec.toString());
                     if (totalIssuance.isZero()) return;
 
@@ -813,7 +912,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
                     if (typeof baseId === 'object' && baseId.code) baseId = baseId.code;
                     if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
 
-                    const resCodec = await api.query.poolXYK.reserves(baseId, targetId);
+                    const resCodec = await withTimeout(api.query.poolXYK.reserves(baseId, targetId));
                     const reserves = resCodec.toJSON();
 
                     const baseRes = new BigNumber(String(reserves[0]).replace(/,/g, ''));
@@ -858,7 +957,7 @@ app.get('/balance/:address', async (req, res) => {
     const address = req.params.address;
     const balances = [];
     try {
-        const { data: { free: xorFree } } = await api.query.system.account(address);
+        const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
         const xorAmt = new BigNumber(xorFree.toString()).div('1e18');
         if (xorAmt.gt(0)) {
             const xorDef = ASSETS.find(a => a.symbol === 'XOR');
@@ -868,7 +967,7 @@ app.get('/balance/:address', async (req, res) => {
                 usdValue: xorAmt.times(tokenPrices['XOR'] || 0).toFixed(2)
             });
         }
-        const entries = await api.query.tokens.accounts.entries(address);
+        const entries = await withTimeout(api.query.tokens.accounts.entries(address));
         for (const [key, value] of entries) {
             const assetId = key.args[1].toString();
             const data = value.toJSON();
@@ -894,7 +993,7 @@ app.get('/balance/:address', async (req, res) => {
 async function getAddressBalances(address) {
     const balances = [];
     try {
-        const { data: { free: xorFree } } = await api.query.system.account(address);
+        const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
         const xorAmt = new BigNumber(xorFree.toString()).div('1e18');
         if (xorAmt.gt(0)) {
             const xorDef = ASSETS.find(a => a.symbol === 'XOR');
@@ -905,7 +1004,7 @@ async function getAddressBalances(address) {
                 assetId: '0x0200000000000000000000000000000000000000000000000000000000000000'
             });
         }
-        const entries = await api.query.tokens.accounts.entries(address);
+        const entries = await withTimeout(api.query.tokens.accounts.entries(address));
         for (const [key, value] of entries) {
             const assetId = key.args[1].toString();
             const data = value.toJSON();
@@ -973,11 +1072,34 @@ app.post('/balances', async (req, res) => {
 });
 
 app.get('/history/global/transfers', async (req, res) => {
-    try { res.json(await getLatestTransfers(req.query.page || 1, 25, req.query.filter, req.query.timestamp)); } catch (e) { res.json({ data: [], total: 0 }); }
+    const now = Date.now();
+    
+    // Check cache (60s)
+    if (transfersCache.data && now - transfersCache.timestamp < TRANSFERS_TTL) {
+        return res.json(transfersCache.data);
+    }
+    
+    try { 
+        const data = await getLatestTransfers(req.query.page || 1, 25, req.query.filter, req.query.timestamp);
+        transfersCache = { data, timestamp: now };
+        res.json(data); 
+    } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
 app.get('/history/global/swaps', async (req, res) => {
-    try { res.json(await getLatestSwaps(req.query.page || 1, 25, req.query.token || req.query.filter, req.query.timestamp)); } catch (e) { res.json({ data: [], total: 0 }); }
+    const now = Date.now();
+    const cacheKey = `swaps_${req.query.page}_${req.query.token}_${req.query.filter}`;
+    
+    // Check cache (24s)
+    if (swapsCache.data && now - swapsCache.timestamp < SWAPS_TTL) {
+        return res.json(swapsCache.data);
+    }
+    
+    try { 
+        const data = await getLatestSwaps(req.query.page || 1, 25, req.query.token || req.query.filter, req.query.timestamp);
+        swapsCache = { data, timestamp: now };
+        res.json(data); 
+    } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
 app.get('/history/transfers/:address', async (req, res) => {
@@ -1300,6 +1422,35 @@ async function startApp() {
     const PORT = process.env.PORT || 3000;
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
 
+    // Warm cache al inicio (datos pre-cargados para primer usuario)
+    setTimeout(async () => {
+        console.log('🔥 Warm cache inicializando...');
+        try {
+            // Pre-cargar swaps
+            swapsCache = { data: await getLatestSwaps(1, 25), timestamp: Date.now() };
+            console.log('✅ Cache swaps pre-cargado');
+            
+            // Pre-cargar transfers
+            transfersCache = { data: await getLatestTransfers(1, 25), timestamp: Date.now() };
+            console.log('✅ Cache transfers pre-cargado');
+            
+            // Pre-cargar tokens (usa cache interno)
+            // Los tokens ya tienen su propio globalTokenCache
+            console.log('✅ Cache tokens listo');
+            
+            // Pre-cargar pools
+            if (api) {
+                const entries = await withTimeout(api.query.poolXYK.reserves.entries());
+                poolsCache = { data: entries.length, timestamp: Date.now() };
+                console.log('✅ Cache pools pre-cargado');
+            }
+            
+            console.log('🔥 Warm cache completado!');
+        } catch (e) {
+            console.error('⚠️ Error en warm cache:', e.message);
+        }
+    }, 5000); // Espera 5s a que todo esté listo
+
     setInterval(() => {
         const now = Date.now();
         if (pendingTransfers.length > 0) {
@@ -1485,7 +1636,7 @@ async function startApp() {
                             let r = null;
                             if (api.query.ethBridge && api.query.ethBridge.requests) {
                                 try {
-                                    const req = await api.query.ethBridge.requests(0, hash);
+                                    const req = await withTimeout(api.query.ethBridge.requests(0, hash));
                                     if (req.isSome) {
                                         r = req.unwrap().toJSON();
                                     } else {
@@ -1568,7 +1719,7 @@ async function startApp() {
                         // Try to fetch request details
                         if (api.query.ethBridge && api.query.ethBridge.requests) {
                             try {
-                                const req = await api.query.ethBridge.requests(0, hash);
+                                const req = await withTimeout(api.query.ethBridge.requests(0, hash));
                                 const json = req.toJSON();
                                 console.log(`   Request data:`, JSON.stringify(json).substring(0, 200));
 
@@ -1915,5 +2066,104 @@ async function startApp() {
         })();
     });
 }
+
+
+// ========== DEMOCRACY ENDPOINTS ==========
+
+// Get referendum info
+app.get("/democracy/referendums", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const referendumCount = await withTimeout(api.query.democracy.referendumCount());
+        const refCount = referendumCount.toNumber();
+        
+        const referendums = [];
+        for (let i = 0; i < refCount; i++) {
+            try {
+                const info = await withTimeout(api.query.democracy.referendumInfoOf(i));
+                if (info && info.toJSON()) {
+                    const data = info.toJSON();
+                    referendums.push({
+                        id: i,
+                        status: data ? Object.keys(data)[0] : "unknown",
+                        data: data
+                    });
+                }
+            } catch (e) { }
+        }
+        
+        res.json({ count: refCount, referendums });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get public proposals
+app.get("/democracy/proposals", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const propCount = await withTimeout(api.query.democracy.publicPropCount());
+        const proposals = await withTimeout(api.query.democracy.publicProps());
+        
+        res.json({ count: propCount.toNumber(), proposals: proposals.toJSON() });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get council members
+app.get("/council/members", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const members = await withTimeout(api.query.council.members());
+        const prime = await withTimeout(api.query.council.prime());
+        
+        res.json({
+            members: members.toJSON(),
+            prime: prime ? prime.toJSON() : null
+        });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get voting info for address
+app.get("/democracy/votes/:address", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const { address } = req.params;
+        const voting = await withTimeout(api.query.democracy.votingOf(address));
+        
+        res.json({ address, voting: voting ? voting.toJSON() : null });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get council proposals
+app.get("/council/proposals", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const proposals = await withTimeout(api.query.council.proposals());
+        const proposalCount = await withTimeout(api.query.council.proposalCount());
+        
+        const proposalList = [];
+        for (const hash of proposals) {
+            try {
+                const prop = await withTimeout(api.query.council.proposalOf(hash));
+                proposalList.push({ hash: hash.toHex(), proposal: prop ? prop.toJSON() : null });
+            } catch (e) { }
+        }
+        
+        res.json({ count: proposalCount.toNumber(), proposals: proposalList });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
 
 startApp();

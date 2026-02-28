@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoraMetrics - Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --accent-red: #e63946;
+            --accent-red-dark: #c1121f;
+            --accent-green: #06d6a0;
+            --accent-blue: #4895ef;
+            --accent-purple: #7b2cbf;
+            --accent-yellow: #ffd60a;
+            --text-primary: #f8f9fa;
+            --text-secondary: #8b8b9a;
+            --text-muted: #5c5c6d;
+            --border: #2a2a3a;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-red), var(--accent-purple));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-tertiary);
+            padding: 4px;
+            border-radius: var(--radius-md);
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        /* MAIN */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* STATS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-change {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .stat-change.positive { color: var(--accent-green); }
+        .stat-change.negative { color: var(--accent-red); }
+
+        /* SECTIONS */
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* TABLE */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        tr:hover { background: var(--bg-tertiary); }
+
+        /* TOKEN ROW */
+        .token-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .token-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+        }
+
+        .token-name {
+            font-weight: 500;
+        }
+
+        .token-symbol {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .price {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+        }
+
+        .change-positive { color: var(--accent-green); }
+        .change-negative { color: var(--accent-red); }
+
+        /* PAGINATION */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+        }
+
+        .page-btn:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* LOADING */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* SEARCH */
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-red);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        /* WALLET */
+        .wallet-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .wallet-input input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .header { flex-direction: column; gap: 12px; }
+            .tabs { flex-wrap: wrap; justify-content: center; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .table-container { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">S</div>
+            <span class="logo-text">SoraMetrics</span>
+            <div id="liveIndicator" style="width:8px;height:8px;border-radius:50%;background:var(--accent-green);display:none;"></div>
+            <span id="liveText" style="font-size:12px;color:var(--text-muted);display:none;">LIVE</span>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showSection('dashboard')">Dashboard</button>
+            <button class="tab-btn" onclick="showSection('tokens')">Tokens</button>
+            <button class="tab-btn" onclick="showSection('swaps')">Swaps</button>
+            <button class="tab-btn" onclick="showSection('transfers')">Transfers</button>
+            <button class="tab-btn" onclick="showSection('bridges')">Bridges</button>
+            <button class="tab-btn" onclick="showSection('pools')">Pools</button>
+            <button class="tab-btn" onclick="showSection('wallet')">Wallet</button>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Value Locked</div>
+                    <div class="stat-value" id="tvl">$--</div>
+                    <div class="stat-change positive" id="tvlChange">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">24h Volume</div>
+                    <div class="stat-value" id="volume24h">$--</div>
+                    <div class="stat-change" id="volumeChange">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Transactions Today</div>
+                    <div class="stat-value" id="txToday">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Pools</div>
+                    <div class="stat-value" id="poolCount">--</div>
+                </div>
+            </div>
+
+            <!-- TOP TOKENS -->
+            <div class="section-header">
+                <h2 class="section-title">Top Tokens</h2>
+                <button class="btn btn-ghost" onclick="showSection('tokens')">View All</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Token</th>
+                            <th>Price</th>
+                            <th>Change 24h</th>
+                            <th>Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topTokensTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TOKENS -->
+        <div id="tokens" class="section">
+            <div class="section-header">
+                <h2 class="section-title">All Tokens</h2>
+            </div>
+            <div class="search-box">
+                <input type="text" class="search-input" id="tokenSearch" placeholder="Search tokens..." oninput="filterTokens()">
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Token</th>
+                            <th>Price</th>
+                            <th>Change 24h</th>
+                            <th>Volume 24h</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allTokensTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SWAPS -->
+        <div id="swaps" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Swaps</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>From Amount</th>
+                            <th>To Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="swapsTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="page-btn" id="swapsPrev" onclick="changeSwapsPage(-1)">← Previous</button>
+                <span id="swapsPage">Page 1</span>
+                <button class="page-btn" id="swapsNext" onclick="changeSwapsPage(1)">Next →</button>
+            </div>
+        </div>
+
+        <!-- TRANSFERS -->
+        <div id="transfers" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Transfers</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Amount</th>
+                            <th>Symbol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transfersTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="page-btn" id="transfersPrev" onclick="changeTransfersPage(-1)">← Previous</button>
+                <span id="transfersPage">Page 1</span>
+                <button class="page-btn" id="transfersNext" onclick="changeTransfersPage(1)">Next →</button>
+            </div>
+        </div>
+
+        <!-- BRIDGES -->
+        <div id="bridges" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Bridges</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bridgesTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="page-btn" id="bridgesPrev" onclick="changeBridgesPage(-1)">← Previous</button>
+                <span id="bridgesPage">Page 1</span>
+                <button class="page-btn" id="bridgesNext" onclick="changeBridgesPage(1)">Next →</button>
+            </div>
+        </div>
+
+        <!-- POOLS -->
+        <div id="pools" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Liquidity Pools</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pool</th>
+                            <th>Token 1</th>
+                            <th>Token 2</th>
+                            <th>TVL</th>
+                            <th>Volume 24h</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poolsTable">
+                        <tr><td colspan="5"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- WALLET -->
+        <div id="democracy" class="section">
+            <div class="page-header">
+                <h1 class="page-title">Democracy</h1>
+            </div>
+            <div class="tabs" style="margin-bottom:20px;background:var(--bg-tertiary);padding:4px;border-radius:var(--radius-md);display:inline-flex;">
+                <button class="tab-btn active" data-democracy="referendums" onclick="switchDemocracyTab(this)">Referendums</button>
+                <button class="tab-btn" data-democracy="proposals" onclick="switchDemocracyTab(this)">Proposals</button>
+                <button class="tab-btn" data-democracy="council" onclick="switchDemocracyTab(this)">Council</button>
+                <button class="tab-btn" data-democracy="votes" onclick="switchDemocracyTab(this)">My Votes</button>
+            </div>
+            <div id="democracy-content">
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>ID</th><th>Status</th><th>Data</th></tr></thead>
+                            <tbody id="democracyTable"><tr><td colspan="3"><div class="loading"><div class="spinner"></div>Loading...</div></td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="wallet" class="section">
+            <div class="section-header">
+                <h2 class="section-title">Wallet Analysis</h2>
+            </div>
+            <div class="wallet-input">
+                <input type="text" id="walletAddress" placeholder="Enter Sora wallet address...">
+                <button class="btn btn-primary" onclick="loadWallet()">Analyze</button>
+            </div>
+            <div id="walletResults"></div>
+        </div>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const API = '';
+        
+        // Real-time updates via Socket.IO
+        const socket = io();
+        
+        socket.on('connect', () => {
+            console.log('🔌 Real-time connected');
+            document.getElementById('liveIndicator').style.display = 'block';
+            document.getElementById('liveText').style.display = 'block';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('liveIndicator').style.display = 'none';
+            document.getElementById('liveText').style.display = 'none';
+        });
+        
+        socket.on('newSwap', (swap) => {
+            console.log('New swap:', swap);
+            if (document.getElementById('swaps').classList.contains('active')) {
+                loadSwaps(); // Refresh swaps
+            }
+        });
+        
+        socket.on('newTransfer', (transfer) => {
+            console.log('New transfer:', transfer);
+            if (document.getElementById('transfers').classList.contains('active')) {
+                loadTransfers(); // Refresh transfers
+            }
+        });
+        
+        socket.on('newBlock', (block) => {
+            console.log('New block:', block.number);
+        });
+        let swapsPage = 1, transfersPage = 1, bridgesPage = 1;
+        let allTokens = [];
+
+        // Show section
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load data if needed
+            if (id === 'tokens' && allTokens.length === 0) loadAllTokens();
+            if (id === 'swaps') loadSwaps();
+            if (id === 'transfers') loadTransfers();
+            if (id === 'bridges') loadBridges();
+            if (id === 'pools') loadPools();
+            if (id === 'democracy') loadDemocracy();
+        }
+
+        // Load dashboard
+        async function loadDashboard() {
+            try {
+                const [tokensRes, poolsRes] = await Promise.all([
+                    fetch('/tokens?limit=10'),
+                    fetch('/pools?limit=5')
+                ]);
+                
+                const tokens = await tokensRes.json();
+                const pools = await poolsRes.json();
+                
+                document.getElementById('poolCount').textContent = pools.total || pools.data?.length || 0;
+                
+                // Render top tokens
+                if (tokens.data) {
+                    let html = '';
+                    tokens.data.slice(0, 6).forEach((t, i) => {
+                        const change = t.change24h || 0;
+                        const changeClass = change >= 0 ? 'positive' : 'negative';
+                        const changeSign = change >= 0 ? '+' : '';
+                        html += `<tr>
+                            <td>${i + 1}</td>
+                            <td><div class="token-row"><div class="token-icon"></div><div><div class="token-name">${t.symbol || 'Unknown'}</div></div></div></td>
+                            <td class="price">$${(t.price || 0).toFixed(4)}</td>
+                            <td class="change-${changeClass}">${changeSign}${change.toFixed(2)}%</td>
+                            <td class="price">$${(t.volume24h || 0).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    document.getElementById('topTokensTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center">No data</td></tr>';
+                }
+            } catch (e) {
+                console.error('Dashboard error:', e);
+            }
+        }
+
+        // Load all tokens
+        async function loadAllTokens() {
+            try {
+                const res = await fetch('/tokens?limit=50');
+                const data = await res.json();
+                allTokens = data.data || [];
+                renderTokens(allTokens);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function renderTokens(tokens) {
+            if (!tokens.length) {
+                document.getElementById('allTokensTable').innerHTML = '<tr><td colspan="5" style="text-align:center">No tokens found</td></tr>';
+                return;
+            }
+            let html = '';
+            tokens.forEach((t, i) => {
+                const change = t.change24h || 0;
+                const changeClass = change >= 0 ? 'positive' : 'negative';
+                const changeSign = change >= 0 ? '+' : '';
+                html += `<tr>
+                    <td>${i + 1}</td>
+                    <td><div class="token-row"><div class="token-icon"></div><div><div class="token-name">${t.symbol || 'Unknown'}</div><div class="token-symbol">${t.name || ''}</div></div></div></td>
+                    <td class="price">$${(t.price || 0).toFixed(4)}</td>
+                    <td class="change-${changeClass}">${changeSign}${change.toFixed(2)}%</td>
+                    <td class="price">$${(t.volume24h || 0).toLocaleString()}</td>
+                </tr>`;
+            });
+            document.getElementById('allTokensTable').innerHTML = html;
+        }
+
+        function filterTokens() {
+            const q = document.getElementById('tokenSearch').value.toLowerCase();
+            const filtered = allTokens.filter(t => (t.symbol || '').toLowerCase().includes(q) || (t.name || '').toLowerCase().includes(q));
+            renderTokens(filtered);
+        }
+
+        // Load swaps
+        async function loadSwaps() {
+            try {
+                const res = await fetch(`/history/global/swaps?page=${swapsPage}&limit=15`);
+                const data = await res.json();
+                const swaps = data.data || [];
+                
+                let html = '';
+                swaps.forEach(s => {
+                    html += `<tr>
+                        <td>${s.formatted_time || '-'}</td>
+                        <td>${s.in_symbol || '-'}</td>
+                        <td>${s.out_symbol || '-'}</td>
+                        <td class="price">${(s.in_amount || 0).toFixed(2)}</td>
+                        <td class="price">${(s.out_amount || 0).toFixed(2)}</td>
+                    </tr>`;
+                });
+                document.getElementById('swapsTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center">No swaps</td></tr>';
+                document.getElementById('swapsPage').textContent = `Page ${swapsPage}`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function changeSwapsPage(delta) {
+            swapsPage = Math.max(1, swapsPage + delta);
+            loadSwaps();
+        }
+
+        // Load transfers
+        async function loadTransfers() {
+            try {
+                const res = await fetch(`/history/global/transfers?page=${transfersPage}&limit=15`);
+                const data = await res.json();
+                const transfers = data.data || [];
+                
+                let html = '';
+                transfers.forEach(t => {
+                    html += `<tr>
+                        <td>${t.formatted_time || '-'}</td>
+                        <td style="font-family:monospace;font-size:12px">${(t.from_addr || '').substring(0, 8)}...</td>
+                        <td style="font-family:monospace;font-size:12px">${(t.to_addr || '').substring(0, 8)}...</td>
+                        <td class="price">${(t.amount || 0).toFixed(2)}</td>
+                        <td>${t.symbol || '-'}</td>
+                    </tr>`;
+                });
+                document.getElementById('transfersTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center">No transfers</td></tr>';
+                document.getElementById('transfersPage').textContent = `Page ${transfersPage}`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function changeTransfersPage(delta) {
+            transfersPage = Math.max(1, transfersPage + delta);
+            loadTransfers();
+        }
+
+        // Load bridges
+        async function loadBridges() {
+            try {
+                const res = await fetch(`/history/global/bridges?page=${bridgesPage}&limit=15`);
+                const data = await res.json();
+                const bridges = data.data || [];
+                
+                let html = '';
+                bridges.forEach(b => {
+                    html += `<tr>
+                        <td>${b.formatted_time || '-'}</td>
+                        <td>${b.type || 'Transfer'}</td>
+                        <td style="font-family:monospace;font-size:12px">${(b.from_addr || '').substring(0, 8)}...</td>
+                        <td style="font-family:monospace;font-size:12px">${(b.to_addr || '').substring(0, 8)}...</td>
+                        <td class="price">${(b.amount || 0).toFixed(2)}</td>
+                    </tr>`;
+                });
+                document.getElementById('bridgesTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center">No bridges</td></tr>';
+                document.getElementById('bridgesPage').textContent = `Page ${bridgesPage}`;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function changeBridgesPage(delta) {
+            bridgesPage = Math.max(1, bridgesPage + delta);
+            loadBridges();
+        }
+
+        // Load pools
+        async function loadPools() {
+            try {
+                const res = await fetch('/pools?limit=20');
+                const data = await res.json();
+                const pools = data.data || [];
+                
+                let html = '';
+                pools.forEach(p => {
+                    html += `<tr>
+                        <td>${p.baseAsset || '-'}/${p.targetAsset || '-'}</td>
+                        <td>${p.baseAsset || '-'}</td>
+                        <td>${p.targetAsset || '-'}</td>
+                        <td class="price">$${(p.tvl || 0).toLocaleString()}</td>
+                        <td class="price">$${(p.volume24h || 0).toLocaleString()}</td>
+                    </tr>`;
+                });
+                document.getElementById('poolsTable').innerHTML = html || '<tr><td colspan="5" style="text-align:center">No pools</td></tr>';
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Load wallet
+        async function loadWallet() {
+            const addr = document.getElementById('walletAddress').value.trim();
+            if (!addr) return;
+            
+            document.getElementById('walletResults').innerHTML = '<div class="loading"><div class="spinner"></div>Loading wallet...</div>';
+            
+            try {
+                const [swapsRes, transfersRes, bridgesRes] = await Promise.all([
+                    fetch(`/history/swaps/${addr}?page=1&limit=5`),
+                    fetch(`/history/transfers/${addr}?page=1&limit=5`),
+                    fetch(`/history/bridges/${addr}?page=1&limit=5`)
+                ]);
+                
+                const swaps = await swapsRes.json();
+                const transfers = await transfersRes.json();
+                const bridges = await bridgesRes.json();
+                
+                let html = '<div class="table-container"><table><thead><tr><th>Type</th><th>Details</th><th>Time</th></tr></thead><tbody>';
+                
+                (((swaps.data || swaps).data || swaps) || []).forEach(s => {
+                    html += `<tr><td>Swap</td><td>${s.in_symbol} → ${s.out_symbol}</td><td>${s.formatted_time || '-'}</td></tr>`;
+                });
+                (transfers.data || []).forEach(t => {
+                    html += `<tr><td>Transfer</td><td>${t.amount} ${t.symbol}</td><td>${t.formatted_time || '-'}</td></tr>`;
+                });
+                (bridges.data || []).forEach(b => {
+                    html += `<tr><td>Bridge</td><td>${b.amount} ${b.symbol}</td><td>${b.formatted_time || '-'}</td></tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                document.getElementById('walletResults').innerHTML = html;
+            } catch (e) {
+                document.getElementById('walletResults').innerHTML = '<p style="color:var(--accent-red)">Error loading wallet</p>';
+            }
+        }
+
+        // Init
+        loadDashboard();
+    </script>
+</body>
+</html>
