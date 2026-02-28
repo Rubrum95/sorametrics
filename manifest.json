@@ -1,0 +1,17 @@
+{
+    "name": "SoraMetrics",
+    "short_name": "SoraMetrics",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#F3F4F6",
+    "theme_color": "#D0021B",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}
