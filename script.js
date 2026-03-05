@@ -738,11 +738,12 @@ function toggleFavorite(symbol) {
 
 
 
-// Listen for network stats (Sora Intelligence)
+// Listen for network stats (Sora Intelligence) — debounced to avoid rate-limit 429s
+let _headerDebounce = null;
 socket.on('new-block-stats', (stats) => {
     if (!stats || typeof stats !== 'object') return;
-    // Just re-fetch to respect current filter
-    loadNetworkHeader();
+    if (_headerDebounce) clearTimeout(_headerDebounce);
+    _headerDebounce = setTimeout(() => loadNetworkHeader(), 10000);
 });
 
 let lastSwapUpdate = 0;
@@ -825,6 +826,8 @@ socket.on('extrinsics-batch', (batch) => {
 
     const recentItems = batch.slice(-MAX_VISUAL_ITEMS);
     for (const d of recentItems) {
+        // Skip noisy system extrinsics
+        if (d.section === 'timestamp' && d.method === 'set') continue;
         // Skip if doesn't match active filters
         if (activeFilter && d.section !== activeFilter) continue;
         if (resultFilterVal === '1' && !d.success) continue;
@@ -994,7 +997,11 @@ async function fetchBalance(address) {
 
 
 function createWalletCard(wallet, data, isUnified = false) {
-    const topTokens = data.tokens.slice(0, 3).map(t => `<img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" title="${t.amount} ${t.symbol}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'" style="width:20px; height:20px; border-radius:50%; margin-right:-5px; border:1px solid var(--bg-card); object-fit:contain;">`).join('');
+    const topTokens = data.tokens.slice(0, 3).map(t => {
+        const safeUrl = esc(getProxyUrl(t.logo));
+        const safeTitle = esc(`${t.amount} ${t.symbol}`);
+        return `<img src="${safeUrl}" loading="lazy" decoding="async" fetchpriority="low" title="${safeTitle}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'" style="width:20px; height:20px; border-radius:50%; margin-right:-5px; border:1px solid var(--bg-card); object-fit:contain;">`;
+    }).join('');
 
     // Hide delete button if unified
     const deleteBtn = isUnified ? '' : `<button style="border:none; background:none; color:#EF4444; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); deleteWallet('${esc(wallet.address)}')">🗑️</button>`;
@@ -1929,11 +1936,13 @@ async function loadNetworkHeader() {
         const tf = tfEl ? tfEl.value : '1d';
 
         const res = await fetch(`/stats/header?timeframe=${tf}`);
+        if (!res.ok) return; // don't overwrite on 429/500
         const stats = await res.json();
+        if (stats.error) return; // don't overwrite on API error
 
         const update = (id, val) => {
             const el = document.getElementById(id);
-            if (el) el.innerText = val ? val.toLocaleString() : '0';
+            if (el) el.innerText = (val != null) ? val.toLocaleString() : '0';
         };
 
         if (stats.block) document.getElementById('stat-block').innerText = '#' + stats.block.toLocaleString();
@@ -2001,9 +2010,13 @@ async function loadNetworkFees() {
 // Global Chart Instances
 var feeDonutChart = null;
 var feeLineChart = null;
+var lastFeeMap = null;
 
 async function renderFeeCharts(currentMap) {
-    // VISIBLE DEBUG (DELETE LATER)
+    if (currentMap) lastFeeMap = currentMap;
+    else currentMap = lastFeeMap;
+    if (!currentMap) return;
+
     if (typeof Chart === 'undefined') {
         console.warn('Chart.js not ready, retrying in 500ms...');
         setTimeout(() => renderFeeCharts(currentMap), 500);
@@ -2180,12 +2193,13 @@ function renderWhales() {
     pageData.forEach((w, index) => {
         const rank = startIndex + index + 1;
         const percentage = w.last_buy ? new Date(w.last_buy).toLocaleDateString() : '-';
-        const alias = walletAliases[w.wallet] || formatAddress(w.wallet);
+        const rawAlias = walletAliases[w.wallet];
+        const aliasContent = rawAlias ? esc(rawAlias) : formatAddress(w.wallet);
         const isWhale = w.total_bought_usd > 50000;
         const icon = isWhale ? '🐋' : (w.total_bought_usd > 10000 ? '🦈' : '🐟');
 
         // Make alias clickable
-        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${esc(alias)}</span>`;
+        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${aliasContent}</span>`;
 
         html += `
         <div class="whale-row">
