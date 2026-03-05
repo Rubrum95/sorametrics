@@ -64,11 +64,13 @@ const rateLimitMap = new Map();
 function rateLimit(maxReqs = 30, windowMs = 60000) {
     return (req, res, next) => {
         const ip = req.ip || req.connection.remoteAddress;
+        const route = req.route ? req.route.path : req.path;
+        const key = `${ip}:${route}`;
         const now = Date.now();
-        let entry = rateLimitMap.get(ip);
+        let entry = rateLimitMap.get(key);
         if (!entry || now - entry.start > windowMs) {
             entry = { start: now, count: 1 };
-            rateLimitMap.set(ip, entry);
+            rateLimitMap.set(key, entry);
         } else {
             entry.count++;
         }
@@ -81,8 +83,8 @@ function rateLimit(maxReqs = 30, windowMs = 60000) {
 // Limpiar entradas antiguas cada 5 minutos
 setInterval(() => {
     const now = Date.now();
-    for (const [ip, entry] of rateLimitMap) {
-        if (now - entry.start > 120000) rateLimitMap.delete(ip);
+    for (const [key, entry] of rateLimitMap) {
+        if (now - entry.start > 120000) rateLimitMap.delete(key);
     }
 }, 300000);
 
@@ -269,7 +271,7 @@ let holdersCache = {};
 const CACHE_DURATION = 5 * 60 * 1000;
 
 // Caché para endpoints
-let swapsCache = { data: null, timestamp: 0 };
+// swapsCacheMap declared near the endpoint (per-key cache)
 let transfersCache = { data: null, timestamp: 0 };
 let tokensCache = { data: null, timestamp: 0 };
 let poolsCache = { data: null, timestamp: 0 };
@@ -714,58 +716,60 @@ app.get('/pools', rateLimit(20, 60000), async (req, res) => {
     const now = Date.now();
     const cacheKey = `pools_${page}_${limit}_${req.query.base}`;
 
-    // Check cache (60s)
-    if (poolsCache.data && poolsCache.timestamp && (now - poolsCache.timestamp < POOLS_TTL)) {
-        const cached = JSON.parse(JSON.stringify(poolsCache.data));
-        const startIndex = (page - 1) * limit;
-        return res.json({ data: cached.slice(startIndex, startIndex + limit), total: cached.length, page, totalPages: Math.ceil(cached.length / limit) });
+    // Rebuild cache if expired
+    if (!poolsCache.data || !poolsCache.timestamp || (now - poolsCache.timestamp >= POOLS_TTL)) {
+        try {
+            const entries = await withTimeout(api.query.poolXYK.reserves.entries(), 30000);
+            let pools = [];
+
+            for (const [key, value] of entries) {
+                const args = key.args;
+                let baseId = args[0].toHuman();
+                let targetId = args[1].toHuman();
+                if (typeof baseId === 'object' && baseId.code) baseId = baseId.code;
+                if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
+
+                const reserves = value.toHuman();
+                const baseToken = ASSETS.find(a => a.assetId === baseId) || { symbol: '?', name: 'Unknown', assetId: baseId, decimals: 18, logo: '' };
+                const targetToken = ASSETS.find(a => a.assetId === targetId) || { symbol: '?', name: 'Unknown', assetId: targetId, decimals: 18, logo: '' };
+
+                if (baseToken.symbol !== '?' && targetToken.symbol !== '?') {
+                    pools.push({
+                        base: baseToken,
+                        target: targetToken,
+                        reserves: { base: reserves[0], target: reserves[1] },
+                        basePrice: tokenPrices[baseToken.symbol] || 0,
+                        targetPrice: tokenPrices[targetToken.symbol] || 0
+                    });
+                }
+            }
+
+            pools.sort((a, b) => {
+                const aRes = parseFloat(String(a.reserves.base || '0').replace(/,/g, ''));
+                const bRes = parseFloat(String(b.reserves.base || '0').replace(/,/g, ''));
+                return bRes - aRes;
+            });
+
+            poolsCache = { data: pools, timestamp: now };
+        } catch (e) {
+            console.error(e);
+            return res.status(500).json({ error: e.message });
+        }
     }
 
     try {
-        const entries = await withTimeout(api.query.poolXYK.reserves.entries());
-        let pools = [];
-
-        for (const [key, value] of entries) {
-            const args = key.args;
-            let baseId = args[0].toHuman();
-            let targetId = args[1].toHuman();
-            if (typeof baseId === 'object' && baseId.code) baseId = baseId.code;
-            if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
-
-            const reserves = value.toHuman();
-            const baseToken = ASSETS.find(a => a.assetId === baseId) || { symbol: '?', name: 'Unknown', assetId: baseId, decimals: 18, logo: '' };
-            const targetToken = ASSETS.find(a => a.assetId === targetId) || { symbol: '?', name: 'Unknown', assetId: targetId, decimals: 18, logo: '' };
-
-            if (baseToken.symbol !== '?' && targetToken.symbol !== '?') {
-                pools.push({
-                    base: baseToken,
-                    target: targetToken,
-                    reserves: { base: reserves[0], target: reserves[1] },
-                    basePrice: tokenPrices[baseToken.symbol] || 0,
-                    targetPrice: tokenPrices[targetToken.symbol] || 0
-                });
-            }
-        }
-
+        // Apply base filter on cached data
+        let filtered = poolsCache.data;
         const baseParam = req.query.base;
         if (baseParam && baseParam !== 'all') {
-            pools = pools.filter(p => p.base.symbol === baseParam);
+            filtered = filtered.filter(p => p.base.symbol === baseParam);
         }
 
-        pools.sort((a, b) => {
-            const aRes = parseFloat(String(a.reserves.base || '0').replace(/,/g, ''));
-            const bRes = parseFloat(String(b.reserves.base || '0').replace(/,/g, ''));
-            return bRes - aRes;
-        });
-
-        const total = pools.length;
+        const total = filtered.length;
         const totalPages = Math.ceil(total / limit);
         const startIndex = (page - 1) * limit;
-        const paginatedPools = pools.slice(startIndex, startIndex + limit);
-        
-        // Guardar en caché
-        poolsCache = { data: pools, timestamp: now };
-        
+        const paginatedPools = filtered.slice(startIndex, startIndex + limit);
+
         res.json({ data: paginatedPools, total, page, totalPages });
     } catch (e) {
         console.error(e);
@@ -975,7 +979,7 @@ app.get('/pool/activity', rateLimit(20, 60000), async (req, res) => {
     }
 });
 
-app.get('/holders/:assetId', validateAssetId, rateLimit(5, 60000), async (req, res) => {
+app.get('/holders/:assetId', validateAssetId, rateLimit(15, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API no lista' });
 
     const assetId = req.params.assetId;
@@ -997,7 +1001,7 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(5, 60000), async (req, r
             const XOR_ID = '0x0200000000000000000000000000000000000000000000000000000000000000';
 
             if (assetId === XOR_ID) {
-                const allEntries = await withTimeout(api.query.system.account.entries());
+                const allEntries = await withTimeout(api.query.system.account.entries(), 60000);
                 for (const [key, value] of allEntries) {
                     const data = value.toJSON();
                     const free = (data.data && data.data.free) ? data.data.free.toString() : '0';
@@ -1007,7 +1011,7 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(5, 60000), async (req, r
                     }
                 }
             } else {
-                const allEntries = await withTimeout(api.query.tokens.accounts.entries());
+                const allEntries = await withTimeout(api.query.tokens.accounts.entries(), 60000);
                 for (const [key, value] of allEntries) {
                     const keyArgs = key.args;
                     let currentAssetId = keyArgs[1].toString();
@@ -1042,7 +1046,7 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
     const address = req.params.address;
     try {
         console.log(`Liquidity Check Start: ${address}`);
-        const allProps = await withTimeout(api.query.poolXYK.properties.entries());
+        const allProps = await withTimeout(api.query.poolXYK.properties.entries(), 30000);
         console.log(`Total pools to scan: ${allProps.length}`);
 
         // OPTIMIZATION: Use larger chunks + multi query
@@ -1280,19 +1284,28 @@ app.get('/history/global/transfers', rateLimit(30, 60000), async (req, res) => {
     } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
+const swapsCacheMap = new Map();
 app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
     const now = Date.now();
-    const cacheKey = `swaps_${req.query.page}_${req.query.token}_${req.query.filter}`;
-    
-    // Check cache (24s)
-    if (swapsCache.data && now - swapsCache.timestamp < SWAPS_TTL) {
-        return res.json(swapsCache.data);
+    const filter = req.query.token || req.query.filter || '';
+    const ts = req.query.timestamp || '';
+    const cacheKey = `${req.query.page || 1}_${filter}_${ts}`;
+
+    // Check per-key cache (24s)
+    const cached = swapsCacheMap.get(cacheKey);
+    if (cached && now - cached.timestamp < SWAPS_TTL) {
+        return res.json(cached.data);
     }
-    
-    try { 
-        const data = await getLatestSwaps(req.query.page || 1, 25, req.query.token || req.query.filter, req.query.timestamp);
-        swapsCache = { data, timestamp: now };
-        res.json(data); 
+
+    try {
+        const data = await getLatestSwaps(req.query.page || 1, 25, filter || null, req.query.timestamp || null);
+        swapsCacheMap.set(cacheKey, { data, timestamp: now });
+        // Evict old entries
+        if (swapsCacheMap.size > 50) {
+            const oldest = swapsCacheMap.keys().next().value;
+            swapsCacheMap.delete(oldest);
+        }
+        res.json(data);
     } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
@@ -1655,8 +1668,9 @@ async function startApp() {
     setTimeout(async () => {
         console.log('🔥 Warm cache inicializando...');
         try {
-            // Pre-cargar swaps
-            swapsCache = { data: await getLatestSwaps(1, 25), timestamp: Date.now() };
+            // Pre-cargar swaps (page 1, sin filtro)
+            const swapsData = await getLatestSwaps(1, 25);
+            swapsCacheMap.set('1__', { data: swapsData, timestamp: Date.now() });
             console.log('✅ Cache swaps pre-cargado');
             
             // Pre-cargar transfers
@@ -1669,9 +1683,28 @@ async function startApp() {
             
             // Pre-cargar pools
             if (api) {
-                const entries = await withTimeout(api.query.poolXYK.reserves.entries());
-                poolsCache = { data: entries.length, timestamp: Date.now() };
-                console.log('✅ Cache pools pre-cargado');
+                const entries = await withTimeout(api.query.poolXYK.reserves.entries(), 30000);
+                let pools = [];
+                for (const [key, value] of entries) {
+                    const args = key.args;
+                    let baseId = args[0].toHuman();
+                    let targetId = args[1].toHuman();
+                    if (typeof baseId === 'object' && baseId.code) baseId = baseId.code;
+                    if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
+                    const reserves = value.toHuman();
+                    const baseToken = ASSETS.find(a => a.assetId === baseId) || { symbol: '?', name: 'Unknown', assetId: baseId, decimals: 18, logo: '' };
+                    const targetToken = ASSETS.find(a => a.assetId === targetId) || { symbol: '?', name: 'Unknown', assetId: targetId, decimals: 18, logo: '' };
+                    if (baseToken.symbol !== '?' && targetToken.symbol !== '?') {
+                        pools.push({ base: baseToken, target: targetToken, reserves: { base: reserves[0], target: reserves[1] }, basePrice: tokenPrices[baseToken.symbol] || 0, targetPrice: tokenPrices[targetToken.symbol] || 0 });
+                    }
+                }
+                pools.sort((a, b) => {
+                    const aRes = parseFloat(String(a.reserves.base || '0').replace(/,/g, ''));
+                    const bRes = parseFloat(String(b.reserves.base || '0').replace(/,/g, ''));
+                    return bRes - aRes;
+                });
+                poolsCache = { data: pools, timestamp: Date.now() };
+                console.log(`✅ Cache pools pre-cargado (${pools.length} pools)`);
             }
             
             console.log('🔥 Warm cache completado!');
