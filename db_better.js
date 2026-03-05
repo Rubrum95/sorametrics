@@ -832,7 +832,7 @@ function getPriceChange(symbol, currentPrice, timeframeMs) {
     if (!currentPrice || currentPrice === 0) return Promise.resolve(0);
 
     const pastTime = Date.now() - timeframeMs;
-    const cols = `in_symbol, out_symbol, in_amount, out_amount, in_usd, out_usd`;
+    const cols = `in_symbol, out_symbol, in_amount, out_amount, in_usd, out_usd, timestamp`;
 
     let row;
     if (historyHasTable('swaps')) {
