@@ -67,6 +67,11 @@ function initDB() {
                 console.warn('⚠️ History DB not found, running with main only.');
             }
 
+            // PRAGMA optimize every 6 hours
+            setInterval(() => {
+                try { if (db) db.pragma('optimize'); } catch (e) { }
+            }, 6 * 60 * 60 * 1000);
+
             resolve();
         } catch (e) {
             reject(e);

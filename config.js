@@ -1,7 +1,10 @@
-// config.js
+require('dotenv').config();
+
 module.exports = {
-    // Reemplaza 123.45.67.89 con la IP de tu Servidor A (CentOS)
-    WS_ENDPOINT: 'wss://mof3.sora.org', // Nodo Externo MOF3
-    WS_ENDPOINT_BACKFILL: 'wss://ws.mof.sora.org', // Nodo Archivo/MOF
-    WHITELIST_URL: 'https://raw.githubusercontent.com/sora-xor/polkaswap-token-whitelist-config/master/whitelist.json'
+    WS_ENDPOINT: process.env.WS_ENDPOINT || 'wss://ws.mof.sora.org',
+    WS_ENDPOINT_BACKFILL: process.env.WS_ENDPOINT_BACKFILL || 'wss://ws.mof.sora.org',
+    WHITELIST_URL: process.env.WHITELIST_URL || 'https://raw.githubusercontent.com/sora-xor/polkaswap-token-whitelist-config/master/whitelist.json',
+    ETH_RPC_URL: process.env.ETH_RPC_URL || '',
+    PORT: parseInt(process.env.PORT, 10) || 3000,
+    CORS_ORIGINS: process.env.CORS_ORIGINS || ''
 };

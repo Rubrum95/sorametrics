@@ -11,7 +11,7 @@ const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, ge
 
 
 
-const { WS_ENDPOINT, WHITELIST_URL } = require('./config');
+const { WS_ENDPOINT, WHITELIST_URL, PORT, CORS_ORIGINS } = require('./config');
 // eth_helper.js - DESACTIVADO temporalmente por memory leak
 // const { resolveEthSender } = require('./eth_helper');
 function resolveEthSender() { return Promise.resolve(null); }
@@ -34,8 +34,12 @@ const app = express();
 const helmet = require('helmet');
 app.use(helmet({ contentSecurityPolicy: false })); // CSP off: inline scripts in index.html
 
+// --- COMPRESSION ---
+const compression = require('compression');
+app.use(compression());
+
 // --- CORS: Restringir orígenes (permite mismo origen + dev localhost) ---
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+const ALLOWED_ORIGINS = CORS_ORIGINS.split(',').filter(Boolean);
 app.use(cors({
     origin: (origin, cb) => {
         // Mismo origen (sin header Origin) o orígenes permitidos
@@ -115,6 +119,16 @@ const SERVER_VERSION = 'v4.0';
 app.get('/api/version', (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.json({ version: SERVER_VERSION });
+});
+
+// --- HEALTH ENDPOINT ---
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: Math.floor(process.uptime()),
+        wsConnected: !!(api && api.isConnected),
+        timestamp: Date.now()
+    });
 });
 
 // --- IMAGE PROXY CON RATE LIMITING (SISTEMA ANTI-CRASH) ---
@@ -1458,7 +1472,6 @@ async function startApp() {
     setInterval(updateKeyPrices, 60000);
     updateKeyPrices();
 
-    const PORT = process.env.PORT || 3000;
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
 
     // Warm cache al inicio (datos pre-cargados para primer usuario)
