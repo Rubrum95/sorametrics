@@ -459,7 +459,7 @@ function updateVisibleIdentities() {
         }
         const identity = identityCache[addr];
         if (identity && identity.display) {
-            el.outerHTML = `<span class="onchain-identity" data-address="${esc(addr)}" title="${esc(addr)}" style="color:#6366F1; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
+            el.outerHTML = `<span class="onchain-identity" data-address="${esc(addr)}" title="${esc(addr)}" style="color:#8B80B5; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
         }
     });
 }
@@ -505,7 +505,7 @@ function formatAddress(address) {
     }
     const identity = identityCache[address];
     if (identity && identity.display) {
-        return `<span class="onchain-identity" data-address="${esc(address)}" title="${esc(address)}" style="color:#6366F1; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
+        return `<span class="onchain-identity" data-address="${esc(address)}" title="${esc(address)}" style="color:#8B80B5; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
     }
     return `<span class="addr-truncated" data-address="${esc(address)}">${address.substring(0, 6)}...${address.substring(address.length - 4)}</span>`;
 }
@@ -579,7 +579,7 @@ socket.on('transfers-batch', (batch) => {
 
         row.innerHTML = `
 <td style="color:#6B7280; font-size:13px;">${esc(d.time)}</td>
-<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#D0021B;">#${esc(d.block)}</a></td>
+<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#9B1B30;">#${esc(d.block)}</a></td>
 <td><span onclick="openWalletDetails('${esc(d.from)}')" class="${fromShort ? 'wallet-unsaved' : ''}">${fromShort}</span></td>
 <td>
 <div class="asset-row">
@@ -788,7 +788,7 @@ socket.on('swaps-batch', (batch) => {
 
         row.innerHTML = `
 <td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
-<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#D0021B;">#${esc(d.block)}</a></td>
+<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#9B1B30;">#${esc(d.block)}</a></td>
 <td>
 <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
     <img src="${logoIn}" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
@@ -851,7 +851,7 @@ socket.on('extrinsics-batch', (batch) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
-            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#D0021B;">#${esc(String(d.block))}</a></td>
+            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#9B1B30;">#${esc(String(d.block))}</a></td>
             <td style="font-family:monospace; font-size:12px;">${esc(exId)}</td>
             <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
             <td style="font-size:11px;">${d.signer === 'System' ? '<span style="color:#9CA3AF;">System</span>' : signerShort}</td>
@@ -889,7 +889,7 @@ socket.on('orderbook-batch', (batch) => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td style="color:#6B7280; font-size:11px;">${d.time || '-'}</td>
-            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td>${getEventTypeBadge(d.event_type)}</td>
             <td style="font-size:12px; font-weight:600;">${esc(pair)}</td>
             <td style="color:${sideColor}; font-weight:700; font-size:11px;">${sideLabel}</td>
@@ -1818,7 +1818,34 @@ function formatXorAmount(val) {
     if (isNaN(n)) return val;
     if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
     if (n >= 1000) return (n / 1000).toFixed(2) + 'K';
-    return n.toFixed(2);
+    return n.toFixed(4);
+}
+
+function memberInitials(identity, addr) {
+    if (identity) return identity.substring(0, 2);
+    if (addr) return addr.substring(2, 4);
+    return '??';
+}
+
+function govDisplayName(addr, identities) {
+    if (identities && identities[addr]) return identities[addr];
+    return shortAddr(addr);
+}
+
+function renderMemberCard(m, identities) {
+    const name = m.identity || (identities && identities[m.address]) || null;
+    const initials = memberInitials(name, m.address);
+    const displayText = name || shortAddr(m.address);
+    const primeTag = m.isPrime ? '<span class="prime-badge">PRIME</span>' : '';
+    const stakeHtml = m.stake ? `<div class="member-stake">Stake: <strong>${formatXorAmount(m.stake)} XOR</strong></div>` : '';
+    return `<div class="member-card">
+        <div class="member-avatar">${initials}</div>
+        <div class="member-info">
+            <div class="member-name" onclick="openWalletDetails('${m.address}')">${displayText}${primeTag}</div>
+            <div class="member-addr">${shortAddr(m.address)}</div>
+            ${stakeHtml}
+        </div>
+    </div>`;
 }
 
 async function loadGovCouncil() {
@@ -1830,100 +1857,142 @@ async function loadGovCouncil() {
         const data = await res.json();
         if (data.error) { grid.innerHTML = '<div class="gov-empty">' + data.error + '</div>'; return; }
         if (!data.members || data.members.length === 0) { grid.innerHTML = '<div class="gov-empty">No council members</div>'; return; }
-        grid.innerHTML = data.members.map(m => {
-            const primeTag = m.isPrime ? '<span class="prime-badge">PRIME</span>' : '';
-            return `<div class="member-card">
-                <div style="font-weight:600; font-size:13px; cursor:pointer; color:var(--primary-color);" onclick="openWalletDetails('${m.address}')">${shortAddr(m.address)}${primeTag}</div>
-                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">Stake: ${formatXorAmount(m.stake)} XOR</div>
-            </div>`;
-        }).join('');
+        grid.innerHTML = data.members.map(m => renderMemberCard(m, data.identities)).join('');
     } catch (e) { grid.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
 }
 
 async function loadGovElections() {
-    const countdown = document.getElementById('electionCountdown');
-    const electedTb = document.getElementById('electedMembersTable');
-    const candidatesTb = document.getElementById('candidatesTable');
-    const runnersTb = document.getElementById('runnersUpTable');
-    if (!countdown) return;
-    countdown.innerHTML = '<div class="gov-empty">' + (TRANSLATIONS[currentLang]?.loading || 'Loading...') + '</div>';
+    const container = document.getElementById('electionContent');
+    if (!container) return;
+    const T = TRANSLATIONS[currentLang] || {};
+    container.innerHTML = '<div class="gov-empty">' + (T.loading || 'Loading...') + '</div>';
     try {
         const res = await fetch('/governance/elections');
         const d = await res.json();
-        if (d.error) { countdown.innerHTML = '<div class="gov-empty">' + d.error + '</div>'; return; }
-        const T = TRANSLATIONS[currentLang] || {};
-        countdown.innerHTML = `
-            <div class="election-countdown">${T.gov_next_election || 'Next Election'}: ${d.timeUntilElection} (~${d.blocksUntilElection.toLocaleString()} blocks)</div>
-            <div class="election-stats">
-                <span>${T.gov_term_duration || 'Term'}: ${d.termDuration.toLocaleString()} blocks</span>
-                <span>${T.gov_seats || 'Seats'}: ${d.desiredMembers}</span>
-                <span>${T.gov_rounds || 'Rounds'}: ${d.electionRounds}</span>
-                <span>Bond: ${d.candidacyBond} XOR</span>
-            </div>`;
-        const renderSeatRows = (arr, tb) => {
-            if (!arr || arr.length === 0) { tb.innerHTML = '<tr><td colspan="2" class="gov-empty">-</td></tr>'; return; }
-            tb.innerHTML = arr.map(m => `<tr>
-                <td style="cursor:pointer; color:var(--primary-color);" onclick="openWalletDetails('${m.address}')">${shortAddr(m.address)}</td>
-                <td>${formatXorAmount(m.stake)} XOR</td>
-            </tr>`).join('');
+        if (d.error) { container.innerHTML = '<div class="gov-empty">' + d.error + '</div>'; return; }
+        const ids = d.identities || {};
+
+        const renderMemberList = (arr, valueKey, valueLabel) => {
+            if (!arr || arr.length === 0) return '<div class="gov-empty" style="padding:16px;">-</div>';
+            return `<div class="members-grid">${arr.map(m => {
+                const name = ids[m.address] || null;
+                const initials = memberInitials(name, m.address);
+                const display = name || shortAddr(m.address);
+                const val = m[valueKey] || '0';
+                return `<div class="member-card">
+                    <div class="member-avatar">${initials}</div>
+                    <div class="member-info">
+                        <div class="member-name" onclick="openWalletDetails('${m.address}')">${display}</div>
+                        <div class="member-addr">${shortAddr(m.address)}</div>
+                        <div class="member-stake">${valueLabel}: <strong>${formatXorAmount(val)} XOR</strong></div>
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
         };
-        renderSeatRows(d.elected, electedTb);
-        renderSeatRows(d.runnersUp, runnersTb);
-        if (!d.candidates || d.candidates.length === 0) {
-            candidatesTb.innerHTML = '<tr><td colspan="2" class="gov-empty">-</td></tr>';
-        } else {
-            candidatesTb.innerHTML = d.candidates.map(c => `<tr>
-                <td style="cursor:pointer; color:var(--primary-color);" onclick="openWalletDetails('${c.address}')">${shortAddr(c.address)}</td>
-                <td>${formatXorAmount(c.deposit)} XOR</td>
-            </tr>`).join('');
-        }
-    } catch (e) { countdown.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
+
+        container.innerHTML = `
+            <div class="election-hero">
+                <div class="election-timer">${d.timeUntilElection}</div>
+                <div class="election-timer-sub">~${d.blocksUntilElection.toLocaleString()} ${T.gov_blocks || 'blocks'} ${T.gov_until_election || 'until next election'}</div>
+                <div class="election-pills">
+                    <div class="election-pill">${T.gov_term_duration || 'Term'}: <strong>${d.termDuration.toLocaleString()} blocks</strong></div>
+                    <div class="election-pill">${T.gov_seats || 'Seats'}: <strong>${d.desiredMembers}</strong></div>
+                    <div class="election-pill">${T.gov_rounds || 'Rounds'}: <strong>${d.electionRounds}</strong></div>
+                    <div class="election-pill">Bond: <strong>${d.candidacyBond} XOR</strong></div>
+                </div>
+            </div>
+            <div class="gov-section-title">${T.gov_elected || 'Elected Members'} <span class="count-badge">${(d.elected || []).length}</span></div>
+            ${renderMemberList(d.elected, 'stake', 'Stake')}
+            <div class="gov-section-title">${T.gov_candidates || 'Candidates'} <span class="count-badge">${(d.candidates || []).length}</span></div>
+            ${renderMemberList(d.candidates, 'deposit', T.gov_deposit || 'Deposit')}
+            <div class="gov-section-title">${T.gov_runners_up || 'Runners-up'} <span class="count-badge">${(d.runnersUp || []).length}</span></div>
+            ${renderMemberList(d.runnersUp, 'stake', 'Stake')}
+        `;
+    } catch (e) { container.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
 }
 
-function renderMotionCard(m, prefix) {
+function renderMotionCard(m, prefix, identities) {
     const T = TRANSLATIONS[currentLang] || {};
-    const title = m.decoded?.remark || m.decoded?.description || `${m.decoded?.section}.${m.decoded?.method}` || 'Unknown';
+    // Build the best title: remark > resolvedProposal description > section.method
+    let title = m.decoded?.description || `${m.decoded?.section || '?'}.${m.decoded?.method || '?'}`;
+    if (m.decoded?.remark) title = m.decoded.remark;
+    if (m.resolvedProposal?.remark) title = m.resolvedProposal.remark;
+    else if (m.resolvedProposal?.description) title = m.resolvedProposal.description;
+
     const v = m.voting || {};
     const ayeCount = v.ayes ? v.ayes.length : 0;
     const nayCount = v.nays ? v.nays.length : 0;
     const threshold = v.threshold || 0;
     const pct = threshold > 0 ? Math.round((ayeCount / threshold) * 100) : 0;
+    const isPassing = ayeCount >= threshold && threshold > 0;
     const idx = m.index !== null ? `#${m.index}` : '';
 
-    let detailHtml = '';
-    if (m.decoded?.innerCalls && m.decoded.innerCalls.length > 0) {
-        detailHtml = m.decoded.innerCalls.map((c, i) => {
-            const argsStr = c.args ? Object.entries(c.args).map(([k, v]) => `<span style="color:var(--text-secondary)">${k}:</span> ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ') : '';
-            return `<div style="margin:4px 0;"><span style="color:#6366F1; font-weight:600;">${i + 1}.</span> <span style="font-weight:600;">${c.section}.${c.method}</span>${argsStr ? `<div class="motion-call">${argsStr}</div>` : ''}</div>`;
-        }).join('');
+    // Build calls detail
+    let callsHtml = '';
+    const calls = m.resolvedProposal?.innerCalls?.length > 0 ? m.resolvedProposal.innerCalls
+        : m.decoded?.innerCalls?.length > 0 ? m.decoded.innerCalls : [];
+    if (calls.length > 0) {
+        callsHtml = '<div style="margin:10px 0;">' + calls.map((c, i) => {
+            let argsHtml = '';
+            if (c.args && Object.keys(c.args).length > 0) {
+                argsHtml = '<div class="motion-call-args">' + Object.entries(c.args).map(([k, val]) =>
+                    `<span style="color:var(--text-secondary)">${k}:</span> ${typeof val === 'object' ? JSON.stringify(val) : val}`
+                ).join(', ') + '</div>';
+            }
+            return `<div class="motion-call-item">
+                <span class="motion-call-num">${i + 1}.</span>
+                <div>
+                    <div class="motion-call-name">${c.section}.${c.method}</div>
+                    ${argsHtml}
+                </div>
+            </div>`;
+        }).join('') + '</div>';
     } else if (m.decoded?.args && Object.keys(m.decoded.args).length > 0) {
-        const argsStr = Object.entries(m.decoded.args).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ');
-        detailHtml = `<div class="motion-call">${argsStr}</div>`;
+        // Filter out Lookup objects from display since they're not useful
+        const filteredArgs = Object.entries(m.decoded.args).filter(([k, val]) => {
+            if (typeof val === 'object' && val !== null && (val.Lookup || val.lookup)) return false;
+            return true;
+        });
+        if (filteredArgs.length > 0) {
+            callsHtml = '<div class="motion-call-item" style="border-left-color:var(--text-secondary);">' +
+                '<div><div class="motion-call-name">' + (m.decoded.section || '?') + '.' + (m.decoded.method || '?') + '</div>' +
+                '<div class="motion-call-args">' + filteredArgs.map(([k, val]) =>
+                    `${k}: ${typeof val === 'object' ? JSON.stringify(val) : val}`
+                ).join(', ') + '</div></div></div>';
+        }
     }
 
-    const ayeList = (v.ayes || []).map(a => `<span class="vote-badge aye" style="cursor:pointer;" onclick="openWalletDetails('${a}')">${shortAddr(a)}</span>`).join(' ');
-    const nayList = (v.nays || []).map(a => `<span class="vote-badge nay" style="cursor:pointer;" onclick="openWalletDetails('${a}')">${shortAddr(a)}</span>`).join(' ');
+    const ayeList = (v.ayes || []).map(a =>
+        `<span class="voter-chip aye" onclick="openWalletDetails('${a}')">${govDisplayName(a, identities)}</span>`
+    ).join('');
+    const nayList = (v.nays || []).map(a =>
+        `<span class="voter-chip nay" onclick="openWalletDetails('${a}')">${govDisplayName(a, identities)}</span>`
+    ).join('');
 
     const id = `${prefix}-${m.index || m.hash?.substring(0, 8)}`;
     return `<div class="motion-card">
         <div class="motion-header" onclick="document.getElementById('${id}').classList.toggle('open')">
-            <div class="motion-title">${idx} ${title}</div>
+            <div class="motion-title-area">
+                <div class="motion-idx">${idx} ${m.decoded?.section || ''}.${m.decoded?.method || ''}</div>
+                <div class="motion-title">${title}</div>
+            </div>
             <div class="motion-meta">
+                <span class="motion-status ${isPassing ? 'passing' : 'failing'}">${isPassing ? 'Passing' : 'Failing'}</span>
                 <div class="vote-bar"><div class="vote-bar-fill" style="width:${pct}%"></div></div>
-                <span style="font-size:12px; color:var(--text-secondary);">${ayeCount}/${threshold}</span>
-                <span style="font-size:14px; color:var(--text-secondary);">&#9660;</span>
+                <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">${ayeCount}/${threshold}</span>
             </div>
         </div>
         <div id="${id}" class="motion-detail">
-            ${m.decoded?.remark ? `<div style="margin-bottom:8px; font-style:italic; color:var(--text-secondary);">"${m.decoded.remark}"</div>` : ''}
-            ${detailHtml}
-            <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
-                <span style="font-size:12px; font-weight:600; color:#10B981;">${T.gov_aye || 'Aye'}:</span> ${ayeList || '-'}
+            ${m.decoded?.remark ? `<div style="margin-bottom:10px; padding:8px 12px; background:var(--bg-body); border-radius:8px; font-style:italic; color:var(--text-secondary); font-size:13px;">"${m.decoded.remark}"</div>` : ''}
+            ${callsHtml}
+            <div class="motion-voters">
+                <span class="motion-voters-label" style="color:#10B981;">${T.gov_aye || 'Aye'}:</span> ${ayeList || '<span style="color:var(--text-secondary); font-size:12px;">-</span>'}
             </div>
-            <div style="margin-top:4px; display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
-                <span style="font-size:12px; font-weight:600; color:#EF4444;">${T.gov_nay || 'Nay'}:</span> ${nayList || '-'}
+            <div class="motion-voters">
+                <span class="motion-voters-label" style="color:#EF4444;">${T.gov_nay || 'Nay'}:</span> ${nayList || '<span style="color:var(--text-secondary); font-size:12px;">-</span>'}
             </div>
-            ${v.end ? `<div style="margin-top:8px; font-size:12px; color:var(--text-secondary);">${T.gov_ends_block || 'Ends at block'}: ${v.end.toLocaleString ? v.end.toLocaleString() : v.end}</div>` : ''}
+            ${m.timeRemaining ? `<div style="margin-top:10px; font-size:12px; color:var(--text-secondary);">${T.gov_time_left || 'Time left'}: ${m.timeRemaining} (~${m.blocksRemaining?.toLocaleString()} blocks)</div>` : ''}
+            ${v.end ? `<div style="font-size:12px; color:var(--text-secondary);">${T.gov_ends_block || 'Ends at block'}: ${typeof v.end === 'number' ? v.end.toLocaleString() : v.end}</div>` : ''}
         </div>
     </div>`;
 }
@@ -1939,15 +2008,16 @@ async function loadGovMotions() {
         const res = await fetch('/governance/motions');
         const data = await res.json();
         if (data.error) { councilList.innerHTML = '<div class="gov-empty">' + data.error + '</div>'; return; }
+        const ids = data.identities || {};
         if (!data.council || data.council.length === 0) {
             councilList.innerHTML = '<div class="gov-empty">' + (T.gov_no_motions || 'No active motions') + '</div>';
         } else {
-            councilList.innerHTML = data.council.map(m => renderMotionCard(m, 'cm')).join('');
+            councilList.innerHTML = data.council.map(m => renderMotionCard(m, 'cm', ids)).join('');
         }
         if (!data.technicalCommittee || data.technicalCommittee.length === 0) {
             techList.innerHTML = '<div class="gov-empty">' + (T.gov_no_motions || 'No active motions') + '</div>';
         } else {
-            techList.innerHTML = data.technicalCommittee.map(m => renderMotionCard(m, 'tm')).join('');
+            techList.innerHTML = data.technicalCommittee.map(m => renderMotionCard(m, 'tm', ids)).join('');
         }
     } catch (e) { councilList.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
 }
@@ -1956,14 +2026,14 @@ function renderReferendumCard(ref) {
     const T = TRANSLATIONS[currentLang] || {};
     const d = ref.detail || {};
     const tally = d.tally || {};
-    const ayeRaw = parseFloat(tally.ayes?.replace(/,/g, '') || '0') / 1e18;
-    const nayRaw = parseFloat(tally.nays?.replace(/,/g, '') || '0') / 1e18;
-    const turnoutRaw = parseFloat(tally.turnout?.replace(/,/g, '') || '0') / 1e18;
+    const ayeRaw = parseFloat(String(tally.ayes || '0').replace(/,/g, '')) / 1e18;
+    const nayRaw = parseFloat(String(tally.nays || '0').replace(/,/g, '')) / 1e18;
+    const turnoutRaw = parseFloat(String(tally.turnout || '0').replace(/,/g, '')) / 1e18;
     const total = ayeRaw + nayRaw;
     const ayePct = total > 0 ? Math.round((ayeRaw / total) * 100) : 0;
 
     const title = ref.decoded?.remark || ref.decoded?.description || `Referendum #${ref.id}`;
-    const statusColor = ref.status === 'ongoing' ? '#6366F1' : (ref.status === 'finished' ? '#9CA3AF' : '#F59E0B');
+    const statusColor = ref.status === 'ongoing' ? '#8B80B5' : (ref.status === 'finished' ? '#9CA3AF' : '#F59E0B');
 
     let thresholdText = '';
     if (d.threshold) {
@@ -1971,12 +2041,24 @@ function renderReferendumCard(ref) {
         thresholdText = `<span class="threshold-badge">${t}</span>`;
     }
 
+    // Build calls detail for decoded proposals
+    let callsHtml = '';
+    const calls = ref.decoded?.innerCalls?.length > 0 ? ref.decoded.innerCalls : [];
+    if (calls.length > 0) {
+        callsHtml = '<div style="margin-top:10px;">' + calls.map((c, i) =>
+            `<div class="motion-call-item"><span class="motion-call-num">${i + 1}.</span><div><div class="motion-call-name">${c.section}.${c.method}</div></div></div>`
+        ).join('') + '</div>';
+    }
+
     return `<div class="motion-card">
         <div class="motion-header" onclick="this.nextElementSibling.classList.toggle('open')">
-            <div class="motion-title">Ref #${ref.id} — ${title}</div>
+            <div class="motion-title-area">
+                <div class="motion-idx">Ref #${ref.id}</div>
+                <div class="motion-title">${title}</div>
+            </div>
             <div class="motion-meta">
-                <span style="font-size:12px; padding:2px 8px; border-radius:10px; background:${statusColor}22; color:${statusColor}; font-weight:600;">${ref.status}</span>
-                <span style="font-size:12px; color:#10B981; font-weight:600;">${ayePct}%</span>
+                <span style="font-size:11px; padding:3px 10px; border-radius:12px; background:${statusColor}18; color:${statusColor}; font-weight:700; text-transform:uppercase;">${ref.status}</span>
+                <span style="font-size:13px; color:#10B981; font-weight:700;">${ayePct}%</span>
             </div>
         </div>
         <div class="motion-detail">
@@ -1988,7 +2070,7 @@ function renderReferendumCard(ref) {
             </div>
             <div style="font-size:12px; color:var(--text-secondary);">${T.gov_turnout || 'Turnout'}: ${formatXorAmount(turnoutRaw)} XOR</div>
             ${ref.timeRemaining ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">${T.gov_time_left || 'Time left'}: ${ref.timeRemaining} (~${ref.blocksRemaining?.toLocaleString()} blocks)</div>` : ''}
-            ${ref.decoded?.innerCalls?.length > 0 ? '<div style="margin-top:8px; font-weight:600; font-size:12px;">Calls:</div>' + ref.decoded.innerCalls.map((c, i) => `<div style="margin:2px 0; font-size:12px;"><span style="color:#6366F1;">${i + 1}.</span> ${c.section}.${c.method}</div>`).join('') : ''}
+            ${callsHtml}
         </div>
     </div>`;
 }
@@ -2017,9 +2099,12 @@ async function loadGovDemocracy() {
         } else {
             propList.innerHTML = data.proposals.map(p => `<div class="motion-card">
                 <div class="motion-header">
-                    <div class="motion-title">#${p.index} — ${p.hash ? shortAddr(p.hash) : '?'}</div>
+                    <div class="motion-title-area">
+                        <div class="motion-idx">#${p.index}</div>
+                        <div class="motion-title">${p.hash ? shortAddr(p.hash) : '?'}</div>
+                    </div>
                     <div class="motion-meta">
-                        <span style="font-size:12px; cursor:pointer; color:var(--primary-color);" onclick="openWalletDetails('${p.proposer}')">${shortAddr(p.proposer)}</span>
+                        <span class="voter-chip aye" onclick="openWalletDetails('${p.proposer}')">${shortAddr(p.proposer)}</span>
                     </div>
                 </div>
             </div>`).join('');
@@ -2036,12 +2121,7 @@ async function loadGovTechCommittee() {
         const data = await res.json();
         if (data.error) { grid.innerHTML = '<div class="gov-empty">' + data.error + '</div>'; return; }
         if (!data.members || data.members.length === 0) { grid.innerHTML = '<div class="gov-empty">No members</div>'; return; }
-        grid.innerHTML = data.members.map(m => {
-            const primeTag = m.isPrime ? '<span class="prime-badge">PRIME</span>' : '';
-            return `<div class="member-card">
-                <div style="font-weight:600; font-size:13px; cursor:pointer; color:var(--primary-color);" onclick="openWalletDetails('${m.address}')">${shortAddr(m.address)}${primeTag}</div>
-            </div>`;
-        }).join('');
+        grid.innerHTML = data.members.map(m => renderMemberCard(m, data.identities)).join('');
     } catch (e) { grid.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
 }
 
@@ -2165,11 +2245,11 @@ function renderSidebar() {
         // For simplicity, we'll use a helper class in CSS, but let's try to handle color changes via JS for self-containment if CSS isn't present
         checkbox.addEventListener('change', (e) => {
             const slider = item.querySelector('.slider');
-            slider.style.backgroundColor = e.target.checked ? '#D0021B' : '#ccc';
+            slider.style.backgroundColor = e.target.checked ? '#9B1B30' : '#ccc';
         });
         // Init state
         const slider = item.querySelector('.slider');
-        slider.style.backgroundColor = isActive ? '#D0021B' : '#ccc';
+        slider.style.backgroundColor = isActive ? '#9B1B30' : '#ccc';
 
         // Slider knob
         slider.innerHTML = `<span class="knob" style="position: absolute; content: ''; height: 12px; width: 12px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; transform: ${isActive ? 'translateX(14px)' : 'translateX(0)'};"></span>`;
@@ -2369,7 +2449,7 @@ async function renderFeeCharts(currentMap) {
                         labels: labels,
                         datasets: [{
                             data: data,
-                            backgroundColor: ['#D0021B', '#10B981', '#3B82F6', '#6B7280'],
+                            backgroundColor: ['#9B1B30', '#10B981', '#3B82F6', '#6B7280'],
                             borderWidth: 0
                         }]
                     },
@@ -2417,7 +2497,7 @@ async function renderFeeCharts(currentMap) {
                         datasets: [{
                             label: 'Fees Paid (USD)',
                             data: values,
-                            borderColor: '#D0021B',
+                            borderColor: '#9B1B30',
                             backgroundColor: 'rgba(208, 2, 27, 0.1)',
                             fill: true,
                             tension: 0.4,
@@ -2754,7 +2834,7 @@ async function loadGlobalSwaps(reset = false) {
             const nameClass = isSaved ? 'wallet-saved' : 'wallet-unsaved';
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
-            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
@@ -2814,7 +2894,7 @@ async function loadGlobalTransfers(reset = false) {
             const toClass = isSavedTo ? 'wallet-saved' : 'wallet-unsaved';
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
-            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
@@ -2881,7 +2961,7 @@ async function loadGlobalBridges(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td style="color:#6B7280; font-size:11px;">${d.time || new Date(d.timestamp).toLocaleString()}</td>
-                <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+                <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
                 <td style="font-size:12px;">${d.network || 'Ethereum'}</td>
                 <td style="color:${directionColor}; font-weight:600; font-size:11px;">${directionIcon}</td>
                 <td style="font-size:11px;">
@@ -3005,7 +3085,7 @@ async function loadGlobalOrderBook(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td style="color:#6B7280; font-size:11px;">${d.time || '-'}</td>
-                <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+                <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
                 <td>${getEventTypeBadge(d.event_type)}</td>
                 <td style="font-size:12px; font-weight:600;">${esc(pair)}</td>
                 <td style="color:${sideColor}; font-weight:700; font-size:11px;">${sideLabel}</td>
@@ -3111,7 +3191,7 @@ async function loadGlobalExtrinsics(reset = false) {
             row.innerHTML = `
                 <td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
                 <td style="font-family:monospace; font-size:12px;">
-                    <a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#D0021B;">#${esc(String(d.block))}</a>
+                    <a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#9B1B30;">#${esc(String(d.block))}</a>
                 </td>
                 <td style="font-family:monospace; font-size:12px;">${esc(d.extrinsic_id)}</td>
                 <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
@@ -3163,7 +3243,7 @@ function openExtrinsicDetail(extrinsicId) {
             <div style="margin-bottom:12px; line-height:2;">
                 <strong>Extrinsic ID:</strong> ${esc(extrinsicId)}<br>
                 <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${esc(match.hash)}</span><br>
-                <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#D0021B;">#${esc(String(match.block))}</a><br>
+                <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#9B1B30;">#${esc(String(match.block))}</a><br>
                 <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
                 <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
                 <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
@@ -3275,7 +3355,7 @@ function openTxModal(hash, extrinsic_id) {
                 <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
             </div>
             <div style="text-align:center; padding:20px; color:#6B7280;">
-                <div style="display:inline-block; width:20px; height:20px; border:2px solid #D0021B; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+                <div style="display:inline-block; width:20px; height:20px; border:2px solid #9B1B30; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
                 <p style="margin-top:8px; font-size:12px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</p>
             </div>
         </div>`;
@@ -3305,7 +3385,7 @@ function openTxModal(hash, extrinsic_id) {
                         <div style="margin-bottom:12px; line-height:2;">
                             <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
                             <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : esc(match.hash)}</span><br>
-                            <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#D0021B;">#${esc(String(match.block))}</a><br>
+                            <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#9B1B30;">#${esc(String(match.block))}</a><br>
                             <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
                             <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
                             <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
@@ -3770,7 +3850,7 @@ async function loadTrendingTokens() {
         }
 
         // Colors for Chart & Legend (High Contrast)
-        const colors = ['#D0021B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6']; // Red, Blue, Green, Amber, Purple
+        const colors = ['#9B1B30', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6']; // Red, Blue, Green, Amber, Purple
 
         // Render Legend
         const legendContainer = document.getElementById('trending-legend');
@@ -3891,7 +3971,7 @@ async function loadStablecoinMonitor() {
                 let priceColor = '#10B981'; // Green
                 let devMsg = 'Pegged';
                 if (Math.abs(devRaw) > 0.005) { priceColor = '#F59E0B'; devMsg = 'Drifting'; } // 0.5%
-                if (Math.abs(devRaw) > 0.02) { priceColor = '#D0021B'; devMsg = 'Depegged'; } // 2%
+                if (Math.abs(devRaw) > 0.02) { priceColor = '#9B1B30'; devMsg = 'Depegged'; } // 2%
 
                 // Logo URL - DIRECT use, bypass proxy to fix potential issues
                 const logoUrl = t.logo || LOCAL_PLACEHOLDER;
@@ -3932,7 +4012,7 @@ async function loadStablecoinMonitor() {
             if (pegChart) pegChart.destroy();
 
             // Prepare datasets with thicker lines
-            const colors = { 'KUSD': '#3B82F6', 'XSTUSD': '#D0021B', 'TBCD': '#10B981' };
+            const colors = { 'KUSD': '#3B82F6', 'XSTUSD': '#9B1B30', 'TBCD': '#10B981' };
             const datasets = data.map(t => {
                 return {
                     label: t.symbol,
@@ -4065,7 +4145,7 @@ async function loadGlobalLiquidity(reset = false) {
             tbody.innerHTML += `
                 <tr>
                     <td style="color:#6B7280; font-size:13px;">${timeStr}</td>
-                    <td style="font-family:monospace;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+                    <td style="font-family:monospace;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
                     <td>
                         <div style="display:flex; align-items:center; gap:5px;">
                             <div style="display:flex; position:relative; width:36px;">
