@@ -69,6 +69,34 @@
             background: #D0021B !important;
         }
 
+        /* GOVERNANCE STYLES */
+        .gov-content { min-height: 200px; }
+        .members-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px; }
+        .member-card { padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-card); transition:box-shadow 0.2s; }
+        .member-card:hover { box-shadow: var(--shadow-hover); }
+        .member-card .prime-badge { display:inline-block; background:#D0021B; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:6px; }
+        .motion-card { border:1px solid var(--border-color); border-radius:8px; margin-bottom:12px; overflow:hidden; background:var(--bg-card); }
+        .motion-header { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+        .motion-header:hover { background:var(--bg-hover); }
+        .motion-title { font-weight:600; font-size:14px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .motion-meta { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+        .motion-detail { display:none; padding:12px 16px; border-top:1px solid var(--border-color); background:var(--bg-hover); font-size:13px; }
+        .motion-detail.open { display:block; }
+        .motion-call { font-family:monospace; font-size:12px; background:var(--bg-body); padding:8px; border-radius:6px; margin:6px 0; overflow-x:auto; word-break:break-all; }
+        .vote-bar { height:6px; border-radius:3px; background:#EF4444; overflow:hidden; width:80px; }
+        .vote-bar-fill { height:100%; background:#10B981; border-radius:3px; transition:width 0.3s; }
+        .vote-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
+        .vote-badge.aye { background:rgba(16,185,129,0.15); color:#10B981; }
+        .vote-badge.nay { background:rgba(239,68,68,0.15); color:#EF4444; }
+        .ref-tally { display:flex; gap:15px; align-items:center; margin:8px 0; font-size:13px; }
+        .ref-tally-bar { flex:1; height:8px; border-radius:4px; background:#EF4444; overflow:hidden; }
+        .ref-tally-fill { height:100%; background:#10B981; }
+        .election-info-box { text-align:center; padding:16px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:16px; background:var(--bg-card); }
+        .election-countdown { font-size:22px; font-weight:700; color:var(--primary-color); }
+        .election-stats { display:flex; gap:20px; justify-content:center; margin-top:8px; font-size:13px; color:var(--text-secondary); }
+        .gov-empty { text-align:center; padding:30px; color:var(--text-secondary); font-size:14px; }
+        .threshold-badge { font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(99,102,241,0.15); color:#6366F1; }
+
         /* Spacing between timeframe selector and stats cards */
         .header-stats {
             margin-top: 15px;
@@ -2023,6 +2051,61 @@
                         ➡</button>
                     <button id="btnOrderbookLast" class="btn-holders" onclick="changeOrderbookPage('last')"
                         title="Final">⇥</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="governance" class="tab-content">
+            <div class="card">
+                <div class="tabs modal-tabs" id="govSubTabs" style="justify-content:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border-color); flex-wrap:wrap; gap:4px;">
+                    <button class="tab-btn active" onclick="openGovTab('council')" id="govtab-council" data-i18n="gov_council">Consejo</button>
+                    <button class="tab-btn" onclick="openGovTab('elections')" id="govtab-elections" data-i18n="gov_elections">Elecciones</button>
+                    <button class="tab-btn" onclick="openGovTab('motions')" id="govtab-motions" data-i18n="gov_motions">Mociones</button>
+                    <button class="tab-btn" onclick="openGovTab('democracy')" id="govtab-democracy" data-i18n="gov_democracy">Democracia</button>
+                    <button class="tab-btn" onclick="openGovTab('techcommittee')" id="govtab-techcommittee" data-i18n="gov_tech_committee">Comite Tecnico</button>
+                </div>
+
+                <div id="govview-council" class="gov-content">
+                    <h4 style="margin:0 0 12px 0; font-size:16px;" data-i18n="gov_council_members">Miembros del Consejo</h4>
+                    <div id="councilMembersGrid" class="members-grid"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
+                </div>
+
+                <div id="govview-elections" class="gov-content" style="display:none;">
+                    <div id="electionCountdown" class="election-info-box"></div>
+                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_elected">Miembros Electos</h4>
+                    <div style="overflow-x:auto; margin-bottom:16px;">
+                        <table><thead><tr><th>Wallet</th><th>Stake (XOR)</th></tr></thead>
+                        <tbody id="electedMembersTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
+                    </div>
+                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_candidates">Candidatos</h4>
+                    <div style="overflow-x:auto; margin-bottom:16px;">
+                        <table><thead><tr><th>Wallet</th><th data-i18n="gov_deposit">Deposito (XOR)</th></tr></thead>
+                        <tbody id="candidatesTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
+                    </div>
+                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_runners_up">Suplentes (Runners-up)</h4>
+                    <div style="overflow-x:auto;">
+                        <table><thead><tr><th>Wallet</th><th>Stake (XOR)</th></tr></thead>
+                        <tbody id="runnersUpTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
+                    </div>
+                </div>
+
+                <div id="govview-motions" class="gov-content" style="display:none;">
+                    <h4 style="margin:0 0 12px 0; font-size:15px;" data-i18n="gov_council_motions">Mociones del Consejo</h4>
+                    <div id="councilMotionsList"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
+                    <h4 style="margin:20px 0 12px 0; font-size:15px;" data-i18n="gov_tech_motions">Mociones del Comite Tecnico</h4>
+                    <div id="techMotionsList"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
+                </div>
+
+                <div id="govview-democracy" class="gov-content" style="display:none;">
+                    <h4 style="margin:0 0 12px 0; font-size:15px;" data-i18n="gov_referendums">Referendums Activos</h4>
+                    <div id="referendumsList"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
+                    <h4 style="margin:20px 0 12px 0; font-size:15px;" data-i18n="gov_proposals">Propuestas Publicas</h4>
+                    <div id="publicProposalsList"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
+                </div>
+
+                <div id="govview-techcommittee" class="gov-content" style="display:none;">
+                    <h4 style="margin:0 0 12px 0; font-size:16px;" data-i18n="gov_tech_members">Miembros del Comite Tecnico</h4>
+                    <div id="techMembersGrid" class="members-grid"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
                 </div>
             </div>
         </div>
