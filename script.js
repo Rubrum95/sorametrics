@@ -560,7 +560,7 @@ socket.on('transfers-batch', (batch) => {
         row.innerHTML = `
 <td style="color:#6B7280; font-size:13px;">${esc(d.time)}</td>
 <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#D0021B;">#${esc(d.block)}</a></td>
-<td><span onclick="openWalletDetails('${esc(d.from)}')" class="${fromShort ? 'wallet-unsaved' : ''}">${esc(fromShort)}</span></td>
+<td><span onclick="openWalletDetails('${esc(d.from)}')" class="${fromShort ? 'wallet-unsaved' : ''}">${fromShort}</span></td>
 <td>
 <div class="asset-row">
     <img src="${logoSrc}" width="32" height="32" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
@@ -571,7 +571,7 @@ socket.on('transfers-batch', (batch) => {
 </div>
 </td>
 <td style="color:#D1D5DB;">➜</td>
-<td><span onclick="openWalletDetails('${esc(d.to)}')" class="${toShort ? 'wallet-unsaved' : ''}">${esc(toShort)}</span></td>
+<td><span onclick="openWalletDetails('${esc(d.to)}')" class="${toShort ? 'wallet-unsaved' : ''}">${toShort}</span></td>
 <td>
     <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
 </td>`;
@@ -589,7 +589,7 @@ let liquidityIconsLoaded = false;
 async function loadLiquidityIcons() {
     if (liquidityIconsLoaded) return;
     try {
-        const map = { 'XOR': 'btnPoolXor', 'XSTUSD': 'btnPoolXst', 'KUSD': 'btnPoolKusd' };
+        const map = { 'XOR': 'btnPoolXor', 'XSTUSD': 'btnPoolXst', 'KUSD': 'btnPoolKusd', 'VXOR': 'btnPoolVxor' };
         for (const [symbol, btnId] of Object.entries(map)) {
             const res = await fetch(`/tokens?search=${symbol}&limit=5`); // Increased limit to ensure we find the exact match
             const json = await res.json();
@@ -778,7 +778,7 @@ socket.on('swaps-batch', (batch) => {
 </div>
 </td>
 <td style="font-size:11px;">
-<span onclick="openWalletDetails('${esc(d.wallet)}')" class="${nameClass}">${esc(short)}</span>
+<span onclick="openWalletDetails('${esc(d.wallet)}')" class="${nameClass}">${short}</span>
 <span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
 </td>
 <td>
@@ -800,12 +800,19 @@ socket.on('extrinsics-batch', (batch) => {
     if (document.hidden || !document.getElementById('extrinsics')?.classList.contains('active')) return;
     if (extrinsicPage !== 1) return;
 
+    // Respect active section filter
+    const activeFilter = document.getElementById('extrinsicSectionFilter')?.value || '';
+    const dateFilter = document.getElementById('extrinsicDateInput')?.value || '';
+    if (dateFilter) return; // Don't inject live items when viewing historical data
+
     if (tbody.children.length > 0 && tbody.children[0]?.innerText?.includes(TRANSLATIONS[currentLang]?.waiting_activity || 'Esperando')) {
         tbody.innerHTML = '';
     }
 
     const recentItems = batch.slice(-MAX_VISUAL_ITEMS);
     for (const d of recentItems) {
+        // Skip if doesn't match active section filter
+        if (activeFilter && d.section !== activeFilter) continue;
         const exId = d.extrinsic_id || d.block + '-' + d.extrinsic_index;
         _extrinsicsPageData.unshift({ ...d, extrinsic_id: exId });
         const signerShort = d.signer === 'System' ? 'System' : formatAddress(d.signer);
@@ -816,7 +823,7 @@ socket.on('extrinsics-batch', (batch) => {
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#D0021B;">#${esc(String(d.block))}</a></td>
             <td style="font-family:monospace; font-size:12px;">${esc(exId)}</td>
             <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
-            <td style="font-size:11px;">${d.signer === 'System' ? '<span style="color:#9CA3AF;">System</span>' : esc(signerShort)}</td>
+            <td style="font-size:11px;">${d.signer === 'System' ? '<span style="color:#9CA3AF;">System</span>' : signerShort}</td>
             <td>${resultIcon}</td>
             <td><button class="btn-ghost" onclick="openExtrinsicDetail('${esc(exId)}')" style="font-size:11px; padding:2px 6px;">&#128269; ${esc(TRANSLATIONS[currentLang]?.view || 'Ver')}</button></td>
         `;
@@ -1244,7 +1251,7 @@ async function loadHoldersPage() {
             const short = formatAddress(h.address);
             tbody.innerHTML += `<tr>
                 <td>${startRank + index + 1}</td>
-                <td><span class="clickable-address" onclick="openWalletDetails('${esc(h.address)}')" style="cursor:pointer; color:var(--text-primary); font-weight:bold;">${esc(short)}</span></td>
+                <td><span class="clickable-address" onclick="openWalletDetails('${esc(h.address)}')" style="cursor:pointer; color:var(--text-primary); font-weight:bold;">${short}</span></td>
                 <td style="text-align:right;">${h.balanceStr}</td>
             </tr>`;
         });
@@ -1273,13 +1280,11 @@ function changeSwapPage(d) {
 }
 function setPoolFilter(mode) {
     pFilter = mode; poolPage = 1;
-    const btns = ['btnPoolAll', 'btnPoolXor', 'btnPoolXst', 'btnPoolKusd'];
-    btns.forEach(id => document.getElementById(id).classList.remove('active'));
-    if (mode === 'all') document.getElementById('btnPoolAll').classList.add('active');
-    if (mode === 'XOR') document.getElementById('btnPoolXor').classList.add('active');
-    if (mode === 'XSTUSD') document.getElementById('btnPoolXst').classList.add('active');
-    if (mode === 'XSTUSD') document.getElementById('btnPoolXst').classList.add('active');
-    if (mode === 'KUSD') document.getElementById('btnPoolKusd').classList.add('active');
+    const btns = ['btnPoolAll', 'btnPoolXor', 'btnPoolXst', 'btnPoolKusd', 'btnPoolVxor'];
+    btns.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('active'); });
+    const activeMap = { 'all': 'btnPoolAll', 'XOR': 'btnPoolXor', 'XSTUSD': 'btnPoolXst', 'KUSD': 'btnPoolKusd', 'VXOR': 'btnPoolVxor' };
+    const activeBtn = document.getElementById(activeMap[mode]);
+    if (activeBtn) activeBtn.classList.add('active');
     loadPools();
 }
 
@@ -2657,7 +2662,7 @@ async function loadGlobalExtrinsics(reset = false) {
                 <td style="font-size:11px;">
                     ${d.signer === 'System'
                         ? '<span style="color:#9CA3AF;">System</span>'
-                        : `<span onclick="openWalletDetails('${esc(d.signer)}')" class="${signerClass}">${esc(signerShort)}</span>
+                        : `<span onclick="openWalletDetails('${esc(d.signer)}')" class="${signerClass}">${signerShort}</span>
                            <span onclick="copyToClipboard('${esc(d.signer)}')" style="cursor:pointer; margin-left:4px;" title="Copy">&#128203;</span>`
                     }
                 </td>
