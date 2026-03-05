@@ -171,13 +171,17 @@
             /* Hidden: 260px width + 20px padding + extra for shadow */
             width: 260px;
             height: 100%;
-            background: white;
+            background: var(--bg-card, white);
+            color: var(--text-primary, #111);
             z-index: 1500;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             transition: left 0.3s ease-in-out;
             padding: 20px;
             display: flex;
             flex-direction: column;
+        }
+        [data-theme="dark"] .side-menu {
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.5);
         }
 
         .side-menu.show {
@@ -1626,7 +1630,7 @@
     <!-- Side Menu Structure (Customizable Navigation) -->
     <div class="side-menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
     <div class="side-menu" id="sideMenu">
-        <h2 style="margin-top:0; color:#D0021B;">Sora<span style="color:#111">Metrics</span></h2>
+        <h2 style="margin-top:0; color:#D0021B;">Sora<span style="color:var(--text-primary, #111)">Metrics</span></h2>
         <div style="font-size:12px; color:#6B7280; margin-bottom:15px;" data-i18n="menu_instruction">
             Visibles (Max 5)
         </div>
@@ -2072,6 +2076,12 @@
                         <img src="https://raw.githubusercontent.com/sora-xor/polkaswap-token-whitelist/master/assets/0x008007725905d45d6560965d0828782a202df672153503e7c81525b6a71d7c49.svg"
                             style="width:100%; height:100%; object-fit:cover;"
                             onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sora-xor/polkaswap-token-whitelist/master/assets/0x008007725905d45d6560965d0828782a202df672153503e7c81525b6a71d7c49.svg'">
+                    </button>
+
+                    <button id="btnPoolVxor" class="filter-btn" onclick="setPoolFilter('VXOR')" title="VXOR (DEX 3)"
+                        style="padding:0; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        <img src="data:image/svg+xml,%3C%3Fxml version='1.0' encoding='UTF-8'%3F%3E%3Csvg fill='none' viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23a)'%3E%3Cpath d='m150 75c0 41.591-33.409 75-75 75-41.591 0-75-33.409-75-75 0-41.591 33.409-75 75-75 41.591 0 75 33.409 75 75z' fill='%23E3232C'/%3E%3Cpath d='m-210.35-174.03 59.742-42.918 225.61 366.94 225.61-366.94 59.743 42.918-285.35 464.1-285.35-464.1z' clip-rule='evenodd' fill='%23000' fill-rule='evenodd' opacity='.35'/%3E%3Cpath d='m-210.35-426.67 59.742-42.919 225.61 366.94 225.61-366.94 59.743 42.919-285.35 464.1-285.35-464.1z' clip-rule='evenodd' fill='%23000' fill-rule='evenodd' opacity='.35'/%3E%3Cpath d='m25.773 139.46 10.306 6.85 38.921-58.563 38.921 58.563 10.306-6.85-49.227-74.07-49.227 74.07z' clip-rule='evenodd' fill='%23fff' fill-rule='evenodd'/%3E%3Cpath d='m121.02 49.81h-92.045v-12.375h92.045v12.375z' clip-rule='evenodd' fill='%23fff' fill-rule='evenodd'/%3E%3Cpath d='m121.02 75.001h-92.045v-12.375h92.045v12.375z' clip-rule='evenodd' fill='%23fff' fill-rule='evenodd'/%3E%3Crect x='68.819' y='40.801' width='12.363' height='38.321' fill='%23fff'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='a'%3E%3Crect width='150' height='150' rx='75' fill='%23fff'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E"
+                            style="width:100%; height:100%; object-fit:cover;">
                     </button>
                 </div>
 
