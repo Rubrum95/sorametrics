@@ -476,7 +476,16 @@ function formatAmount(val) {
     if (val === undefined || val === null) return '0.0000';
     const num = parseFloat(val);
     if (isNaN(num)) return val;
-    return num.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const abs = Math.abs(num);
+    let raw;
+    if (abs >= 1e12) raw = (num / 1e12).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'T';
+    else if (abs >= 1e9) raw = (num / 1e9).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'B';
+    else if (abs >= 1e6) raw = (num / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M';
+    else if (abs >= 1e4) raw = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    else raw = num.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const dot = raw.indexOf('.');
+    if (dot === -1) return raw;
+    return raw.substring(0, dot) + '<span style="font-size:0.82em; opacity:0.7">' + raw.substring(dot) + '</span>';
 }
 
 function formatAddress(address) {
@@ -767,14 +776,14 @@ socket.on('swaps-batch', (batch) => {
 <td>
 <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
     <img src="${logoIn}" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
-    <div style="font-size:11px;"><b style="font-size:14px;">${esc(formatAmount(d.in.amount))}</b> ${esc(d.in.symbol)}</div>
+    <div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${esc(d.in.symbol)}</div>
 </div>
 </td>
 <td style="color:#D1D5DB; font-size:12px;">➜</td>
 <td>
 <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
     <img src="${logoOut}" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
-    <div style="font-size:11px;"><b style="font-size:14px;">${esc(formatAmount(d.out.amount))}</b> ${esc(d.out.symbol)}</div>
+    <div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${esc(d.out.symbol)}</div>
 </div>
 </td>
 <td style="font-size:11px;">
@@ -1619,8 +1628,8 @@ async function loadWalletSwaps() {
         if (swaps.length === 0) { sBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${TRANSLATIONS[currentLang].no_recent_swaps}</td></tr>`; return; }
         swaps.forEach(s => {
             sBody.innerHTML += `<tr><td style="color:#6B7280; font-size:11px;">${s.time}</td>
-            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(s.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(s.in.amount)}</b> ${s.in.symbol}</div></div></td>
-            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(s.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(s.out.amount)}</b> ${s.out.symbol}</div></div></td></tr>`;
+            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(s.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(s.in.amount)}</b> ${s.in.symbol}</div></div></td>
+            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(s.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(s.out.amount)}</b> ${s.out.symbol}</div></div></td></tr>`;
         });
     } catch (e) {
         console.error('Error loading swaps:', e);
@@ -1688,7 +1697,7 @@ async function loadWalletTransfers() {
             const otherShort = formatAddress(other);
             const isSavedOther = walletAliases[other];
             const otherClass = isSavedOther ? 'wallet-saved' : 'wallet-unsaved';
-            tBody.innerHTML += `<tr><td style="color:#6B7280; font-size:11px;">${t.time}</td><td style="font-size:12px;">${type}</td><td style="font-size:11px;"><span onclick="openWalletDetails('${other}')" class="${otherClass}">${otherShort}</span><span onclick="copyToClipboard('${other}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(t.amount)} ${t.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${t.usdValue}</span></div></div></td></tr>`;
+            tBody.innerHTML += `<tr><td style="color:#6B7280; font-size:11px;">${t.time}</td><td style="font-size:12px;">${type}</td><td style="font-size:11px;"><span onclick="openWalletDetails('${other}')" class="${otherClass}">${otherShort}</span><span onclick="copyToClipboard('${other}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(t.amount)} ${t.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${t.usdValue}</span></div></div></td></tr>`;
         });
     } catch (e) {
         console.error('Error loading transfers:', e);
@@ -2411,7 +2420,7 @@ async function loadGlobalSwaps(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
-            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
+            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
             </td>`;
@@ -2471,7 +2480,7 @@ async function loadGlobalTransfers(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
-            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
+            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
             </td>`;
@@ -2576,7 +2585,7 @@ async function loadGlobalBridges(reset = false) {
                     <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
                         <img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
                         <div style="font-size:11px;">
-                            <b style="font-size:14px;">${formatAmount(d.amount)} ${d.symbol || 'UNK'}</b><br>
+                            <b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol || 'UNK'}</b><br>
                             <span style="color:#10B981; font-size:10px;">$${Number(d.usd_value || 0).toFixed(2)}</span>
                         </div>
                     </div>
@@ -2802,52 +2811,104 @@ function openBlockModal(block) {
 
 function openTxModal(hash, extrinsic_id) {
     document.getElementById('txModal').style.display = 'flex';
+    const contentEl = document.getElementById('txModalContent');
 
-    // Detect if this is an Ethereum transaction (from incoming bridges)
     const isEthereum = extrinsic_id === 'ETH';
     const hasHash = hash && hash !== 'N/A' && hash !== '';
     const hasExtrinsicId = extrinsic_id && extrinsic_id !== 'N/A' && extrinsic_id !== '' && extrinsic_id !== 'ETH';
 
-    // Build the link button
-    let linkButton = '';
-    if (isEthereum && hasHash) {
-        // For incoming bridges, the hash is an internal SORA bridge request ID, not valid on Etherscan
-        linkButton = `
-            <span style="color:#6B7280; font-size:12px; display:block; text-align:center;">
-                🌉 ${TRANSLATIONS[currentLang].bridge_internal_hash || 'This hash is an internal SORA bridge ID. It is not visible on Etherscan.'}
-            </span>
-        `;
-    } else if (hasExtrinsicId) {
-        linkButton = `
-            <span style="color:#6B7280; font-size:12px; display:block; text-align:center;">
-                ${TRANSLATIONS[currentLang].extrinsic_id || 'Extrinsic ID'}: <b>${extrinsic_id}</b>
-            </span>
-        `;
+    // Ethereum bridges: keep simple view
+    if (isEthereum) {
+        contentEl.innerHTML = `
+            <div style="padding:10px;">
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; color:#6B7280; font-size:12px; margin-bottom:4px;">
+                        ${TRANSLATIONS[currentLang].ethereum_request_hash || 'Ethereum Request Hash'}
+                    </label>
+                    <div style="background:var(--bg-body); padding:8px; border-radius:6px; font-family:monospace; word-break:break-all; font-size:13px; border:1px solid var(--border-color);">
+                        ${hasHash ? esc(hash) : 'N/A'}
+                    </div>
+                </div>
+                <div style="text-align:center;">
+                    <span style="color:#6B7280; font-size:12px;">
+                        🌉 ${TRANSLATIONS[currentLang].bridge_internal_hash || 'This hash is an internal SORA bridge ID. It is not visible on Etherscan.'}
+                    </span>
+                </div>
+            </div>`;
+        return;
     }
 
-    document.getElementById('txModalContent').innerHTML = `
+    // Show loading state with basic info
+    contentEl.innerHTML = `
         <div style="padding:10px;">
-            <div style="margin-bottom:15px;">
-                <label style="display:block; color:#6B7280; font-size:12px; margin-bottom:4px;">
-                    ${isEthereum ? (TRANSLATIONS[currentLang].ethereum_request_hash || 'Ethereum Request Hash') : (TRANSLATIONS[currentLang].transaction_hash || 'Transaction Hash')}
-                </label>
-                <div style="background:#F3F4F6; padding:8px; border-radius:6px; font-family:monospace; word-break:break-all; font-size:13px; border:1px solid #E5E7EB; color:#374151;">
-                    ${hasHash ? hash : 'N/A'}
-                </div>
+            <div style="margin-bottom:12px; line-height:2;">
+                <strong>Extrinsic ID:</strong> ${hasExtrinsicId ? esc(extrinsic_id) : 'N/A'}<br>
+                <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
             </div>
-            <div style="margin-bottom:20px;">
-                <label style="display:block; color:#6B7280; font-size:12px; margin-bottom:4px;">
-                    ${isEthereum ? (TRANSLATIONS[currentLang].origin || 'Origin') : (TRANSLATIONS[currentLang].extrinsic_id || 'Extrinsic ID')}
-                </label>
-                <div style="background:#F3F4F6; padding:8px; border-radius:6px; font-family:monospace; word-break:break-all; font-size:13px; border:1px solid #E5E7EB; color:#374151;">
-                    ${isEthereum ? '🌐 ' + (TRANSLATIONS[currentLang].ethereum_network || 'Ethereum Network') : (hasExtrinsicId ? extrinsic_id : 'N/A')}
-                </div>
+            <div style="text-align:center; padding:20px; color:#6B7280;">
+                <div style="display:inline-block; width:20px; height:20px; border:2px solid #D0021B; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+                <p style="margin-top:8px; font-size:12px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</p>
             </div>
-            <div style="text-align:center;">
-                ${linkButton || '<span style="color:#6B7280;">' + (TRANSLATIONS[currentLang].no_external_link || 'No external link available') + '</span>'}
-            </div>
-        </div>
-    `;
+        </div>`;
+
+    // If no extrinsic_id, nothing more to fetch
+    if (!hasExtrinsicId) return;
+
+    // Extract block number from extrinsic_id format "BLOCK-INDEX"
+    const block = extrinsic_id.split('-')[0];
+    if (!block) return;
+
+    fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(block))
+        .then(r => r.json())
+        .then(res => {
+            const exts = res.data || [];
+            const match = exts.find(d => d.extrinsic_id === extrinsic_id);
+
+            if (match) {
+                let argsFormatted = '{}';
+                try {
+                    argsFormatted = JSON.stringify(JSON.parse(match.args_json), null, 2);
+                } catch (e) {
+                    argsFormatted = match.args_json || '{}';
+                }
+                contentEl.innerHTML = `
+                    <div style="padding:10px;">
+                        <div style="margin-bottom:12px; line-height:2;">
+                            <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                            <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : esc(match.hash)}</span><br>
+                            <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#D0021B;">#${esc(String(match.block))}</a><br>
+                            <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
+                            <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
+                            <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                            <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
+                        </div>
+                        <div>
+                            <strong>Arguments (JSON):</strong>
+                            <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
+                        </div>
+                    </div>`;
+            } else {
+                // No match found in block data
+                contentEl.innerHTML = `
+                    <div style="padding:10px;">
+                        <div style="margin-bottom:12px; line-height:2;">
+                            <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                            <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                        </div>
+                        <p style="color:#6B7280; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.no_data || 'No detailed data available for this extrinsic.'}</p>
+                    </div>`;
+            }
+        })
+        .catch(() => {
+            contentEl.innerHTML = `
+                <div style="padding:10px;">
+                    <div style="margin-bottom:12px; line-height:2;">
+                        <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                        <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                    </div>
+                    <p style="color:#EF4444; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.error_loading || 'Error loading extrinsic details.'}</p>
+                </div>`;
+        });
 }
 
 /* --- BACKUP SYSTEM --- */
