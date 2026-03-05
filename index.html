@@ -1970,6 +1970,63 @@
             </div>
         </div>
 
+        <div id="orderbook" class="tab-content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; font-size:18px;" data-i18n="tab_orderbook">Order Book</h3>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <select id="orderbookTypeFilter" onchange="loadGlobalOrderBook(true)"
+                            style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
+                            <option value="">All Types</option>
+                            <option value="placed">Placed</option>
+                            <option value="canceled">Canceled</option>
+                            <option value="executed">Executed</option>
+                            <option value="filled">Filled</option>
+                            <option value="market">Market</option>
+                        </select>
+                        <input type="datetime-local" id="orderbookDateInput" onchange="loadGlobalOrderBook(true)"
+                            style="padding:6px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px; max-width:180px;">
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="time" style="width:12%">Hora</th>
+                                <th data-i18n="block" style="width:7%">Bloque</th>
+                                <th style="width:9%">Type</th>
+                                <th style="width:12%">Pair</th>
+                                <th style="width:6%">Side</th>
+                                <th style="width:12%">Price</th>
+                                <th style="width:12%">Amount</th>
+                                <th style="width:18%">Wallet</th>
+                                <th data-i18n="action" style="width:12%">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderbookTable">
+                            <tr>
+                                <td colspan="9" style="text-align:center; padding:20px; color:#9CA3AF;" data-i18n="loading">
+                                    Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:center; gap:5px; margin-top:20px; align-items:center;">
+                    <button id="btnOrderbookFirst" class="btn-holders" onclick="changeOrderbookPage('first')"
+                        title="Inicio">⇤</button>
+                    <button id="btnOrderbookPrev" class="btn-holders" onclick="changeOrderbookPage(-1)">⬅
+                        <span data-i18n="previous">Anterior</span></button>
+                    <span id="orderbookPageIndicator" style="font-size:13px; color:#6B7280; margin:0 10px;"
+                        data-i18n="page_x_of_y">Página 1</span>
+                    <button id="btnOrderbookNext" class="btn-holders" onclick="changeOrderbookPage(1)"><span
+                            data-i18n="next">Siguiente</span>
+                        ➡</button>
+                    <button id="btnOrderbookLast" class="btn-holders" onclick="changeOrderbookPage('last')"
+                        title="Final">⇥</button>
+                </div>
+            </div>
+        </div>
+
         <div id="extrinsics" class="tab-content">
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">

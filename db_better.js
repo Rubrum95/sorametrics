@@ -161,6 +161,24 @@ function createTables() {
         extrinsic_id TEXT
     )`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS order_book_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        formatted_time TEXT,
+        block INTEGER,
+        event_type TEXT,
+        wallet TEXT,
+        order_id TEXT,
+        base_asset TEXT,
+        quote_asset TEXT,
+        side TEXT,
+        price TEXT,
+        amount TEXT,
+        usd_value REAL,
+        hash TEXT,
+        extrinsic_id TEXT
+    )`);
+
     db.exec(`CREATE TABLE IF NOT EXISTS extrinsics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER,
@@ -240,7 +258,12 @@ function createTables() {
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_block ON extrinsics(block)`,
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_section ON extrinsics(section)`,
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_signer ON extrinsics(signer)`,
-        `CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp)`
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp ON order_book_events(timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_wallet ON order_book_events(wallet)`,
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_event_type ON order_book_events(event_type)`,
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_block ON order_book_events(block)`,
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`
     ];
 
     for (const idx of indices) {
@@ -276,7 +299,12 @@ function createHistoryIndices() {
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_block ON extrinsics(block)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section ON extrinsics(section)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_signer ON extrinsics(signer)`,
-        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section_timestamp ON extrinsics(section, timestamp)`
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section_timestamp ON extrinsics(section, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_timestamp ON order_book_events(timestamp)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_wallet ON order_book_events(wallet)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_event_type ON order_book_events(event_type)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_block ON order_book_events(block)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`
     ];
 
     for (const idx of historyIndices) {
@@ -379,6 +407,28 @@ function mapExtrinsics(rows) {
     }));
 }
 
+function orderBookDedupKey(r) {
+    return `${r.block}-${r.event_type}-${r.order_id || r.wallet}`;
+}
+
+function mapOrderBook(rows) {
+    return rows.map(r => ({
+        time: formatTimestamp(r.timestamp) || r.formatted_time,
+        block: r.block,
+        event_type: r.event_type,
+        wallet: r.wallet,
+        order_id: r.order_id,
+        base_asset: r.base_asset,
+        quote_asset: r.quote_asset,
+        side: r.side,
+        price: r.price,
+        amount: r.amount,
+        usd_value: r.usd_value ? r.usd_value.toFixed(2) : '0.00',
+        hash: r.hash,
+        extrinsic_id: r.extrinsic_id
+    }));
+}
+
 // --- INSERT FUNCTIONS (fire-and-forget, no need to await) ---
 
 const insertStmts = {};
@@ -464,6 +514,26 @@ function insertLiquidityEvent(event) {
         );
     } catch (e) {
         console.error('Error insertLiquidityEvent:', e.message);
+    }
+}
+
+function insertOrderBookEvent(e) {
+    try {
+        if (!insertStmts.orderBook) {
+            insertStmts.orderBook = db.prepare(
+                `INSERT INTO order_book_events (timestamp, formatted_time, block, event_type, wallet, order_id, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            );
+        }
+        insertStmts.orderBook.run(
+            e.timestamp || Date.now(), e.formatted_time || '', e.block || 0,
+            e.event_type || '', e.wallet || '', e.order_id || '',
+            e.base_asset || '', e.quote_asset || '', e.side || '',
+            e.price || '', e.amount || '', e.usd_value || 0,
+            e.hash || '', e.extrinsic_id || ''
+        );
+    } catch (err) {
+        console.error('Error insertOrderBookEvent:', err.message);
     }
 }
 
@@ -1163,6 +1233,79 @@ function getLatestBridges(page = 1, limit = 20, filter = null, timestamp = null)
     };
 }
 
+// --- ORDER BOOK ---
+
+function getLatestOrderBookEvents(page = 1, limit = 25, type = null, timestamp = null) {
+    const offset = (page - 1) * limit;
+    const cols = `id, timestamp, formatted_time, block, event_type, wallet, order_id, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id`;
+
+    let conditions = [];
+    let params = [];
+
+    if (type) {
+        conditions.push(`event_type = ?`);
+        params.push(type);
+    }
+    if (timestamp) {
+        conditions.push(`timestamp <= ?`);
+        params.push(timestamp);
+    }
+
+    const where = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
+
+    let total, rows;
+
+    if (historyHasTable('order_book_events')) {
+        const countSql = `SELECT (SELECT COUNT(*) FROM main.order_book_events${where}) + (SELECT COUNT(*) FROM history.order_book_events${where}) as total`;
+        total = db.prepare(countSql).get(...params, ...params)?.total || 0;
+
+        const dataSql = `SELECT ${cols} FROM main.order_book_events${where} UNION ALL SELECT ${cols} FROM history.order_book_events${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+        rows = db.prepare(dataSql).all(...params, ...params, limit, offset);
+    } else {
+        const countSql = `SELECT COUNT(*) as total FROM main.order_book_events${where}`;
+        total = db.prepare(countSql).get(...params)?.total || 0;
+
+        const dataSql = `SELECT ${cols} FROM main.order_book_events${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+        rows = db.prepare(dataSql).all(...params, limit, offset);
+    }
+
+    const unique = dedup(rows, orderBookDedupKey);
+    const totalPages = Math.ceil(total / limit);
+    return { data: mapOrderBook(unique), total, totalPages, page };
+}
+
+function getOrderBookByAddress(address, page = 1, limit = 25) {
+    const offset = (page - 1) * limit;
+    const cols = `id, timestamp, formatted_time, block, event_type, wallet, order_id, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id`;
+
+    let total, rows;
+
+    if (historyHasTable('order_book_events')) {
+        total = getStmt('getOrderBookByAddr_count',
+            `SELECT (SELECT COUNT(*) FROM main.order_book_events WHERE wallet = ?) + (SELECT COUNT(*) FROM history.order_book_events WHERE wallet = ?) as total`
+        ).get(address, address).total || 0;
+
+        rows = getStmt('getOrderBookByAddr_data',
+            `SELECT ${cols} FROM main.order_book_events WHERE wallet = ?
+             UNION ALL
+             SELECT ${cols} FROM history.order_book_events WHERE wallet = ?
+             ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+        ).all(address, address, limit, offset);
+    } else {
+        total = getStmt('getOrderBookByAddr_count_main',
+            `SELECT COUNT(*) as total FROM main.order_book_events WHERE wallet = ?`
+        ).get(address).total || 0;
+
+        rows = getStmt('getOrderBookByAddr_data_main',
+            `SELECT ${cols} FROM main.order_book_events WHERE wallet = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+        ).all(address, limit, offset);
+    }
+
+    const unique = dedup(rows, orderBookDedupKey);
+    const totalPages = Math.ceil(total / limit);
+    return { data: mapOrderBook(unique), total, totalPages, page };
+}
+
 // --- LIQUIDITY ---
 
 function getLpVolume(msWindow) {
@@ -1434,6 +1577,9 @@ module.exports = {
     getLatestExtrinsics,
     getExtrinsicSections,
     getExtrinsicsByAddress,
+    insertOrderBookEvent,
+    getLatestOrderBookEvents,
+    getOrderBookByAddress,
     upsertIdentity,
     upsertIdentityBatch,
     getIdentities,
