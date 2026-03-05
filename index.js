@@ -32,7 +32,18 @@ const app = express();
 
 // --- SECURITY HEADERS ---
 const helmet = require('helmet');
-app.use(helmet({ contentSecurityPolicy: false })); // CSP off: inline scripts in index.html
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://avatars.githubusercontent.com"],
+            connectSrc: ["'self'", "wss:", "ws:"],
+            fontSrc: ["'self'"],
+        }
+    }
+}));
 
 // --- COMPRESSION ---
 const compression = require('compression');
@@ -40,6 +51,7 @@ app.use(compression());
 
 // --- CORS: Restringir orígenes (permite mismo origen + dev localhost) ---
 const ALLOWED_ORIGINS = CORS_ORIGINS.split(',').filter(Boolean);
+if (ALLOWED_ORIGINS.length === 0) console.warn('⚠️ CORS_ORIGINS not set — allowing all origins (dev mode)');
 app.use(cors({
     origin: (origin, cb) => {
         // Mismo origen (sin header Origin) o orígenes permitidos
@@ -114,17 +126,17 @@ const TIMEFRAME_MS = {
 
 // Helper: queries con timeout para evitar memory leak
 // Forzar carga de favicon
-app.get('/favicon.svg', (req, res) => res.sendFile(__dirname + '/favicon.svg'));
+app.get('/favicon.svg', rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/favicon.svg'));
 
 // --- VERSION CHECK ENDPOINT (FUERZA ACTUALIZACION EN iOS PWA) ---
 const SERVER_VERSION = 'v4.0';
-app.get('/api/version', (req, res) => {
+app.get('/api/version', rateLimit(30, 60000), (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.json({ version: SERVER_VERSION });
 });
 
 // --- HEALTH ENDPOINT ---
-app.get('/health', (req, res) => {
+app.get('/health', rateLimit(30, 60000), (req, res) => {
     res.json({
         status: 'ok',
         uptime: Math.floor(process.uptime()),
@@ -204,7 +216,7 @@ function finishDownload() {
     processQueue();
 }
 
-app.get('/proxy-image', (req, res) => {
+app.get('/proxy-image', rateLimit(30, 60000), (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).send('No URL');
 
@@ -566,7 +578,7 @@ async function updateKeyPrices() {
             tokenPrices[sym] = await getPriceInDai(asset.assetId, asset.decimals);
         }
     }
-    console.log('💰 Precios actualizados (Populares). XOR=$' + (tokenPrices['XOR'] || 0).toFixed(4));
+    console.log('💰 Precios actualizados (' + Object.keys(tokenPrices).length + ' tokens).');
 }
 
 // Get price for any token - fetches on-demand if not cached
@@ -582,7 +594,7 @@ async function getOrFetchPrice(symbol, assetId, decimals) {
             const price = await getPriceInDai(assetId, decimals || 18);
             if (price > 0) {
                 tokenPrices[symbol] = price;
-                console.log(`💵 Precio obtenido para ${symbol}: $${price.toFixed(4)}`);
+                console.log(`💵 Precio obtenido para ${symbol}.`);
             }
             return price;
         } catch (e) {
@@ -753,7 +765,7 @@ app.get('/pools', rateLimit(20, 60000), async (req, res) => {
             poolsCache = { data: pools, timestamp: now };
         } catch (e) {
             console.error(e);
-            return res.status(500).json({ error: e.message });
+            return res.status(500).json({ error: 'Internal server error' });
         }
     }
 
@@ -773,7 +785,7 @@ app.get('/pools', rateLimit(20, 60000), async (req, res) => {
         res.json({ data: paginatedPools, total, page, totalPages });
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -847,7 +859,7 @@ app.get('/pool/providers', rateLimit(10, 60000), async (req, res) => {
         res.json(providers);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -872,7 +884,7 @@ app.get('/stats/network/trend', rateLimit(15, 60000), async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('Error stats/network/trend:', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -925,7 +937,7 @@ app.get('/stats/stablecoins', rateLimit(20, 60000), async (req, res) => {
         res.json(results);
     } catch (e) {
         console.error('Error stats/stablecoins:', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -946,7 +958,7 @@ app.get('/stats/trending-tokens', rateLimit(20, 60000), async (req, res) => {
         res.json(data);
     } catch (e) {
         console.error('Error stats/trending-tokens:', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -975,7 +987,7 @@ app.get('/pool/activity', rateLimit(20, 60000), async (req, res) => {
         res.json(activity || []);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1037,7 +1049,7 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(15, 60000), async (req, 
         res.json({ page: page, totalHolders: fullList.length, totalPages: Math.ceil(fullList.length / limit), data: paginatedItems });
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1145,7 +1157,7 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
         res.json(poolsData.sort((a, b) => b.value - a.value));
     } catch (e) {
         console.error("Error fetching wallet liquidity:", e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1223,15 +1235,7 @@ async function getAddressBalances(address) {
                         if (tokenPrices['XST'] > 0.1) price = tokenPrices['XST'];
                     }
 
-                    lastXstDebugLog = {
-                        msg: `💰 BALANCE XST`,
-                        amount: amount.toFixed(4),
-                        price: price,
-                        val: amount.times(price).toFixed(2),
-                        sym: sym,
-                        assetId: assetId
-                    };
-                    console.log(JSON.stringify(lastXstDebugLog));
+                    console.log(`💰 BALANCE XST: ${amount.toFixed(4)} @ $${price}`);
                 }
                 // ----------------
 
@@ -1317,7 +1321,7 @@ app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), as
         res.json(data);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1340,7 +1344,7 @@ app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), asyn
         res.json(result);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1364,7 +1368,7 @@ app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
         res.json(result);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1381,7 +1385,7 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/extrinsics:', e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1389,7 +1393,7 @@ app.get('/history/extrinsic-sections', rateLimit(10, 60000), (req, res) => {
     try {
         res.json(getExtrinsicSections());
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1400,7 +1404,7 @@ app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), (
         const result = getExtrinsicsByAddress(req.params.address, page, limit);
         res.json(result);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1438,7 +1442,7 @@ app.post('/api/identities', rateLimit(30, 60000), async (req, res) => {
         res.json(result);
     } catch (e) {
         console.error('Error /api/identities:', e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1463,7 +1467,7 @@ app.get('/history/global/liquidity', rateLimit(30, 60000), async (req, res) => {
         res.json(result);
     } catch (e) {
         console.error(e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1474,7 +1478,7 @@ app.get('/history/swaps/:address', validateAddress, rateLimit(30, 60000), async 
         res.json(await getSwaps(req.params.address, parseInt(req.query.page) || 1));
     } catch (e) {
         console.error('Error getting swaps for ' + req.params.address, e);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 app.get('/chart/:symbol', validateSymbol, rateLimit(30, 60000), async (req, res) => res.json(await getCandles(req.params.symbol, req.query.res || 60)));
@@ -1491,7 +1495,7 @@ app.get('/stats/accumulation', rateLimit(15, 60000), async (req, res) => {
         const data = await getTopAccumulators(symbol, ms);
         res.json({ symbol, timeframe, data });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1513,7 +1517,7 @@ app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
             tps: tps.toFixed(2)
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1562,7 +1566,7 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
             trends: trends
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1581,7 +1585,7 @@ app.get('/stats/header', rateLimit(30, 60000), async (req, res) => {
             bridges: stats.bridges
         });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1598,7 +1602,7 @@ app.get('/stats/fees', rateLimit(20, 60000), async (req, res) => {
         const stats = await getFeeStats(startTime);
         res.json(stats);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -1616,32 +1620,12 @@ app.get('/stats/fees/trend', rateLimit(20, 60000), async (req, res) => {
         const stats = await getFeeTrend(startTime, interval);
         res.json(stats);
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 
-// --- DEBUG STATE ---
-let lastXstDebugLog = null;
-
-app.get('/debug/xst', (req, res) => {
-    const xstAssets = ASSETS.filter(a => a.symbol === 'XST');
-    const xstPrice = tokenPrices['XST'];
-    const xstUsdPrice = tokenPrices['XSTUSD']; // Add this
-    const mXorPrice = tokenPrices['XOR']; // Add this
-
-    res.json({
-        xstAssets,
-        xstPrice,
-        xstUsdPrice,
-        mXorPrice,
-        allTokenPricesKeys: Object.keys(tokenPrices).filter(k => k.includes('XST')),
-        lastLog: lastXstDebugLog
-    });
-});
-
-
-app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
+app.get('/', rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/index.html'));
 
 async function startApp() {
     console.log('🛡️ Iniciando servidor con Alta Estabilidad (Proxy Limitado + Batching 3s)...');
