@@ -138,9 +138,12 @@ function initDB() {
         CREATE INDEX IF NOT EXISTS idx_transfers_to ON transfers(to_addr);
         CREATE INDEX IF NOT EXISTS idx_bridges_timestamp ON bridges(timestamp);
         CREATE INDEX IF NOT EXISTS idx_bridges_sender ON bridges(sender);
+        CREATE INDEX IF NOT EXISTS idx_bridges_block ON bridges(block);
         CREATE INDEX IF NOT EXISTS idx_fees_timestamp ON fees(timestamp);
         CREATE INDEX IF NOT EXISTS idx_liquidity_timestamp ON liquidity_events(timestamp);
         CREATE INDEX IF NOT EXISTS idx_liquidity_wallet ON liquidity_events(wallet);
+        CREATE INDEX IF NOT EXISTS idx_transfers_block ON transfers(block);
+        CREATE INDEX IF NOT EXISTS idx_liquidity_block ON liquidity_events(block);
     `);
 
     // Prepare statements (compiled once, reused for every insert)
@@ -159,7 +162,10 @@ function initDB() {
     stmts.insertFee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value)
         VALUES (?, ?, ?, ?, ?)`);
 
-    stmts.checkBlock = db.prepare('SELECT 1 FROM swaps WHERE block = ? LIMIT 1');
+    stmts.checkBlockSwaps = db.prepare('SELECT 1 FROM swaps WHERE block = ? LIMIT 1');
+    stmts.checkBlockTransfers = db.prepare('SELECT 1 FROM transfers WHERE block = ? LIMIT 1');
+    stmts.checkBlockBridges = db.prepare('SELECT 1 FROM bridges WHERE block = ? LIMIT 1');
+    stmts.checkBlockLiquidity = db.prepare('SELECT 1 FROM liquidity_events WHERE block = ? LIMIT 1');
 
     console.log('✅ Tables, indices, and prepared statements ready.');
 }
@@ -171,9 +177,14 @@ function withTransaction(fn) {
     return transaction();
 }
 
-// Check if block already processed
+// Check if block already processed (checks ALL tables, not just swaps)
 function blockAlreadyProcessed(blockNumber) {
-    return !!stmts.checkBlock.get(blockNumber);
+    return !!(
+        stmts.checkBlockSwaps.get(blockNumber) ||
+        stmts.checkBlockTransfers.get(blockNumber) ||
+        stmts.checkBlockBridges.get(blockNumber) ||
+        stmts.checkBlockLiquidity.get(blockNumber)
+    );
 }
 
 // Insert functions (synchronous - called inside transactions)
