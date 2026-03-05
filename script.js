@@ -738,11 +738,12 @@ function toggleFavorite(symbol) {
 
 
 
-// Listen for network stats (Sora Intelligence)
+// Listen for network stats (Sora Intelligence) — debounced to avoid rate-limit 429s
+let _headerDebounce = null;
 socket.on('new-block-stats', (stats) => {
     if (!stats || typeof stats !== 'object') return;
-    // Just re-fetch to respect current filter
-    loadNetworkHeader();
+    if (_headerDebounce) clearTimeout(_headerDebounce);
+    _headerDebounce = setTimeout(() => loadNetworkHeader(), 10000);
 });
 
 let lastSwapUpdate = 0;
@@ -825,6 +826,8 @@ socket.on('extrinsics-batch', (batch) => {
 
     const recentItems = batch.slice(-MAX_VISUAL_ITEMS);
     for (const d of recentItems) {
+        // Skip noisy system extrinsics
+        if (d.section === 'timestamp' && d.method === 'set') continue;
         // Skip if doesn't match active filters
         if (activeFilter && d.section !== activeFilter) continue;
         if (resultFilterVal === '1' && !d.success) continue;
@@ -994,7 +997,11 @@ async function fetchBalance(address) {
 
 
 function createWalletCard(wallet, data, isUnified = false) {
-    const topTokens = data.tokens.slice(0, 3).map(t => `<img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" title="${t.amount} ${t.symbol}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'" style="width:20px; height:20px; border-radius:50%; margin-right:-5px; border:1px solid var(--bg-card); object-fit:contain;">`).join('');
+    const topTokens = data.tokens.slice(0, 3).map(t => {
+        const safeUrl = esc(getProxyUrl(t.logo));
+        const safeTitle = esc(`${t.amount} ${t.symbol}`);
+        return `<img src="${safeUrl}" loading="lazy" decoding="async" fetchpriority="low" title="${safeTitle}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'" style="width:20px; height:20px; border-radius:50%; margin-right:-5px; border:1px solid var(--bg-card); object-fit:contain;">`;
+    }).join('');
 
     // Hide delete button if unified
     const deleteBtn = isUnified ? '' : `<button style="border:none; background:none; color:#EF4444; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); deleteWallet('${esc(wallet.address)}')">🗑️</button>`;
@@ -1008,7 +1015,7 @@ function createWalletCard(wallet, data, isUnified = false) {
 <div class="card" style="margin:0; padding:15px; border:1px solid var(--border-color); transition: all 0.2s; cursor:${cursor}; background:var(--bg-card);" ${onClick} onmouseover="this.style.boxShadow=var(--shadow-hover)" onmouseout="this.style.boxShadow='none'">
 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
     <div>
-        <h4 style="margin:0; color:var(--text-primary);">${wallet.name}</h4>
+        <h4 style="margin:0; color:var(--text-primary);">${esc(wallet.name)}</h4>
         ${addressDisplay}
     </div>
     ${deleteBtn}
@@ -1291,9 +1298,6 @@ let transferPage = 1; let transferTotalPages = 1; let swapPage = 1; let swapTota
 function changeTransferPage(d) {
     if (transferPage + d > 0 && transferPage + d <= transferTotalPages) { transferPage += d; loadGlobalTransfers(); }
 }
-function changeSwapPage(d) {
-    if (swapPage + d > 0 && swapPage + d <= swapTotalPages) { swapPage += d; loadGlobalSwaps(); }
-}
 function setPoolFilter(mode) {
     pFilter = mode; poolPage = 1;
     const btns = ['btnPoolAll', 'btnPoolXor', 'btnPoolXst', 'btnPoolKusd', 'btnPoolVxor'];
@@ -1402,9 +1406,9 @@ async function openWalletDetails(address) {
     const isSaved = !!walletAliases[address];
     const name = walletAliases[address] || TRANSLATIONS[currentLang].wallet;
 
-    let titleHtml = name;
+    let titleHtml = esc(name);
     if (isSaved) {
-        titleHtml += ` <button onclick="editWalletAlias('${address}')" title="Editar Alias" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
+        titleHtml += ` <button onclick="editWalletAlias('${esc(address)}')" title="Editar Alias" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
     }
     document.getElementById('detailsTitle').innerHTML = titleHtml;
     document.getElementById('detailsAddr').innerText = address;
@@ -1932,11 +1936,13 @@ async function loadNetworkHeader() {
         const tf = tfEl ? tfEl.value : '1d';
 
         const res = await fetch(`/stats/header?timeframe=${tf}`);
+        if (!res.ok) return; // don't overwrite on 429/500
         const stats = await res.json();
+        if (stats.error) return; // don't overwrite on API error
 
         const update = (id, val) => {
             const el = document.getElementById(id);
-            if (el) el.innerText = val ? val.toLocaleString() : '0';
+            if (el) el.innerText = (val != null) ? val.toLocaleString() : '0';
         };
 
         if (stats.block) document.getElementById('stat-block').innerText = '#' + stats.block.toLocaleString();
@@ -2004,9 +2010,13 @@ async function loadNetworkFees() {
 // Global Chart Instances
 var feeDonutChart = null;
 var feeLineChart = null;
+var lastFeeMap = null;
 
 async function renderFeeCharts(currentMap) {
-    // VISIBLE DEBUG (DELETE LATER)
+    if (currentMap) lastFeeMap = currentMap;
+    else currentMap = lastFeeMap;
+    if (!currentMap) return;
+
     if (typeof Chart === 'undefined') {
         console.warn('Chart.js not ready, retrying in 500ms...');
         setTimeout(() => renderFeeCharts(currentMap), 500);
@@ -2183,12 +2193,13 @@ function renderWhales() {
     pageData.forEach((w, index) => {
         const rank = startIndex + index + 1;
         const percentage = w.last_buy ? new Date(w.last_buy).toLocaleDateString() : '-';
-        const alias = walletAliases[w.wallet] || formatAddress(w.wallet);
+        const rawAlias = walletAliases[w.wallet];
+        const aliasContent = rawAlias ? esc(rawAlias) : formatAddress(w.wallet);
         const isWhale = w.total_bought_usd > 50000;
         const icon = isWhale ? '🐋' : (w.total_bought_usd > 10000 ? '🦈' : '🐟');
 
         // Make alias clickable
-        const aliasHtml = `<span onclick="openWalletDetails('${w.wallet}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${alias}</span>`;
+        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${aliasContent}</span>`;
 
         html += `
         <div class="whale-row">
@@ -2570,10 +2581,10 @@ async function loadGlobalBridges(reset = false) {
                         return `<a href="https://etherscan.io/address/${d.sender}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.sender}">${senderShort} 🔗</a>`;
                     } else {
                         // SORA address
-                        return `<span onclick="openWalletDetails('${d.sender}')" class="wallet-unsaved">${senderShort}</span>`;
+                        return `<span onclick="openWalletDetails('${esc(d.sender)}')" class="wallet-unsaved">${senderShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${d.sender}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.sender)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
                 </td>
                 <td style="font-size:11px;">
                     ${(() => {
@@ -2583,10 +2594,10 @@ async function loadGlobalBridges(reset = false) {
                         return `<a href="https://etherscan.io/address/${d.recipient}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.recipient}">${recipientShort} 🔗</a>`;
                     } else {
                         // SORA address
-                        return `<span onclick="openWalletDetails('${d.recipient}')" class="wallet-unsaved">${recipientShort}</span>`;
+                        return `<span onclick="openWalletDetails('${esc(d.recipient)}')" class="wallet-unsaved">${recipientShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${d.recipient}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.recipient)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
                 </td>
                 <td>
                     <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
@@ -3267,7 +3278,7 @@ async function loadPoolProviders(base, target) {
                 <tr>
                     <td>#${i + 1}</td>
                     <td>
-                        <span class="clickable-address" onclick="openWalletDetails('${p.address}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
+                        <span class="clickable-address" onclick="openWalletDetails('${esc(p.address)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
                             ${walletDisplay}
                         </span>
                     </td>
@@ -3317,7 +3328,7 @@ async function loadPoolActivity(base, target) {
                 <tr>
                     <td style="font-size:12px; color:var(--text-secondary);">${a.time}</td>
                     <td>
-                         <span class="clickable-address" onclick="openWalletDetails('${a.wallet}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
+                         <span class="clickable-address" onclick="openWalletDetails('${esc(a.wallet)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
                             ${formatAddress(a.wallet)}
                         </span>
                     </td>
@@ -3663,9 +3674,9 @@ async function loadGlobalLiquidity(reset = false) {
                         <div style="color:#6B7280; font-size:11px;">${targetAmt} ${d.pool_target}</div>
                         <div style="color:#10B981; font-size:11px; font-weight:bold;">$${parseFloat(d.usd_value).toLocaleString()}</div>
                     </td>
-                    <td><span onclick="openWalletDetails('${d.wallet}')" class="clickable-address ${walletShort.includes('...') ? '' : 'wallet-alias'}">${walletShort}</span></td>
+                    <td><span onclick="openWalletDetails('${esc(d.wallet)}')" class="clickable-address ${walletShort.includes('...') ? '' : 'wallet-alias'}">${walletShort}</span></td>
                     <td>
-                        <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍</button>
+                        <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍</button>
                     </td>
                 </tr>
             `;

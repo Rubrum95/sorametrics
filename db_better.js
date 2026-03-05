@@ -476,6 +476,9 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     let conditions = [];
     let params = [];
 
+    // Filter out noisy system extrinsics
+    conditions.push(`NOT (section = 'timestamp' AND method = 'set')`);
+
     if (section) {
         conditions.push(`section = ?`);
         params.push(section);
@@ -528,7 +531,7 @@ function getExtrinsicSections() {
                 `SELECT DISTINCT section FROM main.extrinsics ORDER BY section ASC`
             ).all();
         }
-        return sections.map(r => r.section).filter(Boolean);
+        return sections.map(r => r.section).filter(s => s && s !== 'timestamp');
     } catch (e) {
         return [];
     }
@@ -832,7 +835,7 @@ function getPriceChange(symbol, currentPrice, timeframeMs) {
     if (!currentPrice || currentPrice === 0) return Promise.resolve(0);
 
     const pastTime = Date.now() - timeframeMs;
-    const cols = `in_symbol, out_symbol, in_amount, out_amount, in_usd, out_usd`;
+    const cols = `in_symbol, out_symbol, in_amount, out_amount, in_usd, out_usd, timestamp`;
 
     let row;
     if (historyHasTable('swaps')) {
