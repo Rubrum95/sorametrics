@@ -5,20 +5,86 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend } = require('./db');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents } = require('./db_better');
 // ... (imports)
 
 
 
 
 const { WS_ENDPOINT, WHITELIST_URL } = require('./config');
-const { resolveEthSender } = require('./eth_helper');
+// eth_helper.js - DESACTIVADO temporalmente por memory leak
+// const { resolveEthSender } = require('./eth_helper');
+function resolveEthSender() { return Promise.resolve(null); }
+
+// Helper: queries con timeout (5 segundos) para evitar memory leak
+function withTimeout(promise, ms = 5000) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Query timeout')), ms);
+    });
+    
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+}
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
 
+// --- CORS: Restringir orígenes (permite mismo origen + dev localhost) ---
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+app.use(cors({
+    origin: (origin, cb) => {
+        // Mismo origen (sin header Origin) o orígenes permitidos
+        if (!origin || ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        cb(null, false);
+    }
+}));
+app.use(express.json());
+
+// --- STATIC FILES: Solo servir archivos frontend, no código backend ---
+const path = require('path');
+const ALLOWED_STATIC = new Set(['/', '/index.html', '/script.js', '/sw.js', '/manifest.json', '/favicon.svg', '/header-banner.jpg']);
+app.use((req, res, next) => {
+    if (req.method === 'GET' && ALLOWED_STATIC.has(req.path)) {
+        return express.static(__dirname)(req, res, next);
+    }
+    next();
+});
+
+// --- RATE LIMITER simple (sin dependencias) ---
+const rateLimitMap = new Map();
+function rateLimit(maxReqs = 30, windowMs = 60000) {
+    return (req, res, next) => {
+        const ip = req.ip || req.connection.remoteAddress;
+        const now = Date.now();
+        let entry = rateLimitMap.get(ip);
+        if (!entry || now - entry.start > windowMs) {
+            entry = { start: now, count: 1 };
+            rateLimitMap.set(ip, entry);
+        } else {
+            entry.count++;
+        }
+        if (entry.count > maxReqs) {
+            return res.status(429).json({ error: 'Too many requests' });
+        }
+        next();
+    };
+}
+// Limpiar entradas antiguas cada 5 minutos
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+        if (now - entry.start > 120000) rateLimitMap.delete(ip);
+    }
+}, 300000);
+
+// --- TIMEFRAME MAP compartido (evita duplicación) ---
+const TIMEFRAME_MS = {
+    '1h': 3600000, '4h': 14400000, '24h': 86400000, '1d': 86400000,
+    '7d': 604800000, '30d': 2592000000, '1m': 2592000000, '1y': 31536000000, 'all': 0
+};
+
+// Helper: queries con timeout para evitar memory leak
 // Forzar carga de favicon
 app.get('/favicon.svg', (req, res) => res.sendFile(__dirname + '/favicon.svg'));
 
@@ -66,7 +132,11 @@ function processQueue() {
             const buffer = Buffer.concat(chunks);
             const contentType = proxyRes.headers['content-type'] || 'image/png';
 
-            if (imageCache.size > 2000) imageCache.clear();
+            // LRU: eliminar las 500 entradas más antiguas en vez de borrar todo
+            if (imageCache.size > 2000) {
+                const keys = [...imageCache.keys()].slice(0, 500);
+                keys.forEach(k => imageCache.delete(k));
+            }
             imageCache.set(targetUrl, { buffer, contentType });
 
             if (!res.headersSent) {
@@ -106,7 +176,7 @@ app.get('/proxy-image', (req, res) => {
     // Solo http/https
     if (!['http:', 'https:'].includes(u.protocol)) return res.status(400).send('Bad protocol');
 
-    // Bloqueo básico anti-SSRF (localhost / redes privadas)
+    // Bloqueo anti-SSRF (localhost, redes privadas, IPv6, brackets)
     const host = (u.hostname || '').toLowerCase();
     const isPrivate =
         host === 'localhost' ||
@@ -116,9 +186,21 @@ app.get('/proxy-image', (req, res) => {
         host.startsWith('10.') ||
         host.startsWith('192.168.') ||
         /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-        host === '169.254.169.254';
+        host === '169.254.169.254' ||
+        host.startsWith('[') ||          // IPv6 brackets
+        host === '::1' ||                // IPv6 loopback
+        host.startsWith('::ffff:') ||    // IPv6-mapped IPv4
+        host.startsWith('fd') ||         // IPv6 private
+        host.startsWith('fc') ||         // IPv6 private
+        host.startsWith('fe80');         // IPv6 link-local
 
     if (isPrivate) return sendPlaceholder(res);
+
+    // Solo permitir dominios de logos conocidos (sora-xor, github)
+    const allowedHosts = ['raw.githubusercontent.com', 'github.com', 'avatars.githubusercontent.com'];
+    if (!allowedHosts.some(h => host === h || host.endsWith('.' + h))) {
+        return sendPlaceholder(res);
+    }
 
     const normalized = u.href;
 
@@ -141,7 +223,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // --- CACHÉ INTELIGENTE ---
-const CACHE_TTL = 60 * 1000;
+const CACHE_TTL = 30 * 1000; // 30s para tokens
 let globalTokenCache = { timestamp: 0, data: null };
 
 let api = null;
@@ -149,6 +231,21 @@ let ASSETS = [];
 let tokenPrices = {};
 let holdersCache = {};
 const CACHE_DURATION = 5 * 60 * 1000;
+
+// Caché para endpoints
+let swapsCache = { data: null, timestamp: 0 };
+let transfersCache = { data: null, timestamp: 0 };
+let tokensCache = { data: null, timestamp: 0 };
+let poolsCache = { data: null, timestamp: 0 };
+let providersCache = { data: null, timestamp: 0 };
+let activityCache = { data: null, timestamp: 0 };
+
+const SWAPS_TTL = 24 * 1000;    // 24s
+const TRANSFERS_TTL = 60 * 1000; // 60s
+const TOKENS_TTL = 30 * 1000;   // 30s
+const POOLS_TTL = 60 * 1000;    // 60s
+const PROVIDERS_TTL = 90 * 1000; // 90s
+const ACTIVITY_TTL = 90 * 1000;  // 90s
 
 
 
@@ -170,7 +267,6 @@ let sessionStats = { extrinsics: 0, bridges: 0, block: 0 };
 async function loadOfficialWhitelist() {
     try {
         console.log('📥 Descargando lista oficial de activos...');
-        const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
         const response = await fetch(WHITELIST_URL);
         const data = await response.json();
         ASSETS = data.map(item => ({
@@ -217,7 +313,7 @@ function getAssetInfo(rawId) {
 
 async function getXorPriceInDai() {
     try {
-        const reserves = await api.query.poolXYK.reserves(XOR_ID, DAI_ID);
+        const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, DAI_ID));
         const jsonData = reserves.toJSON();
         if (!jsonData || jsonData.length < 2) return 0;
 
@@ -235,7 +331,7 @@ async function getXorPriceInDai() {
 
 async function getTokenPriceInXor(assetId, tokenDecimals) {
     try {
-        const reserves = await api.query.poolXYK.reserves(XOR_ID, assetId);
+        const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, assetId));
         const jsonData = reserves.toJSON();
         if (!jsonData || jsonData.length < 2) return 0;
 
@@ -255,8 +351,20 @@ async function getTokenPriceInXor(assetId, tokenDecimals) {
 
 async function getPriceInDai(assetId, decimals) {
     try {
+        // CHECK CACHE FIRST - evitar queries innecesarias
+        const cacheKey = `${assetId}_${decimals}`;
+        if (getPriceInDai.cache && getPriceInDai.cache[cacheKey] && (Date.now() - getPriceInDai.cacheTime < 60000)) {
+            return getPriceInDai.cache[cacheKey];
+        }
+        
         if (assetId === DAI_ID) return 1;
         if (!api) return 0;
+        
+        // Init cache if not exists
+        if (!getPriceInDai.cache) {
+            getPriceInDai.cache = {};
+            getPriceInDai.cacheTime = 0;
+        }
 
         // --- SPECIAL CASE: XST ---
         // The XOR-XST pool is deprecated or unbalanced. Use XST-XSTUSD pool instead.
@@ -271,7 +379,7 @@ async function getPriceInDai(assetId, decimals) {
 
             // 2. Get XST Price relative to XSTUSD (XST-XSTUSD pool)
             // Pair order: XSTUSD (0x020008...) < XST (0x020009...)
-            const reserves = await api.query.poolXYK.reserves(XSTUS_ID, XST_ID);
+            const reserves = await withTimeout(api.query.poolXYK.reserves(XSTUS_ID, XST_ID));
             const jsonData = reserves.toJSON();
 
             if (jsonData && jsonData.length >= 2) {
@@ -281,8 +389,12 @@ async function getPriceInDai(assetId, decimals) {
                     const baseNormal = baseRes.div('1e18');
                     const targetNormal = targetRes.div('1e18'); // Both 18 dec
                     const priceInXstUsd = baseNormal.div(targetNormal).toNumber();
-
-                    return priceInXstUsd * xstusdPrice;
+                    
+                    const finalPrice = priceInXstUsd * xstusdPrice;
+                    getPriceInDai.cache[cacheKey] = finalPrice;
+                    getPriceInDai.cacheTime = Date.now();
+                    
+                    return finalPrice;
                 }
             }
         }
@@ -290,12 +402,22 @@ async function getPriceInDai(assetId, decimals) {
 
         // 1. Get XOR Price in DAI (Anchor)
         const xorPrice = await getXorPriceInDai();
-        if (assetId === XOR_ID) return xorPrice;
+        if (assetId === XOR_ID) {
+            getPriceInDai.cache[cacheKey] = xorPrice;
+            getPriceInDai.cacheTime = Date.now();
+            return xorPrice;
+        }
         if (xorPrice === 0) return 0;
 
         // 2. Get Token Price relative to XOR
         const tokenPriceInXor = await getTokenPriceInXor(assetId, decimals);
-        return tokenPriceInXor * xorPrice;
+        const finalPrice = tokenPriceInXor * xorPrice;
+        
+        // SAVE TO CACHE
+        getPriceInDai.cache[cacheKey] = finalPrice;
+        getPriceInDai.cacheTime = Date.now();
+        
+        return finalPrice;
 
     } catch (e) {
         console.error(`CRITICAL ERROR in getPriceInDai for ${assetId}:`, e);
@@ -416,8 +538,7 @@ app.get('/tokens', async (req, res) => {
         }));
     }
 
-    const timeframeMap = { '1h': 3600000, '4h': 14400000, '24h': 86400000, '1d': 86400000, '7d': 604800000, '30d': 2592000000, '1m': 2592000000, '1y': 31536000000 };
-    const tfMs = timeframeMap[timeframe] || 86400000;
+    const tfMs = TIMEFRAME_MS[timeframe] || 86400000;
 
     const enriched = await Promise.all(paginated.map(async a => {
         // If onlySparklines, we skip price change and just get spark
@@ -461,9 +582,18 @@ app.get('/pools', async (req, res) => {
     if (!api) return res.json({ data: [], total: 0 });
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const now = Date.now();
+    const cacheKey = `pools_${page}_${limit}_${req.query.base}`;
+
+    // Check cache (60s)
+    if (poolsCache.data && poolsCache.timestamp && (now - poolsCache.timestamp < POOLS_TTL)) {
+        const cached = JSON.parse(JSON.stringify(poolsCache.data));
+        const startIndex = (page - 1) * limit;
+        return res.json({ data: cached.slice(startIndex, startIndex + limit), total: cached.length, page, totalPages: Math.ceil(cached.length / limit) });
+    }
 
     try {
-        const entries = await api.query.poolXYK.reserves.entries();
+        const entries = await withTimeout(api.query.poolXYK.reserves.entries());
         let pools = [];
 
         for (const [key, value] of entries) {
@@ -503,6 +633,10 @@ app.get('/pools', async (req, res) => {
         const totalPages = Math.ceil(total / limit);
         const startIndex = (page - 1) * limit;
         const paginatedPools = pools.slice(startIndex, startIndex + limit);
+        
+        // Guardar en caché
+        poolsCache = { data: pools, timestamp: now };
+        
         res.json({ data: paginatedPools, total, page, totalPages });
     } catch (e) {
         console.error(e);
@@ -510,9 +644,18 @@ app.get('/pools', async (req, res) => {
     }
 });
 
-app.get('/pool/providers', async (req, res) => {
+app.get('/pool/providers', rateLimit(10, 60000), async (req, res) => {
+    const now = Date.now();
+    const { base, target } = req.query;
+    const cacheKey = `${base}_${target}`;
+    
+    // Check cache (90s)
+    if (providersCache.data && providersCache.timestamp && (now - providersCache.timestamp < PROVIDERS_TTL)) {
+        const cached = providersCache.data[cacheKey];
+        if (cached) return res.json(cached);
+    }
+    
     try {
-        const { base, target } = req.query;
         if (!base || !target) return res.status(400).json({ error: 'Missing base or target' });
         if (!api) return res.json([]);
 
@@ -521,7 +664,7 @@ app.get('/pool/providers', async (req, res) => {
         // Step 1: Find the Pool Account from properties storage
         let poolAccount = null;
 
-        const props = await api.query.poolXYK.properties(base, target);
+        const props = await withTimeout(api.query.poolXYK.properties(base, target));
         if (props && !props.isEmpty) {
             const propsHuman = props.toHuman();
             console.log('   Pool properties:', JSON.stringify(propsHuman).substring(0, 100));
@@ -534,7 +677,7 @@ app.get('/pool/providers', async (req, res) => {
 
         // Try reverse pair
         if (!poolAccount) {
-            const propsReverse = await api.query.poolXYK.properties(target, base);
+            const propsReverse = await withTimeout(api.query.poolXYK.properties(target, base));
             if (propsReverse && !propsReverse.isEmpty) {
                 const propsHuman = propsReverse.toHuman();
                 console.log('   Pool properties (reversed):', JSON.stringify(propsHuman).substring(0, 100));
@@ -552,7 +695,7 @@ app.get('/pool/providers', async (req, res) => {
         console.log(`   ✅ Pool account: ${String(poolAccount).substring(0, 20)}...`);
 
         // Step 2: Query poolProviders for this specific pool account
-        const providerEntries = await api.query.poolXYK.poolProviders.entries(poolAccount);
+        const providerEntries = await withTimeout(api.query.poolXYK.poolProviders.entries(poolAccount));
         console.log(`   Provider entries: ${providerEntries.length}`);
 
         const providers = providerEntries.map(([key, value]) => {
@@ -562,6 +705,12 @@ app.get('/pool/providers', async (req, res) => {
         }).sort((a, b) => b.balance - a.balance);
 
         console.log(`✅ Found ${providers.length} providers`);
+        
+        // Save to cache
+        if (!providersCache.data) providersCache.data = {};
+        providersCache.data[cacheKey] = providers;
+        providersCache.timestamp = now;
+        
         res.json(providers);
     } catch (e) {
         console.error(e);
@@ -608,11 +757,10 @@ app.get('/stats/stablecoins', async (req, res) => {
 
         // Map timeframe for sparkline function if needed, or pass ms. 
         // getSparkline takes (symbol, msWindow)
-        const timeframeMap = { '1h': 3600000, '4h': 14400000, '24h': 86400000, '7d': 604800000, '30d': 2592000000 };
-        const msWindow = timeframeMap[timeframe] || 86400000;
+        const msWindow = TIMEFRAME_MS[timeframe] || 86400000;
 
         // 1. Get Volumes
-        const volStats = await require('./db').getStablecoinStats(startTime);
+        const volStats = await getStablecoinStats(startTime);
 
         // 2. Get Prices & Sparklines
         const TOKENS = ['KUSD', 'XSTUSD', 'TBCD'];
@@ -629,7 +777,7 @@ app.get('/stats/stablecoins', async (req, res) => {
             }
 
             // Get sparkline
-            const sparkline = await require('./db').getSparkline(sym, msWindow);
+            const sparkline = await getSparkline(sym, msWindow);
 
             results.push({
                 symbol: sym,
@@ -661,7 +809,7 @@ app.get('/stats/trending-tokens', async (req, res) => {
         if (timeframe === 'all') startTime = 0;
 
         // Ensure getTopTokens is imported
-        const data = await require('./db').getTopTokens(startTime);
+        const data = await getTopTokens(startTime);
         res.json(data);
     } catch (e) {
         console.error('Error stats/trending-tokens:', e);
@@ -670,12 +818,27 @@ app.get('/stats/trending-tokens', async (req, res) => {
 });
 
 app.get('/pool/activity', async (req, res) => {
+    const now = Date.now();
+    const { base, target } = req.query;
+    const cacheKey = `${base}_${target}`;
+    
+    // Check cache (90s)
+    if (activityCache.data && activityCache.timestamp && (now - activityCache.timestamp < ACTIVITY_TTL)) {
+        const cached = activityCache.data[cacheKey];
+        if (cached) return res.json(cached);
+    }
+    
     try {
-        const { base, target } = req.query;
         if (!base || !target) return res.status(400).json({ error: 'Missing base or target' });
 
         const limit = parseInt(req.query.limit) || 50;
         const activity = await getPoolActivity(base, target, limit);
+        
+        // Save to cache
+        if (!activityCache.data) activityCache.data = {};
+        activityCache.data[cacheKey] = activity || [];
+        activityCache.timestamp = now;
+        
         res.json(activity || []);
     } catch (e) {
         console.error(e);
@@ -683,7 +846,7 @@ app.get('/pool/activity', async (req, res) => {
     }
 });
 
-app.get('/holders/:assetId', async (req, res) => {
+app.get('/holders/:assetId', rateLimit(5, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API no lista' });
 
     const assetId = req.params.assetId;
@@ -705,7 +868,7 @@ app.get('/holders/:assetId', async (req, res) => {
             const XOR_ID = '0x0200000000000000000000000000000000000000000000000000000000000000';
 
             if (assetId === XOR_ID) {
-                const allEntries = await api.query.system.account.entries();
+                const allEntries = await withTimeout(api.query.system.account.entries());
                 for (const [key, value] of allEntries) {
                     const data = value.toJSON();
                     const free = (data.data && data.data.free) ? data.data.free.toString() : '0';
@@ -715,7 +878,7 @@ app.get('/holders/:assetId', async (req, res) => {
                     }
                 }
             } else {
-                const allEntries = await api.query.tokens.accounts.entries();
+                const allEntries = await withTimeout(api.query.tokens.accounts.entries());
                 for (const [key, value] of allEntries) {
                     const keyArgs = key.args;
                     let currentAssetId = keyArgs[1].toString();
@@ -750,7 +913,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
     const address = req.params.address;
     try {
         console.log(`Liquidity Check Start: ${address}`);
-        const allProps = await api.query.poolXYK.properties.entries();
+        const allProps = await withTimeout(api.query.poolXYK.properties.entries());
         console.log(`Total pools to scan: ${allProps.length}`);
 
         // OPTIMIZATION: Use larger chunks + multi query
@@ -782,7 +945,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
             if (chunkArgs.length === 0) continue;
 
             // Fetch ALL balances in one go
-            const balances = await api.query.poolXYK.poolProviders.multi(chunkArgs);
+            const balances = await withTimeout(api.query.poolXYK.poolProviders.multi(chunkArgs));
 
             // Process results (only non-zero)
             const activePools = [];
@@ -802,7 +965,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
                     const poolAccount = pool.account;
                     const userBalance = pool.balance;
 
-                    const totalIssuanceCodec = await api.query.poolXYK.totalIssuances(poolAccount);
+                    const totalIssuanceCodec = await withTimeout(api.query.poolXYK.totalIssuances(poolAccount));
                     const totalIssuance = new BigNumber(totalIssuanceCodec.toString());
                     if (totalIssuance.isZero()) return;
 
@@ -813,7 +976,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
                     if (typeof baseId === 'object' && baseId.code) baseId = baseId.code;
                     if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
 
-                    const resCodec = await api.query.poolXYK.reserves(baseId, targetId);
+                    const resCodec = await withTimeout(api.query.poolXYK.reserves(baseId, targetId));
                     const reserves = resCodec.toJSON();
 
                     const baseRes = new BigNumber(String(reserves[0]).replace(/,/g, ''));
@@ -858,7 +1021,7 @@ app.get('/balance/:address', async (req, res) => {
     const address = req.params.address;
     const balances = [];
     try {
-        const { data: { free: xorFree } } = await api.query.system.account(address);
+        const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
         const xorAmt = new BigNumber(xorFree.toString()).div('1e18');
         if (xorAmt.gt(0)) {
             const xorDef = ASSETS.find(a => a.symbol === 'XOR');
@@ -868,7 +1031,7 @@ app.get('/balance/:address', async (req, res) => {
                 usdValue: xorAmt.times(tokenPrices['XOR'] || 0).toFixed(2)
             });
         }
-        const entries = await api.query.tokens.accounts.entries(address);
+        const entries = await withTimeout(api.query.tokens.accounts.entries(address));
         for (const [key, value] of entries) {
             const assetId = key.args[1].toString();
             const data = value.toJSON();
@@ -894,7 +1057,7 @@ app.get('/balance/:address', async (req, res) => {
 async function getAddressBalances(address) {
     const balances = [];
     try {
-        const { data: { free: xorFree } } = await api.query.system.account(address);
+        const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
         const xorAmt = new BigNumber(xorFree.toString()).div('1e18');
         if (xorAmt.gt(0)) {
             const xorDef = ASSETS.find(a => a.symbol === 'XOR');
@@ -905,7 +1068,7 @@ async function getAddressBalances(address) {
                 assetId: '0x0200000000000000000000000000000000000000000000000000000000000000'
             });
         }
-        const entries = await api.query.tokens.accounts.entries(address);
+        const entries = await withTimeout(api.query.tokens.accounts.entries(address));
         for (const [key, value] of entries) {
             const assetId = key.args[1].toString();
             const data = value.toJSON();
@@ -973,11 +1136,34 @@ app.post('/balances', async (req, res) => {
 });
 
 app.get('/history/global/transfers', async (req, res) => {
-    try { res.json(await getLatestTransfers(req.query.page || 1, 25, req.query.filter, req.query.timestamp)); } catch (e) { res.json({ data: [], total: 0 }); }
+    const now = Date.now();
+    
+    // Check cache (60s)
+    if (transfersCache.data && now - transfersCache.timestamp < TRANSFERS_TTL) {
+        return res.json(transfersCache.data);
+    }
+    
+    try { 
+        const data = await getLatestTransfers(req.query.page || 1, 25, req.query.filter, req.query.timestamp);
+        transfersCache = { data, timestamp: now };
+        res.json(data); 
+    } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
 app.get('/history/global/swaps', async (req, res) => {
-    try { res.json(await getLatestSwaps(req.query.page || 1, 25, req.query.token || req.query.filter, req.query.timestamp)); } catch (e) { res.json({ data: [], total: 0 }); }
+    const now = Date.now();
+    const cacheKey = `swaps_${req.query.page}_${req.query.token}_${req.query.filter}`;
+    
+    // Check cache (24s)
+    if (swapsCache.data && now - swapsCache.timestamp < SWAPS_TTL) {
+        return res.json(swapsCache.data);
+    }
+    
+    try { 
+        const data = await getLatestSwaps(req.query.page || 1, 25, req.query.token || req.query.filter, req.query.timestamp);
+        swapsCache = { data, timestamp: now };
+        res.json(data); 
+    } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
 app.get('/history/transfers/:address', async (req, res) => {
@@ -1017,7 +1203,6 @@ app.get('/history/bridges/:address', async (req, res) => {
 
 app.get('/history/global/bridges', async (req, res) => {
     try {
-        const { getLatestBridges } = require('./db');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
@@ -1042,7 +1227,6 @@ app.get('/history/global/bridges', async (req, res) => {
 
 app.get('/history/global/liquidity', async (req, res) => {
     try {
-        const { getLiquidityEvents } = require('./db');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
 
@@ -1066,25 +1250,7 @@ app.get('/history/global/liquidity', async (req, res) => {
     }
 });
 
-app.get('/pool/activity', async (req, res) => {
-    try {
-        const { getPoolActivity } = require('./db');
-        const base = req.query.base;
-        const target = req.query.target;
-        if (!base || !target) return res.json([]);
-
-        const data = await getPoolActivity(base, target);
-        res.json(data);
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.get('/pool/providers', async (req, res) => {
-    // Placeholder - we don't have provider tracking yet
-    res.json([]);
-});
+// REMOVED: Duplicate /pool/activity and /pool/providers routes (already defined above)
 
 app.get('/history/swaps/:address', async (req, res) => {
     try {
@@ -1102,20 +1268,9 @@ app.get('/stats/accumulation', async (req, res) => {
     const symbol = req.query.symbol || 'XOR';
     const timeframe = req.query.timeframe || '24h'; // 1h, 4h, 24h, 7d, 30d
 
-    const msMap = {
-        '1h': 3600000,
-        '4h': 14400000,
-        '24h': 86400000,
-        '1d': 86400000,
-        '7d': 604800000,
-        '30d': 2592000000,
-        '1m': 2592000000,
-        '1y': 31536000000
-    };
-    const ms = msMap[timeframe] || 86400000;
+    const ms = TIMEFRAME_MS[timeframe] || 86400000;
 
     try {
-        const { getTopAccumulators } = require('./db');
         const data = await getTopAccumulators(symbol, ms);
         res.json({ symbol, timeframe, data });
     } catch (e) {
@@ -1125,7 +1280,7 @@ app.get('/stats/accumulation', async (req, res) => {
 
 app.get('/stats/network', async (req, res) => {
     try {
-        const { getNetworkStats } = require('./db');
+
         // Snapshot de 24h
         const stats24h = await getNetworkStats(86400000);
         // Snapshot de 7d
@@ -1148,15 +1303,10 @@ app.get('/stats/network', async (req, res) => {
 app.get('/stats/overview', async (req, res) => {
     // Un endpoint agregado para el Dashboard
     try {
-        const { getNetworkStats, getMarketTrends, getLpVolume } = require('./db');
 
         // Parse timeframe from query
         const timeframe = req.query.timeframe || '1d';
-        const msMap = {
-            '1h': 3600000, '4h': 14400000, '1d': 86400000, '24h': 86400000,
-            '7d': 604800000, '30d': 2592000000, '1m': 2592000000, '1y': 31536000000, 'all': 0
-        };
-        const ms = msMap[timeframe] || 86400000;
+        const ms = TIMEFRAME_MS[timeframe] || 86400000;
 
         // 1. Stablecoin Pegs (Live from tokenPrices)
         const kusdPeg = tokenPrices['KUSD'] || 0;
@@ -1175,7 +1325,6 @@ app.get('/stats/overview', async (req, res) => {
         // 4. Transfer Volume (timeframe-based)
         let transferVolume = 0;
         try {
-            const { getTransferVolume } = require('./db');
             transferVolume = await getTransferVolume(ms);
         } catch (e) { /* silently ignore if function not exists */ }
 
@@ -1203,15 +1352,9 @@ app.get('/stats/overview', async (req, res) => {
 app.get('/stats/header', async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
-        const msMap = {
-            '1h': 3600000, '4h': 14400000, '1d': 86400000, '24h': 86400000,
-            '7d': 604800000, '30d': 2592000000, '1m': 2592000000, '1y': 31536000000, 'all': 0
-        };
-
-        const ms = msMap[timeframe];
+        const ms = TIMEFRAME_MS[timeframe];
         const startTime = (ms === undefined || ms === 0) ? 0 : (Date.now() - ms);
 
-        const { getFilteredStats } = require('./db');
         const stats = await getFilteredStats(startTime);
 
         res.json({
@@ -1245,12 +1388,7 @@ app.get('/stats/fees', async (req, res) => {
 app.get('/stats/fees/trend', async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
-        const msMap = {
-            '1h': 3600000, '4h': 14400000, '1d': 86400000, '24h': 86400000,
-            '7d': 604800000, '30d': 2592000000, '1m': 2592000000, '1y': 31536000000, 'all': 0
-        };
-
-        const ms = msMap[timeframe];
+        const ms = TIMEFRAME_MS[timeframe];
         const startTime = (ms === undefined || ms === 0) ? 0 : (Date.now() - ms);
 
         let interval = 'hour';
@@ -1299,6 +1437,35 @@ async function startApp() {
 
     const PORT = process.env.PORT || 3000;
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
+
+    // Warm cache al inicio (datos pre-cargados para primer usuario)
+    setTimeout(async () => {
+        console.log('🔥 Warm cache inicializando...');
+        try {
+            // Pre-cargar swaps
+            swapsCache = { data: await getLatestSwaps(1, 25), timestamp: Date.now() };
+            console.log('✅ Cache swaps pre-cargado');
+            
+            // Pre-cargar transfers
+            transfersCache = { data: await getLatestTransfers(1, 25), timestamp: Date.now() };
+            console.log('✅ Cache transfers pre-cargado');
+            
+            // Pre-cargar tokens (usa cache interno)
+            // Los tokens ya tienen su propio globalTokenCache
+            console.log('✅ Cache tokens listo');
+            
+            // Pre-cargar pools
+            if (api) {
+                const entries = await withTimeout(api.query.poolXYK.reserves.entries());
+                poolsCache = { data: entries.length, timestamp: Date.now() };
+                console.log('✅ Cache pools pre-cargado');
+            }
+            
+            console.log('🔥 Warm cache completado!');
+        } catch (e) {
+            console.error('⚠️ Error en warm cache:', e.message);
+        }
+    }, 5000); // Espera 5s a que todo esté listo
 
     setInterval(() => {
         const now = Date.now();
@@ -1485,7 +1652,7 @@ async function startApp() {
                             let r = null;
                             if (api.query.ethBridge && api.query.ethBridge.requests) {
                                 try {
-                                    const req = await api.query.ethBridge.requests(0, hash);
+                                    const req = await withTimeout(api.query.ethBridge.requests(0, hash));
                                     if (req.isSome) {
                                         r = req.unwrap().toJSON();
                                     } else {
@@ -1568,7 +1735,7 @@ async function startApp() {
                         // Try to fetch request details
                         if (api.query.ethBridge && api.query.ethBridge.requests) {
                             try {
-                                const req = await api.query.ethBridge.requests(0, hash);
+                                const req = await withTimeout(api.query.ethBridge.requests(0, hash));
                                 const json = req.toJSON();
                                 console.log(`   Request data:`, JSON.stringify(json).substring(0, 200));
 
@@ -1661,7 +1828,6 @@ async function startApp() {
         })();
 
         // --- LIQUIDITY EVENT TRACKING (via extrinsics, not events) ---
-        const { insertLiquidityEvent } = require('./db');
 
         (async () => {
             for (let i = 0; i < signedBlock.block.extrinsics.length; i++) {
@@ -1916,4 +2082,119 @@ async function startApp() {
     });
 }
 
+
+// ========== DEMOCRACY ENDPOINTS ==========
+
+// Get referendum info
+app.get("/democracy/referendums", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const referendumCount = await withTimeout(api.query.democracy.referendumCount());
+        const refCount = referendumCount.toNumber();
+        
+        const referendums = [];
+        for (let i = 0; i < refCount; i++) {
+            try {
+                const info = await withTimeout(api.query.democracy.referendumInfoOf(i));
+                if (info && info.toJSON()) {
+                    const data = info.toJSON();
+                    referendums.push({
+                        id: i,
+                        status: data ? Object.keys(data)[0] : "unknown",
+                        data: data
+                    });
+                }
+            } catch (e) { }
+        }
+        
+        res.json({ count: refCount, referendums });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get public proposals
+app.get("/democracy/proposals", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const propCount = await withTimeout(api.query.democracy.publicPropCount());
+        const proposals = await withTimeout(api.query.democracy.publicProps());
+        
+        res.json({ count: propCount.toNumber(), proposals: proposals.toJSON() });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get council members
+app.get("/council/members", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const members = await withTimeout(api.query.council.members());
+        const prime = await withTimeout(api.query.council.prime());
+        
+        res.json({
+            members: members.toJSON(),
+            prime: prime ? prime.toJSON() : null
+        });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get voting info for address
+app.get("/democracy/votes/:address", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const { address } = req.params;
+        const voting = await withTimeout(api.query.democracy.votingOf(address));
+        
+        res.json({ address, voting: voting ? voting.toJSON() : null });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
+// Get council proposals
+app.get("/council/proposals", async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        
+        const proposals = await withTimeout(api.query.council.proposals());
+        const proposalCount = await withTimeout(api.query.council.proposalCount());
+        
+        const proposalList = [];
+        for (const hash of proposals) {
+            try {
+                const prop = await withTimeout(api.query.council.proposalOf(hash));
+                proposalList.push({ hash: hash.toHex(), proposal: prop ? prop.toJSON() : null });
+            } catch (e) { }
+        }
+        
+        res.json({ count: proposalCount.toNumber(), proposals: proposalList });
+    } catch (e) {
+        res.json({ error: e.message });
+    }
+});
+
 startApp();
+
+// --- GRACEFUL SHUTDOWN ---
+function gracefulShutdown(signal) {
+    console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
+    server.close(() => {
+        console.log('✅ HTTP server closed.');
+        process.exit(0);
+    });
+    // Forzar cierre si tarda más de 10s
+    setTimeout(() => {
+        console.error('⚠️ Forced shutdown after timeout.');
+        process.exit(1);
+    }, 10000);
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

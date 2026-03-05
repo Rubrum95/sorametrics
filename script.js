@@ -1,3 +1,9 @@
+// --- HTML SANITIZATION (previene XSS en innerHTML) ---
+function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // --- SOFT ERROR HANDLING (evita bucles de alertas que congelan el navegador) ---
 const _seenErrors = new Set();
 function _logOnce(key, ...args) {
@@ -435,22 +441,22 @@ socket.on('transfers-batch', (batch) => {
         const logoSrc = getProxyUrl(d.logo);
 
         row.innerHTML = `
-<td style="color:#6B7280; font-size:13px;">${d.time}</td>
-<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
-<td><span onclick="openWalletDetails('${d.from}')" class="${fromShort ? 'wallet-unsaved' : ''}">${fromShort}</span></td>
+<td style="color:#6B7280; font-size:13px;">${esc(d.time)}</td>
+<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#D0021B;">#${esc(d.block)}</a></td>
+<td><span onclick="openWalletDetails('${esc(d.from)}')" class="${fromShort ? 'wallet-unsaved' : ''}">${esc(fromShort)}</span></td>
 <td>
 <div class="asset-row">
     <img src="${logoSrc}" width="32" height="32" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
     <div>
-        <b>${d.amount} ${d.symbol}</b><br>
-        <span style="color:#10B981; font-size:11px;">$${d.usdValue}</span>
+        <b>${esc(d.amount)} ${esc(d.symbol)}</b><br>
+        <span style="color:#10B981; font-size:11px;">$${esc(d.usdValue)}</span>
     </div>
 </div>
 </td>
 <td style="color:#D1D5DB;">➜</td>
-<td><span onclick="openWalletDetails('${d.to}')" class="${toShort ? 'wallet-unsaved' : ''}">${toShort}</span></td>
+<td><span onclick="openWalletDetails('${esc(d.to)}')" class="${toShort ? 'wallet-unsaved' : ''}">${esc(toShort)}</span></td>
 <td>
-    <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
 </td>`;
         tbody.insertBefore(row, tbody.firstChild);
     }
@@ -637,27 +643,27 @@ socket.on('swaps-batch', (batch) => {
         const logoOut = getProxyUrl(d.out.logo);
 
         row.innerHTML = `
-<td style="color:#6B7280; font-size:11px;">${d.time}</td>
-<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#D0021B;">#${d.block}</a></td>
+<td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
+<td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(d.block)}'); return false;" style="color:#D0021B;">#${esc(d.block)}</a></td>
 <td>
 <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
     <img src="${logoIn}" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
-    <div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}</div>
+    <div style="font-size:11px;"><b style="font-size:14px;">${esc(formatAmount(d.in.amount))}</b> ${esc(d.in.symbol)}</div>
 </div>
 </td>
 <td style="color:#D1D5DB; font-size:12px;">➜</td>
 <td>
 <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
     <img src="${logoOut}" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
-    <div style="font-size:11px;"><b style="font-size:14px;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}</div>
+    <div style="font-size:11px;"><b style="font-size:14px;">${esc(formatAmount(d.out.amount))}</b> ${esc(d.out.symbol)}</div>
 </div>
 </td>
 <td style="font-size:11px;">
-<span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span>
-<span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+<span onclick="openWalletDetails('${esc(d.wallet)}')" class="${nameClass}">${esc(short)}</span>
+<span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
 </td>
 <td>
-    <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
 </td>`;
         tbody.insertBefore(row, tbody.firstChild);
     }
@@ -815,10 +821,10 @@ function createWalletCard(wallet, data, isUnified = false) {
     const topTokens = data.tokens.slice(0, 3).map(t => `<img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" title="${t.amount} ${t.symbol}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'" style="width:20px; height:20px; border-radius:50%; margin-right:-5px; border:1px solid var(--bg-card); object-fit:contain;">`).join('');
 
     // Hide delete button if unified
-    const deleteBtn = isUnified ? '' : `<button style="border:none; background:none; color:#EF4444; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); deleteWallet('${wallet.address}')">🗑️</button>`;
+    const deleteBtn = isUnified ? '' : `<button style="border:none; background:none; color:#EF4444; cursor:pointer; z-index:10;" onclick="event.stopPropagation(); deleteWallet('${esc(wallet.address)}')">🗑️</button>`;
 
     // Disable click for unified (or make it open a modal with breakdown? for now disable)
-    const onClick = isUnified ? 'onclick="openUnifiedDetails()"' : `onclick="openWalletDetails('${wallet.address}')"`;
+    const onClick = isUnified ? 'onclick="openUnifiedDetails()"' : `onclick="openWalletDetails('${esc(wallet.address)}')"`;
     const cursor = 'pointer';
     const addressDisplay = isUnified ? `<span style="font-size:11px; color:#10B981; font-weight:bold;">VISTA AGRUPADA</span>` : `<div style="font-size:11px; color:var(--text-secondary);">${wallet.address.substring(0, 6)}...${wallet.address.substring(wallet.address.length - 4)}</div>`;
 
@@ -1014,12 +1020,12 @@ async function loadTokens() {
             }
 
             html += `<tr>
-    <td style="cursor:pointer; font-size:18px;" onclick="toggleFavorite('${t.symbol}')"><span style="color:${starColor}">★</span></td>
-    <td><div class="asset-row"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div><b>${t.symbol}</b><br><span style="font-size:10px; color:#999;">${t.name}</span></div></div></td>
+    <td style="cursor:pointer; font-size:18px;" onclick="toggleFavorite('${esc(t.symbol)}')"><span style="color:${starColor}">★</span></td>
+    <td><div class="asset-row"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div><b>${esc(t.symbol)}</b><br><span style="font-size:10px; color:#999;">${esc(t.name)}</span></div></div></td>
     <td>${priceStr}</td>
     <td style="color:${changeColor}; font-weight:500;">${changeText}</td>
     <td style="text-align: center;">
-        <button class="btn-ghost" onclick="viewHolders('${t.symbol}', '${t.assetId}')" style="font-size:12px; padding: 4px 8px;">
+        <button class="btn-ghost" onclick="viewHolders('${esc(t.symbol)}', '${esc(t.assetId)}')" style="font-size:12px; padding: 4px 8px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align:text-bottom"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             ${TRANSLATIONS[currentLang].holders}
         </button>
@@ -1085,7 +1091,7 @@ async function loadHoldersPage() {
             const short = formatAddress(h.address);
             tbody.innerHTML += `<tr>
                 <td>${startRank + index + 1}</td>
-                <td><span class="clickable-address" onclick="openWalletDetails('${h.address}')" style="cursor:pointer; color:var(--text-primary); font-weight:bold;">${short}</span></td>
+                <td><span class="clickable-address" onclick="openWalletDetails('${esc(h.address)}')" style="cursor:pointer; color:var(--text-primary); font-weight:bold;">${esc(short)}</span></td>
                 <td style="text-align:right;">${h.balanceStr}</td>
             </tr>`;
         });
@@ -1192,7 +1198,7 @@ async function loadPools() {
                     </div>
                 </td>
                 <td>
-                    <button class="secondary-btn" onclick="openPoolDetails('${p.base.assetId}', '${p.target.assetId}', 'providers', '${baseSymbol}', '${targetSymbol}', '${baseLogo.replace(/'/g, "\\'")}', '${targetLogo.replace(/'/g, "\\'")}')">
+                    <button class="secondary-btn" onclick="openPoolDetails('${esc(p.base.assetId)}', '${esc(p.target.assetId)}', 'providers', '${esc(baseSymbol)}', '${esc(targetSymbol)}', '${esc(baseLogo)}', '${esc(targetLogo)}')">
                         Providers
                     </button>
                 </td>
