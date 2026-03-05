@@ -1716,7 +1716,7 @@ const allSections = [
     { id: 'balance', name: 'Balance', icon: '💰', translateKey: 'tab_balance' },
     { id: 'swaps', name: 'Swaps', icon: '🔄', translateKey: 'tab_swaps' },
     { id: 'transfers', name: 'Transferencias', icon: '💸', translateKey: 'tab_transfers' },
-    { id: 'tokens', name: 'Tokens', icon: '🪙', translateKey: 'tab_tokens' },
+    { id: 'tokens', name: 'Tokens', icon: '💎', translateKey: 'tab_tokens' },
     { id: 'bridges', name: 'Puentes', icon: '🌉', translateKey: 'tab_bridges' },
     { id: 'extrinsics', name: 'Extrinsics', icon: '🔬', translateKey: 'tab_extrinsics' },
     { id: 'liquidity', name: 'Liquidez', icon: '🌊', translateKey: 'tab_liquidity' },
@@ -1773,7 +1773,7 @@ function renderSidebar() {
     allSections.forEach(sec => {
         const isActive = activeSectionIds.includes(sec.id);
         const item = document.createElement('div');
-        item.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #f3f4f6;";
+        item.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid var(--border-color, #e5e7eb);";
 
         // Use translation key if available
         let sectionName = sec.name;
@@ -1783,9 +1783,9 @@ function renderSidebar() {
 
         // Checkbox creation
         item.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px; color:#374151;">
-                <span style="font-size:16px;">${sec.icon}</span>
-                <span style="font-size:14px; font-weight:500;">${sectionName}</span>
+            <div style="display:flex; align-items:center; gap:10px; color:var(--text-primary, #1f2937); padding:10px 12px; border-radius:10px; transition: all 0.15s ease; cursor:pointer; flex:1; margin-right:8px;">
+                <span style="font-size:18px; transition: transform 0.15s ease;">${sec.icon}</span>
+                <span style="font-size:14px; font-weight:600; letter-spacing:0.2px;">${sectionName}</span>
             </div>
             <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                 <input type="checkbox" ${isActive ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
@@ -1795,7 +1795,26 @@ function renderSidebar() {
 
         // Click on name → open that tab directly (without toggling favorite)
         const nameDiv = item.querySelector('div');
-        nameDiv.style.cursor = 'pointer';
+        const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+        nameDiv.addEventListener('mouseenter', () => {
+            nameDiv.style.background = isDark() ? 'rgba(208, 2, 27, 0.3)' : 'rgba(208, 2, 27, 0.12)';
+            nameDiv.style.boxShadow = isDark() ? 'inset 0 0 0 1.5px rgba(208, 2, 27, 0.6)' : 'inset 0 0 0 1.5px rgba(208, 2, 27, 0.3)';
+            nameDiv.style.transform = 'translateX(4px)';
+            nameDiv.querySelector('span').style.transform = 'scale(1.3)';
+        });
+        nameDiv.addEventListener('mouseleave', () => {
+            nameDiv.style.background = 'transparent';
+            nameDiv.style.boxShadow = 'none';
+            nameDiv.style.transform = 'translateX(0)';
+            nameDiv.querySelector('span').style.transform = 'scale(1)';
+        });
+        nameDiv.addEventListener('mousedown', () => {
+            nameDiv.style.background = isDark() ? 'rgba(208, 2, 27, 0.5)' : 'rgba(208, 2, 27, 0.22)';
+            nameDiv.style.transform = 'scale(0.97)';
+        });
+        nameDiv.addEventListener('mouseup', () => {
+            nameDiv.style.transform = 'translateX(4px)';
+        });
         nameDiv.addEventListener('click', () => {
             toggleMenu();
             openTab(sec.id);
