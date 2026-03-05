@@ -59,7 +59,7 @@ app.use(cors({
         cb(null, false);
     }
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // --- STATIC FILES: Solo servir archivos frontend, no código backend ---
 const path = require('path');
@@ -98,7 +98,7 @@ setInterval(() => {
     for (const [key, entry] of rateLimitMap) {
         if (now - entry.start > 120000) rateLimitMap.delete(key);
     }
-}, 300000);
+}, 60000);
 
 // --- INPUT VALIDATION ---
 const VALID_SS58 = /^[1-9A-HJ-NP-Za-km-z]{46,50}$/;
@@ -608,8 +608,8 @@ async function getOrFetchPrice(symbol, assetId, decimals) {
 app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
     if (!api) return res.status(503).json({ error: 'Iniciando...' });
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const page = Math.min(parseInt(req.query.page) || 1, 10000);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const search = (req.query.search || '').toLowerCase();
     const timeframe = req.query.timeframe || '24h';
     const includeSparkline = req.query.sparkline !== 'false'; // Default TRUE
@@ -723,8 +723,8 @@ app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/pools', rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json({ data: [], total: 0 });
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const page = Math.min(parseInt(req.query.page) || 1, 10000);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const now = Date.now();
     const cacheKey = `pools_${page}_${limit}_${req.query.base}`;
 
@@ -976,7 +976,7 @@ app.get('/pool/activity', rateLimit(20, 60000), async (req, res) => {
     try {
         if (!base || !target) return res.status(400).json({ error: 'Missing base or target' });
 
-        const limit = parseInt(req.query.limit) || 50;
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
         const activity = await getPoolActivity(base, target, limit);
         
         // Save to cache
@@ -1258,6 +1258,7 @@ app.post('/balances', rateLimit(5, 60000), async (req, res) => {
     if (!api) return res.json({ result: [] });
     const { addresses } = req.body;
     if (!addresses || !Array.isArray(addresses)) return res.json({ result: [] });
+    if (addresses.length > 100) return res.status(400).json({ error: 'Max 100 addresses per request' });
     if (addresses.some(a => !VALID_SS58.test(a))) return res.status(400).json({ error: 'Invalid address format in list' });
     const results = [];
     const CHUNK_SIZE = 20;
@@ -1315,8 +1316,8 @@ app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
         const data = await getTransfers(req.params.address, page, limit);
         res.json(data);
     } catch (e) {
@@ -1327,8 +1328,8 @@ app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), as
 
 app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
         const result = await getWalletBridges(req.params.address, page, limit);
 
         // Enrich with Asset Info (Symbol, Logo)
@@ -1350,8 +1351,8 @@ app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), asyn
 
 app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
         const result = await getLatestBridges(page, limit, req.query.filter, req.query.timestamp);
 
@@ -1448,8 +1449,8 @@ app.post('/api/identities', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/history/global/liquidity', rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
         const result = await getLiquidityEvents(page, limit, req.query.timestamp);
 

@@ -1008,7 +1008,7 @@ function createWalletCard(wallet, data, isUnified = false) {
 <div class="card" style="margin:0; padding:15px; border:1px solid var(--border-color); transition: all 0.2s; cursor:${cursor}; background:var(--bg-card);" ${onClick} onmouseover="this.style.boxShadow=var(--shadow-hover)" onmouseout="this.style.boxShadow='none'">
 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
     <div>
-        <h4 style="margin:0; color:var(--text-primary);">${wallet.name}</h4>
+        <h4 style="margin:0; color:var(--text-primary);">${esc(wallet.name)}</h4>
         ${addressDisplay}
     </div>
     ${deleteBtn}
@@ -1402,9 +1402,9 @@ async function openWalletDetails(address) {
     const isSaved = !!walletAliases[address];
     const name = walletAliases[address] || TRANSLATIONS[currentLang].wallet;
 
-    let titleHtml = name;
+    let titleHtml = esc(name);
     if (isSaved) {
-        titleHtml += ` <button onclick="editWalletAlias('${address}')" title="Editar Alias" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
+        titleHtml += ` <button onclick="editWalletAlias('${esc(address)}')" title="Editar Alias" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
     }
     document.getElementById('detailsTitle').innerHTML = titleHtml;
     document.getElementById('detailsAddr').innerText = address;
@@ -2188,7 +2188,7 @@ function renderWhales() {
         const icon = isWhale ? '🐋' : (w.total_bought_usd > 10000 ? '🦈' : '🐟');
 
         // Make alias clickable
-        const aliasHtml = `<span onclick="openWalletDetails('${w.wallet}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${alias}</span>`;
+        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${esc(alias)}</span>`;
 
         html += `
         <div class="whale-row">
@@ -2570,10 +2570,10 @@ async function loadGlobalBridges(reset = false) {
                         return `<a href="https://etherscan.io/address/${d.sender}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.sender}">${senderShort} 🔗</a>`;
                     } else {
                         // SORA address
-                        return `<span onclick="openWalletDetails('${d.sender}')" class="wallet-unsaved">${senderShort}</span>`;
+                        return `<span onclick="openWalletDetails('${esc(d.sender)}')" class="wallet-unsaved">${senderShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${d.sender}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.sender)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
                 </td>
                 <td style="font-size:11px;">
                     ${(() => {
@@ -2583,10 +2583,10 @@ async function loadGlobalBridges(reset = false) {
                         return `<a href="https://etherscan.io/address/${d.recipient}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.recipient}">${recipientShort} 🔗</a>`;
                     } else {
                         // SORA address
-                        return `<span onclick="openWalletDetails('${d.recipient}')" class="wallet-unsaved">${recipientShort}</span>`;
+                        return `<span onclick="openWalletDetails('${esc(d.recipient)}')" class="wallet-unsaved">${recipientShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${d.recipient}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.recipient)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
                 </td>
                 <td>
                     <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
@@ -3267,7 +3267,7 @@ async function loadPoolProviders(base, target) {
                 <tr>
                     <td>#${i + 1}</td>
                     <td>
-                        <span class="clickable-address" onclick="openWalletDetails('${p.address}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
+                        <span class="clickable-address" onclick="openWalletDetails('${esc(p.address)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
                             ${walletDisplay}
                         </span>
                     </td>
@@ -3317,7 +3317,7 @@ async function loadPoolActivity(base, target) {
                 <tr>
                     <td style="font-size:12px; color:var(--text-secondary);">${a.time}</td>
                     <td>
-                         <span class="clickable-address" onclick="openWalletDetails('${a.wallet}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
+                         <span class="clickable-address" onclick="openWalletDetails('${esc(a.wallet)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
                             ${formatAddress(a.wallet)}
                         </span>
                     </td>
@@ -3663,9 +3663,9 @@ async function loadGlobalLiquidity(reset = false) {
                         <div style="color:#6B7280; font-size:11px;">${targetAmt} ${d.pool_target}</div>
                         <div style="color:#10B981; font-size:11px; font-weight:bold;">$${parseFloat(d.usd_value).toLocaleString()}</div>
                     </td>
-                    <td><span onclick="openWalletDetails('${d.wallet}')" class="clickable-address ${walletShort.includes('...') ? '' : 'wallet-alias'}">${walletShort}</span></td>
+                    <td><span onclick="openWalletDetails('${esc(d.wallet)}')" class="clickable-address ${walletShort.includes('...') ? '' : 'wallet-alias'}">${walletShort}</span></td>
                     <td>
-                        <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍</button>
+                        <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍</button>
                     </td>
                 </tr>
             `;
