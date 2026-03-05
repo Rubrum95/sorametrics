@@ -30,6 +30,10 @@ function withTimeout(promise, ms = 5000) {
 
 const app = express();
 
+// --- SECURITY HEADERS ---
+const helmet = require('helmet');
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off: inline scripts in index.html
+
 // --- CORS: Restringir orígenes (permite mismo origen + dev localhost) ---
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
 app.use(cors({
@@ -77,6 +81,24 @@ setInterval(() => {
         if (now - entry.start > 120000) rateLimitMap.delete(ip);
     }
 }, 300000);
+
+// --- INPUT VALIDATION ---
+const VALID_SS58 = /^[1-9A-HJ-NP-Za-km-z]{46,50}$/;
+const VALID_ASSET_ID = /^0x[0-9a-fA-F]{64}$/;
+const VALID_SYMBOL = /^[A-Za-z0-9]{1,12}$/;
+
+function validateAddress(req, res, next) {
+    if (!VALID_SS58.test(req.params.address)) return res.status(400).json({ error: 'Invalid address format' });
+    next();
+}
+function validateAssetId(req, res, next) {
+    if (!VALID_ASSET_ID.test(req.params.assetId)) return res.status(400).json({ error: 'Invalid asset ID format' });
+    next();
+}
+function validateSymbol(req, res, next) {
+    if (!VALID_SYMBOL.test(req.params.symbol)) return res.status(400).json({ error: 'Invalid symbol format' });
+    next();
+}
 
 // --- TIMEFRAME MAP compartido (evita duplicación) ---
 const TIMEFRAME_MS = {
@@ -462,7 +484,7 @@ async function getOrFetchPrice(symbol, assetId, decimals) {
 }
 
 // --- RUTAS ---
-app.get('/tokens', async (req, res) => {
+app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
     if (!api) return res.status(503).json({ error: 'Iniciando...' });
 
     const page = parseInt(req.query.page) || 1;
@@ -578,7 +600,7 @@ app.get('/tokens', async (req, res) => {
     res.json(result);
 });
 
-app.get('/pools', async (req, res) => {
+app.get('/pools', rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json({ data: [], total: 0 });
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -719,7 +741,7 @@ app.get('/pool/providers', rateLimit(10, 60000), async (req, res) => {
 });
 
 // New Endpoint for Network Trend Chart
-app.get('/stats/network/trend', async (req, res) => {
+app.get('/stats/network/trend', rateLimit(15, 60000), async (req, res) => {
     try {
         const { timeframe } = req.query;
         let startTime = Date.now() - (24 * 60 * 60 * 1000); // Default 24h
@@ -744,7 +766,7 @@ app.get('/stats/network/trend', async (req, res) => {
 });
 
 // Stablecoin Monitor Endpoint
-app.get('/stats/stablecoins', async (req, res) => {
+app.get('/stats/stablecoins', rateLimit(20, 60000), async (req, res) => {
     try {
         const { timeframe } = req.query;
         let startTime = Date.now() - (24 * 60 * 60 * 1000); // Default 24h
@@ -797,7 +819,7 @@ app.get('/stats/stablecoins', async (req, res) => {
 });
 
 // Trending Tokens Endpoint (For Donut Chart)
-app.get('/stats/trending-tokens', async (req, res) => {
+app.get('/stats/trending-tokens', rateLimit(20, 60000), async (req, res) => {
     try {
         const { timeframe } = req.query;
         let startTime = Date.now() - (24 * 60 * 60 * 1000); // Default 24h
@@ -817,7 +839,7 @@ app.get('/stats/trending-tokens', async (req, res) => {
     }
 });
 
-app.get('/pool/activity', async (req, res) => {
+app.get('/pool/activity', rateLimit(20, 60000), async (req, res) => {
     const now = Date.now();
     const { base, target } = req.query;
     const cacheKey = `${base}_${target}`;
@@ -846,7 +868,7 @@ app.get('/pool/activity', async (req, res) => {
     }
 });
 
-app.get('/holders/:assetId', rateLimit(5, 60000), async (req, res) => {
+app.get('/holders/:assetId', validateAssetId, rateLimit(5, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API no lista' });
 
     const assetId = req.params.assetId;
@@ -908,7 +930,7 @@ app.get('/holders/:assetId', rateLimit(5, 60000), async (req, res) => {
     }
 });
 
-app.get('/wallet/liquidity/:address', async (req, res) => {
+app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API not ready' });
     const address = req.params.address;
     try {
@@ -1016,7 +1038,7 @@ app.get('/wallet/liquidity/:address', async (req, res) => {
     }
 });
 
-app.get('/balance/:address', async (req, res) => {
+app.get('/balance/:address', validateAddress, rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json([]);
     const address = req.params.address;
     const balances = [];
@@ -1117,10 +1139,11 @@ async function getAddressBalances(address) {
     } catch (e) { return []; }
 }
 
-app.post('/balances', async (req, res) => {
+app.post('/balances', rateLimit(5, 60000), async (req, res) => {
     if (!api) return res.json({ result: [] });
     const { addresses } = req.body;
     if (!addresses || !Array.isArray(addresses)) return res.json({ result: [] });
+    if (addresses.some(a => !VALID_SS58.test(a))) return res.status(400).json({ error: 'Invalid address format in list' });
     const results = [];
     const CHUNK_SIZE = 20;
     for (let i = 0; i < addresses.length; i += CHUNK_SIZE) {
@@ -1135,7 +1158,7 @@ app.post('/balances', async (req, res) => {
     res.json({ result: results });
 });
 
-app.get('/history/global/transfers', async (req, res) => {
+app.get('/history/global/transfers', rateLimit(30, 60000), async (req, res) => {
     const now = Date.now();
     
     // Check cache (60s)
@@ -1150,7 +1173,7 @@ app.get('/history/global/transfers', async (req, res) => {
     } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
-app.get('/history/global/swaps', async (req, res) => {
+app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
     const now = Date.now();
     const cacheKey = `swaps_${req.query.page}_${req.query.token}_${req.query.filter}`;
     
@@ -1166,7 +1189,7 @@ app.get('/history/global/swaps', async (req, res) => {
     } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
-app.get('/history/transfers/:address', async (req, res) => {
+app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -1178,7 +1201,7 @@ app.get('/history/transfers/:address', async (req, res) => {
     }
 });
 
-app.get('/history/bridges/:address', async (req, res) => {
+app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -1201,7 +1224,7 @@ app.get('/history/bridges/:address', async (req, res) => {
     }
 });
 
-app.get('/history/global/bridges', async (req, res) => {
+app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -1225,7 +1248,7 @@ app.get('/history/global/bridges', async (req, res) => {
     }
 });
 
-app.get('/history/global/liquidity', async (req, res) => {
+app.get('/history/global/liquidity', rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -1252,7 +1275,7 @@ app.get('/history/global/liquidity', async (req, res) => {
 
 // REMOVED: Duplicate /pool/activity and /pool/providers routes (already defined above)
 
-app.get('/history/swaps/:address', async (req, res) => {
+app.get('/history/swaps/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
         res.json(await getSwaps(req.params.address, parseInt(req.query.page) || 1));
     } catch (e) {
@@ -1260,11 +1283,11 @@ app.get('/history/swaps/:address', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
-app.get('/chart/:symbol', async (req, res) => res.json(await getCandles(req.params.symbol, req.query.res || 60)));
+app.get('/chart/:symbol', validateSymbol, rateLimit(30, 60000), async (req, res) => res.json(await getCandles(req.params.symbol, req.query.res || 60)));
 
 // --- SORA INTELLIGENCE ENDPOINTS ---
 
-app.get('/stats/accumulation', async (req, res) => {
+app.get('/stats/accumulation', rateLimit(15, 60000), async (req, res) => {
     const symbol = req.query.symbol || 'XOR';
     const timeframe = req.query.timeframe || '24h'; // 1h, 4h, 24h, 7d, 30d
 
@@ -1278,7 +1301,7 @@ app.get('/stats/accumulation', async (req, res) => {
     }
 });
 
-app.get('/stats/network', async (req, res) => {
+app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
     try {
 
         // Snapshot de 24h
@@ -1300,7 +1323,7 @@ app.get('/stats/network', async (req, res) => {
     }
 });
 
-app.get('/stats/overview', async (req, res) => {
+app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
     // Un endpoint agregado para el Dashboard
     try {
 
@@ -1349,7 +1372,7 @@ app.get('/stats/overview', async (req, res) => {
     }
 });
 
-app.get('/stats/header', async (req, res) => {
+app.get('/stats/header', rateLimit(30, 60000), async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
         const ms = TIMEFRAME_MS[timeframe];
@@ -1368,7 +1391,7 @@ app.get('/stats/header', async (req, res) => {
     }
 });
 
-app.get('/stats/fees', async (req, res) => {
+app.get('/stats/fees', rateLimit(20, 60000), async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
         const msMap = {
@@ -1385,7 +1408,7 @@ app.get('/stats/fees', async (req, res) => {
     }
 });
 
-app.get('/stats/fees/trend', async (req, res) => {
+app.get('/stats/fees/trend', rateLimit(20, 60000), async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
         const ms = TIMEFRAME_MS[timeframe];
@@ -2086,7 +2109,7 @@ async function startApp() {
 // ========== DEMOCRACY ENDPOINTS ==========
 
 // Get referendum info
-app.get("/democracy/referendums", async (req, res) => {
+app.get("/democracy/referendums", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
         
@@ -2115,7 +2138,7 @@ app.get("/democracy/referendums", async (req, res) => {
 });
 
 // Get public proposals
-app.get("/democracy/proposals", async (req, res) => {
+app.get("/democracy/proposals", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
         
@@ -2129,7 +2152,7 @@ app.get("/democracy/proposals", async (req, res) => {
 });
 
 // Get council members
-app.get("/council/members", async (req, res) => {
+app.get("/council/members", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
         
@@ -2146,7 +2169,7 @@ app.get("/council/members", async (req, res) => {
 });
 
 // Get voting info for address
-app.get("/democracy/votes/:address", async (req, res) => {
+app.get("/democracy/votes/:address", validateAddress, rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
         
@@ -2160,7 +2183,7 @@ app.get("/democracy/votes/:address", async (req, res) => {
 });
 
 // Get council proposals
-app.get("/council/proposals", async (req, res) => {
+app.get("/council/proposals", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
         
