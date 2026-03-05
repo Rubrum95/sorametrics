@@ -29,7 +29,7 @@ let stmts = {};
 // Globals
 let api = null;
 let ASSETS = [];
-let stats = { swaps: 0, transfers: 0, bridges: 0, liquidity: 0, fees: 0, blocks: 0, skipped: 0 };
+let stats = { swaps: 0, transfers: 0, bridges: 0, liquidity: 0, fees: 0, extrinsics: 0, blocks: 0, skipped: 0 };
 let startTime = Date.now();
 
 // Asset IDs
@@ -126,6 +126,20 @@ function initDB() {
         usd_value REAL
     )`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS extrinsics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        formatted_time TEXT,
+        block INTEGER,
+        extrinsic_index INTEGER,
+        hash TEXT,
+        section TEXT,
+        method TEXT,
+        signer TEXT,
+        success INTEGER,
+        args_json TEXT
+    )`);
+
     // Indices
     db.exec(`
         CREATE INDEX IF NOT EXISTS idx_swaps_timestamp ON swaps(timestamp);
@@ -144,6 +158,11 @@ function initDB() {
         CREATE INDEX IF NOT EXISTS idx_liquidity_wallet ON liquidity_events(wallet);
         CREATE INDEX IF NOT EXISTS idx_transfers_block ON transfers(block);
         CREATE INDEX IF NOT EXISTS idx_liquidity_block ON liquidity_events(block);
+        CREATE INDEX IF NOT EXISTS idx_extrinsics_timestamp ON extrinsics(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_extrinsics_block ON extrinsics(block);
+        CREATE INDEX IF NOT EXISTS idx_extrinsics_section ON extrinsics(section);
+        CREATE INDEX IF NOT EXISTS idx_extrinsics_signer ON extrinsics(signer);
+        CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp);
     `);
 
     // Prepare statements (compiled once, reused for every insert)
@@ -162,10 +181,14 @@ function initDB() {
     stmts.insertFee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value)
         VALUES (?, ?, ?, ?, ?)`);
 
+    stmts.insertExtrinsic = db.prepare(`INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
     stmts.checkBlockSwaps = db.prepare('SELECT 1 FROM swaps WHERE block = ? LIMIT 1');
     stmts.checkBlockTransfers = db.prepare('SELECT 1 FROM transfers WHERE block = ? LIMIT 1');
     stmts.checkBlockBridges = db.prepare('SELECT 1 FROM bridges WHERE block = ? LIMIT 1');
     stmts.checkBlockLiquidity = db.prepare('SELECT 1 FROM liquidity_events WHERE block = ? LIMIT 1');
+    stmts.checkBlockExtrinsics = db.prepare('SELECT 1 FROM extrinsics WHERE block = ? LIMIT 1');
 
     console.log('✅ Tables, indices, and prepared statements ready.');
 }
@@ -180,6 +203,7 @@ function withTransaction(fn) {
 // Check if block already processed (checks ALL tables, not just swaps)
 function blockAlreadyProcessed(blockNumber) {
     return !!(
+        stmts.checkBlockExtrinsics.get(blockNumber) ||
         stmts.checkBlockSwaps.get(blockNumber) ||
         stmts.checkBlockTransfers.get(blockNumber) ||
         stmts.checkBlockBridges.get(blockNumber) ||
@@ -188,6 +212,15 @@ function blockAlreadyProcessed(blockNumber) {
 }
 
 // Insert functions (synchronous - called inside transactions)
+function insertExtrinsicRecord(e) {
+    stmts.insertExtrinsic.run(
+        e.timestamp, e.formatted_time, e.block, e.extrinsic_index,
+        e.hash || '', e.section || '', e.method || '',
+        e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}'
+    );
+    stats.extrinsics++;
+}
+
 function insertSwap(swap) {
     const formattedTime = new Date(swap.timestamp).toLocaleString('es-ES');
     stmts.insertSwap.run(swap.timestamp, formattedTime, swap.block, swap.wallet,
@@ -695,9 +728,70 @@ async function processBlock(blockNumber) {
             } catch (e) { }
         }
 
+        // --- RAW EXTRINSICS ---
+        const pendingExtrinsics = [];
+        for (let i = 0; i < signedBlock.block.extrinsics.length; i++) {
+            try {
+                const ex = signedBlock.block.extrinsics[i];
+                const decoded = ex.toHuman();
+                if (!decoded || !decoded.method) continue;
+
+                const { section, method } = decoded.method;
+
+                const extrinsicEvents = allEvents.filter(({ phase }) =>
+                    phase.isApplyExtrinsic && phase.asApplyExtrinsic.toNumber() === i
+                );
+                const isSuccess = extrinsicEvents.some(({ event }) =>
+                    event.section === 'system' && event.method === 'ExtrinsicSuccess'
+                );
+
+                let errorMsg = '';
+                if (!isSuccess) {
+                    const failedEvent = extrinsicEvents.find(({ event }) =>
+                        event.section === 'system' && event.method === 'ExtrinsicFailed'
+                    );
+                    if (failedEvent) {
+                        try {
+                            const dispatchError = failedEvent.event.data[0];
+                            if (dispatchError.isModule) {
+                                const decoded2 = api.registry.findMetaError(dispatchError.asModule);
+                                errorMsg = `${decoded2.section}.${decoded2.name}: ${decoded2.docs.join(' ')}`;
+                            } else {
+                                errorMsg = dispatchError.toString();
+                            }
+                        } catch (e) { errorMsg = 'Unknown error'; }
+                    }
+                }
+
+                const signer = decoded.signer?.Id || decoded.signer || 'System';
+
+                let argsJson = '{}';
+                try {
+                    const argsStr = JSON.stringify(decoded.method.args || {});
+                    argsJson = argsStr.length > 2048 ? argsStr.substring(0, 2048) + '...' : argsStr;
+                } catch (e) { argsJson = '{}'; }
+
+                const formattedTime = new Date(blockTimestamp).toLocaleString('es-ES');
+
+                pendingExtrinsics.push({
+                    timestamp: blockTimestamp,
+                    formatted_time: formattedTime,
+                    block: blockNumber,
+                    extrinsic_index: i,
+                    hash: ex.hash.toHex(),
+                    section,
+                    method,
+                    signer: typeof signer === 'string' ? signer : 'System',
+                    success: isSuccess,
+                    args_json: argsJson,
+                    error_msg: errorMsg
+                });
+            } catch (e) { /* skip malformed extrinsic */ }
+        }
+
         // --- BATCH WRITE: all inserts for this block in ONE transaction ---
         const totalInserts = pendingSwaps.length + pendingTransfers.length +
-            pendingBridges.length + pendingLiquidity.length + pendingFees.length;
+            pendingBridges.length + pendingLiquidity.length + pendingFees.length + pendingExtrinsics.length;
 
         if (totalInserts > 0) {
             withTransaction(() => {
@@ -706,6 +800,7 @@ async function processBlock(blockNumber) {
                 for (const b of pendingBridges) insertBridge(b);
                 for (const l of pendingLiquidity) insertLiquidity(l);
                 for (const f of pendingFees) insertFee(f);
+                for (const e of pendingExtrinsics) insertExtrinsicRecord(e);
             });
         }
 
@@ -759,7 +854,7 @@ async function runBackfill() {
                 const elapsed = (Date.now() - startTime) / 1000;
                 const speed = blocksProcessedThisSession / elapsed;
                 const eta = b / speed / 3600;
-                console.log(`📈 Block ${b.toLocaleString()} | ${speed.toFixed(1)} blk/s | ETA: ${eta.toFixed(1)}h | S:${stats.swaps} T:${stats.transfers} B:${stats.bridges} F:${stats.fees} | Skip:${stats.skipped}`);
+                console.log(`📈 Block ${b.toLocaleString()} | ${speed.toFixed(1)} blk/s | ETA: ${eta.toFixed(1)}h | S:${stats.swaps} T:${stats.transfers} B:${stats.bridges} F:${stats.fees} E:${stats.extrinsics} | Skip:${stats.skipped}`);
             }
 
             if (blocksProcessedThisSession % PROGRESS_SAVE_INTERVAL === 0) {

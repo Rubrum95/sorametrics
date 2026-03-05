@@ -809,9 +809,10 @@ socket.on('extrinsics-batch', (batch) => {
     if (document.hidden || !document.getElementById('extrinsics')?.classList.contains('active')) return;
     if (extrinsicPage !== 1) return;
 
-    // Respect active section filter
+    // Respect active filters
     const activeFilter = document.getElementById('extrinsicSectionFilter')?.value || '';
     const dateFilter = document.getElementById('extrinsicDateInput')?.value || '';
+    const resultFilterVal = document.getElementById('extrinsicResultFilter')?.value || '';
     if (dateFilter) return; // Don't inject live items when viewing historical data
 
     if (tbody.children.length > 0 && tbody.children[0]?.innerText?.includes(TRANSLATIONS[currentLang]?.waiting_activity || 'Esperando')) {
@@ -820,8 +821,10 @@ socket.on('extrinsics-batch', (batch) => {
 
     const recentItems = batch.slice(-MAX_VISUAL_ITEMS);
     for (const d of recentItems) {
-        // Skip if doesn't match active section filter
+        // Skip if doesn't match active filters
         if (activeFilter && d.section !== activeFilter) continue;
+        if (resultFilterVal === '1' && !d.success) continue;
+        if (resultFilterVal === '0' && d.success) continue;
         const exId = d.extrinsic_id || d.block + '-' + d.extrinsic_index;
         _extrinsicsPageData.unshift({ ...d, extrinsic_id: exId });
         const signerShort = d.signer === 'System' ? 'System' : formatAddress(d.signer);
@@ -2647,11 +2650,14 @@ async function loadGlobalExtrinsics(reset = false) {
     const section = sectionSelect ? sectionSelect.value : '';
     const dateInput = document.getElementById('extrinsicDateInput');
     const timestamp = dateInput && dateInput.value ? new Date(dateInput.value).getTime() : null;
+    const resultFilter = document.getElementById('extrinsicResultFilter');
+    const successVal = resultFilter ? resultFilter.value : '';
 
     try {
         let url = `/history/global/extrinsics?page=${extrinsicPage}&limit=25`;
         if (section) url += `&section=${encodeURIComponent(section)}`;
         if (timestamp) url += `&timestamp=${timestamp}`;
+        if (successVal !== '') url += `&success=${successVal}`;
 
         const res = await fetch(url);
         const json = await res.json();
@@ -2739,6 +2745,7 @@ function openExtrinsicDetail(extrinsicId) {
                 <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
                 <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
                 <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
                 <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
             </div>
             <div>
@@ -2880,6 +2887,7 @@ function openTxModal(hash, extrinsic_id) {
                             <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
                             <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
                             <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                            ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
                             <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
                         </div>
                         <div>
