@@ -155,6 +155,31 @@ function createTables() {
         extrinsic_id TEXT
     )`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS extrinsics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        formatted_time TEXT,
+        block INTEGER,
+        extrinsic_index INTEGER,
+        hash TEXT,
+        section TEXT,
+        method TEXT,
+        signer TEXT,
+        success INTEGER,
+        args_json TEXT
+    )`);
+
+    db.exec(`CREATE TABLE IF NOT EXISTS identity_cache (
+        address TEXT PRIMARY KEY,
+        display TEXT,
+        email TEXT,
+        web TEXT,
+        twitter TEXT,
+        discord TEXT,
+        updated_at INTEGER
+    )`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_identity_updated ON identity_cache(updated_at)`);
+
     // Safe migrations
     const safeAlter = (table, col, type) => {
         try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* already exists */ }
@@ -200,7 +225,12 @@ function createTables() {
         `CREATE INDEX IF NOT EXISTS idx_fees_type ON fees(type)`,
         `CREATE INDEX IF NOT EXISTS idx_liquidity_type ON liquidity_events(type)`,
         `CREATE INDEX IF NOT EXISTS idx_liquidity_pool ON liquidity_events(pool_base, pool_target)`,
-        `CREATE INDEX IF NOT EXISTS idx_liquidity_wallet ON liquidity_events(wallet)`
+        `CREATE INDEX IF NOT EXISTS idx_liquidity_wallet ON liquidity_events(wallet)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_timestamp ON extrinsics(timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_block ON extrinsics(block)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_section ON extrinsics(section)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_signer ON extrinsics(signer)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp)`
     ];
 
     for (const idx of indices) {
@@ -231,7 +261,12 @@ function createHistoryIndices() {
         `CREATE INDEX IF NOT EXISTS history.idx_h_liquidity_timestamp ON liquidity_events(timestamp)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_liquidity_type ON liquidity_events(type)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_liquidity_pool ON liquidity_events(pool_base, pool_target)`,
-        `CREATE INDEX IF NOT EXISTS history.idx_h_liquidity_wallet ON liquidity_events(wallet)`
+        `CREATE INDEX IF NOT EXISTS history.idx_h_liquidity_wallet ON liquidity_events(wallet)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_timestamp ON extrinsics(timestamp)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_block ON extrinsics(block)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section ON extrinsics(section)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_signer ON extrinsics(signer)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section_timestamp ON extrinsics(section, timestamp)`
     ];
 
     for (const idx of historyIndices) {
@@ -314,6 +349,25 @@ function bridgeDedupKey(r) {
     return `${r.block}_${r.sender}_${r.recipient}_${String(r.amount).replace(/,/g, '')}`;
 }
 
+function extrinsicDedupKey(r) {
+    return `${r.block}_${r.extrinsic_index}`;
+}
+
+function mapExtrinsics(rows) {
+    return rows.map(r => ({
+        time: formatTimestamp(r.timestamp) || r.formatted_time,
+        block: r.block,
+        extrinsic_index: r.extrinsic_index,
+        extrinsic_id: `${r.block}-${r.extrinsic_index}`,
+        hash: r.hash,
+        section: r.section,
+        method: r.method,
+        signer: r.signer,
+        success: r.success,
+        args_json: r.args_json
+    }));
+}
+
 // --- INSERT FUNCTIONS (fire-and-forget, no need to await) ---
 
 const insertStmts = {};
@@ -367,6 +421,24 @@ function insertFee(f) {
     }
 }
 
+function insertExtrinsic(e) {
+    try {
+        if (!insertStmts.extrinsic) {
+            insertStmts.extrinsic = db.prepare(
+                `INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            );
+        }
+        insertStmts.extrinsic.run(
+            e.timestamp || Date.now(), e.formatted_time || '', e.block || 0, e.extrinsic_index || 0,
+            e.hash || '', e.section || '', e.method || '',
+            e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}'
+        );
+    } catch (err) {
+        console.error('Error insertExtrinsic:', err.message);
+    }
+}
+
 function insertLiquidityEvent(event) {
     try {
         if (!insertStmts.liquidity) {
@@ -382,6 +454,150 @@ function insertLiquidityEvent(event) {
     } catch (e) {
         console.error('Error insertLiquidityEvent:', e.message);
     }
+}
+
+// --- EXTRINSICS READ ---
+
+function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null) {
+    const offset = (page - 1) * limit;
+    const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json`;
+
+    let conditions = [];
+    let params = [];
+
+    if (section) {
+        conditions.push(`section = ?`);
+        params.push(section);
+    }
+    if (timestamp) {
+        conditions.push(`timestamp <= ?`);
+        params.push(timestamp);
+    }
+    if (block) {
+        conditions.push(`block = ?`);
+        params.push(block);
+    }
+
+    const where = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
+
+    let total, rows;
+
+    if (historyHasTable('extrinsics')) {
+        const countSql = `SELECT (SELECT COUNT(*) FROM main.extrinsics${where}) + (SELECT COUNT(*) FROM history.extrinsics${where}) as total`;
+        total = db.prepare(countSql).get(...params, ...params)?.total || 0;
+
+        const dataSql = `SELECT ${cols} FROM main.extrinsics${where} UNION ALL SELECT ${cols} FROM history.extrinsics${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+        rows = db.prepare(dataSql).all(...params, ...params, limit, offset);
+    } else {
+        const countSql = `SELECT COUNT(*) as total FROM main.extrinsics${where}`;
+        total = db.prepare(countSql).get(...params)?.total || 0;
+
+        const dataSql = `SELECT ${cols} FROM main.extrinsics${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+        rows = db.prepare(dataSql).all(...params, limit, offset);
+    }
+
+    const unique = dedup(rows, extrinsicDedupKey);
+    const totalPages = Math.ceil(total / limit);
+    return { data: mapExtrinsics(unique), total, page, totalPages };
+}
+
+function getExtrinsicSections() {
+    try {
+        let sections;
+        if (historyHasTable('extrinsics')) {
+            sections = db.prepare(
+                `SELECT DISTINCT section FROM (SELECT section FROM main.extrinsics UNION SELECT section FROM history.extrinsics) ORDER BY section ASC`
+            ).all();
+        } else {
+            sections = db.prepare(
+                `SELECT DISTINCT section FROM main.extrinsics ORDER BY section ASC`
+            ).all();
+        }
+        return sections.map(r => r.section).filter(Boolean);
+    } catch (e) {
+        return [];
+    }
+}
+
+function getExtrinsicsByAddress(address, page = 1, limit = 25) {
+    const offset = (page - 1) * limit;
+    const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json`;
+
+    let total, rows;
+
+    if (historyHasTable('extrinsics')) {
+        total = getStmt('getExtrinsicsByAddr_count',
+            `SELECT (SELECT COUNT(*) FROM main.extrinsics WHERE signer = ?) + (SELECT COUNT(*) FROM history.extrinsics WHERE signer = ?) as total`
+        ).get(address, address).total || 0;
+
+        rows = getStmt('getExtrinsicsByAddr_data',
+            `SELECT ${cols} FROM main.extrinsics WHERE signer = ?
+             UNION ALL
+             SELECT ${cols} FROM history.extrinsics WHERE signer = ?
+             ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+        ).all(address, address, limit, offset);
+    } else {
+        total = getStmt('getExtrinsicsByAddr_count_main',
+            `SELECT COUNT(*) as total FROM main.extrinsics WHERE signer = ?`
+        ).get(address).total || 0;
+
+        rows = getStmt('getExtrinsicsByAddr_data_main',
+            `SELECT ${cols} FROM main.extrinsics WHERE signer = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`
+        ).all(address, limit, offset);
+    }
+
+    const unique = dedup(rows, extrinsicDedupKey);
+    const totalPages = Math.ceil(total / limit);
+    return { data: mapExtrinsics(unique), total, page, totalPages };
+}
+
+// --- IDENTITY CACHE ---
+
+function upsertIdentity(address, display, email, web, twitter, discord) {
+    try {
+        if (!insertStmts.identityUpsert) {
+            insertStmts.identityUpsert = db.prepare(
+                `INSERT OR REPLACE INTO identity_cache (address, display, email, web, twitter, discord, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`
+            );
+        }
+        insertStmts.identityUpsert.run(address, display || null, email || null, web || null, twitter || null, discord || null, Date.now());
+    } catch (e) {
+        console.error('Error upsertIdentity:', e.message);
+    }
+}
+
+function upsertIdentityBatch(identities) {
+    const upsert = getStmt('identityBatchUpsert',
+        `INSERT OR REPLACE INTO identity_cache (address, display, email, web, twitter, discord, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    const now = Date.now();
+    const runBatch = db.transaction((items) => {
+        for (const i of items) {
+            upsert.run(i.address, i.display || null, i.email || null, i.web || null, i.twitter || null, i.discord || null, now);
+        }
+    });
+    try {
+        runBatch(identities);
+    } catch (e) {
+        console.error('Error upsertIdentityBatch:', e.message);
+    }
+}
+
+function getIdentities(addresses) {
+    if (!addresses || addresses.length === 0) return {};
+    const placeholders = addresses.map(() => '?').join(',');
+    const rows = db.prepare(`SELECT address, display, email, web, twitter, discord, updated_at FROM identity_cache WHERE address IN (${placeholders})`).all(...addresses);
+    const result = {};
+    for (const row of rows) {
+        result[row.address] = row;
+    }
+    return result;
+}
+
+function getAllCachedIdentities() {
+    return getStmt('allIdentities', `SELECT address, display FROM identity_cache WHERE display IS NOT NULL`).all();
 }
 
 // --- TRANSFERS READ ---
@@ -1195,5 +1411,13 @@ module.exports = {
     getNetworkTrend,
     getTopTokens,
     getStablecoinStats,
-    getLiquidityEvents
+    getLiquidityEvents,
+    insertExtrinsic,
+    getLatestExtrinsics,
+    getExtrinsicSections,
+    getExtrinsicsByAddress,
+    upsertIdentity,
+    upsertIdentityBatch,
+    getIdentities,
+    getAllCachedIdentities
 };
