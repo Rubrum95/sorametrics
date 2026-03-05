@@ -60,6 +60,9 @@ function initDB() {
                     db.pragma('history.mmap_size = 268435456');
 
                     createHistoryIndices();
+
+                    // Add error_msg column to history extrinsics if missing
+                    try { db.exec(`ALTER TABLE history.extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
                 } catch (e) {
                     console.warn('⚠️ Could not attach history DB:', e.message);
                 }
@@ -168,6 +171,9 @@ function createTables() {
         success INTEGER,
         args_json TEXT
     )`);
+
+    // Add error_msg column if it doesn't exist yet
+    try { db.exec(`ALTER TABLE extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
 
     db.exec(`CREATE TABLE IF NOT EXISTS identity_cache (
         address TEXT PRIMARY KEY,
@@ -364,7 +370,8 @@ function mapExtrinsics(rows) {
         method: r.method,
         signer: r.signer,
         success: r.success,
-        args_json: r.args_json
+        args_json: r.args_json,
+        error_msg: r.error_msg || ''
     }));
 }
 
@@ -425,14 +432,14 @@ function insertExtrinsic(e) {
     try {
         if (!insertStmts.extrinsic) {
             insertStmts.extrinsic = db.prepare(
-                `INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                `INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             );
         }
         insertStmts.extrinsic.run(
             e.timestamp || Date.now(), e.formatted_time || '', e.block || 0, e.extrinsic_index || 0,
             e.hash || '', e.section || '', e.method || '',
-            e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}'
+            e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}', e.error_msg || ''
         );
     } catch (err) {
         console.error('Error insertExtrinsic:', err.message);
@@ -458,9 +465,9 @@ function insertLiquidityEvent(event) {
 
 // --- EXTRINSICS READ ---
 
-function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null) {
+function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null) {
     const offset = (page - 1) * limit;
-    const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json`;
+    const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg`;
 
     let conditions = [];
     let params = [];
@@ -476,6 +483,10 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     if (block) {
         conditions.push(`block = ?`);
         params.push(block);
+    }
+    if (success !== null && success !== undefined) {
+        conditions.push(`success = ?`);
+        params.push(parseInt(success));
     }
 
     const where = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';

@@ -1376,7 +1376,8 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
         const section = req.query.section || null;
         const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
         const block = req.query.block ? parseInt(req.query.block) : null;
-        const result = getLatestExtrinsics(page, limit, section, timestamp, block);
+        const success = req.query.success !== undefined ? parseInt(req.query.success) : null;
+        const result = getLatestExtrinsics(page, limit, section, timestamp, block, success);
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/extrinsics:', e);
@@ -2209,6 +2210,25 @@ async function startApp() {
                 const isSuccess = extrinsicEvents.some(({ event }) =>
                     event.section === 'system' && event.method === 'ExtrinsicSuccess'
                 );
+
+                let errorMsg = '';
+                if (!isSuccess) {
+                    const failedEvent = extrinsicEvents.find(({ event }) =>
+                        event.section === 'system' && event.method === 'ExtrinsicFailed'
+                    );
+                    if (failedEvent) {
+                        try {
+                            const dispatchError = failedEvent.event.data[0];
+                            if (dispatchError.isModule) {
+                                const decoded2 = api.registry.findMetaError(dispatchError.asModule);
+                                errorMsg = `${decoded2.section}.${decoded2.name}: ${decoded2.docs.join(' ')}`;
+                            } else {
+                                errorMsg = dispatchError.toString();
+                            }
+                        } catch (e) { errorMsg = 'Unknown error'; }
+                    }
+                }
+
                 const signer = decoded.signer?.Id || decoded.signer || 'System';
                 let argsJson = '{}';
                 try {
@@ -2222,14 +2242,16 @@ async function startApp() {
                     block: blockNumber, extrinsic_index: i,
                     hash: ex.hash.toHex(), section, method,
                     signer: typeof signer === 'string' ? signer : 'System',
-                    success: isSuccess, args_json: argsJson
+                    success: isSuccess, args_json: argsJson,
+                    error_msg: errorMsg
                 };
                 insertExtrinsic(exData);
                 pendingExtrinsicsBatch.push({
                     time: formattedTime, block: blockNumber, extrinsic_index: i,
                     extrinsic_id: `${blockNumber}-${i}`,
                     hash: ex.hash.toHex(), section, method,
-                    signer: exData.signer, success: isSuccess
+                    signer: exData.signer, success: isSuccess,
+                    error_msg: errorMsg
                 });
             } catch (e) { /* skip */ }
         }

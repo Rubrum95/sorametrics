@@ -1979,6 +1979,12 @@
                             style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
                             <option value="" data-i18n="all_pallets">All Pallets</option>
                         </select>
+                        <select id="extrinsicResultFilter" onchange="loadGlobalExtrinsics(true)"
+                            style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
+                            <option value="">All Results</option>
+                            <option value="1">Success</option>
+                            <option value="0">Failed</option>
+                        </select>
                         <input type="datetime-local" id="extrinsicDateInput" onchange="loadGlobalExtrinsics(true)"
                             style="padding:6px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px; max-width:180px;">
                     </div>
