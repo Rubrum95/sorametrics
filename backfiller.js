@@ -17,7 +17,7 @@ const STATE_FILE = path.join(__dirname, 'backfill_state.json');
 const BLOCKS_PER_BATCH = 100;
 const DELAY_BETWEEN_BATCHES_MS = 500;
 const PROGRESS_SAVE_INTERVAL = 500;
-const SAFETY_OFFSET = 10;
+const SAFETY_OFFSET = 1;
 
 // Database - writes to database.db (the history DB that the main app reads)
 const DB_PATH = path.join(__dirname, 'database.db');
