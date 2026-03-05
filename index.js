@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities } = require('./db_better');
 // ... (imports)
 
 
@@ -297,8 +297,101 @@ const BATCH_INTERVAL_MS = 5000; // 5 segundos para blindar la red
 const MAX_EVENTS_PER_BATCH = 300; // Límite más bajo para evitar payloads gigantes
 let pendingTransfers = [];
 let pendingSwaps = [];
+let pendingExtrinsicsBatch = [];
 let lastBatchTime = Date.now();
 let sessionStats = { extrinsics: 0, bridges: 0, block: 0 };
+
+// --- IDENTITY CACHE (IN-MEMORY) ---
+const identityMemCache = new Map();
+const IDENTITY_MEM_TTL = 3600000;   // 1h
+const IDENTITY_DB_TTL = 86400000;   // 24h
+const IDENTITY_RESOLVE_QUEUE = new Set();
+let identityResolveTimer = null;
+
+function parseIdentityFull(identityOpt) {
+    const result = { display: null, email: null, web: null, twitter: null, discord: null };
+    if (!identityOpt || identityOpt.isNone) return result;
+    try {
+        const identity = identityOpt.unwrap();
+        const reg = Array.isArray(identity) ? identity[0] : identity;
+        const info = reg.info;
+        if (!info) return result;
+        const extract = (field) => {
+            if (!field) return null;
+            if (field.isRaw) return Buffer.from(field.asRaw.toU8a(true)).toString('utf8');
+            if (field.isNone) return null;
+            const hex = field.toHex ? field.toHex() : null;
+            return (hex && hex !== '0x') ? Buffer.from(hex.slice(2), 'hex').toString('utf8') : null;
+        };
+        result.display = extract(info.display);
+        result.email = extract(info.email);
+        result.web = extract(info.web);
+        result.twitter = extract(info.twitter);
+        result.discord = extract(info.discord);
+    } catch (e) { /* silent */ }
+    return result;
+}
+
+async function resolveIdentitiesBatch(addresses) {
+    if (!api || !api.isConnected || !api.query.identity) return;
+    const now = Date.now();
+    const toResolve = addresses.filter(addr => {
+        const cached = identityMemCache.get(addr);
+        return !cached || (now - cached.ts > IDENTITY_MEM_TTL);
+    });
+    if (toResolve.length === 0) return;
+
+    // Check DB for still-valid entries
+    const dbResults = getIdentities(toResolve);
+    const needRpc = [];
+    for (const addr of toResolve) {
+        const dbRow = dbResults[addr];
+        if (dbRow && (now - dbRow.updated_at < IDENTITY_DB_TTL)) {
+            identityMemCache.set(addr, { display: dbRow.display, email: dbRow.email, web: dbRow.web, twitter: dbRow.twitter, discord: dbRow.discord, ts: now });
+        } else {
+            needRpc.push(addr);
+        }
+    }
+    if (needRpc.length === 0) return;
+
+    // Batch RPC in chunks of 50
+    const CHUNK = 50;
+    for (let i = 0; i < needRpc.length; i += CHUNK) {
+        const chunk = needRpc.slice(i, i + CHUNK);
+        try {
+            const results = await api.query.identity.identityOf.multi(chunk);
+            const dbBatch = [];
+            for (let j = 0; j < chunk.length; j++) {
+                const parsed = parseIdentityFull(results[j]);
+                identityMemCache.set(chunk[j], { ...parsed, ts: Date.now() });
+                dbBatch.push({ address: chunk[j], ...parsed });
+            }
+            upsertIdentityBatch(dbBatch);
+        } catch (e) {
+            console.error('Identity batch resolve error:', e.message);
+        }
+    }
+    // LRU eviction
+    if (identityMemCache.size > 5000) {
+        const keys = [...identityMemCache.keys()].slice(0, 1000);
+        keys.forEach(k => identityMemCache.delete(k));
+    }
+}
+
+function queueIdentityResolve(addresses) {
+    for (const addr of addresses) {
+        if (addr && addr.length > 40 && !addr.startsWith('0x')) {
+            IDENTITY_RESOLVE_QUEUE.add(addr);
+        }
+    }
+    if (identityResolveTimer) return;
+    identityResolveTimer = setTimeout(async () => {
+        const batch = [...IDENTITY_RESOLVE_QUEUE];
+        IDENTITY_RESOLVE_QUEUE.clear();
+        identityResolveTimer = null;
+        if (batch.length > 0) await resolveIdentitiesBatch(batch);
+    }, 500);
+}
 
 async function loadOfficialWhitelist() {
     try {
@@ -1262,6 +1355,79 @@ app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
     }
 });
 
+// --- EXTRINSICS ENDPOINTS ---
+app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+        const section = req.query.section || null;
+        const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
+        const block = req.query.block ? parseInt(req.query.block) : null;
+        const result = getLatestExtrinsics(page, limit, section, timestamp, block);
+        res.json(result);
+    } catch (e) {
+        console.error('Error /history/global/extrinsics:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/history/extrinsic-sections', rateLimit(10, 60000), (req, res) => {
+    try {
+        res.json(getExtrinsicSections());
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+        const result = getExtrinsicsByAddress(req.params.address, page, limit);
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- IDENTITY RESOLUTION ENDPOINT ---
+app.post('/api/identities', rateLimit(30, 60000), async (req, res) => {
+    try {
+        const { addresses } = req.body;
+        if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
+            return res.status(400).json({ error: 'addresses array required' });
+        }
+        const capped = addresses.filter(a => typeof a === 'string' && a.length > 40 && !a.startsWith('0x')).slice(0, 200);
+        if (capped.length === 0) return res.json({});
+
+        const now = Date.now();
+        const result = {};
+        const toResolve = [];
+
+        for (const addr of capped) {
+            const cached = identityMemCache.get(addr);
+            if (cached && (now - cached.ts < IDENTITY_MEM_TTL)) {
+                if (cached.display) result[addr] = { display: cached.display };
+            } else {
+                toResolve.push(addr);
+            }
+        }
+
+        if (toResolve.length > 0) {
+            await resolveIdentitiesBatch(toResolve);
+            for (const addr of toResolve) {
+                const cached = identityMemCache.get(addr);
+                if (cached && cached.display) result[addr] = { display: cached.display };
+            }
+        }
+
+        res.json(result);
+    } catch (e) {
+        console.error('Error /api/identities:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.get('/history/global/liquidity', rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -1474,6 +1640,17 @@ async function startApp() {
 
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
 
+    // Pre-load identity cache from DB
+    try {
+        const cached = getAllCachedIdentities();
+        for (const row of cached) {
+            identityMemCache.set(row.address, { display: row.display, ts: Date.now() });
+        }
+        console.log(`🪪 Loaded ${cached.length} cached identities from DB.`);
+    } catch (e) {
+        console.error('Failed to pre-load identities:', e.message);
+    }
+
     // Warm cache al inicio (datos pre-cargados para primer usuario)
     setTimeout(async () => {
         console.log('🔥 Warm cache inicializando...');
@@ -1514,6 +1691,10 @@ async function startApp() {
             const batch = pendingSwaps.splice(0, MAX_EVENTS_PER_BATCH);
             io.emit('swaps-batch', batch);
             console.log(`📤 Sent ${batch.length} swaps in batch`);
+        }
+        if (pendingExtrinsicsBatch.length > 0) {
+            const batch = pendingExtrinsicsBatch.splice(0, MAX_EVENTS_PER_BATCH);
+            io.emit('extrinsics-batch', batch);
         }
         lastBatchTime = now;
     }, BATCH_INTERVAL_MS);
@@ -1980,6 +2161,56 @@ async function startApp() {
                 }
             }
         })();
+
+        // --- RAW EXTRINSICS LOGGING ---
+        for (let i = 0; i < signedBlock.block.extrinsics.length; i++) {
+            try {
+                const ex = signedBlock.block.extrinsics[i];
+                const decoded = ex.toHuman();
+                if (!decoded || !decoded.method) continue;
+
+                const { section, method } = decoded.method;
+                const extrinsicEvents = allEvents.filter(({ phase }) =>
+                    phase.isApplyExtrinsic && phase.asApplyExtrinsic.toNumber() === i
+                );
+                const isSuccess = extrinsicEvents.some(({ event }) =>
+                    event.section === 'system' && event.method === 'ExtrinsicSuccess'
+                );
+                const signer = decoded.signer?.Id || decoded.signer || 'System';
+                let argsJson = '{}';
+                try {
+                    const argsStr = JSON.stringify(decoded.method.args || {});
+                    argsJson = argsStr.length > 2048 ? argsStr.substring(0, 2048) + '...' : argsStr;
+                } catch (e) { argsJson = '{}'; }
+
+                const formattedTime = new Date().toLocaleString('es-ES');
+                const exData = {
+                    timestamp: Date.now(), formatted_time: formattedTime,
+                    block: blockNumber, extrinsic_index: i,
+                    hash: ex.hash.toHex(), section, method,
+                    signer: typeof signer === 'string' ? signer : 'System',
+                    success: isSuccess, args_json: argsJson
+                };
+                insertExtrinsic(exData);
+                pendingExtrinsicsBatch.push({
+                    time: formattedTime, block: blockNumber, extrinsic_index: i,
+                    extrinsic_id: `${blockNumber}-${i}`,
+                    hash: ex.hash.toHex(), section, method,
+                    signer: exData.signer, success: isSuccess
+                });
+            } catch (e) { /* skip */ }
+        }
+
+        // --- PROACTIVE IDENTITY RESOLUTION ---
+        const blockAddresses = new Set();
+        signedBlock.block.extrinsics.forEach(ex => {
+            try {
+                const decoded = ex.toHuman();
+                const s = decoded?.signer?.Id || (typeof decoded?.signer === 'string' ? decoded.signer : null);
+                if (s && s !== 'System' && s.length > 40) blockAddresses.add(s);
+            } catch (e) { /* skip */ }
+        });
+        if (blockAddresses.size > 0) queueIdentityResolve([...blockAddresses]);
 
         // Update Session Block & Notify Frontend
         sessionStats.block = blockNumber;

@@ -481,6 +481,26 @@
             color: #111827;
         }
 
+        .pallet-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            background: #EEF2FF;
+            color: #4338CA;
+            border: 1px solid #C7D2FE;
+            white-space: nowrap;
+        }
+        [data-theme="dark"] .pallet-badge {
+            background: #1E1B4B;
+            color: #A5B4FC;
+            border-color: #3730A3;
+        }
+        .result-success { color: #10B981; font-weight: 700; }
+        .result-failed { color: #EF4444; font-weight: 700; }
+
         .btn-ghost svg {
             width: 16px;
             height: 16px;
@@ -1939,6 +1959,50 @@
             </div>
         </div>
 
+        <div id="extrinsics" class="tab-content">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; font-size:18px;" data-i18n="tab_extrinsics">Raw Extrinsics</h3>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                        <select id="extrinsicSectionFilter" onchange="loadGlobalExtrinsics(true)"
+                            style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
+                            <option value="" data-i18n="all_pallets">All Pallets</option>
+                        </select>
+                        <input type="datetime-local" id="extrinsicDateInput" onchange="loadGlobalExtrinsics(true)"
+                            style="padding:6px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px; max-width:180px;">
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="time">Hora</th>
+                                <th>Block</th>
+                                <th>ID</th>
+                                <th>Pallet::Call</th>
+                                <th data-i18n="signer">Firmante</th>
+                                <th data-i18n="result">Resultado</th>
+                                <th data-i18n="action">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="extrinsicTable">
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding:20px; color:#9CA3AF;"
+                                    data-i18n="waiting_activity">Esperando actividad...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:center; gap:5px; margin-top:20px; align-items:center;">
+                    <button id="btnExtrinsicFirst" class="btn-holders" onclick="changeExtrinsicPage('first')" title="Inicio">⇤</button>
+                    <button id="btnExtrinsicPrev" class="btn-holders" onclick="changeExtrinsicPage(-1)">⬅ <span data-i18n="previous">Anterior</span></button>
+                    <span id="extrinsicPageIndicator" style="font-size:13px; color:#6B7280; margin:0 10px;">Página 1</span>
+                    <button id="btnExtrinsicNext" class="btn-holders" onclick="changeExtrinsicPage(1)"><span data-i18n="next">Siguiente</span> ➡</button>
+                    <button id="btnExtrinsicLast" class="btn-holders" onclick="changeExtrinsicPage('last')" title="Final">⇥</button>
+                </div>
+            </div>
+        </div>
+
         <div id="balance" class="tab-content active">
             <h2 style="color:#6B7280; font-size:14px; margin-bottom:5px;" data-i18n="total_net_worth">
                 Patrimonio Total
@@ -2753,6 +2817,15 @@
                         onclick="document.getElementById('blockModal').style.display='none'">&times;</span>
                     <h2 style="margin-top:0;">Block Details #<span id="blockModalNumber"></span></h2>
                     <div id="blockModalContent">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Extrinsic Details Modal -->
+            <div id="extrinsicDetailModal" class="modal">
+                <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow-y: auto;">
+                    <span class="close-modal" onclick="document.getElementById('extrinsicDetailModal').style.display='none'">&times;</span>
+                    <h2 style="margin-top:0;" data-i18n="extrinsic_details">Extrinsic Details</h2>
+                    <div id="extrinsicDetailContent" style="word-break: break-all;">Loading...</div>
                 </div>
             </div>
 

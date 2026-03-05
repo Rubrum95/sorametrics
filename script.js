@@ -77,54 +77,64 @@ const TRANSLATIONS = {
         // Nuevas claves
         bridge_contract: "Contrato Bridge", bridge_internal_hash: "Este hash es un ID interno del bridge de SORA. No es visible en Etherscan.", view: "Ver", direction: "Dirección", view_on_subscan: "Ver en Subscan", transaction_hash: "Hash de Transacción", ethereum_request_hash: "Hash de Solicitud Ethereum", origin: "Origen", extrinsic_id: "ID de Extrinsic", ethereum_network: "Red Ethereum", no_external_link: "Sin enlace externo disponible",
         network_stats_btn: "Estadísticas de Red", timeframe: "Temporalidad:", current_block: "Bloque Actual", live: "En Vivo", bridges: "Puentes", time_filtered: "Filtrado", whale_leaderboard: "🐳 Ranking de Acumulación", loading_whales: "Cargando Ballenas...", network_info: "📊 Info de Red", active_accounts: "Cuentas Activas", swap_volume: "Volumen Swaps (KUSD)", lp_volume: "Nuevo Vol. LP", transfer_volume: "Volumen Transferencias", stablecoin_monitor: "⚖️ Monitor de Stablecoins", deviation_target: "* Desviación del objetivo $1.00", trending_tokens: "📈 Tokens en Tendencia", network_fees: "💸 Tarifas de Red Pagadas", total_xor: "Total XOR", total_usd: "Total USD", network: "Red", asset: "Activo",
-        providers: "Proveedores", activity: "Actividad", rank: "Rango", wallet: "Billetera", liquidity_shares: "Cuota de Liquidez", pool_details: "Detalles del Pool", no_providers_found: "No se encontraron proveedores", no_activity_found: "No se encontró actividad", shares: "Cuota"
+        providers: "Proveedores", activity: "Actividad", rank: "Rango", wallet: "Billetera", liquidity_shares: "Cuota de Liquidez", pool_details: "Detalles del Pool", no_providers_found: "No se encontraron proveedores", no_activity_found: "No se encontró actividad", shares: "Cuota",
+        tab_extrinsics: "Extrinsics", all_pallets: "Todos los Pallets", signer: "Firmante", result: "Resultado", extrinsic_details: "Detalles del Extrinsic"
     },
     en: {
         tab_balance: "Balance", tab_swaps: "Swaps", tab_transfers: "Transfers", tab_tokens: "Tokens", tab_liquidity: "Liquidity", tab_bridges: "Bridges", total_net_worth: "Total Net Worth", header_my_wallets: "💼 My Wallets", btn_add_wallet: "+ Add Wallet", header_watch_wallets: "👀 Watched Wallets", live_transfers: "💸 Live Transfers", time: "Time", from: "From", amount: "Amount", to: "To", waiting_activity: "Waiting for activity...", previous: "Previous", next: "Next", page: "Page", liquidity_pools: "🌊 Liquidity (Pools)", all: "All", total_pools: "Total Pools:", pair: "Pair", reserves: "Reserves", action: "Action", loading_pools: "Loading pools...", live_swaps: "⚡ Live Swaps", all_tokens: "All Tokens", search_token: "Search token...", input: "Input", output: "Output", account: "Account", refresh: "Refresh", favorites: "⭐ Favorites", search_token_name_symbol_id: "Search by name, symbol or ID...", asset: "Asset", price: "Price", loading: "Loading...", holders: "Holders", rank: "Rank", wallet: "Wallet", balance: "Balance", add_wallet: "Add Wallet", sora_address: "SORA Address", name_alias: "Name (Alias)", example_savings: "Ex: Savings", type: "Type", my_wallet_total: "My Wallet (Adds to total)", watched_wallet_tracking: "Watched (Tracking)", save_wallet: "Save Wallet", wallet: "Wallet", assets: "Assets", swaps: "Swaps", transfers: "Transfers", other: "Other", no_wallets_saved: "You have no wallets saved.", not_watching_wallets: "You are not watching any wallets.", no_favorites_yet: "You have no favorites yet.", no_data: "No data.", no_swaps_found: "No swaps found.", no_assets_found: "No assets found.", no_recent_swaps: "No recent swaps.", no_recent_transfers: "No recent transfers.", error_loading_data: "Error loading data", error_loading_pools: "Error loading pools", error_loading: "Error loading", page_x_of_y: "Page {current} of {total}", filter: "Filter:", all_tokens_star: "🌟 All", received: "⬇ RECEIVED", sent: "⬆ SENT", accounts: "accounts", chart: "Chart", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend (Fees)",
         bridge_contract: "Bridge Contract", bridge_internal_hash: "This hash is an internal SORA bridge ID. It is not visible on Etherscan.", view: "View", direction: "Direction", view_on_subscan: "View on Subscan", transaction_hash: "Transaction Hash", ethereum_request_hash: "Ethereum Request Hash", origin: "Origin", extrinsic_id: "Extrinsic ID", ethereum_network: "Ethereum Network", no_external_link: "No external link available",
         network_stats_btn: "Network Stats", timeframe: "Timeframe:", current_block: "Current Block", live: "Live", bridges: "Bridges", time_filtered: "Filtered", whale_leaderboard: "🐳 Whale Accumulation Ranking", loading_whales: "Loading Whales...", network_info: "📊 Network Info", active_accounts: "Active Accounts", swap_volume: "Swap Volume (KUSD)", lp_volume: "New LP Volume", transfer_volume: "Transfer Volume", stablecoin_monitor: "⚖️ Stablecoin Monitor", deviation_target: "* Deviation from $1.00 target", trending_tokens: "📈 Trending Tokens", network_fees: "💸 Network Fees Paid", total_xor: "Total XOR", total_usd: "Total USD", network: "Network", asset: "Asset",
-        providers: "Providers", activity: "Activity", rank: "Rank", wallet: "Wallet", liquidity_shares: "Liquidity Shares", pool_details: "Pool Details", no_providers_found: "No providers found", no_activity_found: "No activity found", shares: "Shares"
+        providers: "Providers", activity: "Activity", rank: "Rank", wallet: "Wallet", liquidity_shares: "Liquidity Shares", pool_details: "Pool Details", no_providers_found: "No providers found", no_activity_found: "No activity found", shares: "Shares",
+        tab_extrinsics: "Extrinsics", all_pallets: "All Pallets", signer: "Signer", result: "Result", extrinsic_details: "Extrinsic Details"
     },
     jp: {
         tab_balance: "残高", tab_swaps: "スワップ", tab_transfers: "転送", tab_tokens: "トークン", tab_liquidity: "流動性", tab_bridges: "ブリッジ", total_net_worth: "総資産", header_my_wallets: "💼 マイウォレット", btn_add_wallet: "+ ウォレット追加", header_watch_wallets: "👀 監視ウォレット", live_transfers: "💸 ライブ転送", time: "時間", from: "送信元", amount: "金額", to: "送信先", waiting_activity: "アクティビティ待機中...", previous: "前へ", next: "次へ", page: "ページ", liquidity_pools: "🌊 流動性 (プール)", all: "すべて", total_pools: "プール総数:", pair: "ペア", reserves: "準備金", action: "アクション", loading_pools: "プールを読み込み中...", live_swaps: "⚡ ライブスワップ", all_tokens: "すべてのトークン", search_token: "トークン検索...", input: "入力", output: "出力", account: "アカウント", refresh: "更新", favorites: "⭐ お気に入り", search_token_name_symbol_id: "名前、シンボル、IDで検索...", asset: "資産", price: "価格", loading: "読み込み中...", holders: "ホルダー", rank: "ランク", wallet: "ウォレット", balance: "残高", add_wallet: "ウォレット追加", sora_address: "SORAアドレス", name_alias: "名前 (エイリアス)", example_savings: "例: 貯金", type: "タイプ", my_wallet_total: "マイウォレット (合計に加算)", watched_wallet_tracking: "監視 (追跡のみ)", save_wallet: "ウォレット保存", wallet: "ウォレット", assets: "資産", swaps: "スワップ", transfers: "転送", other: "その他", no_wallets_saved: "保存されたウォレットはありません。", not_watching_wallets: "監視中のウォレットはありません。", no_favorites_yet: "お気に入りはまだありません。", no_data: "データなし。", no_swaps_found: "スワップが見つかりません。", no_assets_found: "資産が見つかりません。", no_recent_swaps: "最近のスワップはありません。", no_recent_transfers: "最近の転送はありません。", error_loading_data: "データの読み込みエラー", error_loading_pools: "プールの読み込みエラー", error_loading: "読み込みエラー", page_x_of_y: "ページ {current} / {total}", filter: "フィルター:", all_tokens_star: "🌟 すべて", received: "⬇ 受信", sent: "⬆ 送信", accounts: "アカウント", chart: "チャート", fees_pie_title: "種類別のXOR焼却", fees_line_title: "活動傾向 (手数料)",
         bridge_contract: "ブリッジ契約", bridge_internal_hash: "このハッシュはSORAブリッジの内部IDです。Etherscanでは見えません。", view: "表示", direction: "方向", view_on_subscan: "Subscanで見る", transaction_hash: "トランザクションハッシュ", ethereum_request_hash: "Ethereumリクエストハッシュ", origin: "オリジン", extrinsic_id: "Extrinsic ID", ethereum_network: "イーサリアムネットワーク", no_external_link: "外部リンクなし",
         network_stats_btn: "ネットワーク統計", timeframe: "期間:", current_block: "現在のブロック", live: "ライブ", bridges: "ブリッジ", time_filtered: "フィルター済", whale_leaderboard: "🐳 クジラ蓄積ランキング", loading_whales: "クジラを読み込み中...", network_health: "⚡ ネットワークの状態", global_volume: "グローバルボリューム", active_users: "アクティブユーザー", est_tps: "推定TPS", stablecoin_monitor: "⚖️ ステーブルコイン監視", deviation_target: "* $1.00ターゲットからの乖離", trending_tokens: "📈 トレンドトークン", network_fees: "💸 支払われたネットワーク料金", total_xor: "合計 XOR", total_usd: "合計 USD", bridges: "ブリッジ", network: "ネットワーク", asset: "資産",
-        providers: "プロバイダー", activity: "アクティビティ", rank: "ランク", wallet: "ウォレット", liquidity_shares: "流動性シェア", pool_details: "プールの詳細", no_providers_found: "プロバイダーが見つかりません", no_activity_found: "アクティビティが見つかりません", shares: "シェア"
+        providers: "プロバイダー", activity: "アクティビティ", rank: "ランク", wallet: "ウォレット", liquidity_shares: "流動性シェア", pool_details: "プールの詳細", no_providers_found: "プロバイダーが見つかりません", no_activity_found: "アクティビティが見つかりません", shares: "シェア",
+        tab_extrinsics: "エクストリンシクス", all_pallets: "全パレット", signer: "署名者", result: "結果", extrinsic_details: "エクストリンシクス詳細"
     },
     pt: {
         tab_balance: "Saldo", tab_swaps: "Trocas", tab_transfers: "Transferências", tab_tokens: "Tokens", tab_liquidity: "Liquidez", tab_bridges: "Pontes", total_net_worth: "Patrimônio Total", header_my_wallets: "💼 Minhas Carteiras", btn_add_wallet: "+ Adicionar Carteira", header_watch_wallets: "👀 Carteiras Observadas", live_transfers: "💸 Transferências ao Vivo", time: "Hora", from: "De", amount: "Quantia", to: "Para", waiting_activity: "Aguardando atividade...", previous: "Anterior", next: "Próximo", page: "Página", liquidity_pools: "🌊 Liquidez (Pools)", all: "Todos", total_pools: "Total de Pools:", pair: "Par", reserves: "Reservas", action: "Ação", loading_pools: "Carregando pools...", live_swaps: "⚡ Trocas ao Vivo", all_tokens: "Todos os Tokens", search_token: "Buscar token...", input: "Entrada", output: "Saída", account: "Conta", refresh: "Atualizar", favorites: "⭐ Favoritos", search_token_name_symbol_id: "Buscar por nome, símbolo o ID...", asset: "Ativo", price: "Preço", loading: "Carregando...", holders: "Detentores", rank: "Ranking", wallet: "Carteira", balance: "Saldo", add_wallet: "Adicionar Carteira", sora_address: "Endereço SORA", name_alias: "Nome (Apelido)", example_savings: "Ex: Poupança", type: "Tipo", my_wallet_total: "Minha Carteira (Soma ao total)", watched_wallet_tracking: "Observada (Apenas rastreamento)", save_wallet: "Salvar Carteira", wallet: "Carteira", assets: "Ativos", swaps: "Trocas", transfers: "Transferências", other: "Outro", no_wallets_saved: "Nenhuma carteira salva.", not_watching_wallets: "Você não está observando nenhuma carteira.", no_favorites_yet: "Você ainda não tem favoritos.", no_data: "Sem dados.", no_swaps_found: "Nenhuma troca encontrada.", no_assets_found: "Nenhum ativo encontrado.", no_recent_swaps: "Nenhuma troca recente.", no_recent_transfers: "Nenhuma transferência recente.", error_loading_data: "Erro ao carregar dados", error_loading_pools: "Erro ao carregar pools", error_loading: "Erro ao carregar", page_x_of_y: "Página {current} de {total}", filter: "Filtro:", all_tokens_star: "🌟 Todos", received: "⬇ RECEBIDO", sent: "⬆ ENVIADO", accounts: "contas", chart: "Gráfico", fees_pie_title: "XOR Queimado por Tipo", fees_line_title: "Tendência de Atividade",
         bridge_contract: "Contrato Bridge", bridge_internal_hash: "Este hash é um ID interno da bridge SORA. Não é visível no Etherscan.", view: "Ver", direction: "Direção", view_on_subscan: "Ver no Subscan", transaction_hash: "Hash da Transação", ethereum_request_hash: "Hash de Solicitação Ethereum", origin: "Origem", extrinsic_id: "ID do Extrinsic", ethereum_network: "Rede Ethereum", no_external_link: "Sem link externo disponível",
-        network_stats_btn: "Estatísticas da Rede", timeframe: "Período:", current_block: "Bloco Atual", live: "Ao Vivo", bridges: "Pontes", time_filtered: "Filtrado", whale_leaderboard: "🐳 Ranking de Acumulação de Baleias", loading_whales: "Carregando Baleias...", network_health: "⚡ Saúde da Rede", global_volume: "Volume Global", active_users: "Usuários Ativos", est_tps: "TPS Est.", stablecoin_monitor: "⚖️ Monitor de Stablecoins", deviation_target: "* Desvio da meta de $1.00", trending_tokens: "📈 Tokens em Tendência", network_fees: "💸 Taxas de Rede Pagas", total_xor: "Total XOR", total_usd: "Total USD", bridges: "Pontes", network: "Rede", asset: "Ativo"
+        network_stats_btn: "Estatísticas da Rede", timeframe: "Período:", current_block: "Bloco Atual", live: "Ao Vivo", bridges: "Pontes", time_filtered: "Filtrado", whale_leaderboard: "🐳 Ranking de Acumulação de Baleias", loading_whales: "Carregando Baleias...", network_health: "⚡ Saúde da Rede", global_volume: "Volume Global", active_users: "Usuários Ativos", est_tps: "TPS Est.", stablecoin_monitor: "⚖️ Monitor de Stablecoins", deviation_target: "* Desvio da meta de $1.00", trending_tokens: "📈 Tokens em Tendência", network_fees: "💸 Taxas de Rede Pagas", total_xor: "Total XOR", total_usd: "Total USD", bridges: "Pontes", network: "Rede", asset: "Ativo",
+        tab_extrinsics: "Extrinsics", all_pallets: "Todos os Pallets", signer: "Assinante", result: "Resultado", extrinsic_details: "Detalhes do Extrinsic"
     },
     it: {
         tab_balance: "Saldo", tab_swaps: "Swap", tab_transfers: "Trasferimenti", tab_tokens: "Token", tab_liquidity: "Liquidità", tab_bridges: "Ponti", total_net_worth: "Patrimonio Totale", header_my_wallets: "💼 I Miei Wallet", btn_add_wallet: "+ Aggiungi Wallet", header_watch_wallets: "👀 Wallet Osservati", live_transfers: "💸 Trasferimenti Live", time: "Ora", from: "Da", amount: "Importo", to: "A", waiting_activity: "In attesa di attività...", previous: "Precedente", next: "Successivo", page: "Pagina", liquidity_pools: "🌊 Liquidità (Pools)", all: "Tutto", total_pools: "Pools Totali:", pair: "Coppia", reserves: "Riserve", action: "Azione", loading_pools: "Caricamento pools...", live_swaps: "⚡ Swap Live", all_tokens: "Tutti i Token", search_token: "Cerca token...", input: "Input", output: "Output", account: "Account", refresh: "Aggiorna", favorites: "⭐ Preferiti", search_token_name_symbol_id: "Cerca per nome, simbolo o ID...", asset: "Asset", price: "Prezzo", loading: "Caricamento...", holders: "Detentori", rank: "Rango", wallet: "Wallet", balance: "Saldo", add_wallet: "Aggiungi Wallet", sora_address: "Indirizzo SORA", name_alias: "Nome (Alias)", example_savings: "Es: Risparmi", type: "Tipo", my_wallet_total: "Mio Wallet (Aggiunge al totale)", watched_wallet_tracking: "Osservato (Solo tracciamento)", save_wallet: "Salva Wallet", wallet: "Wallet", assets: "Asset", swaps: "Swap", transfers: "Trasferimenti", other: "Altro", no_wallets_saved: "Non hai wallet salvati.", not_watching_wallets: "Non stai osservando nessun wallet.", no_favorites_yet: "Non hai ancora preferiti.", no_data: "Nessun dato.", no_swaps_found: "Nessuno swap trovato.", no_assets_found: "Nessun asset trovato.", no_recent_swaps: "Nessuno swap recente.", no_recent_transfers: "Nessun trasferimento recente.", error_loading_data: "Errore caricamento dati", error_loading_pools: "Errore caricamento pools", error_loading: "Errore caricamento", page_x_of_y: "Pagina {current} di {total}", filter: "Filtro:", all_tokens_star: "🌟 Tutti", received: "⬇ RICEVUTO", sent: "⬆ INVIATO", accounts: "account", chart: "Grafico", fees_pie_title: "XOR Bruciato per Tipo", fees_line_title: "Tendenza Attività",
         bridge_contract: "Contratto Bridge", bridge_internal_hash: "Questo hash è un ID interno del bridge SORA. Non è visibile su Etherscan.", view: "Vedi", direction: "Direzione", view_on_subscan: "Vedi su Subscan", transaction_hash: "Hash della Transazione", ethereum_request_hash: "Hash Richiesta Ethereum", origin: "Origine", extrinsic_id: "ID Extrinsic", ethereum_network: "Rete Ethereum", no_external_link: "Nessun link esterno disponibile",
-        network_stats_btn: "Statistiche Rete", timeframe: "Intervallo:", current_block: "Blocco Attuale", live: "Live", bridges: "Ponti", time_filtered: "Filtrato", whale_leaderboard: "🐳 Classifica Accumulo Balene", loading_whales: "Caricamento Balene...", network_health: "⚡ Salute della Rete", global_volume: "Volume Globale", active_users: "Utenti Attivi", est_tps: "TPS Stimato", stablecoin_monitor: "⚖️ Monitor Stablecoin", deviation_target: "* Deviazione dal target $1.00", trending_tokens: "📈 Token in Tendenza", network_fees: "💸 Commissioni di Rete Pagate", total_xor: "Totale XOR", total_usd: "Totale USD", bridges: "Ponti", network: "Rete", asset: "Asset"
+        network_stats_btn: "Statistiche Rete", timeframe: "Intervallo:", current_block: "Blocco Attuale", live: "Live", bridges: "Ponti", time_filtered: "Filtrato", whale_leaderboard: "🐳 Classifica Accumulo Balene", loading_whales: "Caricamento Balene...", network_health: "⚡ Salute della Rete", global_volume: "Volume Globale", active_users: "Utenti Attivi", est_tps: "TPS Stimato", stablecoin_monitor: "⚖️ Monitor Stablecoin", deviation_target: "* Deviazione dal target $1.00", trending_tokens: "📈 Token in Tendenza", network_fees: "💸 Commissioni di Rete Pagate", total_xor: "Totale XOR", total_usd: "Totale USD", bridges: "Ponti", network: "Rete", asset: "Asset",
+        tab_extrinsics: "Extrinsics", all_pallets: "Tutti i Pallet", signer: "Firmatario", result: "Risultato", extrinsic_details: "Dettagli Extrinsic"
     },
     tr: {
         tab_balance: "Bakiye", tab_swaps: "Swaplar", tab_transfers: "Transferler", tab_tokens: "Tokenlar", tab_liquidity: "Likidite", tab_bridges: "Köprüler", total_net_worth: "Toplam Varlık", header_my_wallets: "💼 Cüzdanlarım", btn_add_wallet: "+ Cüzdan Ekle", header_watch_wallets: "👀 İzlenen Cüzdanlar", live_transfers: "💸 Canlı Transferler", time: "Zaman", from: "Gönderen", amount: "Miktar", to: "Alıcı", waiting_activity: "Aktivite bekleniyor...", previous: "Önceki", next: "Sonraki", page: "Sayfa", liquidity_pools: "🌊 Likidite (Havuzlar)", all: "Tümü", total_pools: "Toplam Havuz:", pair: "Çift", reserves: "Rezervler", action: "İşlem", loading_pools: "Havuzlar yükleniyor...", live_swaps: "⚡ Canlı Swaplar", all_tokens: "Tüm Tokenlar", search_token: "Token ara...", input: "Giriş", output: "Çıkış", account: "Hesap", refresh: "Yenile", favorites: "⭐ Favoriler", search_token_name_symbol_id: "İsim, sembol veya ID ile ara...", asset: "Varlık", price: "Fiyat", loading: "Yükleniyor...", holders: "Sahipler", rank: "Sıra", wallet: "Cüzdan", balance: "Bakiye", add_wallet: "Cüzdan Ekle", sora_address: "SORA Adresi", name_alias: "İsim (Takma Ad)", example_savings: "Örn: Tasarruf", type: "Tip", my_wallet_total: "Cüzdanım (Toplama eklenir)", watched_wallet_tracking: "İzlenen (Sadece takip)", save_wallet: "Cüzdanı Kaydet", wallet: "Cüzdan", assets: "Varlıklar", swaps: "Swaplar", transfers: "Transferler", other: "Diğer", no_wallets_saved: "Kayıtlı cüzdanınız yok.", not_watching_wallets: "Hiçbir cüzdanı izlemiyorsunuz.", no_favorites_yet: "Henüz favoriniz yok.", no_data: "Veri yok.", no_swaps_found: "Swap bulunamadı.", no_assets_found: "Varlık bulunamadı.", no_recent_swaps: "Son swap yok.", no_recent_transfers: "Son transfer yok.", error_loading_data: "Veri yükleme hatası", error_loading_pools: "Havuz yükleme hatası", error_loading: "Yükleme hatası", page_x_of_y: "Sayfa {current} / {total}", filter: "Filtre:", all_tokens_star: "🌟 Tümü", received: "⬇ ALINAN", sent: "⬆ GÖNDERİLEN", accounts: "hesap", chart: "Grafik", fees_pie_title: "Türe Göre Yakılan XOR", fees_line_title: "Aktivite Trendi (Ücretler)",
         bridge_contract: "Köprü Kontratı", bridge_internal_hash: "Bu hash, SORA köprüsünün dahili kimliğidir. Etherscan'da görünmez.", view: "Görüntüle", direction: "Yön", view_on_subscan: "Subscan'da Gör", transaction_hash: "İşlem Hash'i", ethereum_request_hash: "Ethereum İstek Hash'i", origin: "Köken", extrinsic_id: "Extrinsic ID", ethereum_network: "Ethereum Ağı", no_external_link: "Harici bağlantı yok",
-        network_stats_btn: "Ağ İstatistikleri", timeframe: "Zaman Aralığı:", current_block: "Mevcut Blok", live: "Canlı", bridges: "Köprüler", time_filtered: "Filtreli", whale_leaderboard: "🐳 Balina Birikim Liderliği", loading_whales: "Balinalar Yükleniyor...", network_health: "⚡ Ağ Sağlığı", global_volume: "Küresel Hacim", active_users: "Aktif Kullanıcılar", est_tps: "Tahmini TPS", stablecoin_monitor: "⚖️ Stabil Coin İzleyici", deviation_target: "* $1.00 hedefinden sapma", trending_tokens: "📈 Trend Olan Tokenlar", network_fees: "💸 Ödenen Ağ Ücretleri", total_xor: "Toplam XOR", total_usd: "Toplam USD", bridges: "Köprüler", network: "Ağ", asset: "Varlık"
+        network_stats_btn: "Ağ İstatistikleri", timeframe: "Zaman Aralığı:", current_block: "Mevcut Blok", live: "Canlı", bridges: "Köprüler", time_filtered: "Filtreli", whale_leaderboard: "🐳 Balina Birikim Liderliği", loading_whales: "Balinalar Yükleniyor...", network_health: "⚡ Ağ Sağlığı", global_volume: "Küresel Hacim", active_users: "Aktif Kullanıcılar", est_tps: "Tahmini TPS", stablecoin_monitor: "⚖️ Stabil Coin İzleyici", deviation_target: "* $1.00 hedefinden sapma", trending_tokens: "📈 Trend Olan Tokenlar", network_fees: "💸 Ödenen Ağ Ücretleri", total_xor: "Toplam XOR", total_usd: "Toplam USD", bridges: "Köprüler", network: "Ağ", asset: "Varlık",
+        tab_extrinsics: "Extrinsics", all_pallets: "Tüm Paletler", signer: "İmzalayan", result: "Sonuç", extrinsic_details: "Extrinsic Detayları"
     },
     ur: {
         tab_balance: "بیلنس", tab_swaps: "تبادلے", tab_transfers: "ٹرانسفرز", tab_tokens: "ٹوکنز", tab_liquidity: "لیکویڈیٹی", tab_bridges: "پل", total_net_worth: "کل اثاثے", header_my_wallets: "💼 میرے بٹوے", btn_add_wallet: "+ بٹوا شامل کریں", header_watch_wallets: "👀 دیکھے گئے بٹوے", live_transfers: "💸 لائیو ٹرانسفرز", time: "وقت", from: "سے", amount: "رقم", to: "کو", waiting_activity: "سرگرمی کا انتظار ہے...", previous: "پچھلا", next: "اگلا", page: "صفحہ", liquidity_pools: "🌊 لیکویڈیٹی (پول)", all: "سب", total_pools: "کل پول:", pair: "جوڑا", reserves: "ذخائر", action: "عمل", loading_pools: "پول لوڈ ہو رہے ہیں...", live_swaps: "⚡ لائیو تبادلے", all_tokens: "تمام ٹوکنز", search_token: "ٹوکن تلاش کریں...", input: "ان پٹ", output: "آؤٹ پٹ", account: "اکاؤنٹ", refresh: "ریفریش", favorites: "⭐ پسندیدہ", search_token_name_symbol_id: "نام، علامت یا آئی ڈی سے تلاش کریں...", asset: "اثاثہ", price: "قیمت", loading: "لوڈ ہو رہا ہے...", holders: "ہولڈرز", rank: "درجہ", wallet: "بٹوا", balance: "بیلنس", add_wallet: "بٹوا شامل کریں", sora_address: "SORA ایڈریس", name_alias: "نام (عرف)", example_savings: "مثال: بچت", type: "قسم", my_wallet_total: "میرا بٹوا (کل میں شامل کریں)", watched_wallet_tracking: "دیکھا گیا (صرف ٹریکنگ)", save_wallet: "بٹوا محفوظ کریں", wallet: "بٹوا", assets: "اثاثے", swaps: "تبادلے", transfers: "ٹرانسفرز", other: "دیگر", no_wallets_saved: "آپ کے پاس کوئی محفوظ شدہ بٹوے نہیں ہیں۔", not_watching_wallets: "آپ کسی بٹوے کو نہیں دیکھ رہے ہیں۔", no_favorites_yet: "آپ کے پاس ابھی کوئی پسندیدہ نہیں ہے۔", no_data: "کوئی ڈیٹا نہیں۔", no_swaps_found: "کوئی تبادلہ نہیں ملا۔", no_assets_found: "کوئی اثاثہ نہیں ملا۔", no_recent_swaps: "کوئی حالیہ تبادلہ نہیں۔", no_recent_transfers: "کوئی حالیہ ٹرانسفر نہیں۔", error_loading_data: "ڈیٹا لوڈ کرنے میں خرابی", error_loading_pools: "پولز لوڈ کرنے میں خرابی", error_loading: "لوڈ کرنے میں خرابی", page_x_of_y: "صفحہ {current} از {total}", filter: "فلٹر:", all_tokens_star: "🌟 سب", received: "⬇ موصول ہوا", sent: "⬆ بھیجا گیا", accounts: "اکاؤنٹس", chart: "چارٹ", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend",
         bridge_contract: "برج کنٹریکٹ", bridge_internal_hash: "یہ ہیش SORA برج کی داخلی آئی ڈی ہے۔ یہ Etherscan پر نظر نہیں آتا۔", view: "دیکھیں", direction: "سمت", view_on_subscan: "Subscan پر دیکھیں", transaction_hash: "ٹرانزیکشن ہیش", ethereum_request_hash: "Ethereum درخواست ہیش", origin: "اصل", extrinsic_id: "Extrinsic ID", ethereum_network: "Ethereum نیٹورک", no_external_link: "کوئی بیرونی لنک نہیں",
-        network_stats_btn: "نیٹ ورک کے اعدادوشمار", timeframe: "وقت کی حد:", current_block: "موجودہ بلاک", live: "لائیو", bridges: "پل", time_filtered: "فلٹرڈ", whale_leaderboard: "🐳 وہیل جمع کرنے کی درجہ بندی", loading_whales: "وہیل لوڈ ہو رہی ہیں...", network_health: "⚡ نیٹ ورک کی صحت", global_volume: "عالمی حجم", active_users: "فعال صارفین", est_tps: "تخمینہ شدہ TPS", stablecoin_monitor: "⚖️ اسٹیبل کوائن مانیٹر", deviation_target: "* $1.00 کے ہدف سے انحراف", trending_tokens: "📈 رجحان ساز ٹوکنز", network_fees: "💸 ادا کردہ نیٹ ورک فیس", total_xor: "کل XOR", total_usd: "کل USD", bridges: "پل", network: "نیٹ ورک", asset: "اثاثہ"
+        network_stats_btn: "نیٹ ورک کے اعدادوشمار", timeframe: "وقت کی حد:", current_block: "موجودہ بلاک", live: "لائیو", bridges: "پل", time_filtered: "فلٹرڈ", whale_leaderboard: "🐳 وہیل جمع کرنے کی درجہ بندی", loading_whales: "وہیل لوڈ ہو رہی ہیں...", network_health: "⚡ نیٹ ورک کی صحت", global_volume: "عالمی حجم", active_users: "فعال صارفین", est_tps: "تخمینہ شدہ TPS", stablecoin_monitor: "⚖️ اسٹیبل کوائن مانیٹر", deviation_target: "* $1.00 کے ہدف سے انحراف", trending_tokens: "📈 رجحان ساز ٹوکنز", network_fees: "💸 ادا کردہ نیٹ ورک فیس", total_xor: "کل XOR", total_usd: "کل USD", bridges: "پل", network: "نیٹ ورک", asset: "اثاثہ",
+        tab_extrinsics: "Extrinsics", all_pallets: "تمام پیلٹس", signer: "دستخط کنندہ", result: "نتیجہ", extrinsic_details: "Extrinsic تفصیلات"
     },
     he: {
         tab_balance: "יתרה", tab_swaps: "החלפות", tab_transfers: "העברות", tab_tokens: "אסימונים", tab_liquidity: "נזילות", tab_bridges: "גשרים", total_net_worth: "שווי כולל", header_my_wallets: "💼 הארנקים שלי", btn_add_wallet: "+ הוסף ארנק", header_watch_wallets: "👀 ארנקים במעקב", live_transfers: "💸 העברות בשידור חי", time: "זמן", from: "מאת", amount: "כמות", to: "אל", waiting_activity: "ממתין לפעילות...", previous: "הקודם", next: "הבא", page: "עמוד", liquidity_pools: "🌊 נזילות (Pools)", all: "הכל", total_pools: "סך הכל בריכות:", pair: "צמד", reserves: "רזרבות", action: "פעולה", loading_pools: "טוען בריכות...", live_swaps: "⚡ החלפות בשידור חי", all_tokens: "כל האסימונים", search_token: "חפש אסימון...", input: "קלט", output: "פלט", account: "חשבון", refresh: "רענן", favorites: "⭐ מועדפים", search_token_name_symbol_id: "חפש לפי שם, סמל או מזהה...", asset: "נכס", price: "מחיר", loading: "טוען...", holders: "מחזיקים", rank: "דירוג", wallet: "ארנק", balance: "יתרה", add_wallet: "הוסף ארנק", sora_address: "כתובת SORA", name_alias: "שם (כינוי)", example_savings: "לדוגמה: חיסכון", type: "סוג", my_wallet_total: "הארנק שלי (מוסיף לסך הכל)", watched_wallet_tracking: "במעקב (מעקב בלבד)", save_wallet: "שמור ארנק", wallet: "ארנק", assets: "נכסים", swaps: "החלפות", transfers: "העברות", other: "אחר", no_wallets_saved: "אין לך ארנקים שמורים.", not_watching_wallets: "אינך עוקב אחר אף ארנק.", no_favorites_yet: "אין לך מועדפים עדיין.", no_data: "אין נתונים.", no_swaps_found: "לא נמצאו החלפות.", no_assets_found: "לא נמצאו נכסים.", no_recent_swaps: "אין החלפות אחרונות.", no_recent_transfers: "אין העברות אחרונות.", error_loading_data: "שגיאה בטעינת נתונים", error_loading_pools: "שגיאה בטעינת בריכות", error_loading: "שגיאה בטעינה", page_x_of_y: "עמוד {current} מתוך {total}", filter: "סינון:", all_tokens_star: "🌟 הכל", received: "⬇ התקבל", sent: "⬆ נשלח", accounts: "חשבונות", chart: "טבלה", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend",
         bridge_contract: "חוזה גשר", bridge_internal_hash: "ה-hash הזה הוא מזהה פנימי של גשר SORA. הוא לא נראה ב-Etherscan.", view: "הצג", direction: "כיוון", view_on_subscan: "צפה ב-Subscan", transaction_hash: "האש עסקה", ethereum_request_hash: "האש בקשת Ethereum", origin: "מקור", extrinsic_id: "מזהה Extrinsic", ethereum_network: "רשת Ethereum", no_external_link: "אין קישור חיצוני זמין",
-        network_stats_btn: "סטטיסטיקות רשת", timeframe: "מסגרת זמן:", current_block: "בלוק נוכחי", live: "בשידור חי", bridges: "גשרים", time_filtered: "מסונן", whale_leaderboard: "🐳 דירוג צבירת לווייתנים", loading_whales: "טוען לווייתנים...", network_health: "⚡ בריאות הרשת", global_volume: "נפח גלובלי", active_users: "משתמשים פעילים", est_tps: "TPS מוערך", stablecoin_monitor: "⚖️ צג מטבעות יציבים", deviation_target: "* סטייה מיעד $1.00", trending_tokens: "📈 אסימונים במגמה", network_fees: "💸 עמלות רשת ששולמו", total_xor: "סך הכל XOR", total_usd: "סך הכל USD", bridges: "גשרים", network: "רשת", asset: "נכס"
+        network_stats_btn: "סטטיסטיקות רשת", timeframe: "מסגרת זמן:", current_block: "בלוק נוכחי", live: "בשידור חי", bridges: "גשרים", time_filtered: "מסונן", whale_leaderboard: "🐳 דירוג צבירת לווייתנים", loading_whales: "טוען לווייתנים...", network_health: "⚡ בריאות הרשת", global_volume: "נפח גלובלי", active_users: "משתמשים פעילים", est_tps: "TPS מוערך", stablecoin_monitor: "⚖️ צג מטבעות יציבים", deviation_target: "* סטייה מיעד $1.00", trending_tokens: "📈 אסימונים במגמה", network_fees: "💸 עמלות רשת ששולמו", total_xor: "סך הכל XOR", total_usd: "סך הכל USD", bridges: "גשרים", network: "רשת", asset: "נכס",
+        tab_extrinsics: "Extrinsics", all_pallets: "כל הפאלטים", signer: "חותם", result: "תוצאה", extrinsic_details: "פרטי Extrinsic"
     },
     ru: {
         tab_balance: "Баланс", tab_swaps: "Свопы", tab_transfers: "Переводы", tab_tokens: "Токены", tab_liquidity: "Ликвидность", tab_bridges: "Мосты", total_net_worth: "Общая стоимость", header_my_wallets: "💼 Мои кошельки", btn_add_wallet: "+ Добавить кошелек", header_watch_wallets: "👀 Отслеживаемые", live_transfers: "💸 Переводы Live", time: "Время", from: "От", amount: "Сумма", to: "Кому", waiting_activity: "Ожидание активности...", previous: "Назад", next: "Вперед", page: "Стр.", liquidity_pools: "🌊 Пулы ликвидности", all: "Все", total_pools: "Всего пулов:", pair: "Пара", reserves: "Резервы", action: "Действие", loading_pools: "Загрузка пулов...", live_swaps: "⚡ Свопы Live", all_tokens: "Все токены", search_token: "Поиск токена...", input: "Вход", output: "Выход", account: "Аккаунт", refresh: "Обновить", favorites: "⭐ Избранное", search_token_name_symbol_id: "Поиск по имени, символу или ID...", asset: "Актив", price: "Цена", loading: "Загрузка...", holders: "Холдеры", rank: "Ранг", wallet: "Кошелек", balance: "Баланс", add_wallet: "Добавить кошелек", sora_address: "Адрес SORA", name_alias: "Имя (Псевдоним)", example_savings: "Напр.: Сбережения", type: "Тип", my_wallet_total: "Мой кошелек (Суммировать)", watched_wallet_tracking: "Отслеживаемый", save_wallet: "Сохранить", wallet: "Кошелек", assets: "Активы", swaps: "Свопы", transfers: "Переводы", other: "Другое", no_wallets_saved: "Нет сохраненных кошельков.", not_watching_wallets: "Вы не отслеживаете кошельки.", no_favorites_yet: "Нет избранных.", no_data: "Нет данных.", no_swaps_found: "Свопы не найдены.", no_assets_found: "Активы не найдены.", no_recent_swaps: "Нет недавних свопов.", no_recent_transfers: "Нет недавних переводов.", error_loading_data: "Ошибка загрузки", error_loading_pools: "Ошибка загрузки пулов", error_loading: "Ошибка", page_x_of_y: "Стр. {current} из {total}", filter: "Фильтр:", all_tokens_star: "🌟 Все", received: "⬇ ПОЛУЧЕНО", sent: "⬆ ОТПРАВЛЕНО", accounts: "счетов", chart: "График", fees_pie_title: "XOR сожженный по типу", fees_line_title: "Тенденция активности",
         bridge_contract: "Контракт моста", bridge_internal_hash: "Этот хеш — внутренний ID моста SORA. Он не отображается в Etherscan.", view: "Посмотреть", direction: "Направление", view_on_subscan: "Посмотреть в Subscan", transaction_hash: "Хеш транзакции", ethereum_request_hash: "Хеш запроса Ethereum", origin: "Источник", extrinsic_id: "Идентификатор Extrinsic", ethereum_network: "Сеть Ethereum", no_external_link: "Нет внешней ссылки",
-        network_stats_btn: "Статистика сети", timeframe: "Таймфрейм:", current_block: "Текущий блок", live: "Live", bridges: "Мосты", time_filtered: "Фильтр", whale_leaderboard: "🐳 Таблица лидеров (Киты)", loading_whales: "Загрузка...", network_health: "⚡ Здоровье сети", global_volume: "Глоб. Объем", active_users: "Активные польз.", est_tps: "Оценка TPS", stablecoin_monitor: "⚖️ Монитор стейблкоинов", deviation_target: "* Отклонение от $1.00", trending_tokens: "📈 Тренды", network_fees: "💸 Комиссии сети", total_xor: "Всего XOR", total_usd: "Всего USD", bridges: "Мосты", network: "Сеть", asset: "Актив"
+        network_stats_btn: "Статистика сети", timeframe: "Таймфрейм:", current_block: "Текущий блок", live: "Live", bridges: "Мосты", time_filtered: "Фильтр", whale_leaderboard: "🐳 Таблица лидеров (Киты)", loading_whales: "Загрузка...", network_health: "⚡ Здоровье сети", global_volume: "Глоб. Объем", active_users: "Активные польз.", est_tps: "Оценка TPS", stablecoin_monitor: "⚖️ Монитор стейблкоинов", deviation_target: "* Отклонение от $1.00", trending_tokens: "📈 Тренды", network_fees: "💸 Комиссии сети", total_xor: "Всего XOR", total_usd: "Всего USD", bridges: "Мосты", network: "Сеть", asset: "Актив",
+        tab_extrinsics: "Экстринсики", all_pallets: "Все паллеты", signer: "Подписант", result: "Результат", extrinsic_details: "Детали экстринсика"
     },
     zh: {
         tab_balance: "余额", tab_swaps: "兑换", tab_transfers: "转账", tab_tokens: "代币", tab_liquidity: "流动性", tab_bridges: "跨链桥", total_net_worth: "总资产", header_my_wallets: "💼 我的钱包", btn_add_wallet: "+ 添加钱包", header_watch_wallets: "👀 观察钱包", live_transfers: "💸 实时转账", time: "时间", from: "发送方", amount: "金额", to: "接收方", waiting_activity: "等待活动...", previous: "上一页", next: "下一页", page: "页", liquidity_pools: "🌊 流动性池", all: "全部", total_pools: "总池数:", pair: "交易对", reserves: "储备", action: "操作", loading_pools: "加载池中...", live_swaps: "⚡ 实时兑换", all_tokens: "所有代币", search_token: "搜索代币...", input: "输入", output: "输出", account: "账户", refresh: "刷新", favorites: "⭐ 收藏", search_token_name_symbol_id: "按名称、符号或ID搜索...", asset: "资产", price: "价格", loading: "加载中...", holders: "持有人", rank: "排名", wallet: "钱包", balance: "余额", add_wallet: "添加钱包", sora_address: "SORA地址", name_alias: "名称 (别名)", example_savings: "例如: 储蓄", type: "类型", my_wallet_total: "我的钱包 (计入总额)", watched_wallet_tracking: "观察 (仅追踪)", save_wallet: "保存钱包", wallet: "钱包", assets: "资产", swaps: "兑换", transfers: "转账", other: "其他", no_wallets_saved: "没有保存的钱包。", not_watching_wallets: "没有观察任何钱包。", no_favorites_yet: "暂无收藏。", no_data: "无数据。", no_swaps_found: "未找到兑换。", no_assets_found: "未找到资产。", no_recent_swaps: "无近期兑换。", no_recent_transfers: "无近期转账。", error_loading_data: "加载数据错误", error_loading_pools: "加载池错误", error_loading: "加载错误", page_x_of_y: "第 {current} 页 / 共 {total} 页", filter: "筛选:", all_tokens_star: "🌟 全部", received: "⬇ 收到", sent: "⬆ 发送", accounts: "账户", chart: "图表", fees_pie_title: "按类型销毁 XOR", fees_line_title: "活动趋势",
         bridge_contract: "桥接合约", bridge_internal_hash: "此哈希是 SORA 桥接的内部 ID，在 Etherscan 上不可见。", view: "查看", direction: "方向", view_on_subscan: "在 Subscan 上查看", transaction_hash: "交易哈希", ethereum_request_hash: "Ethereum 请求哈希", origin: "来源", extrinsic_id: "Extrinsic ID", ethereum_network: "以太坊网络", no_external_link: "没有外部链接",
-        network_stats_btn: "网络统计", timeframe: "时间范围:", current_block: "当前区块", live: "实时", bridges: "跨链桥", time_filtered: "已筛选", whale_leaderboard: "🐳 鲸鱼积累排行榜", loading_whales: "加载中...", network_health: "⚡ 网络健康", global_volume: "全球交易量", active_users: "活跃用户", est_tps: "预估 TPS", stablecoin_monitor: "⚖️ 稳定币监控", deviation_target: "* 偏离 $1.00 目标", trending_tokens: "📈 热门代币", network_fees: "💸 网络费用支出", total_xor: "总 XOR", total_usd: "总 USD", bridges: "跨链桥", network: "网络", asset: "资产"
+        network_stats_btn: "网络统计", timeframe: "时间范围:", current_block: "当前区块", live: "实时", bridges: "跨链桥", time_filtered: "已筛选", whale_leaderboard: "🐳 鲸鱼积累排行榜", loading_whales: "加载中...", network_health: "⚡ 网络健康", global_volume: "全球交易量", active_users: "活跃用户", est_tps: "预估 TPS", stablecoin_monitor: "⚖️ 稳定币监控", deviation_target: "* 偏离 $1.00 目标", trending_tokens: "📈 热门代币", network_fees: "💸 网络费用支出", total_xor: "总 XOR", total_usd: "总 USD", bridges: "跨链桥", network: "网络", asset: "资产",
+        tab_extrinsics: "Extrinsics", all_pallets: "所有模块", signer: "签名者", result: "结果", extrinsic_details: "Extrinsic 详情"
     }
 };
 
@@ -358,6 +368,109 @@ function refreshAliases() {
 }
 refreshAliases();
 
+// --- ON-CHAIN IDENTITY CACHE ---
+let identityCache = {};
+const IDENTITY_CLIENT_TTL = 30 * 60 * 1000; // 30 min
+const _identityPending = new Set();
+let _identityFlushTimer = null;
+
+try {
+    identityCache = JSON.parse(localStorage.getItem('sora_identities') || '{}');
+    const now = Date.now();
+    for (const addr in identityCache) {
+        if (now - identityCache[addr].ts > IDENTITY_CLIENT_TTL) delete identityCache[addr];
+    }
+} catch (e) {
+    localStorage.removeItem('sora_identities');
+    identityCache = {};
+}
+
+function saveIdentityCache() {
+    try {
+        const toSave = {};
+        let count = 0;
+        for (const addr in identityCache) {
+            if (identityCache[addr].display && count < 2000) {
+                toSave[addr] = identityCache[addr];
+                count++;
+            }
+        }
+        localStorage.setItem('sora_identities', JSON.stringify(toSave));
+    } catch (e) { /* quota exceeded */ }
+}
+
+function fetchIdentities(addresses) {
+    if (!addresses || addresses.length === 0) return;
+    const now = Date.now();
+    const toFetch = addresses.filter(addr => {
+        if (!addr || addr.length < 40 || addr.startsWith('0x')) return false;
+        if (_identityPending.has(addr)) return false;
+        const cached = identityCache[addr];
+        return !cached || (now - cached.ts > IDENTITY_CLIENT_TTL);
+    });
+    if (toFetch.length === 0) return;
+    toFetch.forEach(a => _identityPending.add(a));
+
+    fetch('/api/identities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresses: toFetch })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const now = Date.now();
+        let anyNew = false;
+        for (const addr of toFetch) {
+            _identityPending.delete(addr);
+            if (data[addr] && data[addr].display) {
+                identityCache[addr] = { display: data[addr].display, ts: now };
+                anyNew = true;
+            } else {
+                identityCache[addr] = { display: null, ts: now };
+            }
+        }
+        if (anyNew) {
+            saveIdentityCache();
+            updateVisibleIdentities();
+        }
+    })
+    .catch(() => {
+        toFetch.forEach(a => _identityPending.delete(a));
+    });
+}
+
+function updateVisibleIdentities() {
+    document.querySelectorAll('.addr-truncated[data-address]').forEach(el => {
+        const addr = el.getAttribute('data-address');
+        if (!addr) return;
+        if (walletAliases[addr]) {
+            el.outerHTML = `<span class="wallet-alias" title="${esc(addr)}" style="color:#D00060; font-weight:bold;">${esc(walletAliases[addr])}</span>`;
+            return;
+        }
+        const identity = identityCache[addr];
+        if (identity && identity.display) {
+            el.outerHTML = `<span class="onchain-identity" data-address="${esc(addr)}" title="${esc(addr)}" style="color:#6366F1; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
+        }
+    });
+}
+
+function collectVisibleAddresses() {
+    const addrs = new Set();
+    document.querySelectorAll('.addr-truncated[data-address]').forEach(el => {
+        const addr = el.getAttribute('data-address');
+        if (addr) addrs.add(addr);
+    });
+    return [...addrs];
+}
+
+function scheduleIdentityFetch() {
+    if (_identityFlushTimer) clearTimeout(_identityFlushTimer);
+    _identityFlushTimer = setTimeout(() => {
+        const addrs = collectVisibleAddresses();
+        if (addrs.length > 0) fetchIdentities(addrs);
+    }, 300);
+}
+
 // Helper for consistent number formatting (1,000.0000)
 function formatAmount(val) {
     if (val === undefined || val === null) return '0.0000';
@@ -369,9 +482,13 @@ function formatAmount(val) {
 function formatAddress(address) {
     if (!address) return '???';
     if (walletAliases[address]) {
-        return `<span class="wallet-alias" title="${address}" style="color:#D00060; font-weight:bold;">${walletAliases[address]}</span>`;
+        return `<span class="wallet-alias" title="${esc(address)}" style="color:#D00060; font-weight:bold;">${esc(walletAliases[address])}</span>`;
     }
-    return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+    const identity = identityCache[address];
+    if (identity && identity.display) {
+        return `<span class="onchain-identity" data-address="${esc(address)}" title="${esc(address)}" style="color:#6366F1; font-weight:600;"><span style="font-size:10px; margin-right:2px;">&#9670;</span>${esc(identity.display)}</span>`;
+    }
+    return `<span class="addr-truncated" data-address="${esc(address)}">${address.substring(0, 6)}...${address.substring(address.length - 4)}</span>`;
 }
 
 function saveWallet(address, name, type) {
@@ -465,6 +582,7 @@ socket.on('transfers-batch', (batch) => {
     while (tbody.children.length > MAX_VISUAL_ITEMS) {
         tbody.removeChild(tbody.lastChild);
     }
+    scheduleIdentityFetch();
 });
 
 let liquidityIconsLoaded = false;
@@ -511,6 +629,7 @@ function openTab(name) {
     if (name === 'transfers') loadGlobalTransfers();
     if (name === 'swaps') loadGlobalSwaps();
     if (name === 'bridges') loadGlobalBridges();
+    if (name === 'extrinsics') loadGlobalExtrinsics();
     if (name === 'section-intelligence') loadSoraIntelligence();
 }
 
@@ -670,8 +789,42 @@ socket.on('swaps-batch', (batch) => {
 
     // Keep table limited
     while (tbody.children.length > MAX_VISUAL_ITEMS) tbody.removeChild(tbody.lastChild);
+    scheduleIdentityFetch();
 });
 
+
+socket.on('extrinsics-batch', (batch) => {
+    const MAX_VISUAL_ITEMS = 25;
+    const tbody = document.getElementById('extrinsicTable');
+    if (!tbody) return;
+    if (document.hidden || !document.getElementById('extrinsics')?.classList.contains('active')) return;
+    if (extrinsicPage !== 1) return;
+
+    if (tbody.children.length > 0 && tbody.children[0]?.innerText?.includes(TRANSLATIONS[currentLang]?.waiting_activity || 'Esperando')) {
+        tbody.innerHTML = '';
+    }
+
+    const recentItems = batch.slice(-MAX_VISUAL_ITEMS);
+    for (const d of recentItems) {
+        const exId = d.extrinsic_id || d.block + '-' + d.extrinsic_index;
+        _extrinsicsPageData.unshift({ ...d, extrinsic_id: exId });
+        const signerShort = d.signer === 'System' ? 'System' : formatAddress(d.signer);
+        const resultIcon = d.success ? '<span class="result-success">&#10003;</span>' : '<span class="result-failed">&#10007;</span>';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
+            <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#D0021B;">#${esc(String(d.block))}</a></td>
+            <td style="font-family:monospace; font-size:12px;">${esc(exId)}</td>
+            <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
+            <td style="font-size:11px;">${d.signer === 'System' ? '<span style="color:#9CA3AF;">System</span>' : esc(signerShort)}</td>
+            <td>${resultIcon}</td>
+            <td><button class="btn-ghost" onclick="openExtrinsicDetail('${esc(exId)}')" style="font-size:11px; padding:2px 6px;">&#128269; ${esc(TRANSLATIONS[currentLang]?.view || 'Ver')}</button></td>
+        `;
+        tbody.insertBefore(row, tbody.firstChild);
+    }
+    while (tbody.children.length > MAX_VISUAL_ITEMS) tbody.removeChild(tbody.lastChild);
+    scheduleIdentityFetch();
+});
 
 let groupWalletsMode = localStorage.getItem('sora_group_wallets') === 'true';
 let lastUnifiedData = null;
@@ -1097,6 +1250,7 @@ async function loadHoldersPage() {
         });
         document.getElementById('btnPrev').disabled = (currentPage <= 1);
         document.getElementById('btnNext').disabled = (currentPage >= totalPages);
+        scheduleIdentityFetch();
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`;
     }
@@ -1559,6 +1713,7 @@ const allSections = [
     { id: 'transfers', name: 'Transferencias', icon: '💸', translateKey: 'tab_transfers' },
     { id: 'tokens', name: 'Tokens', icon: '🪙', translateKey: 'tab_tokens' },
     { id: 'bridges', name: 'Puentes', icon: '🌉', translateKey: 'tab_bridges' },
+    { id: 'extrinsics', name: 'Extrinsics', icon: '🔬', translateKey: 'tab_extrinsics' },
     { id: 'liquidity', name: 'Liquidez', icon: '🌊', translateKey: 'tab_liquidity' },
     { id: 'section-intelligence', name: 'Estadísticas de Red', icon: '🧠', translateKey: 'network_stats_btn' }
 ];
@@ -1632,6 +1787,14 @@ function renderSidebar() {
                 <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px;"></span>
             </label>
         `;
+
+        // Click on name → open that tab directly (without toggling favorite)
+        const nameDiv = item.querySelector('div');
+        nameDiv.style.cursor = 'pointer';
+        nameDiv.addEventListener('click', () => {
+            toggleMenu();
+            openTab(sec.id);
+        });
 
         // Add event listener manually to avoid string escaping formatting hell
         const checkbox = item.querySelector('input');
@@ -2230,6 +2393,7 @@ async function loadGlobalSwaps(reset = false) {
             </td>`;
             tbody.appendChild(row);
         });
+        scheduleIdentityFetch();
     } catch (e) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`; }
 }
 
@@ -2289,6 +2453,7 @@ async function loadGlobalTransfers(reset = false) {
             </td>`;
             tbody.appendChild(row);
         });
+        scheduleIdentityFetch();
     } catch (e) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`; }
 }
 
@@ -2305,6 +2470,9 @@ function changeTransferPage(delta) {
 // --- BRIDGES TAB ---
 let bridgePage = 1;
 let bridgeTotalPages = 1;
+let extrinsicPage = 1;
+let extrinsicTotalPages = 1;
+let extrinsicSectionsLoaded = false;
 
 async function loadGlobalBridges(reset = false) {
     if (reset) bridgePage = 1;
@@ -2395,6 +2563,7 @@ async function loadGlobalBridges(reset = false) {
             `;
             tbody.appendChild(row);
         });
+        scheduleIdentityFetch();
     } catch (e) {
         console.error('Error loading bridges:', e);
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`;
@@ -2411,19 +2580,200 @@ function changeBridgePage(delta) {
     loadGlobalBridges();
 }
 
+// --- EXTRINSICS ---
+let _extrinsicsPageData = [];
+
+async function loadGlobalExtrinsics(reset = false) {
+    if (reset) extrinsicPage = 1;
+    const tbody = document.getElementById('extrinsicTable');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</td></tr>`;
+
+    // Load section filter options once
+    if (!extrinsicSectionsLoaded) {
+        try {
+            const sectRes = await fetch('/history/extrinsic-sections');
+            const sections = await sectRes.json();
+            const select = document.getElementById('extrinsicSectionFilter');
+            if (select && Array.isArray(sections)) {
+                const current = select.value;
+                select.innerHTML = `<option value="">${TRANSLATIONS[currentLang]?.all_pallets || 'All Pallets'}</option>`;
+                sections.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = s;
+                    select.appendChild(opt);
+                });
+                if (current) select.value = current;
+                extrinsicSectionsLoaded = true;
+            }
+        } catch (e) { console.error('Error loading sections:', e); }
+    }
+
+    const sectionSelect = document.getElementById('extrinsicSectionFilter');
+    const section = sectionSelect ? sectionSelect.value : '';
+    const dateInput = document.getElementById('extrinsicDateInput');
+    const timestamp = dateInput && dateInput.value ? new Date(dateInput.value).getTime() : null;
+
+    try {
+        let url = `/history/global/extrinsics?page=${extrinsicPage}&limit=25`;
+        if (section) url += `&section=${encodeURIComponent(section)}`;
+        if (timestamp) url += `&timestamp=${timestamp}`;
+
+        const res = await fetch(url);
+        const json = await res.json();
+        const data = json.data || [];
+        _extrinsicsPageData = data;
+        extrinsicTotalPages = json.totalPages || 1;
+
+        document.getElementById('extrinsicPageIndicator').innerText =
+            (TRANSLATIONS[currentLang]?.page_x_of_y || 'Page {current} / {total}')
+                .replace('{current}', extrinsicPage)
+                .replace('{total}', extrinsicTotalPages);
+        document.getElementById('btnExtrinsicPrev').disabled = (extrinsicPage <= 1);
+        document.getElementById('btnExtrinsicNext').disabled = (extrinsicPage >= extrinsicTotalPages);
+        document.getElementById('btnExtrinsicFirst').disabled = (extrinsicPage <= 1);
+        document.getElementById('btnExtrinsicLast').disabled = (extrinsicPage >= extrinsicTotalPages);
+
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#9CA3AF;">${TRANSLATIONS[currentLang]?.no_data || 'No data'}</td></tr>`;
+            return;
+        }
+
+        data.forEach(d => {
+            const signerShort = d.signer === 'System' ? 'System' : formatAddress(d.signer);
+            const isSaved = walletAliases[d.signer];
+            const signerClass = isSaved ? 'wallet-saved' : 'wallet-unsaved';
+            const resultIcon = d.success ? '<span class="result-success">&#10003;</span>' : '<span class="result-failed">&#10007;</span>';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="color:#6B7280; font-size:11px;">${esc(d.time)}</td>
+                <td style="font-family:monospace; font-size:12px;">
+                    <a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#D0021B;">#${esc(String(d.block))}</a>
+                </td>
+                <td style="font-family:monospace; font-size:12px;">${esc(d.extrinsic_id)}</td>
+                <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
+                <td style="font-size:11px;">
+                    ${d.signer === 'System'
+                        ? '<span style="color:#9CA3AF;">System</span>'
+                        : `<span onclick="openWalletDetails('${esc(d.signer)}')" class="${signerClass}">${esc(signerShort)}</span>
+                           <span onclick="copyToClipboard('${esc(d.signer)}')" style="cursor:pointer; margin-left:4px;" title="Copy">&#128203;</span>`
+                    }
+                </td>
+                <td>${resultIcon}</td>
+                <td>
+                    <button class="btn-ghost" onclick="openExtrinsicDetail('${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">&#128269; ${TRANSLATIONS[currentLang]?.view || 'Ver'}</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        scheduleIdentityFetch();
+    } catch (e) {
+        console.error('Error loading extrinsics:', e);
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:red;">Error</td></tr>`;
+    }
+}
+
+function changeExtrinsicPage(delta) {
+    if (delta === 'first') extrinsicPage = 1;
+    else if (delta === 'last') extrinsicPage = extrinsicTotalPages;
+    else extrinsicPage += delta;
+
+    if (extrinsicPage < 1) extrinsicPage = 1;
+    if (extrinsicPage > extrinsicTotalPages) extrinsicPage = extrinsicTotalPages;
+    loadGlobalExtrinsics();
+}
+
+function openExtrinsicDetail(extrinsicId) {
+    const modal = document.getElementById('extrinsicDetailModal');
+    const content = document.getElementById('extrinsicDetailContent');
+    modal.style.display = 'flex';
+
+    const match = _extrinsicsPageData.find(d => d.extrinsic_id === extrinsicId);
+    if (match) {
+        let argsFormatted = '{}';
+        try {
+            argsFormatted = JSON.stringify(JSON.parse(match.args_json), null, 2);
+        } catch (e) {
+            argsFormatted = match.args_json || '{}';
+        }
+        content.innerHTML = `
+            <div style="margin-bottom:12px; line-height:2;">
+                <strong>Extrinsic ID:</strong> ${esc(extrinsicId)}<br>
+                <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${esc(match.hash)}</span><br>
+                <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#D0021B;">#${esc(String(match.block))}</a><br>
+                <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
+                <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
+                <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
+            </div>
+            <div>
+                <strong>Arguments (JSON):</strong>
+                <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
+            </div>
+        `;
+    } else {
+        content.innerHTML = `
+            <div style="text-align:center; padding:20px;">
+                <p><strong>Extrinsic ID:</strong> ${esc(extrinsicId)}</p>
+                <p style="color:#6B7280; font-size:12px;">${TRANSLATIONS[currentLang]?.no_data || 'No data.'}</p>
+            </div>
+        `;
+    }
+}
+
 function openBlockModal(block) {
     document.getElementById('blockModal').style.display = 'flex';
     document.getElementById('blockModalNumber').innerText = block;
-    document.getElementById('blockModalContent').innerHTML = `
+    const contentEl = document.getElementById('blockModalContent');
+    contentEl.innerHTML = `
         <div style="text-align:center; padding:20px;">
-            <p style="font-size:18px;">Block Height: <b>${block}</b></p>
-            <p>
-                <a href="https://sora.subscan.io/block/${block}" target="_blank" class="btn-primary" style="text-decoration:none; display:inline-block; margin-top:10px;">
-                    View on Subscan ➜
-                </a>
-            </p>
+            <p style="font-size:18px;">Block Height: <b>#${esc(String(block))}</b></p>
+            <p style="color:#6B7280; font-size:13px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</p>
         </div>
     `;
+    fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(block))
+        .then(r => r.json())
+        .then(res => {
+            const exts = res.data || [];
+            if (exts.length === 0) {
+                contentEl.innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <p style="font-size:18px;">Block Height: <b>#${esc(String(block))}</b></p>
+                        <p style="color:#6B7280;">${TRANSLATIONS[currentLang]?.no_data || 'No data.'}</p>
+                    </div>
+                `;
+                return;
+            }
+            let rows = '';
+            for (const d of exts) {
+                const resultIcon = d.success ? '<span class="result-success">&#10003;</span>' : '<span class="result-failed">&#10007;</span>';
+                rows += `<tr>
+                    <td style="font-family:monospace; font-size:12px;">${esc(d.extrinsic_id)}</td>
+                    <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
+                    <td style="font-size:11px;">${esc(d.signer)}</td>
+                    <td>${resultIcon}</td>
+                </tr>`;
+            }
+            contentEl.innerHTML = `
+                <div style="padding:10px;">
+                    <p style="font-size:16px; margin-bottom:12px;">Block <b>#${esc(String(block))}</b> — ${exts.length} extrinsic${exts.length !== 1 ? 's' : ''}</p>
+                    <table class="data-table" style="width:100%; font-size:12px;">
+                        <thead><tr><th>ID</th><th>Pallet::Call</th><th>${TRANSLATIONS[currentLang]?.signer || 'Signer'}</th><th>${TRANSLATIONS[currentLang]?.result || 'Result'}</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        })
+        .catch(() => {
+            contentEl.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <p style="font-size:18px;">Block Height: <b>#${esc(String(block))}</b></p>
+                    <p style="color:#EF4444;">${TRANSLATIONS[currentLang]?.error_loading || 'Error loading'}</p>
+                </div>
+            `;
+        });
 }
 
 function openTxModal(hash, extrinsic_id) {
@@ -2445,9 +2795,9 @@ function openTxModal(hash, extrinsic_id) {
         `;
     } else if (hasExtrinsicId) {
         linkButton = `
-            <a href="https://sora.subscan.io/extrinsic/${extrinsic_id}" target="_blank" class="btn-primary" style="text-decoration:none; display:inline-block;">
-                ${TRANSLATIONS[currentLang].view_on_subscan || 'View on Subscan'} ➜
-            </a>
+            <span style="color:#6B7280; font-size:12px; display:block; text-align:center;">
+                ${TRANSLATIONS[currentLang].extrinsic_id || 'Extrinsic ID'}: <b>${extrinsic_id}</b>
+            </span>
         `;
     }
 
@@ -2828,6 +3178,7 @@ async function loadPoolProviders(base, target) {
                 </tr>
             `;
         });
+        scheduleIdentityFetch();
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">${e.message}</td></tr>`;
     }
