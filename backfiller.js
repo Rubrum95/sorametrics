@@ -126,6 +126,24 @@ function initDB() {
         usd_value REAL
     )`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS order_book_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        formatted_time TEXT,
+        block INTEGER,
+        event_type TEXT,
+        wallet TEXT,
+        order_id TEXT,
+        base_asset TEXT,
+        quote_asset TEXT,
+        side TEXT,
+        price TEXT,
+        amount TEXT,
+        usd_value REAL,
+        hash TEXT,
+        extrinsic_id TEXT
+    )`);
+
     db.exec(`CREATE TABLE IF NOT EXISTS extrinsics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER,
@@ -163,6 +181,11 @@ function initDB() {
         CREATE INDEX IF NOT EXISTS idx_extrinsics_section ON extrinsics(section);
         CREATE INDEX IF NOT EXISTS idx_extrinsics_signer ON extrinsics(signer);
         CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp);
+        CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp ON order_book_events(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_orderbook_wallet ON order_book_events(wallet);
+        CREATE INDEX IF NOT EXISTS idx_orderbook_event_type ON order_book_events(event_type);
+        CREATE INDEX IF NOT EXISTS idx_orderbook_block ON order_book_events(block);
+        CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type);
     `);
 
     // Prepare statements (compiled once, reused for every insert)
@@ -183,6 +206,9 @@ function initDB() {
 
     stmts.insertExtrinsic = db.prepare(`INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
+    stmts.insertOrderBook = db.prepare(`INSERT INTO order_book_events (timestamp, formatted_time, block, event_type, wallet, order_id, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
     stmts.checkBlockSwaps = db.prepare('SELECT 1 FROM swaps WHERE block = ? LIMIT 1');
     stmts.checkBlockTransfers = db.prepare('SELECT 1 FROM transfers WHERE block = ? LIMIT 1');
@@ -261,6 +287,16 @@ function insertFee(f) {
     }
     stmts.insertFee.run(f.timestamp, f.block, type, parseFloat(f.feeXor) || 0, f.feeUsd || 0);
     stats.fees++;
+}
+
+function insertOrderBook(ob) {
+    const formattedTime = new Date(ob.timestamp).toLocaleString('es-ES');
+    stmts.insertOrderBook.run(ob.timestamp, formattedTime, ob.block,
+        ob.event_type || '', ob.wallet || '', ob.order_id || '',
+        ob.base_asset || '', ob.quote_asset || '', ob.side || '',
+        ob.price || '', ob.amount || '', ob.usd_value || 0,
+        ob.hash || '', ob.extrinsic_id || '');
+    stats.orderbook = (stats.orderbook || 0) + 1;
 }
 
 // --- STATE ---
@@ -693,6 +729,61 @@ async function processBlock(blockNumber) {
             }
         }
 
+        // --- ORDER BOOK ---
+        const pendingOrderBook = [];
+        const orderBookEvts = allEvents.filter(({ event }) =>
+            event.section === 'orderBook'
+        );
+
+        for (const { event, phase } of orderBookEvts) {
+            try {
+                const m = event.method;
+                const d = event.data.toJSON();
+                let eventType = '', wallet = '', orderId = '', baseAsset = '', quoteAsset = '', side = '', price = '', amount = '';
+
+                const obId = d[0];
+                if (obId && typeof obId === 'object') {
+                    const bInfo = getAssetInfo(obId.base);
+                    const qInfo = getAssetInfo(obId.quote);
+                    baseAsset = bInfo ? bInfo.symbol : (obId.base || '');
+                    quoteAsset = qInfo ? qInfo.symbol : (obId.quote || '');
+                }
+
+                if (m === 'LimitOrderPlaced') {
+                    eventType = 'placed'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                } else if (m === 'LimitOrderCanceled') {
+                    eventType = 'canceled'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                } else if (m === 'LimitOrderExecuted') {
+                    eventType = 'executed'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                } else if (m === 'LimitOrderFilled') {
+                    eventType = 'filled'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                } else if (m === 'MarketOrderExecuted') {
+                    eventType = 'market'; wallet = d[1] || '';
+                    side = d[2] === 'Buy' ? 'buy' : 'sell'; amount = d[3] || ''; price = d[4] || '';
+                } else { continue; }
+
+                if (typeof price === 'string') price = price.replace(/,/g, '');
+                if (typeof amount === 'string') amount = amount.replace(/,/g, '');
+
+                let hash = '', extrinsic_id = '';
+                if (phase && phase.isApplyExtrinsic) {
+                    const exIdx = phase.asApplyExtrinsic.toNumber();
+                    const ex = signedBlock.block.extrinsics[exIdx];
+                    if (ex) { hash = ex.hash.toHex(); extrinsic_id = `${blockNumber}-${exIdx}`; }
+                }
+
+                pendingOrderBook.push({
+                    timestamp: blockTimestamp, block: blockNumber,
+                    event_type: eventType, wallet, order_id: orderId,
+                    base_asset: baseAsset, quote_asset: quoteAsset,
+                    side, price, amount, usd_value: 0,
+                    hash, extrinsic_id
+                });
+            } catch (e) { }
+        }
+
         // --- NETWORK FEES ---
         const feeEvents = allEvents.filter(({ event }) =>
             event.section === 'transactionPayment' && event.method === 'TransactionFeePaid'
@@ -791,7 +882,7 @@ async function processBlock(blockNumber) {
 
         // --- BATCH WRITE: all inserts for this block in ONE transaction ---
         const totalInserts = pendingSwaps.length + pendingTransfers.length +
-            pendingBridges.length + pendingLiquidity.length + pendingFees.length + pendingExtrinsics.length;
+            pendingBridges.length + pendingLiquidity.length + pendingFees.length + pendingExtrinsics.length + pendingOrderBook.length;
 
         if (totalInserts > 0) {
             withTransaction(() => {
@@ -801,6 +892,7 @@ async function processBlock(blockNumber) {
                 for (const l of pendingLiquidity) insertLiquidity(l);
                 for (const f of pendingFees) insertFee(f);
                 for (const e of pendingExtrinsics) insertExtrinsicRecord(e);
+                for (const ob of pendingOrderBook) insertOrderBook(ob);
             });
         }
 

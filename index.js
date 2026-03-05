@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities } = require('./db_better');
 // ... (imports)
 
 
@@ -313,6 +313,7 @@ const MAX_EVENTS_PER_BATCH = 300; // Límite más bajo para evitar payloads giga
 let pendingTransfers = [];
 let pendingSwaps = [];
 let pendingExtrinsicsBatch = [];
+let pendingOrderBook = [];
 let lastBatchTime = Date.now();
 let sessionStats = { extrinsics: 0, bridges: 0, block: 0 };
 
@@ -1374,6 +1375,33 @@ app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
     }
 });
 
+// --- ORDER BOOK ENDPOINTS ---
+app.get('/history/global/orderbook', rateLimit(30, 60000), (req, res) => {
+    try {
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+        const type = req.query.type || null;
+        const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
+        const result = getLatestOrderBookEvents(page, limit, type, timestamp);
+        res.json(result);
+    } catch (e) {
+        console.error('Error /history/global/orderbook:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/history/orderbook/:address', validateAddress, rateLimit(30, 60000), (req, res) => {
+    try {
+        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+        const result = getOrderBookByAddress(req.params.address, page, limit);
+        res.json(result);
+    } catch (e) {
+        console.error('Error /history/orderbook/:address:', e);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- EXTRINSICS ENDPOINTS ---
 app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
     try {
@@ -1715,6 +1743,11 @@ async function startApp() {
         if (pendingExtrinsicsBatch.length > 0) {
             const batch = pendingExtrinsicsBatch.splice(0, MAX_EVENTS_PER_BATCH);
             io.emit('extrinsics-batch', batch);
+        }
+        if (pendingOrderBook.length > 0) {
+            const batch = pendingOrderBook.splice(0, MAX_EVENTS_PER_BATCH);
+            io.emit('orderbook-batch', batch);
+            console.log(`📤 Sent ${batch.length} orderbook events in batch`);
         }
         lastBatchTime = now;
     }, BATCH_INTERVAL_MS);
@@ -2181,6 +2214,92 @@ async function startApp() {
                 }
             }
         })();
+
+        // --- ORDER BOOK EVENT DETECTION ---
+        const orderBookEvents = allEvents.filter(({ event }) =>
+            event.section === 'orderBook'
+        );
+        if (orderBookEvents.length > 0) {
+            console.log(`📋 ${orderBookEvents.length} orderBook events in block ${blockNumber}`);
+            for (const { event, phase } of orderBookEvents) {
+                try {
+                    const m = event.method;
+                    const d = event.data.toJSON();
+                    const formattedTime = new Date().toLocaleString('es-ES');
+                    let eventType = '', wallet = '', orderId = '', baseAsset = '', quoteAsset = '', side = '', price = '', amount = '';
+
+                    // OrderBookId is always first field: { dexId, base, quote }
+                    const obId = d[0];
+                    if (obId && typeof obId === 'object') {
+                        const bInfo = getAssetInfo(obId.base);
+                        const qInfo = getAssetInfo(obId.quote);
+                        baseAsset = bInfo ? bInfo.symbol : (obId.base || '');
+                        quoteAsset = qInfo ? qInfo.symbol : (obId.quote || '');
+                    }
+
+                    if (m === 'LimitOrderPlaced') {
+                        eventType = 'placed';
+                        orderId = String(d[1] || '');
+                        wallet = d[2] || '';
+                        side = d[3] === 'Buy' ? 'buy' : 'sell';
+                        price = d[4] || '';
+                        amount = d[5] || '';
+                    } else if (m === 'LimitOrderCanceled') {
+                        eventType = 'canceled';
+                        orderId = String(d[1] || '');
+                        wallet = d[2] || '';
+                    } else if (m === 'LimitOrderExecuted') {
+                        eventType = 'executed';
+                        orderId = String(d[1] || '');
+                        wallet = d[2] || '';
+                        side = d[3] === 'Buy' ? 'buy' : 'sell';
+                        price = d[4] || '';
+                        amount = d[5] || '';
+                    } else if (m === 'LimitOrderFilled') {
+                        eventType = 'filled';
+                        orderId = String(d[1] || '');
+                        wallet = d[2] || '';
+                    } else if (m === 'MarketOrderExecuted') {
+                        eventType = 'market';
+                        wallet = d[1] || '';
+                        side = d[2] === 'Buy' ? 'buy' : 'sell';
+                        amount = d[3] || '';
+                        price = d[4] || '';
+                    } else {
+                        continue; // skip unknown events
+                    }
+
+                    // Normalize price/amount (remove commas from on-chain strings)
+                    if (typeof price === 'string') price = price.replace(/,/g, '');
+                    if (typeof amount === 'string') amount = amount.replace(/,/g, '');
+
+                    const hash = (phase && phase.isApplyExtrinsic) ? signedBlock.block.extrinsics[phase.asApplyExtrinsic].hash.toHex() : '';
+                    const extrinsicId = (phase && phase.isApplyExtrinsic) ? `${blockNumber}-${phase.asApplyExtrinsic.toString()}` : '';
+
+                    const obData = {
+                        timestamp: Date.now(), formatted_time: formattedTime,
+                        block: blockNumber, event_type: eventType,
+                        wallet, order_id: orderId,
+                        base_asset: baseAsset, quote_asset: quoteAsset,
+                        side, price, amount, usd_value: 0,
+                        hash, extrinsic_id: extrinsicId
+                    };
+
+                    insertOrderBookEvent(obData);
+                    pendingOrderBook.push({
+                        time: formattedTime, block: blockNumber,
+                        event_type: eventType, wallet, order_id: orderId,
+                        base_asset: baseAsset, quote_asset: quoteAsset,
+                        side, price, amount, usd_value: '0.00',
+                        hash, extrinsic_id: extrinsicId
+                    });
+
+                    console.log(`📋 OrderBook ${eventType}: ${wallet.substring(0, 8)}... ${side} ${baseAsset}/${quoteAsset}`);
+                } catch (e) {
+                    console.error('Error parsing orderBook event:', e.message);
+                }
+            }
+        }
 
         // --- RAW EXTRINSICS LOGGING ---
         for (let i = 0; i < signedBlock.block.extrinsics.length; i++) {
