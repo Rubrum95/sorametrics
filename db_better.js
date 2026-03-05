@@ -48,7 +48,10 @@ function initDB() {
             // Attach History DB
             if (fs.existsSync(HISTORY_DB_PATH)) {
                 try {
-                    const attachPath = HISTORY_DB_PATH.replace(/\\/g, '/');
+                    const attachPath = path.resolve(HISTORY_DB_PATH).replace(/\\/g, '/');
+                    if (!attachPath.startsWith(path.resolve(__dirname).replace(/\\/g, '/'))) {
+                        throw new Error('History DB path outside allowed directory');
+                    }
                     db.exec(`ATTACH DATABASE '${attachPath}' AS history`);
                     historyAttached = true;
                     console.log('✅ History DB attached successfully.');
@@ -188,6 +191,7 @@ function createTables() {
 
     // Safe migrations
     const safeAlter = (table, col, type) => {
+        if (!/^[a-zA-Z_]+$/.test(table) || !/^[a-zA-Z_]+$/.test(col) || !/^[a-zA-Z_ ()]+$/.test(type)) return;
         try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`); } catch (e) { /* already exists */ }
     };
 

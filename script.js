@@ -544,6 +544,7 @@ const TRANSFER_THROTTLE_MS = 500; // Max 2 updates per second
 
 // Listen for batched transfers (anti-saturation)
 socket.on('transfers-batch', (batch) => {
+    if (!Array.isArray(batch)) return;
     // Subimos a 50 para que veas todo el movimiento reciente
     const MAX_VISUAL_ITEMS = 20;
 
@@ -725,7 +726,7 @@ async function loadWalletLiquidity() {
         });
     } catch (e) {
         console.error(e);
-        list.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Error: ${e.message}</div>`;
+        list.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Error: ${esc(e.message)}</div>`;
     }
 }
 
@@ -739,6 +740,7 @@ function toggleFavorite(symbol) {
 
 // Listen for network stats (Sora Intelligence)
 socket.on('new-block-stats', (stats) => {
+    if (!stats || typeof stats !== 'object') return;
     // Just re-fetch to respect current filter
     loadNetworkHeader();
 });
@@ -748,6 +750,7 @@ const SWAP_THROTTLE_MS = 500; // Max 2 updates per second
 
 // Listen for batched swaps (anti-saturation)
 socket.on('swaps-batch', (batch) => {
+    if (!Array.isArray(batch)) return;
     // Subimos a 50 para ver todo el flujo
     const MAX_VISUAL_ITEMS = 20;
 
@@ -803,6 +806,7 @@ socket.on('swaps-batch', (batch) => {
 
 
 socket.on('extrinsics-batch', (batch) => {
+    if (!Array.isArray(batch)) return;
     const MAX_VISUAL_ITEMS = 25;
     const tbody = document.getElementById('extrinsicTable');
     if (!tbody) return;
@@ -1381,7 +1385,7 @@ async function loadPools() {
             </tr>`;
         });
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">${TRANSLATIONS[currentLang].error_loading_pools}<br><small style="color:#999">${e.message}</small></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">${TRANSLATIONS[currentLang].error_loading_pools}<br><small style="color:#999">${esc(e.message)}</small></td></tr>`;
     }
 }
 
@@ -1636,7 +1640,7 @@ async function loadWalletSwaps() {
         });
     } catch (e) {
         console.error('Error loading swaps:', e);
-        sBody.innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Error: ${e.message}</td></tr>`;
+        sBody.innerHTML = `<tr><td colspan="3" style="color:red; text-align:center;">Error: ${esc(e.message)}</td></tr>`;
     }
 }
 
@@ -1704,7 +1708,7 @@ async function loadWalletTransfers() {
         });
     } catch (e) {
         console.error('Error loading transfers:', e);
-        tBody.innerHTML = `<tr><td colspan="4" style="color:red; text-align:center;">Error: ${e.message}</td></tr>`;
+        tBody.innerHTML = `<tr><td colspan="4" style="color:red; text-align:center;">Error: ${esc(e.message)}</td></tr>`;
     }
 }
 
@@ -3273,7 +3277,7 @@ async function loadPoolProviders(base, target) {
         });
         scheduleIdentityFetch();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">${esc(e.message)}</td></tr>`;
     }
 }
 
@@ -3326,7 +3330,7 @@ async function loadPoolActivity(base, target) {
             `;
         });
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:red;">${esc(e.message)}</td></tr>`;
     }
 }
 
