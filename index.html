@@ -17,7 +17,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta name="theme-color" content="#D0021B">
+    <meta name="theme-color" content="#9B1B30">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bignumber.js/9.1.1/bignumber.min.js"></script>
@@ -33,7 +33,9 @@
             --text-primary: #111827;
             --text-secondary: #6B7280;
             --border-color: #E5E7EB;
-            --primary-color: #D0021B;
+            --primary-color: #9B1B30;
+            --gradient-brand: linear-gradient(120deg, #9B1B30, #7B2D5B, #7B5B90, #8B80B5, #C8A0B8, #E0C8D5);
+            --gradient-brand-soft: linear-gradient(120deg, rgba(155,27,48,0.08), rgba(123,91,144,0.06), rgba(200,160,184,0.08));
             --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             --bg-hover: #F9FAFB;
@@ -66,36 +68,134 @@
         [data-theme="dark"] .tabs.main-tabs .tab-btn.active,
         [data-theme="dark"] #dynamicTabsContainer .tab-btn.active {
             color: white !important;
-            background: #D0021B !important;
+            background: var(--gradient-brand) !important;
+            box-shadow: 0 2px 12px rgba(155,27,48,0.25) !important;
         }
 
         /* GOVERNANCE STYLES */
         .gov-content { min-height: 200px; }
-        .members-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px; }
-        .member-card { padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-card); transition:box-shadow 0.2s; }
-        .member-card:hover { box-shadow: var(--shadow-hover); }
-        .member-card .prime-badge { display:inline-block; background:#D0021B; color:white; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:6px; }
-        .motion-card { border:1px solid var(--border-color); border-radius:8px; margin-bottom:12px; overflow:hidden; background:var(--bg-card); }
-        .motion-header { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+
+        /* Member Grid & Cards */
+        .members-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+        .member-card {
+            position:relative; padding:16px; border:1px solid var(--border-color); border-radius:12px;
+            background:var(--bg-card); transition:transform 0.2s, box-shadow 0.2s; overflow:hidden;
+            display:flex; gap:12px; align-items:center;
+        }
+        .member-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--gradient-brand); }
+        .member-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+        .member-avatar {
+            width:40px; height:40px; min-width:40px; border-radius:50%;
+            background:linear-gradient(135deg, #9B1B30, #7B5B90, #C8A0B8);
+            display:flex; align-items:center; justify-content:center;
+            color:white; font-weight:700; font-size:14px; text-transform:uppercase;
+        }
+        .member-info { flex:1; min-width:0; }
+        .member-name { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+        .member-name:hover { color:var(--primary-color); }
+        .member-addr { font-size:11px; color:var(--text-secondary); font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .member-stake { font-size:12px; color:var(--text-secondary); margin-top:4px; }
+        .member-stake strong { color:var(--text-primary); }
+        .prime-badge {
+            display:inline-flex; align-items:center; gap:3px;
+            background:linear-gradient(135deg, #F59E0B, #D97706);
+            color:white; font-size:9px; font-weight:700; padding:2px 7px;
+            border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; margin-left:6px;
+        }
+
+        /* Election Hero */
+        .election-hero {
+            text-align:center; padding:28px 20px; border-radius:16px;
+            background:linear-gradient(135deg, rgba(155,27,48,0.06), rgba(123,91,144,0.06), rgba(200,160,184,0.06));
+            border:1px solid rgba(155,27,48,0.12); margin-bottom:24px;
+        }
+        .election-timer {
+            font-size:36px; font-weight:800; line-height:1.2;
+            background:linear-gradient(135deg, #9B1B30, #7B5B90, #C8A0B8);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+        }
+        .election-timer-sub { font-size:14px; color:var(--text-secondary); margin-top:4px; }
+        .election-pills { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+        .election-pill {
+            display:inline-flex; align-items:center; gap:6px; padding:6px 14px;
+            border-radius:20px; background:var(--bg-card); font-size:12px;
+            color:var(--text-secondary); border:1px solid var(--border-color);
+        }
+        .election-pill strong { color:var(--text-primary); font-weight:700; }
+        .gov-section-title {
+            font-size:14px; font-weight:700; margin:24px 0 12px 0;
+            display:flex; align-items:center; gap:8px;
+        }
+        .gov-section-title .count-badge {
+            font-size:11px; background:var(--bg-hover); padding:2px 8px;
+            border-radius:10px; color:var(--text-secondary); font-weight:600;
+        }
+
+        /* Motion & Referendum Cards */
+        .motion-card {
+            border:1px solid var(--border-color); border-radius:12px;
+            margin-bottom:12px; overflow:hidden; background:var(--bg-card); transition:box-shadow 0.2s;
+        }
+        .motion-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.06); }
+        .motion-header {
+            padding:14px 18px; cursor:pointer; display:flex;
+            justify-content:space-between; align-items:center; gap:12px;
+        }
         .motion-header:hover { background:var(--bg-hover); }
-        .motion-title { font-weight:600; font-size:14px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .motion-meta { display:flex; gap:8px; align-items:center; flex-shrink:0; }
-        .motion-detail { display:none; padding:12px 16px; border-top:1px solid var(--border-color); background:var(--bg-hover); font-size:13px; }
-        .motion-detail.open { display:block; }
-        .motion-call { font-family:monospace; font-size:12px; background:var(--bg-body); padding:8px; border-radius:6px; margin:6px 0; overflow-x:auto; word-break:break-all; }
-        .vote-bar { height:6px; border-radius:3px; background:#EF4444; overflow:hidden; width:80px; }
+        .motion-title-area { flex:1; min-width:0; }
+        .motion-idx { font-size:11px; color:var(--text-secondary); font-weight:600; margin-bottom:2px; }
+        .motion-title { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .motion-meta { display:flex; gap:10px; align-items:center; flex-shrink:0; }
+        .motion-status {
+            display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700;
+            padding:3px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:0.3px;
+        }
+        .motion-status.passing { background:rgba(16,185,129,0.12); color:#10B981; }
+        .motion-status.failing { background:rgba(239,68,68,0.12); color:#EF4444; }
+        .vote-bar { height:6px; border-radius:3px; background:rgba(239,68,68,0.3); overflow:hidden; width:80px; }
         .vote-bar-fill { height:100%; background:#10B981; border-radius:3px; transition:width 0.3s; }
-        .vote-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; }
-        .vote-badge.aye { background:rgba(16,185,129,0.15); color:#10B981; }
-        .vote-badge.nay { background:rgba(239,68,68,0.15); color:#EF4444; }
-        .ref-tally { display:flex; gap:15px; align-items:center; margin:8px 0; font-size:13px; }
-        .ref-tally-bar { flex:1; height:8px; border-radius:4px; background:#EF4444; overflow:hidden; }
-        .ref-tally-fill { height:100%; background:#10B981; }
-        .election-info-box { text-align:center; padding:16px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:16px; background:var(--bg-card); }
-        .election-countdown { font-size:22px; font-weight:700; color:var(--primary-color); }
-        .election-stats { display:flex; gap:20px; justify-content:center; margin-top:8px; font-size:13px; color:var(--text-secondary); }
-        .gov-empty { text-align:center; padding:30px; color:var(--text-secondary); font-size:14px; }
-        .threshold-badge { font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(99,102,241,0.15); color:#6366F1; }
+        .motion-detail { display:none; padding:16px 18px; border-top:1px solid var(--border-color); background:var(--bg-hover); }
+        .motion-detail.open { display:block; }
+        .motion-call-item {
+            display:flex; gap:10px; align-items:flex-start; padding:10px 14px;
+            background:var(--bg-body); border-radius:8px; font-size:13px;
+            border-left:3px solid #7B5B90; margin-bottom:6px;
+        }
+        .motion-call-num { color:#7B5B90; font-weight:700; min-width:18px; }
+        .motion-call-name { font-weight:600; font-family:monospace; font-size:13px; }
+        .motion-call-args { font-family:monospace; font-size:12px; color:var(--text-secondary); margin-top:4px; word-break:break-all; }
+        .motion-voters { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; align-items:center; }
+        .motion-voters-label { font-size:12px; font-weight:700; min-width:35px; }
+        .voter-chip {
+            display:inline-flex; align-items:center; gap:4px; padding:3px 10px;
+            border-radius:16px; font-size:11px; font-weight:600; cursor:pointer; transition:opacity 0.2s;
+        }
+        .voter-chip:hover { opacity:0.8; }
+        .voter-chip.aye { background:rgba(16,185,129,0.1); color:#10B981; border:1px solid rgba(16,185,129,0.2); }
+        .voter-chip.nay { background:rgba(239,68,68,0.1); color:#EF4444; border:1px solid rgba(239,68,68,0.2); }
+
+        /* Referendum */
+        .ref-tally { display:flex; gap:12px; align-items:center; margin:10px 0; font-size:13px; }
+        .ref-tally-bar { flex:1; height:8px; border-radius:4px; background:rgba(239,68,68,0.3); overflow:hidden; }
+        .ref-tally-fill { height:100%; background:#10B981; border-radius:4px; transition:width 0.3s; }
+        .threshold-badge { font-size:11px; padding:2px 8px; border-radius:6px; background:rgba(123,91,144,0.12); color:#7B5B90; font-weight:600; }
+
+        /* General governance */
+        .gov-empty { text-align:center; padding:40px 20px; color:var(--text-secondary); font-size:14px; }
+
+        /* Governance mobile */
+        @media (max-width: 600px) {
+            .motion-header { flex-wrap:wrap; padding:12px 14px; gap:8px; }
+            .motion-title-area { width:100%; }
+            .motion-idx { font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .motion-title { font-size:13px; white-space:normal; }
+            .motion-meta { width:100%; justify-content:flex-start; }
+            .election-timer { font-size:28px; }
+            .election-pills { gap:6px; }
+            .election-pill { padding:4px 10px; font-size:11px; }
+            .members-grid { grid-template-columns:1fr; }
+            .ref-tally { flex-wrap:wrap; gap:6px; }
+        }
 
         /* Spacing between timeframe selector and stats cards */
         .header-stats {
@@ -118,6 +218,8 @@
 
         /* CONTAINER */
         .container {
+            position: relative;
+            z-index: 1;
             width: 95%;
             max-width: 1400px;
             margin: 0 auto;
@@ -230,15 +332,22 @@
         }
 
         .menu-item:hover {
-            background: #F3F4F6;
+            background: rgba(155,27,48,0.06);
         }
 
         .menu-item.active {
-            background: #fee2e2;
-            color: #DC2626;
+            background: linear-gradient(90deg, rgba(155,27,48,0.12), rgba(123,91,144,0.08), rgba(200,160,184,0.06));
+            color: var(--primary-color);
+            border-left: 3px solid var(--primary-color);
         }
 
-        /* Red tint */
+        [data-theme="dark"] .menu-item:hover {
+            background: rgba(155,27,48,0.08);
+        }
+        [data-theme="dark"] .menu-item.active {
+            background: linear-gradient(90deg, rgba(155,27,48,0.18), rgba(123,91,144,0.12), rgba(200,160,184,0.08));
+            color: #C8A0B8;
+        }
 
         /* INTELLIGENCE DASHBOARD */
         .intel-grid {
@@ -256,6 +365,15 @@
             box-shadow: var(--shadow-card);
             border: 1px solid var(--border-color);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .intel-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient-brand);
         }
 
         .intel-card:hover {
@@ -327,15 +445,22 @@
             border: none;
             background: transparent;
             padding: 10px 20px;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
             color: #6B7280;
+            transition: all 0.25s ease;
         }
 
         .tab-btn.active {
-            background: #D0021B !important;
+            background: var(--gradient-brand) !important;
             color: white !important;
+            box-shadow: 0 2px 12px rgba(155,27,48,0.2);
+        }
+
+        .tab-btn:not(.active):hover {
+            background: rgba(155,27,48,0.08);
+            color: var(--primary-color);
         }
 
         .tab-btn-small {
@@ -356,7 +481,7 @@
 
         .tab-btn-small.active {
             background: white;
-            color: #D0021B;
+            color: var(--primary-color);
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             font-weight: 600;
         }
@@ -387,6 +512,56 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Sakura Petals Background Animation */
+        .bg-petals {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .petal {
+            position: absolute;
+            border-radius: 50% 0 50% 0;
+            opacity: 0;
+            animation: floatPetal linear infinite;
+        }
+        .petal:nth-child(1)  { left:8%;  width:8px;  height:8px;  background:rgba(155,27,48,0.045); animation-duration:28s; animation-delay:0s; }
+        .petal:nth-child(2)  { left:22%; width:11px; height:11px; background:rgba(123,45,91,0.04);  animation-duration:34s; animation-delay:4s; }
+        .petal:nth-child(3)  { left:38%; width:7px;  height:7px;  background:rgba(123,91,144,0.04); animation-duration:24s; animation-delay:1s; }
+        .petal:nth-child(4)  { left:52%; width:10px; height:10px; background:rgba(139,128,181,0.035); animation-duration:30s; animation-delay:7s; }
+        .petal:nth-child(5)  { left:68%; width:6px;  height:6px;  background:rgba(200,160,184,0.05); animation-duration:36s; animation-delay:3s; }
+        .petal:nth-child(6)  { left:82%; width:9px;  height:9px;  background:rgba(155,27,48,0.04);  animation-duration:26s; animation-delay:10s; }
+        .petal:nth-child(7)  { left:15%; width:5px;  height:5px;  background:rgba(123,91,144,0.035); animation-duration:32s; animation-delay:14s; }
+        .petal:nth-child(8)  { left:45%; width:12px; height:12px; background:rgba(200,160,184,0.03); animation-duration:38s; animation-delay:6s; }
+        .petal:nth-child(9)  { left:72%; width:7px;  height:7px;  background:rgba(123,45,91,0.04);  animation-duration:22s; animation-delay:18s; }
+        .petal:nth-child(10) { left:92%; width:8px;  height:8px;  background:rgba(139,128,181,0.04); animation-duration:40s; animation-delay:2s; }
+
+        @keyframes floatPetal {
+            0%   { top:-5%; transform: rotate(0deg) translateX(0); opacity:0; }
+            8%   { opacity:1; }
+            25%  { transform: rotate(90deg) translateX(20px); }
+            50%  { transform: rotate(180deg) translateX(-15px); opacity:0.7; }
+            75%  { transform: rotate(270deg) translateX(25px); }
+            92%  { opacity:0.2; }
+            100% { top:105%; transform: rotate(360deg) translateX(-10px); opacity:0; }
+        }
+
+        [data-theme="dark"] .petal:nth-child(1)  { background:rgba(200,160,184,0.03); }
+        [data-theme="dark"] .petal:nth-child(2)  { background:rgba(139,128,181,0.025); }
+        [data-theme="dark"] .petal:nth-child(3)  { background:rgba(200,160,184,0.025); }
+        [data-theme="dark"] .petal:nth-child(4)  { background:rgba(123,91,144,0.03); }
+        [data-theme="dark"] .petal:nth-child(5)  { background:rgba(224,200,213,0.03); }
+        [data-theme="dark"] .petal:nth-child(6)  { background:rgba(139,128,181,0.025); }
+        [data-theme="dark"] .petal:nth-child(7)  { background:rgba(200,160,184,0.02); }
+        [data-theme="dark"] .petal:nth-child(8)  { background:rgba(224,200,213,0.02); }
+        [data-theme="dark"] .petal:nth-child(9)  { background:rgba(200,160,184,0.025); }
+        [data-theme="dark"] .petal:nth-child(10) { background:rgba(139,128,181,0.03); }
+
+        @media (max-width: 768px) {
+            .bg-petals { opacity: 0.6; }
+        }
+
         .card {
             background: var(--bg-card);
             border-radius: 16px;
@@ -394,6 +569,17 @@
             box-shadow: var(--shadow-card);
             border: 1px solid var(--border-color);
             overflow-x: auto;
+            position: relative;
+            transition: box-shadow 0.2s;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient-brand);
+            border-radius: 16px 16px 0 0;
+            z-index: 1;
         }
 
         /* TABLAS */
@@ -434,8 +620,16 @@
 
         td {
             padding: 16px 8px;
-            border-bottom: 1px solid #F3F4F6;
+            border-bottom: 1px solid var(--border-color);
             vertical-align: middle;
+        }
+
+        tbody tr {
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-hover);
         }
 
         .asset-row {
@@ -461,7 +655,7 @@
 
         /* BOTONES */
         .btn-primary {
-            background-color: #EF4444;
+            background: var(--gradient-brand);
             color: white;
             border: none;
             padding: 8px 16px;
@@ -470,17 +664,17 @@
             cursor: pointer;
             transition: all 0.2s;
             font-size: 14px;
-            box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+            box-shadow: 0 2px 4px rgba(155, 27, 48, 0.2);
         }
 
         .btn-primary:hover {
-            background-color: #DC2626;
+            background: linear-gradient(120deg, #7B1A28, #6B2550, #6B4B80, #7B70A5, #B890A8);
             transform: translateY(-1px);
-            box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+            box-shadow: 0 4px 10px rgba(155, 27, 48, 0.35);
         }
 
         .btn-red {
-            background: #D0021B;
+            background: var(--primary-color);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -561,7 +755,7 @@
 
         .btn-icon-only:hover {
             background: #F3F4F6;
-            color: #D0021B;
+            color: var(--primary-color);
         }
 
         .btn-icon-only svg {
@@ -770,8 +964,8 @@
         }
 
         .custom-option.selected {
-            background: rgba(208, 2, 27, 0.1);
-            color: #D0021B;
+            background: rgba(255, 79, 60, 0.1);
+            color: var(--primary-color);
             font-weight: 600;
         }
 
@@ -798,14 +992,15 @@
         }
 
         .filter-btn:hover {
-            border-color: #D0021B;
-            background: #FEF2F2;
+            border-color: var(--primary-color);
+            background: rgba(155,27,48,0.06);
         }
 
         .filter-btn.active {
-            background: #D0021B;
+            background: var(--gradient-brand);
             color: white;
-            border-color: #D0021B;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(155,27,48,0.2);
         }
 
         .filter-btn img {
@@ -968,9 +1163,9 @@
         }
 
         .time-btn.active {
-            background: #D0021B;
+            background: var(--primary-color);
             color: white;
-            border-color: #D0021B;
+            border-color: var(--primary-color);
         }
 
         /* --- MOBILE OPTIMIZATION (RESPONSIVE & TOUCH) --- */
@@ -1059,7 +1254,7 @@
 
             .main-tabs .tab-btn.active {
                 background: transparent !important;
-                color: #D0021B !important;
+                color: #9B1B30 !important;
                 opacity: 1;
                 transform: translateY(-2px);
             }
@@ -1662,10 +1857,18 @@
             style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
 
+    <!-- Sakura Petals Background -->
+    <div class="bg-petals" aria-hidden="true">
+        <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+        <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+        <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+        <div class="petal"></div>
+    </div>
+
     <!-- Side Menu Structure (Customizable Navigation) -->
     <div class="side-menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
     <div class="side-menu" id="sideMenu">
-        <h2 style="margin-top:0; color:#D0021B;">Sora<span style="color:var(--text-primary, #111)">Metrics</span></h2>
+        <h2 style="margin-top:0; color:#9B1B30;">Sora<span style="color:var(--text-primary, #111)">Metrics</span></h2>
         <div style="font-size:12px; color:#6B7280; margin-bottom:15px;" data-i18n="menu_instruction">
             Visibles (Max 5)
         </div>
@@ -1832,7 +2035,7 @@
                         </g>
                     </svg>
                     <div style="font-size:28px; font-weight:700; line-height: 1;">
-                        <span style="color:#D0021B;">Sora</span><span style="color:var(--text-primary);">Metrics</span>
+                        <span style="color:#9B1B30;">Sora</span><span style="color:var(--text-primary);">Metrics</span>
                     </div>
                 </div>
             </div>
@@ -2071,22 +2274,7 @@
                 </div>
 
                 <div id="govview-elections" class="gov-content" style="display:none;">
-                    <div id="electionCountdown" class="election-info-box"></div>
-                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_elected">Miembros Electos</h4>
-                    <div style="overflow-x:auto; margin-bottom:16px;">
-                        <table><thead><tr><th>Wallet</th><th>Stake (XOR)</th></tr></thead>
-                        <tbody id="electedMembersTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
-                    </div>
-                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_candidates">Candidatos</h4>
-                    <div style="overflow-x:auto; margin-bottom:16px;">
-                        <table><thead><tr><th>Wallet</th><th data-i18n="gov_deposit">Deposito (XOR)</th></tr></thead>
-                        <tbody id="candidatesTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
-                    </div>
-                    <h4 style="margin:0 0 10px 0; font-size:15px;" data-i18n="gov_runners_up">Suplentes (Runners-up)</h4>
-                    <div style="overflow-x:auto;">
-                        <table><thead><tr><th>Wallet</th><th>Stake (XOR)</th></tr></thead>
-                        <tbody id="runnersUpTable"><tr><td colspan="2" class="gov-empty" data-i18n="loading">Cargando...</td></tr></tbody></table>
-                    </div>
+                    <div id="electionContent"><div class="gov-empty" data-i18n="loading">Cargando...</div></div>
                 </div>
 
                 <div id="govview-motions" class="gov-content" style="display:none;">
@@ -2393,7 +2581,7 @@
                         <input type="text" id="tokenSearch" placeholder="Buscar..." onkeyup="filterTokens()"
                             data-i18n-placeholder="search_token"
                             style="width: 100%; padding: 8px 12px; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 13px; outline: none; transition: border-color 0.2s;"
-                            onfocus="this.style.borderColor='#D0021B'" onblur="this.style.borderColor='#E5E7EB'">
+                            onfocus="this.style.borderColor='#9B1B30'" onblur="this.style.borderColor='#E5E7EB'">
                     </div>
 
                 </div>
@@ -2545,7 +2733,7 @@
                         style="text-align:center; flex:1; border-left:1px solid var(--border-color); background:var(--bg-body); border-radius:8px; padding:5px;">
                         <div style="font-size:11px; color:#6B7280; text-transform:uppercase; font-weight:bold;">Total
                         </div>
-                        <div id="fee-total-xor" style="font-size:18px; font-weight:bold; color:#D0021B;">0 XOR</div>
+                        <div id="fee-total-xor" style="font-size:18px; font-weight:bold; color:#9B1B30;">0 XOR</div>
                         <div id="fee-total-usd" style="font-size:13px; color:#6B7280;">$0.00</div>
                     </div>
                 </div>

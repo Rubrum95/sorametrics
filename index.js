@@ -2573,14 +2573,54 @@ function decodeProposal(prop) {
     }
 }
 
+async function resolvePreimage(hash, len) {
+    try {
+        if (api.query.preimage && api.query.preimage.preimageFor) {
+            try {
+                const preimage = await withTimeout(api.query.preimage.preimageFor([hash, parseInt(len) || 0]));
+                if (preimage && !preimage.isNone) {
+                    const bytes = preimage.unwrap();
+                    return decodeProposal(api.createType('Call', bytes.toHex ? bytes.toHex() : bytes));
+                }
+            } catch {}
+        }
+        if (api.query.democracy && api.query.democracy.preimages) {
+            try {
+                const prop = await withTimeout(api.query.democracy.preimages(hash));
+                if (prop && !prop.isNone) {
+                    const available = prop.unwrap();
+                    if (available.isAvailable) {
+                        return decodeProposal(api.createType('Call', available.asAvailable.data));
+                    }
+                }
+            } catch {}
+        }
+    } catch {}
+    return null;
+}
+
+async function attachIdentities(addresses) {
+    if (!addresses || addresses.length === 0) return {};
+    await resolveIdentitiesBatch(addresses.filter(a => typeof a === 'string' && a.length > 40));
+    const result = {};
+    for (const addr of addresses) {
+        const cached = identityMemCache.get(addr);
+        if (cached && cached.display) result[addr] = cached.display;
+    }
+    return result;
+}
+
 async function fetchCollectiveMotions(collective) {
     const query = api.query[collective];
-    if (!query) return [];
-    const [hashes, proposalCount] = await Promise.all([
+    if (!query) return { motions: [], identities: {}, currentBlock: 0 };
+    const [hashes, proposalCount, header] = await Promise.all([
         withTimeout(query.proposals()),
-        withTimeout(query.proposalCount())
+        withTimeout(query.proposalCount()),
+        withTimeout(api.rpc.chain.getHeader())
     ]);
+    const currentBlock = header.number.toNumber();
     const motions = [];
+    const allAddresses = new Set();
     for (const hash of hashes) {
         try {
             const [prop, votes] = await Promise.all([
@@ -2589,18 +2629,37 @@ async function fetchCollectiveMotions(collective) {
             ]);
             const decoded = prop ? decodeProposal(prop) : null;
             const v = votes ? votes.toJSON() : null;
+            // Try to resolve preimage for Lookup proposals
+            let resolvedProposal = null;
+            if (decoded && decoded.args) {
+                const pArg = decoded.args.proposal || decoded.args.proposal_hash;
+                if (pArg && typeof pArg === 'object') {
+                    const lookup = pArg.Lookup || pArg.lookup;
+                    if (lookup) {
+                        resolvedProposal = await resolvePreimage(lookup.hash_ || lookup.hash, lookup.len);
+                    }
+                }
+            }
+            if (v?.ayes) v.ayes.forEach(a => allAddresses.add(a));
+            if (v?.nays) v.nays.forEach(a => allAddresses.add(a));
+            let blocksRemaining = 0;
+            if (v?.end) blocksRemaining = Math.max(0, v.end - currentBlock);
             motions.push({
                 hash: hash.toHex(),
                 index: v?.index ?? null,
                 decoded,
-                voting: v
+                resolvedProposal,
+                voting: v,
+                blocksRemaining,
+                timeRemaining: blocksToTime(blocksRemaining)
             });
         } catch (e) { }
     }
-    return motions;
+    const identities = await attachIdentities([...allAddresses]);
+    return { motions, identities, currentBlock };
 }
 
-// Council members + prime + stake
+// Council members + prime + stake + identities
 app.get("/governance/council", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
@@ -2615,12 +2674,15 @@ app.get("/governance/council", rateLimit(15, 60000), async (req, res) => {
             if (Array.isArray(e)) stakeMap[e[0]] = formatChainAmount(e[1]);
             else if (e.who) stakeMap[e.who] = formatChainAmount(e.stake);
         }
-        const members = (councilMembers.toJSON() || []).map(addr => ({
+        const addresses = councilMembers.toJSON() || [];
+        const identities = await attachIdentities(addresses);
+        const members = addresses.map(addr => ({
             address: addr,
+            identity: identities[addr] || null,
             stake: stakeMap[addr] || '0',
             isPrime: prime && prime.toJSON() === addr
         }));
-        res.json({ members, prime: prime ? prime.toJSON() : null });
+        res.json({ members, prime: prime ? prime.toJSON() : null, identities });
     } catch (e) { res.json({ error: e.message }); }
 });
 
@@ -2655,17 +2717,24 @@ app.get("/governance/elections", rateLimit(15, 60000), async (req, res) => {
             return { address: e.who || e[0], deposit: formatChainAmount(e.deposit || e[1]) };
         });
 
+        const electedList = mapSeat(members);
+        const candidatesList = mapCandidate(candidates);
+        const runnersUpList = mapSeat(runnersUp);
+        const allAddresses = [...electedList, ...candidatesList, ...runnersUpList].map(i => i.address);
+        const identities = await attachIdentities(allAddresses);
+
         res.json({
-            elected: mapSeat(members),
-            candidates: mapCandidate(candidates),
-            runnersUp: mapSeat(runnersUp),
+            elected: electedList,
+            candidates: candidatesList,
+            runnersUp: runnersUpList,
             electionRounds: rounds.toNumber(),
             currentBlock,
             termDuration,
             desiredMembers,
             candidacyBond,
             blocksUntilElection,
-            timeUntilElection: blocksToTime(blocksUntilElection)
+            timeUntilElection: blocksToTime(blocksUntilElection),
+            identities
         });
     } catch (e) { res.json({ error: e.message }); }
 });
@@ -2674,11 +2743,17 @@ app.get("/governance/elections", rateLimit(15, 60000), async (req, res) => {
 app.get("/governance/motions", rateLimit(10, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
-        const [councilMotions, techMotions] = await Promise.all([
+        const [councilResult, techResult] = await Promise.all([
             fetchCollectiveMotions('council'),
             fetchCollectiveMotions('technicalCommittee')
         ]);
-        res.json({ council: councilMotions, technicalCommittee: techMotions });
+        const identities = { ...councilResult.identities, ...techResult.identities };
+        res.json({
+            council: councilResult.motions,
+            technicalCommittee: techResult.motions,
+            identities,
+            currentBlock: councilResult.currentBlock
+        });
     } catch (e) { res.json({ error: e.message }); }
 });
 
@@ -2712,15 +2787,11 @@ app.get("/governance/democracy", rateLimit(10, 60000), async (req, res) => {
                 let decoded = null;
                 if (status === 'ongoing' && detail.proposal) {
                     try {
-                        const proposalHash = detail.proposal.lookup ? detail.proposal.lookup.hash_ : detail.proposal;
-                        if (proposalHash && typeof proposalHash === 'string') {
-                            const prop = await withTimeout(api.query.democracy.preimages ? api.query.democracy.preimages(proposalHash) : Promise.resolve(null));
-                            if (prop && !prop.isNone) {
-                                const available = prop.unwrap();
-                                if (available.isAvailable) {
-                                    decoded = decodeProposal(api.createType('Call', available.asAvailable.data));
-                                }
-                            }
+                        const lookup = detail.proposal.lookup || detail.proposal.Lookup;
+                        if (lookup) {
+                            decoded = await resolvePreimage(lookup.hash_ || lookup.hash, lookup.len);
+                        } else if (typeof detail.proposal === 'string') {
+                            decoded = await resolvePreimage(detail.proposal);
                         }
                     } catch {}
                 }
@@ -2746,7 +2817,7 @@ app.get("/governance/democracy", rateLimit(10, 60000), async (req, res) => {
     } catch (e) { res.json({ error: e.message }); }
 });
 
-// Technical committee members + motions
+// Technical committee members + identities
 app.get("/governance/technical-committee", rateLimit(15, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
@@ -2754,12 +2825,16 @@ app.get("/governance/technical-committee", rateLimit(15, 60000), async (req, res
             withTimeout(api.query.technicalCommittee.members()),
             withTimeout(api.query.technicalCommittee.prime())
         ]);
+        const addresses = members.toJSON() || [];
+        const identities = await attachIdentities(addresses);
         res.json({
-            members: (members.toJSON() || []).map(addr => ({
+            members: addresses.map(addr => ({
                 address: addr,
+                identity: identities[addr] || null,
                 isPrime: prime && prime.toJSON() === addr
             })),
-            prime: prime ? prime.toJSON() : null
+            prime: prime ? prime.toJSON() : null,
+            identities
         });
     } catch (e) { res.json({ error: e.message }); }
 });
