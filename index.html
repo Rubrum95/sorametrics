@@ -171,13 +171,17 @@
             /* Hidden: 260px width + 20px padding + extra for shadow */
             width: 260px;
             height: 100%;
-            background: white;
+            background: var(--bg-card, white);
+            color: var(--text-primary, #111);
             z-index: 1500;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             transition: left 0.3s ease-in-out;
             padding: 20px;
             display: flex;
             flex-direction: column;
+        }
+        [data-theme="dark"] .side-menu {
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.5);
         }
 
         .side-menu.show {
@@ -1626,7 +1630,7 @@
     <!-- Side Menu Structure (Customizable Navigation) -->
     <div class="side-menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
     <div class="side-menu" id="sideMenu">
-        <h2 style="margin-top:0; color:#D0021B;">Sora<span style="color:#111">Metrics</span></h2>
+        <h2 style="margin-top:0; color:#D0021B;">Sora<span style="color:var(--text-primary, #111)">Metrics</span></h2>
         <div style="font-size:12px; color:#6B7280; margin-bottom:15px;" data-i18n="menu_instruction">
             Visibles (Max 5)
         </div>
