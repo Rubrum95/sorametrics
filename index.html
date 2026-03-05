@@ -355,12 +355,17 @@
             }
         }
 
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         .card {
             background: var(--bg-card);
             border-radius: 16px;
             padding: 24px;
             box-shadow: var(--shadow-card);
             border: 1px solid var(--border-color);
+            overflow-x: auto;
         }
 
         /* TABLAS */
@@ -374,8 +379,9 @@
             text-align: left;
             color: var(--text-secondary);
             font-size: 12px;
-            padding: 12px 0;
+            padding: 12px 8px;
             border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
         }
 
         .wallet-saved {
@@ -399,7 +405,7 @@
         }
 
         td {
-            padding: 16px 0;
+            padding: 16px 8px;
             border-bottom: 1px solid #F3F4F6;
             vertical-align: middle;
         }
@@ -1053,7 +1059,14 @@
             }
 
             #tab-tokens::before {
-                content: "🪙";
+                content: "💎";
+                font-size: 20px;
+                display: block;
+                margin-bottom: 2px;
+            }
+
+            #tab-extrinsics::before {
+                content: "🔬";
                 font-size: 20px;
                 display: block;
                 margin-bottom: 2px;
@@ -1612,12 +1625,6 @@
             }
         }
 
-        /* PATCH: Fix missing Tokens icon on mobile */
-        @media (max-width: 768px) {
-            #tab-tokens::before {
-                content: "💎" !important;
-            }
-        }
     </style>
 </head>
 
@@ -1885,13 +1892,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th data-i18n="time">Hora</th>
-                            <th data-i18n="block">Bloque</th>
-                            <th data-i18n="from">De</th>
-                            <th data-i18n="amount">Cantidad</th>
-                            <th></th>
-                            <th data-i18n="to">Para</th>
-                            <th data-i18n="action">Acción</th>
+                            <th data-i18n="time" style="width:13%">Hora</th>
+                            <th data-i18n="block" style="width:9%">Bloque</th>
+                            <th data-i18n="from" style="width:16%">De</th>
+                            <th data-i18n="amount" style="width:24%">Cantidad</th>
+                            <th style="width:3%"></th>
+                            <th data-i18n="to" style="width:16%">Para</th>
+                            <th data-i18n="action" style="width:8%">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="transferTable">
@@ -1929,14 +1936,14 @@
                 <table>
                     <thead>
                         <tr>
-                            <th data-i18n="time">Hora</th>
-                            <th data-i18n="block">Bloque</th>
-                            <th data-i18n="network">Red</th>
-                            <th>Dirección</th>
-                            <th data-i18n="from">De</th>
-                            <th data-i18n="to">Para</th>
-                            <th data-i18n="amount">Cantidad</th>
-                            <th data-i18n="action">Acción</th>
+                            <th data-i18n="time" style="width:11%">Hora</th>
+                            <th data-i18n="block" style="width:9%">Bloque</th>
+                            <th data-i18n="network" style="width:9%">Red</th>
+                            <th style="width:8%">Dirección</th>
+                            <th data-i18n="from" style="width:14%">De</th>
+                            <th data-i18n="to" style="width:14%">Para</th>
+                            <th data-i18n="amount" style="width:25%">Cantidad</th>
+                            <th data-i18n="action" style="width:10%">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="bridgeTable">
@@ -1980,13 +1987,13 @@
                     <table>
                         <thead>
                             <tr>
-                                <th data-i18n="time">Hora</th>
-                                <th>Block</th>
-                                <th>ID</th>
-                                <th>Pallet::Call</th>
-                                <th data-i18n="signer">Firmante</th>
-                                <th data-i18n="result">Resultado</th>
-                                <th data-i18n="action">Acción</th>
+                                <th data-i18n="time" style="width:14%">Hora</th>
+                                <th style="width:10%">Block</th>
+                                <th style="width:12%">ID</th>
+                                <th style="width:20%">Pallet::Call</th>
+                                <th data-i18n="signer" style="width:18%">Firmante</th>
+                                <th data-i18n="result" style="width:14%">Resultado</th>
+                                <th data-i18n="action" style="width:12%">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="extrinsicTable">
@@ -2180,13 +2187,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th data-i18n="time">Hora</th>
-                            <th data-i18n="block">Bloque</th>
-                            <th data-i18n="input">Entrada</th>
-                            <th></th>
-                            <th data-i18n="output">Salida</th>
-                            <th data-i18n="account">Cuenta</th>
-                            <th data-i18n="action">Acción</th>
+                            <th data-i18n="time" style="width:12%">Hora</th>
+                            <th data-i18n="block" style="width:10%">Bloque</th>
+                            <th data-i18n="input" style="width:22%">Entrada</th>
+                            <th style="width:3%"></th>
+                            <th data-i18n="output" style="width:22%">Salida</th>
+                            <th data-i18n="account" style="width:20%">Cuenta</th>
+                            <th data-i18n="action" style="width:11%">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="swapTable"></tbody>
