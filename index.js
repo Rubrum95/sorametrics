@@ -41,6 +41,7 @@ app.use(helmet({
             imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://avatars.githubusercontent.com"],
             connectSrc: ["'self'", "wss:", "ws:"],
             fontSrc: ["'self'"],
+            scriptSrcAttr: ["'unsafe-inline'"],
         }
     }
 }));

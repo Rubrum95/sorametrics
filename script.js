@@ -1291,9 +1291,6 @@ let transferPage = 1; let transferTotalPages = 1; let swapPage = 1; let swapTota
 function changeTransferPage(d) {
     if (transferPage + d > 0 && transferPage + d <= transferTotalPages) { transferPage += d; loadGlobalTransfers(); }
 }
-function changeSwapPage(d) {
-    if (swapPage + d > 0 && swapPage + d <= swapTotalPages) { swapPage += d; loadGlobalSwaps(); }
-}
 function setPoolFilter(mode) {
     pFilter = mode; poolPage = 1;
     const btns = ['btnPoolAll', 'btnPoolXor', 'btnPoolXst', 'btnPoolKusd', 'btnPoolVxor'];
