@@ -3436,6 +3436,8 @@
                             onclick="openWTab('bridges')" data-i18n="bridges">Puentes</button>
                         <button id="wtab-liquidity" class="tab-btn" style="font-size:14px; padding:5px 15px;"
                             onclick="openWTab('liquidity')" data-i18n="liquidity">Liquidez</button>
+                        <button id="wtab-staking" class="tab-btn" style="font-size:14px; padding:5px 15px;"
+                            onclick="openWTab('staking')">Staking</button>
                     </div>
 
                     <div id="wview-assets" class="wtab-content active" style="flex:1; overflow-y:auto;">
@@ -3508,6 +3510,12 @@
 
                     <div id="wview-liquidity" class="wtab-content" style="flex:1; overflow-y:auto; display:none;">
                         <div id="wLiquidityList" style="display:grid; gap:10px; padding:10px;"></div>
+                    </div>
+
+                    <div id="wview-staking" class="wtab-content" style="flex:1; overflow-y:auto; display:none;">
+                        <div id="wStakingContent" style="padding:10px;">
+                            <div style="text-align:center; padding:20px; color:var(--text-secondary);">Loading...</div>
+                        </div>
                     </div>
                 </div>
             </div>
