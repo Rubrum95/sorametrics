@@ -1948,6 +1948,17 @@ async function openWalletDetails(address) {
     openWTab('assets');
     loadWalletAssets();
     loadWalletHistory();
+
+    // Fetch on-chain identity (non-blocking)
+    if (!isSaved) {
+        fetch(`/identity/${address}`).then(r => r.json()).then(id => {
+            if (id && id.display && currentDetailsAddr === address) {
+                let idHtml = `<span style="color:var(--text-primary);">${esc(id.display)}</span>`;
+                if (id.twitter) idHtml += ` <span style="font-size:12px; color:var(--text-secondary);">@${esc(id.twitter)}</span>`;
+                document.getElementById('detailsTitle').innerHTML = idHtml;
+            }
+        }).catch(() => {});
+    }
 }
 
 function editWalletAlias(address) {
@@ -2093,9 +2104,25 @@ async function loadWalletStaking() {
                 <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Nominating ${data.validators.length} validator(s)</div>`;
             data.validators.forEach(v => {
                 const short = v.substring(0, 8) + '...' + v.substring(v.length - 6);
-                html += `<div style="font-family:monospace; font-size:11px; color:var(--text-secondary); padding:3px 0; cursor:pointer;" onclick="openWalletDetails('${esc(v)}')">${short}</div>`;
+                html += `<div id="val-${v.substring(0,8)}" style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer; border-bottom:1px solid var(--border-color);" onclick="openWalletDetails('${esc(v)}')">
+                    <span style="font-family:monospace; font-size:11px; color:var(--text-secondary);">${short}</span>
+                    <span class="val-identity" style="font-size:12px; font-weight:600; color:var(--text-primary);"></span>
+                </div>`;
             });
             html += '</div>';
+
+            // Resolve validator identities (non-blocking)
+            Promise.all(data.validators.map(v =>
+                fetch(`/identity/${v}`).then(r => r.json()).then(id => ({ addr: v, display: id?.display })).catch(() => ({ addr: v, display: null }))
+            )).then(results => {
+                results.forEach(r => {
+                    if (r.display) {
+                        const el = document.getElementById('val-' + r.addr.substring(0,8));
+                        const span = el?.querySelector('.val-identity');
+                        if (span) span.textContent = r.display;
+                    }
+                });
+            });
         }
 
         html += '</div>';
