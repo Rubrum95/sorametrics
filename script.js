@@ -2013,7 +2013,7 @@ function loadUnifiedAssets() {
     });
 }
 function openWTab(tab) {
-    ['assets', 'swaps', 'transfers', 'bridges', 'liquidity'].forEach(t => {
+    ['assets', 'swaps', 'transfers', 'bridges', 'liquidity', 'staking'].forEach(t => {
         document.getElementById('wtab-' + t)?.classList.toggle('active', t === tab);
         const view = document.getElementById('wview-' + t);
         if (view) view.style.display = t === tab ? 'block' : 'none';
@@ -2022,6 +2022,88 @@ function openWTab(tab) {
     if (tab === 'transfers') loadWalletTransfers();
     if (tab === 'bridges') loadWalletBridges();
     if (tab === 'liquidity') loadWalletLiquidity();
+    if (tab === 'staking') loadWalletStaking();
+}
+
+async function loadWalletStaking() {
+    const container = document.getElementById('wStakingContent');
+    if (!container || !currentDetailsAddr) return;
+    container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-secondary);">Loading staking info...</div>';
+
+    try {
+        const res = await fetch(`/wallet/staking/${currentDetailsAddr}`);
+        const data = await res.json();
+
+        if (!data || (data.staked === 0 && data.unbonding === 0)) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-secondary);">
+                <div style="font-size:32px; margin-bottom:12px;">🔒</div>
+                <div style="font-size:14px;">No staking positions for this wallet</div>
+            </div>`;
+            return;
+        }
+
+        const xorPrice = (cachedBalanceData?.unifiedTokens?.find(t => t.symbol === 'XOR')?.usdValue || 0) /
+                          (cachedBalanceData?.unifiedTokens?.find(t => t.symbol === 'XOR')?.amount || 1);
+
+        let html = '<div style="display:grid; gap:12px; padding:5px;">';
+
+        // Staked card
+        if (data.staked > 0) {
+            html += `<div class="lp-summary-item" style="padding:16px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="${XOR_LOGO_SVG}" style="width:36px;height:36px;border-radius:50%;">
+                    <div>
+                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">Staked XOR</div>
+                        <div style="font-size:13px; color:var(--text-secondary);">${formatAmount(data.staked)} XOR</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:700; font-size:16px; color:#10B981;">${formatPortfolioPrice(data.stakedUsd || data.staked * xorPrice)}</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">Active</div>
+                </div>
+            </div>`;
+        }
+
+        // Unbonding card
+        if (data.unbonding > 0) {
+            html += `<div class="lp-summary-item" style="padding:16px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="${XOR_LOGO_SVG}" style="width:36px;height:36px;border-radius:50%;opacity:0.5;">
+                    <div>
+                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">Unbonding XOR</div>
+                        <div style="font-size:13px; color:var(--text-secondary);">${formatAmount(data.unbonding)} XOR</div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-weight:700; font-size:16px; color:#F59E0B;">${formatPortfolioPrice(data.unbondingUsd || data.unbonding * xorPrice)}</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">Unlocking</div>
+                </div>
+            </div>`;
+        }
+
+        // Total
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-top:1px solid var(--border-color); margin-top:4px;">
+            <span style="font-weight:700; color:var(--text-primary);">Total Staking Value</span>
+            <span style="font-weight:800; font-size:18px; color:#10B981;">${formatPortfolioPrice(data.usdValue)}</span>
+        </div>`;
+
+        // Validators
+        if (data.validators && data.validators.length > 0) {
+            html += `<div style="padding:8px 0;">
+                <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Nominating ${data.validators.length} validator(s)</div>`;
+            data.validators.forEach(v => {
+                const short = v.substring(0, 8) + '...' + v.substring(v.length - 6);
+                html += `<div style="font-family:monospace; font-size:11px; color:var(--text-secondary); padding:3px 0; cursor:pointer;" onclick="openWalletDetails('${esc(v)}')">${short}</div>`;
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#EF4444;">Error loading staking info</div>';
+        console.error('Wallet staking error:', e);
+    }
 }
 
 let wBridgePage = 1;
