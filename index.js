@@ -1224,6 +1224,27 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(10, 60000), async
     }
 });
 
+// Identity lookup for a single address
+app.get('/identity/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
+    const address = req.params.address;
+    try {
+        // Check cache first
+        let cached = identityMemCache.get(address);
+        if (cached && (Date.now() - cached.ts < IDENTITY_MEM_TTL)) {
+            return res.json({ display: cached.display, email: cached.email, web: cached.web, twitter: cached.twitter, discord: cached.discord });
+        }
+        // Resolve via batch (handles DB + RPC fallback)
+        await resolveIdentitiesBatch([address]);
+        cached = identityMemCache.get(address);
+        if (cached && cached.display) {
+            return res.json({ display: cached.display, email: cached.email, web: cached.web, twitter: cached.twitter, discord: cached.discord });
+        }
+        res.json({ display: null });
+    } catch (e) {
+        res.json({ display: null });
+    }
+});
+
 // Currency rates proxy (cached 1h)
 let eurRateCache = { rate: 0.92, ts: 0 };
 app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
