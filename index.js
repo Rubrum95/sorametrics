@@ -1163,6 +1163,67 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
     }
 });
 
+// Native staking info for a wallet
+app.get('/wallet/staking/:address', validateAddress, rateLimit(10, 60000), async (req, res) => {
+    if (!api) return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0 });
+    const address = req.params.address;
+    try {
+        // Check if address is a stash (bonded to a controller)
+        const bonded = await withTimeout(api.query.staking.bonded(address));
+        const controller = bonded.isSome ? bonded.unwrap().toString() : null;
+
+        // Check staking ledger (try address as controller, or use the controller from bonded)
+        let ledger = null;
+        try {
+            const ledgerResult = await withTimeout(api.query.staking.ledger(address));
+            if (ledgerResult.isSome) ledger = ledgerResult.unwrap();
+        } catch (e) {}
+
+        if (!ledger && controller) {
+            try {
+                const ledgerResult = await withTimeout(api.query.staking.ledger(controller));
+                if (ledgerResult.isSome) ledger = ledgerResult.unwrap();
+            } catch (e) {}
+        }
+
+        if (!ledger) {
+            return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0, validators: [] });
+        }
+
+        const decimals = 18;
+        const active = new BigNumber(ledger.active.toString()).div(new BigNumber(10).pow(decimals));
+        const total = new BigNumber(ledger.total.toString()).div(new BigNumber(10).pow(decimals));
+        const unbonding = total.minus(active);
+
+        // Get nominator info (which validators)
+        let validators = [];
+        try {
+            const nominators = await withTimeout(api.query.staking.nominators(address));
+            if (nominators.isSome) {
+                const targets = nominators.unwrap().targets;
+                validators = targets.map(v => v.toString());
+            }
+        } catch (e) {}
+
+        const xorPrice = tokenPrices['XOR'] || 0;
+        const stakedNum = active.toNumber();
+        const unbondingNum = unbonding.toNumber();
+
+        res.json({
+            staked: stakedNum,
+            unbonding: unbondingNum,
+            rewards: 0, // Phase 2: calculate pending rewards
+            usdValue: (stakedNum + unbondingNum) * xorPrice,
+            stakedUsd: stakedNum * xorPrice,
+            unbondingUsd: unbondingNum * xorPrice,
+            validators
+        });
+    } catch (e) {
+        console.error("Error fetching staking info:", e.message);
+        res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0, validators: [] });
+    }
+});
+
 // Currency rates proxy (cached 1h)
 let eurRateCache = { rate: 0.92, ts: 0 };
 app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
