@@ -1163,6 +1163,28 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
     }
 });
 
+// Currency rates proxy (cached 1h)
+let eurRateCache = { rate: 0.92, ts: 0 };
+app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
+    const now = Date.now();
+    if (now - eurRateCache.ts < 3600000 && eurRateCache.rate !== 0.92) {
+        return res.json({ EUR: eurRateCache.rate });
+    }
+    https.get('https://open.er-api.com/v6/latest/USD', (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                if (data.rates?.EUR) {
+                    eurRateCache = { rate: data.rates.EUR, ts: now };
+                    res.json({ EUR: data.rates.EUR });
+                } else { res.json({ EUR: eurRateCache.rate }); }
+            } catch (e) { res.json({ EUR: eurRateCache.rate }); }
+        });
+    }).on('error', () => res.json({ EUR: eurRateCache.rate }));
+});
+
 app.get('/balance/:address', validateAddress, rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json([]);
     const address = req.params.address;

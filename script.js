@@ -257,11 +257,19 @@ function changeLanguage(lang) {
     if (document.getElementById('swaps')) { if (document.getElementById('swaps').classList.contains('active')) loadGlobalSwaps(); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const code = LANG_CODES[currentLang] || 'ES';
     const el = document.getElementById('currentLangFlag');
     if (el) el.innerText = code;
     applyTranslations();
+
+    // Init currency selector from saved preference
+    await loadCurrencyRates();
+    if (portfolioCurrency !== 'USD') {
+        const sel = document.getElementById('currencySelect');
+        if (sel) sel.value = portfolioCurrency;
+    }
+
     initNavigation();
 });
 
@@ -911,135 +919,506 @@ socket.on('orderbook-batch', (batch) => {
 let groupWalletsMode = localStorage.getItem('sora_group_wallets') === 'true';
 let lastUnifiedData = null;
 
-function updateGroupWalletsUI() {
-    const cb = document.getElementById('groupWalletsCheckbox');
-    const track = document.getElementById('groupWalletsTrack');
-    const knob = document.getElementById('groupWalletsKnob');
-    if (cb && track && knob) {
-        cb.checked = groupWalletsMode;
-        if (groupWalletsMode) {
-            track.style.background = '#10B981';
-            knob.style.transform = 'translateX(16px)';
-        } else {
-            track.style.background = '#E5E7EB';
-            knob.style.transform = 'translateX(0)';
-        }
-    }
-}
-
-function toggleGroupWallets() {
-    groupWalletsMode = !groupWalletsMode;
-    localStorage.setItem('sora_group_wallets', groupWalletsMode);
-    updateGroupWalletsUI();
-    loadBalanceTab();
-}
+// Portfolio Dashboard globals
+var portfolioDonutChart = null;
+var cachedBalanceData = null;
+var currentHoldingsSort = { col: 'value', dir: 'desc' };
+var currentBalanceSubTab = 'overview';
+var holdingsPage = 1;
+var HOLDINGS_PER_PAGE = 10;
+var portfolioCurrency = localStorage.getItem('sora_portfolio_currency') || 'USD';
+var currencyRates = { USD: 1, EUR: 1, XOR: 1 }; // Will be updated on load
 
 async function loadBalanceTab() {
-    updateGroupWalletsUI();
-    const myContainer = document.getElementById('myWalletsList');
-    const watchContainer = document.getElementById('watchWalletsList');
-
-    // Show loading
-    myContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].loading}</div>`;
-    watchContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].loading}</div>`;
-
-    if (myWallets.length === 0) {
-        myContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].no_wallets_saved}</div>`;
-        watchContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].not_watching_wallets}</div>`;
-        document.getElementById('totalNetWorth').innerHTML = formatPrice(0);
-        return;
-    }
-
-    // --- BULK FETCH ---
     const allAddresses = myWallets.map(w => w.address);
     const resultsMap = {};
     let grandTotal = 0;
 
-    try {
-        // Send all addresses to backend
-        const res = await fetch('/balances', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ addresses: allAddresses })
-        });
-        const json = await res.json();
-        if (json.result) {
-            json.result.forEach(r => { resultsMap[r.address] = r; });
+    // Show loading
+    document.getElementById('totalNetWorth').innerHTML = '...';
+
+    if (myWallets.length === 0) {
+        cachedBalanceData = { myW: [], watchW: [], resultsMap: {}, grandTotal: 0, unifiedTokens: [] };
+        document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(0);
+        renderCurrentBalanceSubTab();
+        return;
+    }
+
+    // Fetch each wallet sequentially to avoid parallel RPC conflicts
+    for (const addr of allAddresses) {
+        try {
+            const res = await fetch(`/balance/${addr}`);
+            const tokens = await res.json();
+            const totalUsd = tokens.reduce((acc, t) => acc + parseFloat(t.usdValue || 0), 0);
+            resultsMap[addr] = { address: addr, tokens, totalUsd };
+        } catch (e) {
+            console.error(`Balance error for ${addr.substring(0,8)}:`, e);
+            resultsMap[addr] = { address: addr, tokens: [], totalUsd: 0 };
         }
-    } catch (e) {
-        console.error("Error loading balances:", e);
     }
 
     const myW = myWallets.filter(w => w.type === 'my');
     const watchW = myWallets.filter(w => w.type === 'watch');
 
-    let myHtml = '';
-    let watchHtml = '';
-
-    // Calculate Grand Total first
+    // Grand total (only my wallets)
     myW.forEach(w => {
         const data = resultsMap[w.address];
         if (data) grandTotal += data.totalUsd;
     });
 
-    if (groupWalletsMode && myW.length > 0) {
-        // --- UNIFIED VIEW ---
-        let unifiedTokens = {};
-
-        myW.forEach(w => {
-            const data = resultsMap[w.address];
-            if (!data || !data.tokens) return;
-            data.tokens.forEach(t => {
-                if (!unifiedTokens[t.assetId]) {
-                    unifiedTokens[t.assetId] = {
-                        symbol: t.symbol,
-                        logo: t.logo,
-                        assetId: t.assetId,
-                        amount: 0,
-                        usdValue: 0
-                    };
-                }
-                unifiedTokens[t.assetId].amount += parseFloat(t.amount);
-                unifiedTokens[t.assetId].usdValue += parseFloat(t.usdValue);
-            });
+    // Build unified tokens (use symbol as key since GET /balance doesn't return assetId)
+    let unifiedMap = {};
+    myW.forEach(w => {
+        const data = resultsMap[w.address];
+        if (!data || !data.tokens) return;
+        data.tokens.forEach(t => {
+            const key = t.assetId || t.symbol;
+            if (!unifiedMap[key]) {
+                unifiedMap[key] = { symbol: t.symbol, logo: t.logo, assetId: t.assetId || t.symbol, amount: 0, usdValue: 0 };
+            }
+            unifiedMap[key].amount += parseFloat(t.amount);
+            unifiedMap[key].usdValue += parseFloat(t.usdValue);
         });
+    });
+    const unifiedTokens = Object.values(unifiedMap).sort((a, b) => b.usdValue - a.usdValue);
 
-        const tokenArray = Object.values(unifiedTokens)
-            .sort((a, b) => b.usdValue - a.usdValue)
-            .map(t => ({ ...t, amount: formatAmount(t.amount) }));
+    cachedBalanceData = { myW, watchW, resultsMap, grandTotal, unifiedTokens };
+    lastUnifiedData = { tokens: unifiedTokens.map(t => ({ ...t, amount: formatAmount(t.amount) })), totalUsd: grandTotal };
 
-        const unifiedWallet = {
-            name: `Portafolio Unificado (${myW.length} Wallets)`,
-            address: 'unified-view',
-            type: 'my'
-        };
-        const unifiedData = { tokens: tokenArray, totalUsd: grandTotal };
-        lastUnifiedData = unifiedData;
+    // Update XOR rate from fetched data
+    const xorToken = unifiedTokens.find(t => t.symbol === 'XOR');
+    if (xorToken && xorToken.amount > 0) currencyRates.XOR = xorToken.usdValue / xorToken.amount;
 
-        myHtml = createWalletCard(unifiedWallet, unifiedData, true); // true = isUnified
+    document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(grandTotal);
+    renderCurrentBalanceSubTab();
+}
 
+function renderCurrentBalanceSubTab() {
+    if (currentBalanceSubTab === 'overview') renderPortfolioOverview();
+    else if (currentBalanceSubTab === 'mywallets') renderMyWalletsExpandable();
+    else if (currentBalanceSubTab === 'watched') renderWatchedWalletsExpandable();
+}
+
+// --- CURRENCY CONVERSION ---
+const XOR_LOGO_SVG = "data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22' %3E%3Cpath fill='%23E3232C' d='M22,11c0,6.1-4.9,11-11,11S0,17.1,0,11S4.9,0,11,0S22,4.9,22,11z'/%3E%3Cpath fill='%23FFFFFF' d='M5.8,20.7c1.7-2.6,3.5-5.2,5.3-7.8l5.2,7.8c0.3-0.1,0.5-0.3,0.8-0.5s0.5-0.3,0.7-0.5 c-1.9-2.9-3.9-5.8-5.8-8.7h5.8V9.2H12V7.3h5.8V5.5H4.3v1.8h5.8v1.9H4.3V11h5.8l-5.8,8.7C4.5,19.9,4.7,20,5,20.2 C5.3,20.4,5.5,20.6,5.8,20.7z'/%3E%3C/svg%3E";
+var xorLogoImg = null; // Preloaded for canvas drawing
+(function preloadXorLogo() {
+    xorLogoImg = new Image();
+    xorLogoImg.src = XOR_LOGO_SVG;
+})();
+
+function getCurrencySymbol() {
+    if (portfolioCurrency === 'EUR') return '€';
+    if (portfolioCurrency === 'XOR') return '';
+    return '$';
+}
+
+function getXorLogoHtml(size) {
+    const s = size || 20;
+    return `<img src="${XOR_LOGO_SVG}" style="width:${s}px;height:${s}px;border-radius:50%;vertical-align:middle;margin-right:3px;object-fit:contain;">`;
+}
+
+function convertValue(usdValue) {
+    if (portfolioCurrency === 'USD') return usdValue;
+    if (portfolioCurrency === 'EUR') return usdValue * currencyRates.EUR;
+    if (portfolioCurrency === 'XOR') return currencyRates.XOR > 0 ? usdValue / currencyRates.XOR : 0;
+    return usdValue;
+}
+
+function formatPortfolioPrice(usdVal) {
+    const val = convertValue(usdVal);
+    if (portfolioCurrency === 'XOR') {
+        const formatted = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+        return `<span class="currency-symbol">${getXorLogoHtml(20)}</span><span class="price-value">${formatted}</span>`;
+    }
+    const sym = getCurrencySymbol();
+    const num = parseFloat(val);
+    if (isNaN(num) || num === 0) return `<span class="currency-symbol">${sym}</span><span class="price-value">0.00</span>`;
+    const maxDecimals = Math.abs(num) >= 1 ? 2 : 6;
+    const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: maxDecimals });
+    return `<span class="currency-symbol">${sym}</span><span class="price-value">${formatted}</span>`;
+}
+
+function formatPortfolioPricePlain(usdVal) {
+    const val = convertValue(usdVal);
+    const sym = portfolioCurrency === 'XOR' ? '' : (portfolioCurrency === 'EUR' ? '€' : '$');
+    return sym + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function setPortfolioCurrency(cur) {
+    portfolioCurrency = cur;
+    localStorage.setItem('sora_portfolio_currency', cur);
+    const sel = document.getElementById('currencySelect');
+    if (sel && sel.value !== cur) sel.value = cur;
+    refreshPortfolioDisplay();
+}
+
+async function loadCurrencyRates() {
+    try {
+        const res = await fetch('/currency-rates');
+        const data = await res.json();
+        if (data.EUR) currencyRates.EUR = data.EUR;
+    } catch (e) {
+        currencyRates.EUR = 0.92; // fallback
+    }
+}
+
+function refreshPortfolioDisplay() {
+    if (!cachedBalanceData) return;
+    // Update XOR rate from the backend prices if available
+    if (cachedBalanceData.unifiedTokens) {
+        const xorToken = cachedBalanceData.unifiedTokens.find(t => t.symbol === 'XOR');
+        if (xorToken && xorToken.amount > 0) {
+            currencyRates.XOR = xorToken.usdValue / xorToken.amount;
+        }
+    }
+    document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(cachedBalanceData.grandTotal);
+    if (currentBalanceSubTab === 'overview') renderPortfolioOverview();
+    else if (currentBalanceSubTab === 'mywallets') renderMyWalletsExpandable();
+    else if (currentBalanceSubTab === 'watched') renderWatchedWalletsExpandable();
+}
+
+// --- PORTFOLIO OVERVIEW ---
+function renderPortfolioOverview() {
+    if (!cachedBalanceData) return;
+    renderDonutChart(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
+    renderHoldingsTable(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
+    loadLpSummaryLazy();
+}
+
+function renderDonutChart(tokens, total) {
+    const ctx = document.getElementById('portfolioDonutChart');
+    if (!ctx) return;
+    if (!tokens || tokens.length === 0) {
+        if (portfolioDonutChart) { portfolioDonutChart.destroy(); portfolioDonutChart = null; }
+        return;
+    }
+
+    const top = tokens.slice(0, 8);
+    const othersValue = tokens.slice(8).reduce((s, t) => s + t.usdValue, 0);
+    const labels = top.map(t => t.symbol);
+    const data = top.map(t => t.usdValue);
+    if (othersValue > 0) { labels.push('Others'); data.push(othersValue); }
+
+    const colors = ['#9B1B30', '#7B2D5B', '#7B5B90', '#8B80B5', '#C8A0B8', '#3B82F6', '#10B981', '#F59E0B', '#6B7280'];
+
+    const centerTextPlugin = {
+        id: 'centerText',
+        beforeDraw(chart) {
+            const { ctx: c, width, height } = chart;
+            c.save();
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#111827';
+            c.font = 'bold 18px system-ui';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = textColor;
+            const priceText = formatPortfolioPricePlain(total);
+            if (portfolioCurrency === 'XOR' && xorLogoImg && xorLogoImg.complete && xorLogoImg.naturalWidth > 0) {
+                const textW = c.measureText(priceText).width;
+                const logoSize = 20;
+                const gap = 4;
+                const totalW = logoSize + gap + textW;
+                const startX = (width - totalW) / 2;
+                c.drawImage(xorLogoImg, startX, height / 2 - logoSize / 2, logoSize, logoSize);
+                c.textAlign = 'left';
+                c.fillText(priceText, startX + logoSize + gap, height / 2);
+            } else {
+                c.fillText(priceText, width / 2, height / 2);
+            }
+            c.restore();
+        }
+    };
+
+    if (portfolioDonutChart) {
+        portfolioDonutChart.data.labels = labels;
+        portfolioDonutChart.data.datasets[0].data = data;
+        portfolioDonutChart.update();
     } else {
-        // --- INDIVIDUAL VIEW ---
-        myW.forEach(w => {
-            const data = resultsMap[w.address] || { tokens: [], totalUsd: 0 };
-            myHtml += createWalletCard(w, data);
+        const existing = Chart.getChart(ctx);
+        if (existing) existing.destroy();
+        portfolioDonutChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#fff',
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const val = formatPortfolioPricePlain(context.raw);
+                                return `${context.label}: ${val} (${((context.raw / total) * 100).toFixed(1)}%)`;
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [centerTextPlugin]
         });
     }
 
-    watchW.forEach(w => {
-        const data = resultsMap[w.address] || { tokens: [], totalUsd: 0 };
-        watchHtml += createWalletCard(w, data);
+    // Render legend with color dots + token logos
+    const legendEl = document.getElementById('donutLegend');
+    if (legendEl) {
+        let legendHtml = '';
+        top.forEach((t, i) => {
+            const pct = total > 0 ? ((t.usdValue / total) * 100).toFixed(1) : '0.0';
+            const logoUrl = t.logo ? getProxyUrl(t.logo) : LOCAL_PLACEHOLDER;
+            legendHtml += `<div class="donut-legend-item">
+                <span class="donut-legend-dot" style="background:${colors[i]}"></span>
+                <img class="donut-legend-logo" src="${logoUrl}" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
+                <span>${t.symbol}</span>
+                <span style="color:var(--text-tertiary,#6B7280)">${pct}%</span>
+            </div>`;
+        });
+        if (othersValue > 0) {
+            const othersPct = total > 0 ? ((othersValue / total) * 100).toFixed(1) : '0.0';
+            legendHtml += `<div class="donut-legend-item">
+                <span class="donut-legend-dot" style="background:${colors[colors.length - 1]}"></span>
+                <span>Others</span>
+                <span style="color:var(--text-tertiary,#6B7280)">${othersPct}%</span>
+            </div>`;
+        }
+        legendEl.innerHTML = legendHtml;
+    }
+}
+
+function renderHoldingsTable(tokens, total) {
+    const wrapper = document.getElementById('holdingsTableWrapper');
+    if (!wrapper) return;
+    if (!tokens || tokens.length === 0) {
+        wrapper.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:20px;">No holdings found</p>';
+        return;
+    }
+
+    const sorted = [...tokens].sort((a, b) => {
+        const { col, dir } = currentHoldingsSort;
+        let va = col === 'symbol' ? a.symbol : col === 'amount' ? a.amount : a.usdValue;
+        let vb = col === 'symbol' ? b.symbol : col === 'amount' ? b.amount : b.usdValue;
+        if (typeof va === 'string') return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        return dir === 'asc' ? va - vb : vb - va;
     });
 
-    myContainer.innerHTML = myW.length === 0
-        ? `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].no_wallets_saved}</div>`
-        : myHtml;
+    // Pagination
+    const totalPages = Math.ceil(sorted.length / HOLDINGS_PER_PAGE);
+    if (holdingsPage > totalPages) holdingsPage = totalPages;
+    if (holdingsPage < 1) holdingsPage = 1;
+    const start = (holdingsPage - 1) * HOLDINGS_PER_PAGE;
+    const pageTokens = sorted.slice(start, start + HOLDINGS_PER_PAGE);
 
-    watchContainer.innerHTML = watchW.length === 0
-        ? `<div style="text-align:center; padding:20px; color:#999; grid-column: 1 / -1;">${TRANSLATIONS[currentLang].not_watching_wallets}</div>`
-        : watchHtml;
+    const arrow = (col) => currentHoldingsSort.col === col ? (currentHoldingsSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const valLabel = portfolioCurrency === 'XOR' ? 'Value (XOR)' : 'Value';
 
-    document.getElementById('totalNetWorth').innerHTML = formatPrice(grandTotal);
+    let html = `<table class="holdings-table"><thead><tr>
+        <th onclick="sortHoldingsTable('symbol')">Token${arrow('symbol')}</th>
+        <th onclick="sortHoldingsTable('amount')">Amount${arrow('amount')}</th>
+        <th>Price</th>
+        <th onclick="sortHoldingsTable('value')">${valLabel}${arrow('value')}</th>
+        <th>%</th>
+    </tr></thead><tbody>`;
+
+    pageTokens.forEach(t => {
+        const pct = total > 0 ? ((t.usdValue / total) * 100) : 0;
+        const price = t.amount > 0 ? (t.usdValue / t.amount) : 0;
+        html += `<tr>
+            <td><div class="token-name-cell"><img class="token-logo-sm" src="${getProxyUrl(t.logo)}" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span style="font-weight:600;">${esc(t.symbol)}</span></div></td>
+            <td>${formatAmount(t.amount)}</td>
+            <td style="color:var(--text-secondary);">${formatPortfolioPrice(price)}</td>
+            <td style="font-weight:600;">${formatPortfolioPrice(t.usdValue)}</td>
+            <td><div style="display:flex; align-items:center; gap:6px;"><div style="width:50px; height:6px; border-radius:3px; background:var(--border-color); overflow:hidden;"><div style="height:100%; width:${Math.min(pct, 100)}%; background:var(--primary-color); border-radius:3px;"></div></div><span style="font-size:12px; color:var(--text-secondary);">${pct.toFixed(1)}%</span></div></td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+
+    // Pagination controls
+    if (totalPages > 1) {
+        html += `<div class="holdings-pagination">
+            <button class="pg-btn" onclick="changeHoldingsPage(-1)" ${holdingsPage <= 1 ? 'disabled' : ''}>‹ Prev</button>
+            <span class="pg-info">${holdingsPage} / ${totalPages} <span style="color:var(--text-secondary); font-size:11px;">(${sorted.length} tokens)</span></span>
+            <button class="pg-btn" onclick="changeHoldingsPage(1)" ${holdingsPage >= totalPages ? 'disabled' : ''}>Next ›</button>
+        </div>`;
+    }
+
+    wrapper.innerHTML = html;
+}
+
+function changeHoldingsPage(delta) {
+    holdingsPage += delta;
+    if (cachedBalanceData) renderHoldingsTable(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
+}
+
+function sortHoldingsTable(col) {
+    if (currentHoldingsSort.col === col) currentHoldingsSort.dir = currentHoldingsSort.dir === 'asc' ? 'desc' : 'asc';
+    else { currentHoldingsSort.col = col; currentHoldingsSort.dir = 'desc'; }
+    holdingsPage = 1; // Reset to page 1 on sort change
+    if (cachedBalanceData) renderHoldingsTable(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
+}
+
+async function loadLpSummaryLazy() {
+    const container = document.getElementById('lpSummaryContent');
+    if (!container || !cachedBalanceData) return;
+    container.innerHTML = '<div style="text-align:center; padding:15px; color:var(--text-secondary);">Cargando LP...</div>';
+
+    const myW = cachedBalanceData.myW;
+    if (myW.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No wallets</p>';
+        return;
+    }
+
+    try {
+        const promises = myW.map(w =>
+            fetch(`/wallet/liquidity/${w.address}`).then(r => r.ok ? r.json() : []).catch(() => [])
+        );
+        const results = await Promise.all(promises);
+
+        const poolMap = {};
+        let lpTotal = 0;
+        results.forEach(pools => {
+            pools.forEach(p => {
+                const key = `${p.base.symbol}-${p.target.symbol}`;
+                if (!poolMap[key]) poolMap[key] = { base: p.base, target: p.target, value: 0, share: 0, amountBase: 0, amountTarget: 0 };
+                poolMap[key].value += p.value || 0;
+                poolMap[key].share += p.share || 0;
+                poolMap[key].amountBase += p.amountBase || 0;
+                poolMap[key].amountTarget += p.amountTarget || 0;
+                lpTotal += p.value || 0;
+            });
+        });
+
+        const pools = Object.values(poolMap).sort((a, b) => b.value - a.value);
+        if (pools.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No LP positions</p>';
+            return;
+        }
+
+        let html = `<div style="margin-bottom:12px; font-size:14px; font-weight:600; color:var(--text-primary);">Total LP: <span style="color:#10B981;">${formatPortfolioPrice(lpTotal)}</span></div>`;
+        html += '<div class="lp-summary-grid">';
+        pools.forEach(p => {
+            html += `<div class="lp-summary-item">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; position:relative; width:44px;">
+                        <img src="${getProxyUrl(p.base.logo)}" style="width:28px;height:28px;border-radius:50%;z-index:2;border:2px solid var(--bg-card);" onerror="this.style.display='none'">
+                        <img src="${getProxyUrl(p.target.logo)}" style="width:28px;height:28px;border-radius:50%;position:absolute;left:18px;z-index:1;" onerror="this.src='${LOCAL_PLACEHOLDER}'">
+                    </div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">${esc(p.base.symbol)}-${esc(p.target.symbol)}</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">${(p.share * 100).toFixed(4)}% share</div>
+                    </div>
+                </div>
+                <div style="font-weight:700;color:#10B981;">${formatPortfolioPrice(p.value)}</div>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<p style="color:#EF4444; text-align:center;">Error loading LP data</p>';
+        console.error('LP summary error:', e);
+    }
+}
+
+// --- SUB-TAB SWITCHING ---
+function openBalanceSubTab(tab) {
+    currentBalanceSubTab = tab;
+    ['overview', 'mywallets', 'watched'].forEach(t => {
+        document.getElementById('btab-' + t)?.classList.toggle('active', t === tab);
+        const view = document.getElementById('bview-' + t);
+        if (view) view.style.display = t === tab ? '' : 'none';
+    });
+    if (cachedBalanceData) {
+        if (tab === 'overview') renderPortfolioOverview();
+        if (tab === 'mywallets') renderMyWalletsExpandable();
+        if (tab === 'watched') renderWatchedWalletsExpandable();
+    }
+}
+
+// --- EXPANDABLE WALLET CARDS ---
+function renderMyWalletsExpandable() {
+    const container = document.getElementById('myWalletsExpandable');
+    if (!container || !cachedBalanceData) return;
+    const { myW, resultsMap } = cachedBalanceData;
+    if (myW.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:var(--text-secondary); padding:20px;">${TRANSLATIONS[currentLang].no_wallets_saved || 'No wallets saved'}</p>`;
+        return;
+    }
+    container.innerHTML = myW.map(w => createExpandableWalletCard(w, resultsMap[w.address])).join('');
+}
+
+function renderWatchedWalletsExpandable() {
+    const container = document.getElementById('watchWalletsExpandable');
+    if (!container || !cachedBalanceData) return;
+    const { watchW, resultsMap } = cachedBalanceData;
+    if (watchW.length === 0) {
+        container.innerHTML = `<p style="text-align:center; color:var(--text-secondary); padding:20px;">${TRANSLATIONS[currentLang].not_watching_wallets || 'No watched wallets'}</p>`;
+        return;
+    }
+    container.innerHTML = watchW.map(w => createExpandableWalletCard(w, resultsMap[w.address])).join('');
+}
+
+function createExpandableWalletCard(wallet, data) {
+    const d = data || { tokens: [], totalUsd: 0 };
+    const topIcons = d.tokens.slice(0, 4).map(t =>
+        `<img src="${getProxyUrl(t.logo)}" loading="lazy" style="width:20px;height:20px;border-radius:50%;margin-right:-4px;border:1.5px solid var(--bg-card);object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">`
+    ).join('');
+    const addr = wallet.address;
+    const shortAddr = `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+    const cardId = addr.substring(0, 8);
+
+    let tokensHtml = d.tokens.map(t => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border-color);">
+            <div class="token-name-cell">
+                <img class="token-logo-sm" src="${getProxyUrl(t.logo)}" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
+                <span style="font-weight:500;">${esc(t.symbol)}</span>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-weight:600;">${formatAmount(t.amount)}</div>
+                <div style="font-size:12px;color:#10B981;">${formatPortfolioPrice(t.usdValue)}</div>
+            </div>
+        </div>`).join('');
+
+    // Add a "View Details" button at the bottom of tokens
+    tokensHtml += `<div style="padding:12px 16px; text-align:center;">
+        <button class="btn-primary" style="font-size:12px; padding:6px 16px;" onclick="event.stopPropagation(); openWalletDetails('${esc(addr)}')">Ver Detalle (Swaps, Transfers...)</button>
+    </div>`;
+
+    return `<div class="wallet-expand-card" id="wcard-${cardId}">
+        <div class="wallet-expand-header" onclick="toggleWalletExpand('${cardId}')">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                <div style="flex-shrink:0;">${topIcons}</div>
+                <div style="min-width:0;">
+                    <div style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(wallet.name)}</div>
+                    <div style="font-size:11px;color:var(--text-secondary);font-family:monospace;">${shortAddr}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:15px;flex-shrink:0;">
+                <span style="font-size:18px;font-weight:700;color:#10B981;">${formatPortfolioPrice(d.totalUsd)}</span>
+                <span style="font-size:12px;color:var(--text-secondary);">${d.tokens.length} tokens</span>
+                <span class="wallet-expand-arrow">▼</span>
+                <button style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:14px;padding:4px;" onclick="event.stopPropagation();deleteWallet('${esc(addr)}')" title="Eliminar">🗑️</button>
+            </div>
+        </div>
+        <div class="wallet-expand-body">${tokensHtml}</div>
+    </div>`;
+}
+
+function toggleWalletExpand(id) {
+    document.getElementById('wcard-' + id)?.classList.toggle('expanded');
+}
+
+function setPortfolioTimeframe(tf) {
+    const sel = document.getElementById('timeframeSelect');
+    if (sel && sel.value !== tf) sel.value = tf;
+    // Phase 2: fetchPortfolioChange(tf) — requires balance_snapshots backend
 }
 
 async function fetchBalance(address) {
@@ -1051,7 +1430,7 @@ async function fetchBalance(address) {
     } catch (e) { return { tokens: [], totalUsd: 0 }; }
 }
 
-
+// Legacy createWalletCard kept for compatibility with other code that may reference it
 function createWalletCard(wallet, data, isUnified = false) {
     const topTokens = data.tokens.slice(0, 3).map(t => {
         const safeUrl = esc(getProxyUrl(t.logo));
