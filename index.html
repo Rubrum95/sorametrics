@@ -1175,6 +1175,264 @@
             gap: 20px;
         }
 
+        /* ===== PORTFOLIO DASHBOARD ===== */
+        .portfolio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .portfolio-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin: 0 0 4px 0;
+            font-weight: 500;
+        }
+        .portfolio-total {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+        }
+        .portfolio-total .currency-symbol img {
+            width: 32px;
+            height: 32px;
+            margin-right: 6px;
+        }
+        .portfolio-change {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .portfolio-change.positive { color: #10B981; }
+        .portfolio-change.negative { color: #EF4444; }
+        .portfolio-selectors {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .portfolio-dropdown {
+            padding: 7px 28px 7px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+        .portfolio-dropdown:hover, .portfolio-dropdown:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+        .portfolio-dropdown option {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        /* Holdings pagination */
+        .holdings-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 0 4px;
+        }
+        .pg-btn {
+            padding: 5px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pg-btn:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .pg-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pg-info {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .balance-subtabs {
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .portfolio-grid { grid-template-columns: 1fr; }
+        }
+        .portfolio-donut-card { min-height: 280px; }
+        #holdingsTableWrapper { overflow-x: auto; max-width: 100%; }
+        .donut-wrapper {
+            position: relative;
+            height: 220px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .donut-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            margin-top: 14px;
+            justify-content: center;
+        }
+        .donut-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .donut-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .donut-legend-logo {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .section-title {
+            margin: 0 0 15px 0;
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .holdings-table {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        @media (max-width: 900px) {
+            .holdings-table { min-width: 520px; }
+        }
+        .holdings-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 700;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+        }
+        .holdings-table th:hover { color: var(--primary-color); }
+        .holdings-table td {
+            padding: 12px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        .holdings-table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+        .token-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .token-logo-sm {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            object-fit: contain;
+        }
+        .wallets-expandable {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .wallet-expand-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .wallet-expand-card:hover {
+            box-shadow: var(--shadow-hover);
+        }
+        .wallet-expand-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            cursor: pointer;
+            gap: 12px;
+        }
+        .wallet-expand-header:hover {
+            background: var(--bg-hover);
+        }
+        .wallet-expand-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease;
+            border-top: 0 solid var(--border-color);
+        }
+        .wallet-expand-card.expanded .wallet-expand-body {
+            max-height: 600px;
+            border-top-width: 1px;
+            overflow-y: auto;
+        }
+        .wallet-expand-arrow {
+            transition: transform 0.3s;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .wallet-expand-card.expanded .wallet-expand-arrow {
+            transform: rotate(180deg);
+        }
+        .lp-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .lp-summary-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--bg-card);
+        }
+
         .time-btn {
             background: white;
             border: 1px solid #E5E7EB;
@@ -1331,6 +1589,20 @@
                 margin-bottom: 2px;
             }
 
+            #tab-orderbook::before {
+                content: "📋";
+                font-size: 20px;
+                display: block;
+                margin-bottom: 2px;
+            }
+
+            #tab-governance::before {
+                content: "🏛️";
+                font-size: 20px;
+                display: block;
+                margin-bottom: 2px;
+            }
+
             #tab-section-intelligence::before {
                 content: "🧠";
                 font-size: 20px;
@@ -1341,6 +1613,32 @@
             /* Ocultar texto de botones en pantallas muy pequeñas si es necesario,
                 pero para 320px+ cabe bien Icono + Texto pequeño */
             /* .tab-btn span { display: none; } */
+
+            /* Holdings table: keep normal table layout on mobile (scrollable) */
+            .holdings-table,
+            .holdings-table thead,
+            .holdings-table tbody,
+            .holdings-table tr,
+            .holdings-table th,
+            .holdings-table td {
+                display: revert;
+            }
+            .holdings-table thead tr {
+                position: static;
+            }
+            .holdings-table tr {
+                background: transparent;
+                border-radius: 0;
+                padding: 0;
+                margin-bottom: 0;
+                box-shadow: none;
+                border: none;
+            }
+            .holdings-table td {
+                border-bottom: 1px solid var(--border-color);
+                padding: 10px 8px;
+                text-align: left;
+            }
 
             /* Tablas a Tarjetas (Card View) */
             table,
@@ -2371,42 +2669,73 @@
         </div>
 
         <div id="balance" class="tab-content active">
-            <h2 style="color:#6B7280; font-size:14px; margin-bottom:5px;" data-i18n="total_net_worth">
-                Patrimonio Total
-            </h2>
-            <div class="total-balance" id="totalNetWorth">$0.00</div>
-
-            <div style="margin-top:20px;">
-                <div class="card" style="margin-bottom: 25px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                        <h3 style="margin:0; font-size:18px;" data-i18n="header_my_wallets">💼 Mis
-                            Wallets</h3>
-                        <div style="display:flex; gap:10px; align-items: center;">
-                            <label class="toggle-switch"
-                                style="display:flex; align-items:center; gap:8px; cursor:pointer;"
-                                title="Agrupar todas las wallets">
-                                <span
-                                    style="font-size:13px; color:var(--text-secondary); font-weight:500;">Agrupar</span>
-                                <div style="position:relative; width:36px; height:20px; background:#E5E7EB; border-radius:20px; transition:0.3s;"
-                                    id="groupWalletsTrack">
-                                    <div style="position:absolute; top:2px; left:2px; width:16px; height:16px; background:white; border-radius:50%; transition:0.3s; box-shadow:0 1px 3px rgba(0,0,0,0.2);"
-                                        id="groupWalletsKnob"></div>
-                                </div>
-                                <input type="checkbox" id="groupWalletsCheckbox" onchange="toggleGroupWallets()"
-                                    style="display:none;">
-                            </label>
-                            <button class="btn-primary" onclick="openAddWalletModal()" data-i18n="btn_add_wallet">+
-                                Añadir Wallet</button>
-                        </div>
-                    </div>
-                    <div class="wallet-list" id="myWalletsList"></div>
+            <!-- Portfolio Header -->
+            <div class="portfolio-header">
+                <div>
+                    <h2 class="portfolio-label" data-i18n="total_net_worth">Patrimonio Total</h2>
+                    <div class="portfolio-total" id="totalNetWorth">$0.00</div>
+                    <div class="portfolio-change" id="portfolioChange"></div>
                 </div>
+                <div class="portfolio-selectors">
+                    <select id="timeframeSelect" class="portfolio-dropdown" onchange="setPortfolioTimeframe(this.value)">
+                        <option value="24h" selected>24h</option>
+                        <option value="7d">7d</option>
+                        <option value="1m">1m</option>
+                    </select>
+                    <select id="currencySelect" class="portfolio-dropdown" onchange="setPortfolioCurrency(this.value)">
+                        <option value="USD">$ USD</option>
+                        <option value="EUR">€ EUR</option>
+                        <option value="XOR">✕ XOR</option>
+                    </select>
+                </div>
+            </div>
 
+            <!-- Sub-tabs -->
+            <div class="tabs modal-tabs balance-subtabs" id="balanceSubTabs">
+                <button class="tab-btn active" onclick="openBalanceSubTab('overview')" id="btab-overview">Overview</button>
+                <button class="tab-btn" onclick="openBalanceSubTab('mywallets')" id="btab-mywallets" data-i18n="header_my_wallets">Mis Wallets</button>
+                <button class="tab-btn" onclick="openBalanceSubTab('watched')" id="btab-watched" data-i18n="header_watch_wallets">Vigiladas</button>
+            </div>
+
+            <!-- Overview tab -->
+            <div id="bview-overview" class="bal-content">
+                <div class="portfolio-grid">
+                    <div class="card portfolio-donut-card">
+                        <h4 class="section-title">Allocation</h4>
+                        <div class="donut-wrapper">
+                            <canvas id="portfolioDonutChart"></canvas>
+                        </div>
+                        <div id="donutLegend" class="donut-legend"></div>
+                    </div>
+                    <div class="card portfolio-holdings-card">
+                        <h4 class="section-title" data-i18n="holdings">Holdings</h4>
+                        <div id="holdingsTableWrapper" style="overflow-x:auto;"></div>
+                    </div>
+                </div>
+                <div class="card" id="lpSummaryCard" style="margin-top:20px;">
+                    <h4 class="section-title">LP & Staking</h4>
+                    <div id="lpSummaryContent">
+                        <div style="text-align:center; padding:15px; color:var(--text-secondary);">Cargando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Wallets tab -->
+            <div id="bview-mywallets" class="bal-content" style="display:none;">
                 <div class="card">
-                    <h3 style="margin-bottom:20px; font-size:18px;" data-i18n="header_watch_wallets">👀
-                        Wallets
-                        Vigiladas</h3>
-                    <div class="wallet-list" id="watchWalletsList"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                        <h3 style="margin:0; font-size:18px;" data-i18n="header_my_wallets">Mis Wallets</h3>
+                        <button class="btn-primary" onclick="openAddWalletModal()" data-i18n="btn_add_wallet">+ Anadir Wallet</button>
+                    </div>
+                    <div id="myWalletsExpandable" class="wallets-expandable"></div>
+                </div>
+            </div>
+
+            <!-- Watched Wallets tab -->
+            <div id="bview-watched" class="bal-content" style="display:none;">
+                <div class="card">
+                    <h3 style="margin-bottom:20px; font-size:18px;" data-i18n="header_watch_wallets">Wallets Vigiladas</h3>
+                    <div id="watchWalletsExpandable" class="wallets-expandable"></div>
                 </div>
             </div>
         </div>
