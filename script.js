@@ -2902,8 +2902,7 @@ async function loadBurnTracker() {
         }
         if (heroSub && burnedAll) {
             const usdValue = burnedAllUsd > 0 ? burnedAllUsd : Math.abs(burnedAll) * price;
-            // Show packed amount + USD separately (no '·' that looks like multiplication)
-            heroSub.textContent = formatBurnNumber(Math.abs(burnedAll)) + ' paquetes · $' + formatBurnNumber(usdValue);
+            heroSub.textContent = '$' + formatBurnNumber(usdValue);
         }
     } catch (e) { console.error('Burn hero load error:', e); }
 }
@@ -2959,13 +2958,7 @@ async function loadBurnSupply(tab) {
         const supplyEl = document.getElementById('burnSupply-' + tab);
         if (supplyEl) {
             if (tab === 'xor') {
-                // Show unpacked supply as primary hero text
-                const xorDenom = supplyRes?.xorMarket?.denominationFactor || '1';
-                const xorDenomExp = xorDenom.length - 1;
-                const sExp = supply > 0 ? Math.floor(Math.log10(supply)) : 0;
-                const sMant = supply > 0 ? supply / Math.pow(10, sExp) : 0;
-                const unpackedSupplyStr = xorDenomExp > 0 ? formatLargeExponent(sMant, sExp + xorDenomExp) : formatExponent(supply);
-                supplyEl.textContent = unpackedSupplyStr + ' XOR ' + (lang.burn_xor_original || 'original XOR');
+                supplyEl.textContent = '';
             } else {
                 supplyEl.textContent = (lang.burn_supply_label || 'Supply') + ': ' + formatBurnNumber(supply) + ' ' + cfg.symbol;
             }
@@ -3010,7 +3003,7 @@ async function loadBurnSupply(tab) {
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_xor_factor || 'Packaging Factor')}</div>
                     <div class="burn-stat-value" style="color:#F59E0B;font-size:18px;">\u00d710${formatSuperscript(denomExp)}</div>
-                    <div class="burn-stat-sub" style="font-size:10px;">${esc(lang.burn_xor_factor_sub || 'auto-detected on-chain')}</div>
+                    <div class="burn-stat-sub" style="font-size:10px;">&nbsp;</div>
                 </div>
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_rate_30d || 'Burned 30d')}</div>
