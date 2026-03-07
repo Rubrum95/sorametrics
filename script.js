@@ -2790,6 +2790,17 @@ function formatBurnNumber(num) {
     return num.toFixed(2);
 }
 
+// Format unpacked XOR amount: given a packaged amount and denom factor string, returns "X.XX ×10^Y"
+function formatUnpacked(amount, denomFactor) {
+    if (!amount || amount === 0 || !denomFactor || denomFactor === '1') return null;
+    const denomExp = denomFactor.length - 1;
+    const abs = Math.abs(amount);
+    if (abs === 0) return null;
+    const amtExp = Math.floor(Math.log10(abs));
+    const amtMantissa = abs / Math.pow(10, amtExp);
+    return formatLargeExponent(amtMantissa, amtExp + denomExp);
+}
+
 // Burn token logo cache — fetched from /tokens API
 const burnLogoCache = {};
 async function loadBurnTokenLogo(tab) {
@@ -2882,6 +2893,7 @@ async function loadBurnTracker() {
         const price = supplyRes?.price || 0;
         const heroVal = document.getElementById('burnHeroValue');
         const heroSub = document.getElementById('burnHeroSubtitle');
+        const heroDenomFactor = statsRes?.denomFactor || '1';
         if (heroVal && burnedAll) {
             heroVal.textContent = formatBurnNumber(Math.abs(burnedAll)) + ' XOR';
             heroVal.style.animation = 'counterTick 0.4s ease';
@@ -2889,7 +2901,8 @@ async function loadBurnTracker() {
         if (heroSub && burnedAll) {
             // Use real USD from fees table (not burned * current price, which mixes denominations)
             const usdValue = burnedAllUsd > 0 ? burnedAllUsd : Math.abs(burnedAll) * price;
-            heroSub.textContent = '$' + formatBurnNumber(usdValue) + ' USD (Total)';
+            const unpackedStr = formatUnpacked(Math.abs(burnedAll), heroDenomFactor);
+            heroSub.textContent = '$' + formatBurnNumber(usdValue) + (unpackedStr ? ' · ' + unpackedStr + ' real XOR' : '');
         }
     } catch (e) { console.error('Burn hero load error:', e); }
 }
@@ -2995,12 +3008,12 @@ async function loadBurnSupply(tab) {
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_rate_30d || 'Burned 30d')}</div>
                     <div class="burn-stat-value" style="color:${cfg.color}">${burned30d > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned30d))}</div>
-                    <div class="burn-stat-sub">${burned30d > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected')}</div>
+                    <div class="burn-stat-sub">${burned30d > 0 ? (formatUnpacked(Math.abs(burned30d), statsRes.denomFactor) ? '\u2248' + formatUnpacked(Math.abs(burned30d), statsRes.denomFactor) + ' real XOR' : esc(lang.burn_supply_decreased || 'Supply decreased')) : esc(lang.burn_no_change || 'No change detected')}</div>
                 </div>
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_rate_all || 'Total Burned')}</div>
                     <div class="burn-stat-value" style="color:${cfg.color}">${burnedAll > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burnedAll))}</div>
-                    <div class="burn-stat-sub">${burnedAllUsd > 0 ? '$' + formatBurnNumber(burnedAllUsd) : (burnedAll > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected'))}</div>
+                    <div class="burn-stat-sub">${burnedAllUsd > 0 ? '$' + formatBurnNumber(burnedAllUsd) + (formatUnpacked(Math.abs(burnedAll), statsRes.denomFactor) ? ' · \u2248' + formatUnpacked(Math.abs(burnedAll), statsRes.denomFactor) + ' real' : '') : (burnedAll > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected'))}</div>
                 </div>
             `;
         } else {
@@ -3249,162 +3262,153 @@ function renderBurnFlowForTab(container, data, tab) {
 
 function renderBurnFlowSvg(container, data) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const subtextColor = isDark ? '#9ca3af' : '#6b7280';
-    const bgCard = isDark ? '#1f2937' : '#ffffff';
-    const bgCardStroke = isDark ? '#374151' : '#e5e7eb';
+    const sub = isDark ? '#9ca3af' : '#6b7280';
+    const bg = isDark ? '#1f2937' : '#ffffff';
     const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
-    const fees24h = data.totalXorFees || 0;
-    const distributions = data.distribution || {};
-    const supplies = data.supplies || {};
+    const fees = data.totalXorFees || 0;
+    const dist = data.distribution || {};
+    const valRemint = data.valRemintPercentage || 35;
 
-    const valRemintPct = data.valRemintPercentage || 35;
-
-    // Token keys for logo lookup: xor, val, kusd, tbcd, referrer
-    const tokenLogoKeys = ['xor', 'val', 'kusd', 'tbcd', null];
-
-    // Distribution outputs (XOR fee flow)
-    const outputs = [
-        { label: lang.burn_xor_burn || 'XOR Burn',    pct: '20%',   color: '#E5243B', amount: distributions.xorBurn      || fees24h * 0.20, y: 55,  logoKey: 'xor',  subLabel: null },
-        { label: lang.burn_val_burn || 'VAL Burn',    pct: '30%',   color: '#F5B041', amount: distributions.valBurn      || fees24h * 0.30, y: 130, logoKey: 'val',  subLabel: `~${valRemintPct.toFixed(0)}% reminted (staking)` },
-        { label: lang.burn_kusd_buy || 'KUSD Buy',    pct: '39.5%', color: '#DC2626', amount: distributions.kusdBuyback  || fees24h * 0.395, y: 200, logoKey: 'kusd', subLabel: '+10% when no referrer' },
-        { label: lang.burn_tbcd_buy || 'TBCD Buy',    pct: '0.5%',  color: '#10B981', amount: distributions.tbcdBuyback  || fees24h * 0.005, y: 275, logoKey: 'tbcd', subLabel: null },
-        { label: lang.burn_referrer || 'Referrer',    pct: '10%',   color: '#8B5CF6', amount: distributions.referrer     || fees24h * 0.10, y: 350, logoKey: null,   subLabel: '\u2192 KUSD buyback if none' }
-    ];
+    // Amounts
+    const xorBurnAmt = dist.xorBurn || fees * 0.20;
+    const valPathAmt = dist.valPathway || fees * 0.50;
+    const kusdDirectAmt = fees * 0.20;
+    const referrerAmt = dist.referrer || fees * 0.10;
+    const valBurnAmt = dist.valBurn || fees * 0.30;
+    const kusdViaValAmt = valPathAmt * 0.39;
+    const tbcdAmt = dist.tbcdBuyback || valPathAmt * 0.01;
 
     let svg = '';
-    // Defs: gradients + filters + clip paths
+
+    // ===== DEFS =====
     svg += `<defs>
-        <radialGradient id="furnaceGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.9"/>
-            <stop offset="40%" stop-color="#F97316" stop-opacity="0.7"/>
-            <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="furnaceCore" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#FEF9C3"/>
-            <stop offset="30%" stop-color="#FBBF24"/>
-            <stop offset="70%" stop-color="#F97316"/>
-            <stop offset="100%" stop-color="#DC2626"/>
-        </radialGradient>
-        <radialGradient id="furnaceInner" cx="50%" cy="40%" r="50%">
-            <stop offset="0%" stop-color="#FFFBEB" stop-opacity="1"/>
-            <stop offset="50%" stop-color="#FDE68A" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
-        </radialGradient>
-        <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="8" result="blur"/>
-            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-        </filter>
-        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
-            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-        </filter>
-        <filter id="fireGlow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="12" result="blur"/>
-            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-        </filter>
-        <clipPath id="xorClip"><circle cx="90" cy="200" r="26"/></clipPath>
-        ${outputs.map((o, i) => `<clipPath id="outClip${i}"><circle cx="720" cy="${o.y}" r="20"/></clipPath>`).join('')}
+        <radialGradient id="fGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FDE68A" stop-opacity="0.9"/><stop offset="40%" stop-color="#F97316" stop-opacity="0.7"/><stop offset="100%" stop-color="#DC2626" stop-opacity="0"/></radialGradient>
+        <radialGradient id="fCore" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FEF9C3"/><stop offset="30%" stop-color="#FBBF24"/><stop offset="70%" stop-color="#F97316"/><stop offset="100%" stop-color="#DC2626"/></radialGradient>
+        <radialGradient id="fInner" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#FFFBEB" stop-opacity="1"/><stop offset="50%" stop-color="#FDE68A" stop-opacity="0.8"/><stop offset="100%" stop-color="#F97316" stop-opacity="0"/></radialGradient>
+        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+        <filter id="fireGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="10" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+        <clipPath id="xorClip"><circle cx="55" cy="210" r="22"/></clipPath>
     </defs>`;
 
-    // ===== XOR FEES INPUT (left side) — logo circle =====
+    // Helper: draw a small furnace
+    function furnace(cx, cy, size) {
+        const s = size;
+        return `<g filter="url(#fireGlow)">
+            <circle cx="${cx}" cy="${cy}" r="${s*1.3}" fill="url(#fGlow)" opacity="0.4"><animate attributeName="r" values="${s*1.3};${s*1.55};${s*1.3}" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/></circle>
+            <circle cx="${cx}" cy="${cy}" r="${s}" fill="url(#fCore)" opacity="0.85"><animate attributeName="r" values="${s};${s*1.1};${s}" dur="1.5s" repeatCount="indefinite"/></circle>
+            <circle cx="${cx}" cy="${cy-s*0.12}" r="${s*0.52}" fill="url(#fInner)" opacity="0.9"><animate attributeName="r" values="${s*0.52};${s*0.62};${s*0.48};${s*0.52}" dur="1.2s" repeatCount="indefinite"/></circle>
+            <ellipse cx="${cx-s*0.24}" cy="${cy-s*0.65}" rx="${s*0.19}" ry="${s*0.38}" fill="#FBBF24" opacity="0.6"><animate attributeName="cy" values="${cy-s*0.65};${cy-s*0.85};${cy-s*0.65}" dur="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0.3;0.6" dur="1s" repeatCount="indefinite"/></ellipse>
+            <ellipse cx="${cx+s*0.12}" cy="${cy-s*0.72}" rx="${s*0.14}" ry="${s*0.43}" fill="#F97316" opacity="0.5"><animate attributeName="cy" values="${cy-s*0.72};${cy-s*0.95};${cy-s*0.72}" dur="1.3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0.2;0.5" dur="1.3s" repeatCount="indefinite"/></ellipse>
+        </g>`;
+    }
+
+    // Helper: token circle with logo
+    function tokenCircle(cx, cy, r, color, logoKey, letter) {
+        const logo = logoKey ? burnLogoCache[logoKey] : null;
+        let s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}" stroke="${color}" stroke-width="2"/>`;
+        if (logo) {
+            const ir = r * 0.82;
+            s += `<clipPath id="tc${cx}${cy}"><circle cx="${cx}" cy="${cy}" r="${ir}"/></clipPath>`;
+            s += `<image href="${esc(logo)}" x="${cx-ir}" y="${cy-ir}" width="${ir*2}" height="${ir*2}" clip-path="url(#tc${cx}${cy})" preserveAspectRatio="xMidYMid slice"/>`;
+        } else {
+            s += `<text x="${cx}" y="${cy+r*0.2}" text-anchor="middle" fill="${color}" font-size="${r*0.9}" font-weight="800">${letter || '?'}</text>`;
+        }
+        return s;
+    }
+
+    // Helper: animated dashed path
+    function animPath(d, color, w) {
+        return `<path d="${d}" stroke="${color}" stroke-width="${w||2}" fill="none" stroke-dasharray="8 4" opacity="0.45"><animate attributeName="stroke-dashoffset" from="24" to="0" dur="2s" repeatCount="indefinite"/></path>`;
+    }
+
+    // =========================================================
+    // LAYOUT: XOR(55,210) → F1(210,210) → 4 outputs → VAL flows to F2(620,175) → 3 outputs
+    // =========================================================
+
+    // ===== XOR INPUT (far left) =====
     const xorLogo = burnLogoCache['xor'];
     svg += `<g>
-        <circle cx="90" cy="200" r="30" fill="${bgCard}" stroke="#E5243B" stroke-width="2.5" filter="url(#softGlow)"/>`;
+        <circle cx="55" cy="210" r="26" fill="${bg}" stroke="#E5243B" stroke-width="2.5" filter="url(#softGlow)"/>`;
     if (xorLogo) {
-        svg += `<image href="${esc(xorLogo)}" x="64" y="174" width="52" height="52" clip-path="url(#xorClip)" preserveAspectRatio="xMidYMid slice"/>`;
+        svg += `<image href="${esc(xorLogo)}" x="33" y="188" width="44" height="44" clip-path="url(#xorClip)" preserveAspectRatio="xMidYMid slice"/>`;
     } else {
-        svg += `<text x="90" y="206" text-anchor="middle" fill="#E5243B" font-size="22" font-weight="800">X</text>`;
+        svg += `<text x="55" y="216" text-anchor="middle" fill="#E5243B" font-size="20" font-weight="800">X</text>`;
     }
-    svg += `<text x="90" y="243" text-anchor="middle" fill="${subtextColor}" font-size="10" font-weight="600">${formatBurnNumber(fees24h)} XOR</text>
-        <text x="90" y="256" text-anchor="middle" fill="${subtextColor}" font-size="9">24h</text>
-    </g>`;
+    const denomExp = (data.denomFactor || '1').length - 1;
+    const feesUnpacked = denomExp > 0 && fees > 0 ? formatUnpacked(fees, data.denomFactor) : null;
+    svg += `<text x="55" y="248" text-anchor="middle" fill="${sub}" font-size="9" font-weight="600">${formatBurnNumber(fees)} XOR</text>
+        <text x="55" y="259" text-anchor="middle" fill="${sub}" font-size="8">24h fees</text>`;
+    if (feesUnpacked) {
+        svg += `<text x="55" y="270" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.6">\u2248${feesUnpacked} real</text>`;
+    }
+    svg += `</g>`;
 
-    // ===== Input flow path (XOR → Furnace) =====
-    svg += `<path id="inputPath" d="M 130 200 Q 260 200 360 200" stroke="#E5243B" stroke-width="2" fill="none" stroke-dasharray="8 4" opacity="0.5">
-        <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1.5s" repeatCount="indefinite"/>
-    </path>`;
-    svg += generateFlowDots(130, 200, 360, 200, '#E5243B', 3, 2.5);
+    // XOR → Furnace 1
+    svg += animPath('M 85 210 Q 140 210 175 210', '#E5243B', 2);
+    svg += generateFlowDots(85, 210, 175, 210, '#E5243B', 2, 2);
 
-    // ===== FURNACE (center) — pure fireball, no text =====
-    svg += `<g filter="url(#fireGlow)" class="furnace-core" id="furnaceGroup">
-        <!-- Outer glow pulse -->
-        <circle cx="420" cy="200" r="55" fill="url(#furnaceGlow)" opacity="0.4">
-            <animate attributeName="r" values="55;65;55" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
-        </circle>
-        <!-- Mid flame layer -->
-        <circle cx="420" cy="200" r="42" fill="url(#furnaceCore)" opacity="0.85">
-            <animate attributeName="r" values="42;46;42" dur="1.5s" repeatCount="indefinite"/>
-        </circle>
-        <!-- Inner bright core -->
-        <circle cx="420" cy="195" r="22" fill="url(#furnaceInner)" opacity="0.9">
-            <animate attributeName="r" values="22;26;20;22" dur="1.2s" repeatCount="indefinite"/>
-            <animate attributeName="cy" values="195;193;197;195" dur="1.8s" repeatCount="indefinite"/>
-        </circle>
-        <!-- Flame wisps -->
-        <ellipse cx="410" cy="173" rx="8" ry="16" fill="#FBBF24" opacity="0.6">
-            <animate attributeName="cy" values="173;165;173" dur="1s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.6;0.3;0.6" dur="1s" repeatCount="indefinite"/>
-            <animate attributeName="ry" values="16;22;16" dur="1s" repeatCount="indefinite"/>
-        </ellipse>
-        <ellipse cx="425" cy="170" rx="6" ry="18" fill="#F97316" opacity="0.5">
-            <animate attributeName="cy" values="170;160;170" dur="1.3s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.5;0.2;0.5" dur="1.3s" repeatCount="indefinite"/>
-            <animate attributeName="ry" values="18;25;18" dur="1.3s" repeatCount="indefinite"/>
-        </ellipse>
-        <ellipse cx="435" cy="175" rx="5" ry="14" fill="#EF4444" opacity="0.4">
-            <animate attributeName="cy" values="175;167;175" dur="0.9s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" values="0.4;0.15;0.4" dur="0.9s" repeatCount="indefinite"/>
-            <animate attributeName="ry" values="14;20;14" dur="0.9s" repeatCount="indefinite"/>
-        </ellipse>
-    </g>`;
+    // ===== FURNACE 1 (Fee Split) =====
+    svg += furnace(225, 210, 38);
+    svg += `<text x="225" y="264" text-anchor="middle" fill="${sub}" font-size="8" font-weight="600">Fee Split</text>`;
 
-    // ===== Output paths (Furnace → destinations) =====
-    outputs.forEach((out, idx) => {
-        const startX = 460;
-        const startY = 200;
-        const endX = 720;
-        const endY = out.y;
-        const cpX = 580;
-        const cpY = (startY + endY) / 2;
+    // ===== STAGE 1 OUTPUTS =====
+    // Output positions for stage 1 (4 outputs from furnace 1)
+    const s1 = [
+        { label: 'XOR Burn',   pct: '20%', color: '#E5243B', amt: xorBurnAmt,  y: 60,  key: 'xor',  letter: 'X', note: 'Permanent' },
+        { label: 'VAL Path',   pct: '50%', color: '#F5B041', amt: valPathAmt,   y: 165, key: 'val',  letter: 'V', note: 'Swap XOR\u2192VAL' },
+        { label: 'KUSD Buy',   pct: '20%', color: '#DC2626', amt: kusdDirectAmt,y: 290, key: 'kusd', letter: 'K', note: 'Swap XOR\u2192KUSD\u2192Burn' },
+        { label: 'Referrer',   pct: '10%', color: '#8B5CF6', amt: referrerAmt,  y: 395, key: null,   letter: 'R', note: '\u2192 KUSD buyback if none' }
+    ];
+    const s1x = 410; // x position for stage 1 circles
 
-        // Curved path
-        svg += `<path id="outPath${idx}" d="M ${startX} ${startY} Q ${cpX} ${cpY} ${endX} ${endY}"
-            stroke="${out.color}" stroke-width="2" fill="none" stroke-dasharray="8 4" opacity="0.4">
-            <animate attributeName="stroke-dashoffset" from="24" to="0" dur="2s" repeatCount="indefinite"/>
-        </path>`;
-
-        // Flow dots along path
-        svg += generateFlowDots(startX, startY, endX, endY, out.color, 2, 3 + idx * 0.3);
-
-        // Destination circle with token logo
-        const logo = out.logoKey ? burnLogoCache[out.logoKey] : null;
-        svg += `<g>
-            <circle cx="${endX}" cy="${endY}" r="24" fill="${bgCard}" stroke="${out.color}" stroke-width="2"/>`;
-        if (logo) {
-            svg += `<image href="${esc(logo)}" x="${endX - 20}" y="${endY - 20}" width="40" height="40" clip-path="url(#outClip${idx})" preserveAspectRatio="xMidYMid slice"/>`;
-        } else {
-            // Referrer or fallback: letter icon
-            const letter = out.logoKey ? (BURN_TOKEN_CONFIG[out.logoKey]?.letter || '?') : 'R';
-            svg += `<text x="${endX}" y="${endY + 5}" text-anchor="middle" fill="${out.color}" font-size="18" font-weight="800">${letter}</text>`;
-        }
-        svg += `</g>`;
-
-        // Label + percentage below/beside circle
-        svg += `<text x="${endX}" y="${endY + 34}" text-anchor="middle" fill="${out.color}" font-size="9" font-weight="700">${esc(out.pct)}</text>`;
-        svg += `<text x="${endX}" y="${endY + 44}" text-anchor="middle" fill="${subtextColor}" font-size="8">${formatBurnNumber(out.amount)}</text>`;
-        // Sub-label (contextual note)
-        if (out.subLabel) {
-            svg += `<text x="${endX}" y="${endY + 54}" text-anchor="middle" fill="${subtextColor}" font-size="7" opacity="0.7">${esc(out.subLabel)}</text>`;
-        }
+    s1.forEach((o, i) => {
+        svg += animPath(`M 265 210 Q ${330} ${(210+o.y)/2} ${s1x} ${o.y}`, o.color, 1.8);
+        svg += generateFlowDots(265, 210, s1x, o.y, o.color, 2, 2.5 + i*0.3);
+        svg += tokenCircle(s1x, o.y, 20, o.color, o.key, o.letter);
+        svg += `<text x="${s1x}" y="${o.y + 29}" text-anchor="middle" fill="${o.color}" font-size="9" font-weight="700">${o.pct}</text>`;
+        svg += `<text x="${s1x}" y="${o.y + 39}" text-anchor="middle" fill="${sub}" font-size="7.5">${formatBurnNumber(o.amt)} XOR</text>`;
+        svg += `<text x="${s1x}" y="${o.y + 49}" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.7">${o.note}</text>`;
     });
 
-    container.innerHTML = svg;
+    // ===== VAL PATHWAY → FURNACE 2 =====
+    // Flow from VAL output to Furnace 2
+    svg += animPath(`M ${s1x + 22} ${s1.find(o=>o.label==='VAL Path').y} Q 520 175 585 175`, '#F5B041', 2.5);
+    svg += generateFlowDots(s1x + 22, 165, 585, 175, '#F5B041', 3, 3);
 
-    // Store data for TX animations
+    // ===== FURNACE 2 (VAL Sub-distribution) =====
+    svg += furnace(620, 175, 30);
+    svg += `<text x="620" y="218" text-anchor="middle" fill="${sub}" font-size="8" font-weight="600">VAL Split</text>`;
+
+    // ===== STAGE 2 OUTPUTS (from Furnace 2) =====
+    const s2 = [
+        { label: 'VAL Burn',  pct: '60%', color: '#F5B041', amt: valBurnAmt,    y: 80,  key: 'val',  letter: 'V', note: `~${valRemint.toFixed(0)}% reminted (staking)` },
+        { label: 'KUSD Buy',  pct: '39%', color: '#DC2626', amt: kusdViaValAmt,  y: 195, key: 'kusd', letter: 'K', note: 'Swap VAL\u2192KUSD\u2192Burn' },
+        { label: 'TBCD Buy',  pct: '1%',  color: '#10B981', amt: tbcdAmt,        y: 310, key: 'tbcd', letter: 'T', note: 'Swap VAL\u2192TBCD\u2192Burn' }
+    ];
+    const s2x = 830;
+
+    s2.forEach((o, i) => {
+        svg += animPath(`M 652 175 Q ${730} ${(175+o.y)/2} ${s2x} ${o.y}`, o.color, 1.8);
+        svg += generateFlowDots(652, 175, s2x, o.y, o.color, 2, 2.8 + i*0.3);
+        svg += tokenCircle(s2x, o.y, 20, o.color, o.key, o.letter);
+        svg += `<text x="${s2x}" y="${o.y + 29}" text-anchor="middle" fill="${o.color}" font-size="9" font-weight="700">${o.pct}</text>`;
+        svg += `<text x="${s2x}" y="${o.y + 39}" text-anchor="middle" fill="${sub}" font-size="7.5">${formatBurnNumber(o.amt)}</text>`;
+        svg += `<text x="${s2x}" y="${o.y + 49}" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.7">${o.note}</text>`;
+    });
+
+    // ===== STAGE LABELS =====
+    svg += `<text x="225" y="22" text-anchor="middle" fill="${sub}" font-size="10" font-weight="700" opacity="0.5">STAGE 1</text>`;
+    svg += `<text x="225" y="34" text-anchor="middle" fill="${sub}" font-size="8" opacity="0.4">XOR Fee Distribution</text>`;
+    svg += `<text x="700" y="22" text-anchor="middle" fill="${sub}" font-size="10" font-weight="700" opacity="0.5">STAGE 2</text>`;
+    svg += `<text x="700" y="34" text-anchor="middle" fill="${sub}" font-size="8" opacity="0.4">VAL Sub-distribution</text>`;
+
+    // Vertical divider
+    svg += `<line x1="500" y1="45" x2="500" y2="420" stroke="${isDark ? '#374151' : '#e5e7eb'}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>`;
+
+    container.innerHTML = svg;
     container._flowData = data;
-    container._outputs = outputs;
+    container._outputs = s1;
 }
 
 // ===== PSWAP SWAP FEE FLOW (full-size, shown when PSWAP tab selected) =====
