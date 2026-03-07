@@ -2200,20 +2200,6 @@ async function startApp() {
             try {
                 const supply = await getTokenTotalSupply(sym);
                 if (supply !== null && supply > 0) {
-                    // Only check RECENT snapshots (last 24h) for data source contamination.
-                    // Historical snapshots may differ significantly due to burns over time — that's normal.
-                    const recentCutoff = Date.now() - 24 * 60 * 60 * 1000;
-                    const recentSnaps = getSupplyHistory(sym, recentCutoff);
-                    if (recentSnaps.length > 0) {
-                        const contaminated = recentSnaps.some(s => {
-                            const diff = Math.abs(s.total_supply - supply) / Math.max(s.total_supply, supply);
-                            return diff > 0.50; // 50% threshold — only catch truly wrong data sources
-                        });
-                        if (contaminated) {
-                            const purged = purgeSupplySnapshotsForSymbol(sym);
-                            console.log(`  🧹 ${sym}: Purged ${purged} contaminated snapshots (data source mismatch detected)`);
-                        }
-                    }
                     insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
                     console.log(`  ✅ ${sym}: ${supply.toLocaleString()}`);
                 }
