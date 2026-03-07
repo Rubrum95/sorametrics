@@ -197,6 +197,82 @@
             .ref-tally { flex-wrap:wrap; gap:6px; }
         }
 
+        /* ============ BURN TRACKER STYLES ============ */
+        .burn-token-xor   { --token-color: #E5243B; --token-glow: rgba(229,36,59,0.3); }
+        .burn-token-val   { --token-color: #F5B041; --token-glow: rgba(245,176,65,0.3); }
+        .burn-token-pswap { --token-color: #EC4899; --token-glow: rgba(236,72,153,0.3); }
+        .burn-token-tbcd  { --token-color: #10B981; --token-glow: rgba(16,185,129,0.3); }
+        .burn-token-kusd  { --token-color: #DC2626; --token-glow: rgba(220,38,38,0.3); }
+
+        .burn-sub-tabs { display:flex; gap:6px; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:8px; flex-wrap:wrap; }
+        .burn-tab-btn { border:none; background:transparent; padding:8px 18px; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px; color:var(--text-secondary); transition:all 0.25s ease; display:flex; align-items:center; gap:6px; }
+        .burn-tab-btn:hover { background:rgba(155,27,48,0.08); }
+        .burn-tab-btn.active { color:white !important; box-shadow:0 2px 12px var(--token-glow); }
+        .burn-tab-btn.active.burn-token-xor   { background:linear-gradient(135deg,#E5243B,#B91C30) !important; }
+        .burn-tab-btn.active.burn-token-val   { background:linear-gradient(135deg,#F5B041,#D4902E) !important; }
+        .burn-tab-btn.active.burn-token-pswap { background:linear-gradient(135deg,#EC4899,#C73780) !important; }
+        .burn-tab-btn.active.burn-token-tbcd  { background:linear-gradient(135deg,#10B981,#0D9668) !important; }
+        .burn-tab-btn.active.burn-token-kusd  { background:linear-gradient(135deg,#FFF,#DC2626) !important; color:#1a1a1a !important; }
+        .burn-tab-dot { width:8px; height:8px; border-radius:50%; background:var(--token-color); }
+
+        .burn-hero { text-align:center; padding:32px 20px 24px; border-radius:var(--card-radius); background:var(--bg-card); border:1px solid var(--border-color); box-shadow:var(--shadow-card); margin-bottom:24px; position:relative; overflow:hidden; }
+        .burn-hero::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--gradient-brand); }
+        .burn-hero-title { font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--text-secondary); font-weight:600; margin-bottom:8px; }
+        .burn-hero-value { font-size:36px; font-weight:800; background:linear-gradient(135deg,#E5243B,#F5B041); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; }
+        .burn-hero-subtitle { font-size:14px; color:var(--text-secondary); margin-top:4px; }
+
+        .burn-flow-container { position:relative; width:100%; max-width:900px; margin:0 auto 30px; height:360px; overflow:hidden; }
+        .burn-flow-svg { width:100%; height:100%; }
+        @keyframes furnacePulse { 0%,100%{opacity:0.4;} 50%{opacity:0.8;} }
+        @keyframes emberFloat { 0%{opacity:1;transform:translate(0,0) scale(1);} 50%{opacity:0.8;} 100%{opacity:0;transform:translate(var(--dx,20px),var(--dy,-60px)) scale(0);} }
+        .burn-ember { position:absolute; border-radius:50%; pointer-events:none; animation:emberFloat var(--duration,2s) ease-out forwards; }
+        @keyframes counterTick { 0%{transform:scale(1);} 50%{transform:scale(1.05);} 100%{transform:scale(1);} }
+
+        .burn-stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:24px; }
+        .burn-stat-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:16px; text-align:center; position:relative; overflow:hidden; transition:transform 0.2s,box-shadow 0.2s; }
+        .burn-stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--token-color); }
+        .burn-stat-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
+        .burn-stat-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-secondary); font-weight:600; margin-bottom:6px; }
+        .burn-stat-value { font-size:20px; font-weight:800; color:var(--text-primary); }
+        .burn-stat-sub { font-size:11px; color:#10B981; font-weight:600; margin-top:2px; }
+
+        .burn-chart-container { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--card-radius); padding:20px; margin-bottom:24px; box-shadow:var(--shadow-card); position:relative; overflow:hidden; }
+        .burn-chart-container::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--token-color); }
+        .burn-chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px; }
+        .burn-chart-title { font-size:16px; font-weight:700; color:var(--text-primary); }
+        .burn-tf-btns { display:flex; gap:4px; background:var(--bg-body); padding:3px; border-radius:8px; }
+        .burn-tf-btn { border:none; background:transparent; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text-secondary); transition:all 0.2s; }
+        .burn-tf-btn.active { background:var(--bg-card); color:var(--token-color); box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+        .burn-chart-wrap { position:relative; height:280px; }
+
+        .burn-holders-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--card-radius); padding:20px; margin-bottom:24px; box-shadow:var(--shadow-card); position:relative; overflow:hidden; }
+        .burn-holders-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--token-color); }
+        .burn-holder-row { display:flex; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color); gap:12px; }
+        .burn-holder-row:last-child { border-bottom:none; }
+        .burn-holder-rank { width:30px; text-align:center; font-weight:700; font-size:13px; color:var(--text-secondary); }
+        .burn-holder-addr { flex:1; font-family:monospace; font-size:13px; cursor:pointer; color:var(--text-primary); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .burn-holder-addr:hover { color:var(--primary-color); }
+        .burn-holder-bar-wrap { width:120px; height:6px; background:var(--bg-body); border-radius:3px; overflow:hidden; }
+        .burn-holder-bar { height:100%; border-radius:3px; background:var(--token-color); transition:width 0.5s ease; }
+        .burn-holder-pct { width:55px; text-align:right; font-size:12px; font-weight:700; color:var(--text-primary); }
+        .burn-holder-amount { width:100px; text-align:right; font-size:12px; color:var(--text-secondary); }
+
+        [data-theme="dark"] .burn-tab-btn.active.burn-token-kusd { color:white !important; }
+        [data-theme="dark"] .burn-holder-bar-wrap { background:#2a2a2a; }
+        [data-theme="dark"] .burn-tf-btns { background:#1a1a1a; }
+        [data-theme="dark"] .burn-tf-btn.active { background:#333; }
+
+        @media (max-width: 600px) {
+            .burn-hero-value { font-size:24px; }
+            .burn-flow-container { height:220px; }
+            .burn-stats-grid { grid-template-columns:repeat(2,1fr); }
+            .burn-chart-wrap { height:200px; }
+            .burn-sub-tabs { gap:4px; }
+            .burn-tab-btn { padding:6px 12px; font-size:12px; }
+            .burn-holder-bar-wrap { width:60px; }
+            .burn-holder-amount { display:none; }
+        }
+
         /* Spacing between timeframe selector and stats cards */
         .header-stats {
             margin-top: 15px;
@@ -1610,6 +1686,13 @@
                 margin-bottom: 2px;
             }
 
+            #tab-burns::before {
+                content: "🔥";
+                font-size: 20px;
+                display: block;
+                margin-bottom: 2px;
+            }
+
             /* Ocultar texto de botones en pantallas muy pequeñas si es necesario,
                 pero para 320px+ cabe bien Icono + Texto pequeño */
             /* .tab-btn span { display: none; } */
@@ -2194,7 +2277,7 @@
         </div>
 
         <!-- Generic Container for Toggles (Populated by JS) -->
-        <div id="sidebarSectionList" style="display:flex; flex-direction:column; gap:10px;">
+        <div id="sidebarSectionList" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex:1; min-height:0;">
             <!-- JS will inject toggle items here -->
         </div>
 
@@ -2368,6 +2451,15 @@
 
             <!-- Header Actions -->
             <div style="display:flex; gap:10px; align-items:center;">
+                <!-- Global Search Toggle -->
+                <button class="btn-icon-only" onclick="toggleGlobalSearch()" title="Search" id="globalSearchBtn"
+                    style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary); cursor:pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
                 <!-- Theme Toggle -->
                 <button class="btn-icon-only" onclick="toggleTheme()" title="Cambiar Tema" id="themeToggleBtn"
                     style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary);">
@@ -2430,6 +2522,16 @@
 
                 <!-- Add Wallet -->
                 <button class="btn-primary" onclick="openAddWalletModal()" data-i18n="btn_add_wallet">+ Añadir
+            </div>
+        </div>
+
+        <!-- GLOBAL SEARCH BAR (hidden by default) -->
+        <div id="globalSearchBar" style="display:none; padding:12px 0; animation:fadeIn 0.2s;">
+            <div style="position:relative; max-width:600px; margin:0 auto;">
+                <input type="text" id="globalSearchInput" autocomplete="off"
+                    placeholder="Search wallet, tx hash, block, extrinsic ID..."
+                    style="width:100%; padding:12px 44px 12px 16px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card); color:var(--text-primary); font-family:inherit; font-size:14px; box-shadow:var(--shadow-card); outline:none; transition:border-color 0.2s;">
+                <div id="globalSearchStatus" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--text-secondary); font-size:12px;"></div>
             </div>
         </div>
 
@@ -2627,6 +2729,9 @@
                             style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
                             <option value="" data-i18n="all_pallets">All Pallets</option>
                         </select>
+                        <input type="text" id="extrinsicMethodFilter" onchange="loadGlobalExtrinsics(true)" oninput="clearTimeout(window._methodFilterTimeout); window._methodFilterTimeout = setTimeout(() => loadGlobalExtrinsics(true), 500);"
+                            placeholder="Search method..."
+                            style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px; width:140px;">
                         <select id="extrinsicResultFilter" onchange="loadGlobalExtrinsics(true)"
                             style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px;">
                             <option value="">All Results</option>
@@ -2975,6 +3080,89 @@
 
 
 
+
+        <!-- SECTION: BURN TRACKER -->
+        <div id="burns" class="tab-content" style="display:none; animation: fadeIn 0.3s;">
+
+            <!-- BURN HERO -->
+            <div class="burn-hero" id="burnHero">
+                <div class="burn-hero-title" data-i18n="burn_total_burned">Total XOR Burned (Network Fees)</div>
+                <div class="burn-hero-value" id="burnHeroValue">--</div>
+                <div class="burn-hero-subtitle" id="burnHeroSubtitle">-- USD</div>
+            </div>
+
+            <!-- ANIMATED SVG FEE FLOW -->
+            <div class="burn-flow-container" id="burnFlowContainer">
+                <svg class="burn-flow-svg" id="burnFlowSvg" viewBox="0 0 840 400" preserveAspectRatio="xMidYMid meet"></svg>
+                <div id="burnParticleOverlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
+            </div>
+
+            <!-- TOKEN SUB-TABS + CONTENT -->
+            <div class="card" style="padding:20px;">
+                <div class="burn-sub-tabs" id="burnSubTabs">
+                    <button class="burn-tab-btn active burn-token-xor" onclick="openBurnSubTab('xor')" id="burntab-xor"><span class="burn-tab-dot"></span> XOR</button>
+                    <button class="burn-tab-btn burn-token-val" onclick="openBurnSubTab('val')" id="burntab-val"><span class="burn-tab-dot"></span> VAL</button>
+                    <button class="burn-tab-btn burn-token-pswap" onclick="openBurnSubTab('pswap')" id="burntab-pswap"><span class="burn-tab-dot"></span> PSWAP</button>
+                    <button class="burn-tab-btn burn-token-tbcd" onclick="openBurnSubTab('tbcd')" id="burntab-tbcd"><span class="burn-tab-dot"></span> TBCD</button>
+                    <button class="burn-tab-btn burn-token-kusd" onclick="openBurnSubTab('kusd')" id="burntab-kusd"><span class="burn-tab-dot"></span> KUSD</button>
+                </div>
+
+                <!-- XOR -->
+                <div id="burnview-xor" class="burn-content burn-token-xor">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div id="burnIconWrap-xor" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#E5243B,#B91C30);display:flex;align-items:center;justify-content:center;overflow:hidden;"><span style="color:white;font-weight:800;font-size:18px;">X</span></div>
+                        <div><div style="font-size:20px;font-weight:800;color:var(--text-primary);">XOR</div><div style="font-size:13px;color:var(--text-secondary);" id="burnSupply-xor">Supply: --</div></div>
+                    </div>
+                    <div class="burn-stats-grid" id="burnStats-xor"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
+                    <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-xor"><button class="burn-tf-btn" onclick="setBurnTimeframe('xor','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('xor','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('xor','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('xor','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('xor','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('xor','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-xor"></canvas></div></div>
+                    <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-xor" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-xor"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-xor"></div></div>
+                </div>
+
+                <!-- VAL -->
+                <div id="burnview-val" class="burn-content burn-token-val" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div id="burnIconWrap-val" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#F5B041,#D4902E);display:flex;align-items:center;justify-content:center;overflow:hidden;"><span style="color:white;font-weight:800;font-size:18px;">V</span></div>
+                        <div><div style="font-size:20px;font-weight:800;color:var(--text-primary);">VAL</div><div style="font-size:13px;color:var(--text-secondary);" id="burnSupply-val">Supply: --</div></div>
+                    </div>
+                    <div class="burn-stats-grid" id="burnStats-val"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
+                    <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-val"><button class="burn-tf-btn" onclick="setBurnTimeframe('val','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('val','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('val','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('val','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('val','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('val','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-val"></canvas></div></div>
+                    <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-val" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-val"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-val"></div></div>
+                </div>
+
+                <!-- PSWAP -->
+                <div id="burnview-pswap" class="burn-content burn-token-pswap" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div id="burnIconWrap-pswap" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#EC4899,#C73780);display:flex;align-items:center;justify-content:center;overflow:hidden;"><span style="color:white;font-weight:800;font-size:18px;">P</span></div>
+                        <div><div style="font-size:20px;font-weight:800;color:var(--text-primary);">PSWAP</div><div style="font-size:13px;color:var(--text-secondary);" id="burnSupply-pswap">Supply: --</div></div>
+                    </div>
+                    <div class="burn-stats-grid" id="burnStats-pswap"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
+                    <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-pswap"><button class="burn-tf-btn" onclick="setBurnTimeframe('pswap','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('pswap','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('pswap','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('pswap','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('pswap','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('pswap','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-pswap"></canvas></div></div>
+                    <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-pswap" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-pswap"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-pswap"></div></div>
+                </div>
+
+                <!-- TBCD -->
+                <div id="burnview-tbcd" class="burn-content burn-token-tbcd" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div id="burnIconWrap-tbcd" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#10B981,#0D9668);display:flex;align-items:center;justify-content:center;overflow:hidden;"><span style="color:white;font-weight:800;font-size:18px;">T</span></div>
+                        <div><div style="font-size:20px;font-weight:800;color:var(--text-primary);">TBCD</div><div style="font-size:13px;color:var(--text-secondary);" id="burnSupply-tbcd">Supply: --</div></div>
+                    </div>
+                    <div class="burn-stats-grid" id="burnStats-tbcd"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
+                    <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-tbcd"><button class="burn-tf-btn" onclick="setBurnTimeframe('tbcd','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('tbcd','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('tbcd','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('tbcd','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('tbcd','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('tbcd','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-tbcd"></canvas></div></div>
+                    <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-tbcd" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-tbcd"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-tbcd"></div></div>
+                </div>
+
+                <!-- KUSD -->
+                <div id="burnview-kusd" class="burn-content burn-token-kusd" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+                        <div id="burnIconWrap-kusd" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#FFF,#DC2626);display:flex;align-items:center;justify-content:center;border:1px solid var(--border-color);overflow:hidden;"><span style="color:#DC2626;font-weight:800;font-size:18px;">K</span></div>
+                        <div><div style="font-size:20px;font-weight:800;color:var(--text-primary);">KUSD</div><div style="font-size:13px;color:var(--text-secondary);" id="burnSupply-kusd">Supply: --</div></div>
+                    </div>
+                    <div class="burn-stats-grid" id="burnStats-kusd"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
+                    <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-kusd"><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('kusd','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-kusd"></canvas></div></div>
+                    <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-kusd" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-kusd"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-kusd"></div></div>
+                </div>
+            </div>
+        </div>
 
         <!-- SECTION: SORA INTELLIGENCE -->
         <div id="section-intelligence" class="tab-content" style="display:none; animation: fadeIn 0.3s;">
@@ -3579,7 +3767,7 @@
         </div>
 
 
-        <script src="script.js?v=v4"></script>
+        <script src="script.js?v=v11"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {

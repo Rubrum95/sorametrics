@@ -207,6 +207,14 @@ function createTables() {
     )`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_identity_updated ON identity_cache(updated_at)`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS supply_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        symbol TEXT,
+        asset_id TEXT,
+        total_supply REAL
+    )`);
+
     // Safe migrations
     const safeAlter = (table, col, type) => {
         if (!/^[a-zA-Z_]+$/.test(table) || !/^[a-zA-Z_]+$/.test(col) || !/^[a-zA-Z_ ()]+$/.test(type)) return;
@@ -263,7 +271,8 @@ function createTables() {
         `CREATE INDEX IF NOT EXISTS idx_orderbook_wallet ON order_book_events(wallet)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_event_type ON order_book_events(event_type)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_block ON order_book_events(block)`,
-        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`,
+        `CREATE INDEX IF NOT EXISTS idx_supply_symbol_timestamp ON supply_snapshots(symbol, timestamp)`
     ];
 
     for (const idx of indices) {
@@ -539,7 +548,7 @@ function insertOrderBookEvent(e) {
 
 // --- EXTRINSICS READ ---
 
-function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null) {
+function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null, method = null) {
     const offset = (page - 1) * limit;
     const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg`;
 
@@ -552,6 +561,10 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     if (section) {
         conditions.push(`section = ?`);
         params.push(section);
+    }
+    if (method) {
+        conditions.push(`method LIKE ?`);
+        params.push('%' + method + '%');
     }
     if (timestamp) {
         conditions.push(`timestamp <= ?`);
@@ -1133,6 +1146,13 @@ function getFeeStats(startTime) {
     }
 }
 
+// Query fees from main DB only (skip history DB which may have different scale data)
+function getFeeStatsMainOnly(startTime) {
+    return getStmt('getFeeStats_mainOnly',
+        `SELECT type, SUM(amount) as total_xor, SUM(usd_value) as total_usd FROM main.fees WHERE timestamp >= ? GROUP BY type`
+    ).all(startTime);
+}
+
 function getFeeTrend(startTime, interval) {
     let fmt = '%Y-%m-%d %H:00:00';
     if (interval === 'day') fmt = '%Y-%m-%d';
@@ -1543,6 +1563,198 @@ function getStablecoinStats(startTime) {
     return results;
 }
 
+// --- SUPPLY SNAPSHOTS (BURN TRACKER) ---
+
+function insertSupplySnapshot(symbol, assetId, totalSupply) {
+    try {
+        if (!insertStmts.supply) {
+            insertStmts.supply = db.prepare(`INSERT INTO supply_snapshots (timestamp, symbol, asset_id, total_supply) VALUES (?, ?, ?, ?)`);
+        }
+        insertStmts.supply.run(Date.now(), symbol, assetId, totalSupply);
+    } catch (e) {
+        console.error('Error insertSupplySnapshot:', e.message);
+    }
+}
+
+function getSupplyHistory(symbol, startTime) {
+    try {
+        if (historyHasTable('supply_snapshots')) {
+            return getStmt('getSupplyHistory_unified',
+                `SELECT timestamp, total_supply FROM (
+                    SELECT timestamp, total_supply FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                    UNION ALL
+                    SELECT timestamp, total_supply FROM history.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                ) ORDER BY timestamp ASC`
+            ).all(symbol, startTime, symbol, startTime);
+        }
+        return getStmt('getSupplyHistory_main',
+            `SELECT timestamp, total_supply FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ? ORDER BY timestamp ASC`
+        ).all(symbol, startTime);
+    } catch (e) {
+        console.error('Error getSupplyHistory:', e.message);
+        return [];
+    }
+}
+
+function getLatestSupplySnapshot(symbol) {
+    try {
+        return getStmt('getLatestSupply',
+            `SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1`
+        ).get(symbol) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function purgeSupplySnapshotsForSymbol(symbol) {
+    try {
+        const result = db.prepare('DELETE FROM supply_snapshots WHERE symbol = ?').run(symbol);
+        return result.changes;
+    } catch (e) {
+        console.error('Error purging snapshots for', symbol, ':', e.message);
+        return 0;
+    }
+}
+
+function getBurnStats(symbol, startTime) {
+    try {
+        const sql = historyHasTable('supply_snapshots')
+            ? `SELECT total_supply, timestamp FROM (
+                SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                UNION ALL
+                SELECT total_supply, timestamp FROM history.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+            ) ORDER BY timestamp ASC`
+            : `SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ? ORDER BY timestamp ASC`;
+
+        const params = historyHasTable('supply_snapshots')
+            ? [symbol, startTime, symbol, startTime]
+            : [symbol, startTime];
+
+        const rows = db.prepare(sql).all(...params);
+        if (rows.length < 2) return { totalBurned: 0, startSupply: 0, endSupply: 0 };
+
+        const first = rows[0];
+        const last = rows[rows.length - 1];
+        const burned = first.total_supply - last.total_supply;
+
+        return {
+            totalBurned: Math.max(burned, 0),
+            startSupply: first.total_supply,
+            endSupply: last.total_supply,
+            startTime: first.timestamp,
+            endTime: last.timestamp
+        };
+    } catch (e) {
+        console.error('Error getBurnStats:', e.message);
+        return { totalBurned: 0, startSupply: 0, endSupply: 0 };
+    }
+}
+
+// Lookup USD value for an extrinsic by extrinsic_id (cross-table search)
+function lookupExtrinsicUsdValue(extrinsicId) {
+    if (!extrinsicId) return null;
+    try {
+        // 1. Transfers
+        const trSql = historyHasTable('transfers')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.transfers WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.transfers WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.transfers WHERE extrinsic_id = ? LIMIT 1`;
+        const trParams = historyHasTable('transfers') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const tr = db.prepare(trSql).get(...trParams);
+        if (tr && tr.usd_value) return { usd_value: tr.usd_value, source: 'transfer' };
+
+        // 2. Swaps (use in_usd as main value)
+        const swSql = historyHasTable('swaps')
+            ? `SELECT in_usd, out_usd FROM (SELECT in_usd, out_usd FROM main.swaps WHERE extrinsic_id = ? UNION ALL SELECT in_usd, out_usd FROM history.swaps WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT in_usd, out_usd FROM main.swaps WHERE extrinsic_id = ? LIMIT 1`;
+        const swParams = historyHasTable('swaps') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const sw = db.prepare(swSql).get(...swParams);
+        if (sw && (sw.in_usd || sw.out_usd)) return { usd_value: sw.in_usd || sw.out_usd, source: 'swap' };
+
+        // 3. Bridges
+        const brSql = historyHasTable('bridges')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.bridges WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.bridges WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.bridges WHERE extrinsic_id = ? LIMIT 1`;
+        const brParams = historyHasTable('bridges') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const br = db.prepare(brSql).get(...brParams);
+        if (br && br.usd_value) return { usd_value: br.usd_value, source: 'bridge' };
+
+        // 4. Liquidity events
+        const lqSql = historyHasTable('liquidity_events')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.liquidity_events WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.liquidity_events WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.liquidity_events WHERE extrinsic_id = ? LIMIT 1`;
+        const lqParams = historyHasTable('liquidity_events') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const lq = db.prepare(lqSql).get(...lqParams);
+        if (lq && lq.usd_value) return { usd_value: lq.usd_value, source: 'liquidity' };
+
+        // 5. Order book
+        const obSql = historyHasTable('order_book_events')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.order_book_events WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.order_book_events WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.order_book_events WHERE extrinsic_id = ? LIMIT 1`;
+        const obParams = historyHasTable('order_book_events') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const ob = db.prepare(obSql).get(...obParams);
+        if (ob && ob.usd_value) return { usd_value: ob.usd_value, source: 'orderbook' };
+
+        // 6. Fees
+        const feSql = historyHasTable('fees')
+            ? `SELECT total_usd FROM (SELECT total_usd FROM main.fees WHERE extrinsic_id = ? UNION ALL SELECT total_usd FROM history.fees WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT total_usd FROM main.fees WHERE extrinsic_id = ? LIMIT 1`;
+        const feParams = historyHasTable('fees') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const fe = db.prepare(feSql).get(...feParams);
+        if (fe && fe.total_usd) return { usd_value: fe.total_usd, source: 'fee' };
+
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Global search: find entity by query (wallet address, tx hash, extrinsic_id, block)
+function globalSearch(query) {
+    if (!query || query.length < 3) return { type: null };
+    query = query.trim();
+
+    // Extrinsic ID pattern: number-number (e.g., 25135395-1)
+    if (/^\d+-\d+$/.test(query)) {
+        try {
+            const sql = historyHasTable('extrinsics')
+                ? `SELECT extrinsic_id, section, method, block FROM (SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? UNION ALL SELECT extrinsic_id, section, method, block FROM history.extrinsics WHERE extrinsic_id = ?) LIMIT 1`
+                : `SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? LIMIT 1`;
+            const params = historyHasTable('extrinsics') ? [query, query] : [query];
+            const row = db.prepare(sql).get(...params);
+            if (row) return { type: 'extrinsic', data: row };
+        } catch (e) { /* continue */ }
+    }
+
+    // Block number (pure digits)
+    if (/^\d+$/.test(query)) {
+        const block = parseInt(query);
+        if (block > 0 && block < 100000000) {
+            return { type: 'block', data: { block } };
+        }
+    }
+
+    // Transaction hash (0x...)
+    if (/^0x[a-fA-F0-9]{64}$/.test(query)) {
+        // Search in extrinsics table
+        try {
+            const sql = historyHasTable('extrinsics')
+                ? `SELECT extrinsic_id, section, method, block, signer FROM (SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? UNION ALL SELECT extrinsic_id, section, method, block, signer FROM history.extrinsics WHERE hash = ?) LIMIT 1`
+                : `SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? LIMIT 1`;
+            const params = historyHasTable('extrinsics') ? [query, query] : [query];
+            const row = db.prepare(sql).get(...params);
+            if (row) return { type: 'extrinsic', data: row };
+        } catch (e) { /* continue */ }
+        return { type: 'hash_not_found', data: { hash: query } };
+    }
+
+    // Wallet address (cn... , 48+ chars)
+    if (/^cn[a-zA-Z0-9]{46,}$/.test(query)) {
+        return { type: 'wallet', data: { address: query } };
+    }
+
+    return { type: null };
+}
+
 module.exports = {
     initDB,
     insertTransfer,
@@ -1562,6 +1774,7 @@ module.exports = {
     getFilteredStats,
     insertFee,
     getFeeStats,
+    getFeeStatsMainOnly,
     getFeeTrend,
     getWalletBridges,
     getLatestBridges,
@@ -1583,5 +1796,12 @@ module.exports = {
     upsertIdentity,
     upsertIdentityBatch,
     getIdentities,
-    getAllCachedIdentities
+    getAllCachedIdentities,
+    insertSupplySnapshot,
+    getSupplyHistory,
+    getLatestSupplySnapshot,
+    getBurnStats,
+    purgeSupplySnapshotsForSymbol,
+    lookupExtrinsicUsdValue,
+    globalSearch
 };

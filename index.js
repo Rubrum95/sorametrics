@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch } = require('./db_better');
 // ... (imports)
 
 
@@ -306,6 +306,188 @@ const XSTUS_ID = '0x020008000000000000000000000000000000000000000000000000000000
 const DAI_ID = '0x0200060000000000000000000000000000000000000000000000000000000000';
 const XST_ID = '0x0200090000000000000000000000000000000000000000000000000000000000'; // XST
 
+// --- BURN TRACKER TOKEN CONFIG ---
+const BURN_TOKENS = {
+    XOR:   { symbol: 'XOR',   assetId: XOR_ID, decimals: 18 },
+    VAL:   { symbol: 'VAL',   assetId: null, decimals: 18 },
+    PSWAP: { symbol: 'PSWAP', assetId: null, decimals: 18 },
+    TBCD:  { symbol: 'TBCD',  assetId: '0x02000a0000000000000000000000000000000000000000000000000000000000', decimals: 18 },
+    KUSD:  { symbol: 'KUSD',  assetId: XSTUS_ID, decimals: 18 }
+};
+
+function resolveBurnTokenIds() {
+    for (const key of Object.keys(BURN_TOKENS)) {
+        if (!BURN_TOKENS[key].assetId) {
+            const found = ASSETS.find(a => a.symbol === key);
+            if (found) {
+                BURN_TOKENS[key].assetId = found.assetId;
+                console.log(`🔥 Resolved ${key} assetId: ${found.assetId.substring(0, 10)}...`);
+            }
+        }
+    }
+}
+
+let supplyCache = {};
+const SUPPLY_CACHE_TTL = 60000; // 60s
+
+// MOF (Ministry of Finance) API — canonical source for SORA circulating supply
+// Used by llblab/sora-qty and the official SORA team.
+// totalIssuance from chain is wrong for XOR/TBCD due to denomination event + TBC reserves.
+const MOF_URLS = ['https://mof.sora.org', 'https://mof2.sora.org', 'https://mof3.sora.org'];
+// MOF uses lowercase symbol; KUSD in our config maps to XSTUSD on MOF
+const MOF_SYMBOL_MAP = { XOR: 'xor', VAL: 'val', PSWAP: 'pswap', TBCD: 'tbcd', KUSD: 'xstusd' };
+
+async function getTokenTotalSupply(symbol) {
+    const now = Date.now();
+    if (supplyCache[symbol] && (now - supplyCache[symbol].ts < SUPPLY_CACHE_TTL)) {
+        return supplyCache[symbol].value;
+    }
+
+    const token = BURN_TOKENS[symbol];
+    if (!token) return null;
+
+    try {
+        let totalSupply = null;
+
+        // Primary: MOF API (returns circulating supply in human-readable units)
+        const mofSym = MOF_SYMBOL_MAP[symbol] || symbol.toLowerCase();
+        for (const baseUrl of MOF_URLS) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(`${baseUrl}/qty/${mofSym}`, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (res.ok) {
+                    const text = await res.text();
+                    const val = parseFloat(text);
+                    if (!isNaN(val) && val > 0) {
+                        totalSupply = val;
+                        break;
+                    }
+                }
+            } catch (e) { /* try next MOF mirror */ }
+        }
+
+        // Fallback: on-chain query (if all MOF mirrors are down)
+        if (!totalSupply && api && token.assetId) {
+            try {
+                const issuance = (symbol === 'XOR')
+                    ? await withTimeout(api.query.balances.totalIssuance())
+                    : await withTimeout(api.query.tokens.totalIssuance({ code: token.assetId }));
+                const raw = issuance.toString().replace(/,/g, '');
+                totalSupply = new BigNumber(raw).div(new BigNumber(10).pow(token.decimals)).toNumber();
+            } catch (e2) { /* chain fallback failed */ }
+        }
+
+        if (totalSupply) {
+            supplyCache[symbol] = { value: totalSupply, ts: now };
+        }
+        return totalSupply;
+    } catch (e) {
+        console.error(`Supply query error for ${symbol}:`, e.message);
+        return supplyCache[symbol]?.value || null;
+    }
+}
+
+// --- XOR MARKET DATA (CoinGecko + Etherscan for Ethereum supply) ---
+// XOR has undergone 6 denomination events (cumulative factor ~1e38).
+// On-chain pool price ($5) × MOF supply (1e18) gives absurd market cap.
+// Use CoinGecko for realistic XOR market data.
+let xorMarketCache = { data: null, ts: 0 };
+const XOR_MARKET_TTL = 300000; // 5 minutes
+
+const XOR_ETH_CONTRACT = '0x40fd72257597aa14c7231a7b1aaa29fce868f677';
+
+async function fetchXorMarketData() {
+    const now = Date.now();
+    if (xorMarketCache.data && (now - xorMarketCache.ts < XOR_MARKET_TTL)) {
+        return xorMarketCache.data;
+    }
+    const result = { cgPrice: null, cgMarketCap: null, cgSupply: null, ethSupply: null };
+
+    // 1. CoinGecko — use full coins endpoint (returns price even for very low values)
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const res = await fetch(
+            'https://api.coingecko.com/api/v3/coins/sora?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false',
+            { signal: controller.signal }
+        );
+        clearTimeout(timeout);
+        if (res.ok) {
+            const json = await res.json();
+            const md = json.market_data;
+            if (md) {
+                result.cgPrice = (md.current_price?.usd != null) ? md.current_price.usd : null;
+                result.cgMarketCap = md.market_cap?.usd || null;
+                result.cgSupply = (md.circulating_supply != null) ? md.circulating_supply : null;
+            }
+        }
+    } catch (e) { console.log('CoinGecko XOR fetch failed:', e.message); }
+
+    // Fallback: simple price endpoint if full endpoint failed
+    if (!result.cgMarketCap) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(
+                'https://api.coingecko.com/api/v3/simple/price?ids=sora&vs_currencies=usd&include_market_cap=true',
+                { signal: controller.signal }
+            );
+            clearTimeout(timeout);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.sora) {
+                    result.cgPrice = result.cgPrice || json.sora.usd || null;
+                    result.cgMarketCap = json.sora.usd_market_cap || null;
+                }
+            }
+        } catch (e) { /* fallback also unavailable */ }
+    }
+
+    // 2. Ethereum RPC — Query ERC-20 totalSupply() directly via public RPC
+    // totalSupply() function selector = 0x18160ddd
+    const ETH_RPCS = ['https://rpc.ankr.com/eth', 'https://eth.llamarpc.com', 'https://cloudflare-eth.com'];
+    for (const rpcUrl of ETH_RPCS) {
+        if (result.ethSupply) break;
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(rpcUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0', method: 'eth_call',
+                    params: [{ to: XOR_ETH_CONTRACT, data: '0x18160ddd' }, 'latest'],
+                    id: 1
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeout);
+            if (res.ok) {
+                const json = await res.json();
+                if (json.result && json.result !== '0x') {
+                    const raw = new BigNumber(json.result, 16);
+                    if (!raw.isNaN() && raw.gt(0)) {
+                        result.ethSupply = raw.div('1e18').toNumber();
+                    }
+                }
+            }
+        } catch (e) { /* try next RPC */ }
+    }
+
+    // 3. Get on-chain denomination factor
+    try {
+        if (api) {
+            const denom = await withTimeout(api.query.denomination.denominator());
+            result.denominationFactor = denom.toString().replace(/,/g, '');
+        }
+    } catch (e) { /* denomination query failed */ }
+
+    xorMarketCache = { data: result, ts: now };
+    return result;
+}
+
 // --- BATCHING PARA WEBSOCKET (ANTI-SATURACIÓN) ---
 
 const BATCH_INTERVAL_MS = 5000; // 5 segundos para blindar la red
@@ -459,12 +641,11 @@ function getAssetInfo(rawId) {
 async function getXorPriceInDai() {
     try {
         const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, DAI_ID));
-        const jsonData = reserves.toJSON();
-        if (!jsonData || jsonData.length < 2) return 0;
+        if (!reserves || reserves.length < 2) return 0;
 
-        // Reserves: [XOR, DAI] - sorted by AssetID
-        const xorRes = new BigNumber(jsonData[0]);
-        const daiRes = new BigNumber(jsonData[1]);
+        // Use toString() for u128 precision (toJSON() loses precision for values > 2^53)
+        const xorRes = new BigNumber(reserves[0].toString());
+        const daiRes = new BigNumber(reserves[1].toString());
 
         if (xorRes.isZero()) return 0;
         return daiRes.div(xorRes).toNumber();
@@ -477,11 +658,11 @@ async function getXorPriceInDai() {
 async function getTokenPriceInXor(assetId, tokenDecimals) {
     try {
         const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, assetId));
-        const jsonData = reserves.toJSON();
-        if (!jsonData || jsonData.length < 2) return 0;
+        if (!reserves || reserves.length < 2) return 0;
 
-        const xorRes = new BigNumber(jsonData[0]);
-        const tokenRes = new BigNumber(jsonData[1]);
+        // Use toString() for u128 precision (toJSON() loses precision for values > 2^53)
+        const xorRes = new BigNumber(reserves[0].toString());
+        const tokenRes = new BigNumber(reserves[1].toString());
 
         if (tokenRes.isZero()) return 0;
 
@@ -525,11 +706,10 @@ async function getPriceInDai(assetId, decimals) {
             // 2. Get XST Price relative to XSTUSD (XST-XSTUSD pool)
             // Pair order: XSTUSD (0x020008...) < XST (0x020009...)
             const reserves = await withTimeout(api.query.poolXYK.reserves(XSTUS_ID, XST_ID));
-            const jsonData = reserves.toJSON();
 
-            if (jsonData && jsonData.length >= 2) {
-                const baseRes = new BigNumber(jsonData[0]); // XSTUSD
-                const targetRes = new BigNumber(jsonData[1]); // XST
+            if (reserves && reserves.length >= 2) {
+                const baseRes = new BigNumber(reserves[0].toString()); // XSTUSD
+                const targetRes = new BigNumber(reserves[1].toString()); // XST
                 if (!targetRes.isZero()) {
                     const baseNormal = baseRes.div('1e18');
                     const targetNormal = targetRes.div('1e18'); // Both 18 dec
@@ -1124,10 +1304,9 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
                     if (typeof targetId === 'object' && targetId.code) targetId = targetId.code;
 
                     const resCodec = await withTimeout(api.query.poolXYK.reserves(baseId, targetId));
-                    const reserves = resCodec.toJSON();
 
-                    const baseRes = new BigNumber(String(reserves[0]).replace(/,/g, ''));
-                    const targetRes = new BigNumber(String(reserves[1]).replace(/,/g, ''));
+                    const baseRes = new BigNumber(resCodec[0].toString());
+                    const targetRes = new BigNumber(resCodec[1].toString());
 
                     const baseToken = ASSETS.find(a => a.assetId === baseId) || { symbol: '?', decimals: 18, logo: '' };
                     const targetToken = ASSETS.find(a => a.assetId === targetId) || { symbol: '?', decimals: 18, logo: '' };
@@ -1512,10 +1691,11 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
         const section = req.query.section || null;
+        const method = req.query.method || null;
         const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
         const block = req.query.block ? parseInt(req.query.block) : null;
         const success = req.query.success !== undefined ? parseInt(req.query.success) : null;
-        const result = getLatestExtrinsics(page, limit, section, timestamp, block, success);
+        const result = getLatestExtrinsics(page, limit, section, timestamp, block, success, method);
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/extrinsics:', e);
@@ -1526,6 +1706,29 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
 app.get('/history/extrinsic-sections', rateLimit(10, 60000), (req, res) => {
     try {
         res.json(getExtrinsicSections());
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// USD value lookup for an extrinsic (cross-table search)
+app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), (req, res) => {
+    const exId = req.params.extrinsicId;
+    if (!/^\d+-\d+$/.test(exId)) return res.status(400).json({ error: 'Invalid extrinsic ID' });
+    try {
+        const result = lookupExtrinsicUsdValue(exId);
+        res.json(result || { usd_value: null });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Global search endpoint (wallet, hash, extrinsic_id, block)
+app.get('/search', rateLimit(20, 60000), (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 3 || q.length > 128) return res.status(400).json({ error: 'Invalid query' });
+    try {
+        res.json(globalSearch(q));
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -1759,16 +1962,267 @@ app.get('/stats/fees/trend', rateLimit(20, 60000), async (req, res) => {
 });
 
 
+// --- BURN TRACKER ENDPOINTS ---
+
+const VALID_BURN_SYMBOL = /^(XOR|VAL|PSWAP|TBCD|KUSD)$/i;
+
+app.get('/burns/supply/:symbol', rateLimit(20, 60000), async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
+
+    try {
+        const supply = await getTokenTotalSupply(symbol);
+        const price = tokenPrices[symbol] || 0;
+        const response = { symbol, totalSupply: supply, price, marketCap: (supply || 0) * price };
+
+        // XOR special case: include CoinGecko market data + Ethereum supply
+        // On-chain price ($5 from illiquid pool) × MOF supply (1e18) = absurd market cap.
+        // CoinGecko provides realistic market data.
+        if (symbol === 'XOR') {
+            const xorMarket = await fetchXorMarketData();
+            response.xorMarket = {
+                cgPrice: xorMarket.cgPrice,
+                cgMarketCap: xorMarket.cgMarketCap,
+                ethSupply: xorMarket.ethSupply,
+                denominationFactor: xorMarket.denominationFactor,
+                note: 'XOR has undergone multiple denomination events. MOF supply is post-denomination.'
+            };
+            // Override market cap with CoinGecko value if available
+            if (xorMarket.cgMarketCap) {
+                response.marketCap = xorMarket.cgMarketCap;
+            }
+            if (xorMarket.cgPrice) {
+                response.cgPrice = xorMarket.cgPrice;
+            }
+        }
+
+        res.json(response);
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/burns/supply-history/:symbol', rateLimit(15, 60000), async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
+
+    const timeframe = req.query.timeframe || '7d';
+    const msMap = { '4h': 14400000, '1d': 86400000, '7d': 604800000, '1m': 2592000000, '1y': 31536000000, 'all': 0 };
+    const ms = msMap[timeframe];
+    if (ms === undefined) return res.status(400).json({ error: 'Invalid timeframe' });
+    const startTime = ms === 0 ? 0 : (Date.now() - ms);
+
+    try {
+        const data = getSupplyHistory(symbol, startTime);
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
+
+    const timeframes = { '24h': 86400000, '7d': 604800000, '30d': 2592000000, 'all': 0 };
+
+    try {
+        const stats = {};
+        for (const [tf, ms] of Object.entries(timeframes)) {
+            const startTime = ms === 0 ? 0 : Date.now() - ms;
+            const supplyBurn = getBurnStats(symbol, startTime);
+
+            // For XOR: supply snapshot delta is unreliable at 10^18 scale (float64 precision loss).
+            // Calculate fee-based burns instead: 20% of all XOR fees are burned directly.
+            // Note: pre-redenomination XOR amounts are larger (correct for that era).
+            if (symbol === 'XOR') {
+                const feeData = getFeeStats(startTime);
+                let totalFees = 0;
+                let totalFeesUsd = 0;
+                feeData.forEach(r => {
+                    totalFees += r.total_xor || 0;
+                    totalFeesUsd += r.total_usd || 0;
+                });
+                const feeBurn = totalFees * 0.20;
+                const feeBurnUsd = totalFeesUsd * 0.20;
+                supplyBurn.feeBased = feeBurn;
+                supplyBurn.feeBasedUsd = feeBurnUsd;
+                // Always prefer fee-based burns for XOR across all timeframes.
+                // Supply snapshot delta is unreliable at 10^18 scale (float64 precision loss
+                // causes random positive/negative deltas that don't reflect actual burns).
+                if (feeBurn > 0) {
+                    supplyBurn.totalBurned = feeBurn;
+                    supplyBurn.totalBurnedUsd = feeBurnUsd;
+                }
+            }
+
+            stats[tf] = supplyBurn;
+        }
+        const currentSupply = await getTokenTotalSupply(symbol);
+        res.json({ symbol, currentSupply, stats });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
+    try {
+        const startTime = Date.now() - 86400000;
+        const feeStats = getFeeStats(startTime);
+
+        let totalXor = 0;
+        feeStats.forEach(row => { totalXor += row.total_xor || 0; });
+
+        // SORA fee distribution model (verified from sora2-network source)
+        const flow = {
+            totalXorFees: totalXor,
+            distribution: {
+                xorBurn: totalXor * 0.20,
+                valPathway: totalXor * 0.50,
+                valBurn: totalXor * 0.50 * 0.60,
+                kusdBuyback: (totalXor * 0.50 * 0.39) + (totalXor * 0.20),
+                tbcdBuyback: totalXor * 0.50 * 0.01,
+                referrer: totalXor * 0.10
+            },
+            supplies: {}
+        };
+
+        for (const sym of Object.keys(BURN_TOKENS)) {
+            flow.supplies[sym] = await getTokenTotalSupply(sym);
+        }
+
+        // Include CoinGecko market cap for XOR context
+        const xorMarket = await fetchXorMarketData();
+        if (xorMarket.cgMarketCap) {
+            flow.xorMarketCap = xorMarket.cgMarketCap;
+        }
+
+        res.json(flow);
+    } catch (e) {
+        console.error('Fee flow error:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/burns/holders/:symbol', rateLimit(10, 60000), async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
+
+    const token = BURN_TOKENS[symbol];
+    if (!token || !token.assetId) return res.status(400).json({ error: 'Asset ID not resolved' });
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = 15;
+    const startIndex = (page - 1) * limit;
+
+    try {
+        let fullList = [];
+        const now = Date.now();
+
+        // Reuse existing holdersCache
+        if (holdersCache[token.assetId] && (now - holdersCache[token.assetId].timestamp < CACHE_DURATION)) {
+            fullList = holdersCache[token.assetId].list;
+        } else {
+            console.log(`🔍 Scanning holders for ${symbol}...`);
+            if (symbol === 'XOR') {
+                const allEntries = await withTimeout(api.query.system.account.entries(), 60000);
+                for (const [key, value] of allEntries) {
+                    const data = value.toJSON();
+                    const free = (data.data && data.data.free) ? data.data.free.toString() : '0';
+                    const amountBn = new BigNumber(free).div('1e18');
+                    if (amountBn.gt(1)) {
+                        fullList.push({ address: key.args[0].toString(), balance: amountBn.toNumber(), balanceStr: amountBn.toFormat(2) });
+                    }
+                }
+            } else {
+                const allEntries = await withTimeout(api.query.tokens.accounts.entries(), 60000);
+                for (const [key, value] of allEntries) {
+                    let currentAssetId = key.args[1].toString();
+                    if (currentAssetId.startsWith('{')) { try { currentAssetId = JSON.parse(currentAssetId).code; } catch (e) { } }
+                    if (currentAssetId === token.assetId) {
+                        const data = value.toJSON();
+                        const free = data.free ? data.free.toString() : '0';
+                        const amountBn = new BigNumber(free).div(new BigNumber(10).pow(token.decimals));
+                        if (amountBn.gt(0.1)) {
+                            fullList.push({ address: key.args[0].toString(), balance: amountBn.toNumber(), balanceStr: amountBn.toFormat(2) });
+                        }
+                    }
+                }
+            }
+            fullList.sort((a, b) => b.balance - a.balance);
+            holdersCache[token.assetId] = { timestamp: now, list: fullList };
+        }
+
+        // Get total supply for % calculation
+        const totalSupply = await getTokenTotalSupply(symbol);
+        const paginatedItems = fullList.slice(startIndex, startIndex + limit);
+
+        // Resolve on-chain identities for paginated holders
+        const holderAddresses = paginatedItems.map(h => h.address).filter(a => a && a.length > 40);
+        if (holderAddresses.length > 0) {
+            try {
+                await resolveIdentitiesBatch(holderAddresses);
+            } catch (e) { console.error('Burn holders identity resolve error:', e.message); }
+        }
+        // Attach display names from identity cache
+        const enrichedItems = paginatedItems.map(h => {
+            const identity = identityMemCache.get(h.address);
+            return { ...h, name: identity?.display || null };
+        });
+
+        res.json({
+            page, totalHolders: fullList.length, totalPages: Math.ceil(fullList.length / limit),
+            totalSupply: totalSupply || 0,
+            data: enrichedItems
+        });
+    } catch (e) {
+        console.error('Burn holders error:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/', rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/index.html'));
 
 async function startApp() {
     console.log('🛡️ Iniciando servidor con Alta Estabilidad (Proxy Limitado + Batching 3s)...');
     await initDB();
     await loadOfficialWhitelist();
+    resolveBurnTokenIds();
     api = await initApi();
 
     setInterval(updateKeyPrices, 60000);
     updateKeyPrices();
+
+    // Supply snapshot job - every 4 hours (Burn Tracker)
+    async function takeSupplySnapshots() {
+        console.log('📸 Taking supply snapshots...');
+        for (const sym of Object.keys(BURN_TOKENS)) {
+            try {
+                const supply = await getTokenTotalSupply(sym);
+                if (supply !== null && supply > 0) {
+                    // Check ALL snapshots for data source contamination (pre-MOF era had wrong values).
+                    // If any snapshot differs >10% from current MOF value, purge all for this symbol.
+                    const allSnaps = getSupplyHistory(sym, 0);
+                    if (allSnaps.length > 0) {
+                        const contaminated = allSnaps.some(s => {
+                            const diff = Math.abs(s.total_supply - supply) / Math.max(s.total_supply, supply);
+                            return diff > 0.10;
+                        });
+                        if (contaminated) {
+                            const purged = purgeSupplySnapshotsForSymbol(sym);
+                            console.log(`  🧹 ${sym}: Purged ${purged} contaminated snapshots (data source mismatch detected)`);
+                        }
+                    }
+                    insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
+                    console.log(`  ✅ ${sym}: ${supply.toLocaleString()}`);
+                }
+            } catch (e) {
+                console.error(`  ❌ ${sym} snapshot error:`, e.message);
+            }
+        }
+    }
+    setTimeout(takeSupplySnapshots, 15000);
+    setInterval(takeSupplySnapshots, 30 * 60 * 1000); // cada 30 minutos
 
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
 
@@ -2328,12 +2782,13 @@ async function startApp() {
             for (const { event, phase } of orderBookEvents) {
                 try {
                     const m = event.method;
-                    const d = event.data.toJSON();
+                    const d = event.data;
+                    const dJson = d.toJSON ? d.toJSON() : d; // for structured fields like OrderBookId
                     const formattedTime = new Date().toLocaleString('es-ES');
                     let eventType = '', wallet = '', orderId = '', baseAsset = '', quoteAsset = '', side = '', price = '', amount = '';
 
                     // OrderBookId is always first field: { dexId, base, quote }
-                    const obId = d[0];
+                    const obId = dJson[0];
                     if (obId && typeof obId === 'object') {
                         const bInfo = getAssetInfo(obId.base);
                         const qInfo = getAssetInfo(obId.quote);
@@ -2343,39 +2798,42 @@ async function startApp() {
 
                     if (m === 'LimitOrderPlaced') {
                         eventType = 'placed';
-                        orderId = String(d[1] || '');
-                        wallet = d[2] || '';
-                        side = d[3] === 'Buy' ? 'buy' : 'sell';
-                        price = d[4] || '';
-                        amount = d[5] || '';
+                        orderId = d[1].toString();
+                        wallet = d[2].toString();
+                        const sideJson = dJson[3];
+                        side = sideJson === 'Buy' ? 'buy' : 'sell';
+                        price = d[4].toString();
+                        amount = d[5].toString();
                     } else if (m === 'LimitOrderCanceled') {
                         eventType = 'canceled';
-                        orderId = String(d[1] || '');
-                        wallet = d[2] || '';
+                        orderId = d[1].toString();
+                        wallet = d[2].toString();
                     } else if (m === 'LimitOrderExecuted') {
                         eventType = 'executed';
-                        orderId = String(d[1] || '');
-                        wallet = d[2] || '';
-                        side = d[3] === 'Buy' ? 'buy' : 'sell';
-                        price = d[4] || '';
-                        amount = d[5] || '';
+                        orderId = d[1].toString();
+                        wallet = d[2].toString();
+                        const sideJson = dJson[3];
+                        side = sideJson === 'Buy' ? 'buy' : 'sell';
+                        price = d[4].toString();
+                        amount = d[5].toString();
                     } else if (m === 'LimitOrderFilled') {
                         eventType = 'filled';
-                        orderId = String(d[1] || '');
-                        wallet = d[2] || '';
+                        orderId = d[1].toString();
+                        wallet = d[2].toString();
                     } else if (m === 'MarketOrderExecuted') {
                         eventType = 'market';
-                        wallet = d[1] || '';
-                        side = d[2] === 'Buy' ? 'buy' : 'sell';
-                        amount = d[3] || '';
-                        price = d[4] || '';
+                        wallet = d[1].toString();
+                        const sideJson = dJson[2];
+                        side = sideJson === 'Buy' ? 'buy' : 'sell';
+                        amount = d[3].toString();
+                        price = d[4].toString();
                     } else {
                         continue; // skip unknown events
                     }
 
                     // Normalize price/amount (remove commas from on-chain strings)
-                    if (typeof price === 'string') price = price.replace(/,/g, '');
-                    if (typeof amount === 'string') amount = amount.replace(/,/g, '');
+                    price = price.replace(/,/g, '');
+                    amount = amount.replace(/,/g, '');
 
                     const hash = (phase && phase.isApplyExtrinsic) ? signedBlock.block.extrinsics[phase.asApplyExtrinsic].hash.toHex() : '';
                     const extrinsicId = (phase && phase.isApplyExtrinsic) ? `${blockNumber}-${phase.asApplyExtrinsic.toString()}` : '';
@@ -2532,15 +2990,17 @@ async function startApp() {
         // Process transfers with on-demand pricing
         (async () => {
             for (const { event, phase } of limitedTransfers) {
-                const data = event.data.toJSON();
+                const d = event.data;
                 let from, to, amountStr, assetId;
                 if (event.section === 'balances') {
-                    from = data[0]; to = data[1]; amountStr = data[2];
+                    from = d[0].toString(); to = d[1].toString(); amountStr = d[2].toString();
                     assetId = '0x0200000000000000000000000000000000000000000000000000000000000000';
                 } else {
-                    assetId = data[0];
-                    if (typeof assetId === 'object' && assetId.code) assetId = assetId.code;
-                    from = data[1]; to = data[2]; amountStr = data[3];
+                    // tokens.Transfer: [assetId, from, to, amount]
+                    const assetRaw = d[0];
+                    const assetJson = assetRaw.toJSON ? assetRaw.toJSON() : assetRaw;
+                    assetId = (typeof assetJson === 'object' && assetJson.code) ? assetJson.code : assetRaw.toString();
+                    from = d[1].toString(); to = d[2].toString(); amountStr = d[3].toString();
                 }
 
                 if (from.startsWith('cnTQ') || to.startsWith('cnTQ')) continue;

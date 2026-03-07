@@ -18,6 +18,16 @@ const BLOCKS_PER_BATCH = 100;
 const DELAY_BETWEEN_BATCHES_MS = 500;
 const PROGRESS_SAVE_INTERVAL = 500;
 const SAFETY_OFFSET = 1;
+const SUPPLY_SNAPSHOT_INTERVAL = 1800; // snapshot cada 1800 bloques ≈ 3 horas
+
+// Supply tokens for historical snapshot tracking
+const SUPPLY_TOKENS = {
+    XOR:   { assetId: '0x0200000000000000000000000000000000000000000000000000000000000000', decimals: 18, isNative: true },
+    VAL:   { assetId: null, decimals: 18 },
+    PSWAP: { assetId: null, decimals: 18 },
+    TBCD:  { assetId: '0x02000a0000000000000000000000000000000000000000000000000000000000', decimals: 18 },
+    KUSD:  { assetId: '0x0200080000000000000000000000000000000000000000000000000000000000', decimals: 18 }
+};
 
 // Database - writes to database.db (the history DB that the main app reads)
 const DB_PATH = path.join(__dirname, 'database.db');
@@ -126,6 +136,9 @@ function initDB() {
         usd_value REAL
     )`);
 
+    // Migration: add denom_factor column for denomination-aware XOR pricing
+    try { db.exec(`ALTER TABLE fees ADD COLUMN denom_factor TEXT DEFAULT '1'`); } catch (e) { /* already exists */ }
+
     db.exec(`CREATE TABLE IF NOT EXISTS order_book_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER,
@@ -188,6 +201,16 @@ function initDB() {
         CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type);
     `);
 
+    // Supply snapshots table for historical supply tracking
+    db.exec(`CREATE TABLE IF NOT EXISTS supply_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        symbol TEXT,
+        asset_id TEXT,
+        total_supply REAL
+    )`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_supply_symbol_timestamp ON supply_snapshots(symbol, timestamp)`);
+
     // Prepare statements (compiled once, reused for every insert)
     stmts.insertSwap = db.prepare(`INSERT INTO swaps (timestamp, formatted_time, block, wallet, in_symbol, in_amount, in_logo, in_usd, out_symbol, out_amount, out_logo, out_usd, hash, extrinsic_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -201,8 +224,8 @@ function initDB() {
     stmts.insertLiquidity = db.prepare(`INSERT INTO liquidity_events (timestamp, block, wallet, pool_base, pool_target, base_amount, target_amount, usd_value, type, hash, extrinsic_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
-    stmts.insertFee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value)
-        VALUES (?, ?, ?, ?, ?)`);
+    stmts.insertFee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value, denom_factor)
+        VALUES (?, ?, ?, ?, ?, ?)`);
 
     stmts.insertExtrinsic = db.prepare(`INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -215,6 +238,7 @@ function initDB() {
     stmts.checkBlockBridges = db.prepare('SELECT 1 FROM bridges WHERE block = ? LIMIT 1');
     stmts.checkBlockLiquidity = db.prepare('SELECT 1 FROM liquidity_events WHERE block = ? LIMIT 1');
     stmts.checkBlockExtrinsics = db.prepare('SELECT 1 FROM extrinsics WHERE block = ? LIMIT 1');
+    stmts.insertSupplySnapshot = db.prepare('INSERT INTO supply_snapshots (timestamp, symbol, asset_id, total_supply) VALUES (?, ?, ?, ?)');
 
     console.log('✅ Tables, indices, and prepared statements ready.');
 }
@@ -285,7 +309,7 @@ function insertFee(f) {
         else if (f.extrinsicType.includes('ethBridge') || f.extrinsicType.includes('bridge')) type = 'Bridge';
         else if (f.extrinsicType.includes('assets') || f.extrinsicType.includes('balances')) type = 'Transfer';
     }
-    stmts.insertFee.run(f.timestamp, f.block, type, parseFloat(f.feeXor) || 0, f.feeUsd || 0);
+    stmts.insertFee.run(f.timestamp, f.block, type, parseFloat(f.feeXor) || 0, f.feeUsd || 0, f.denomFactor || '1');
     stats.fees++;
 }
 
@@ -329,6 +353,41 @@ async function loadAssets() {
     }
 }
 
+// Resolve VAL/PSWAP asset IDs from whitelist
+function resolveSupplyTokenIds() {
+    for (const a of ASSETS) {
+        if (a.symbol === 'VAL' && !SUPPLY_TOKENS.VAL.assetId) SUPPLY_TOKENS.VAL.assetId = a.assetId;
+        if (a.symbol === 'PSWAP' && !SUPPLY_TOKENS.PSWAP.assetId) SUPPLY_TOKENS.PSWAP.assetId = a.assetId;
+    }
+    if (SUPPLY_TOKENS.VAL.assetId) console.log(`🔥 Supply: VAL assetId resolved: ${SUPPLY_TOKENS.VAL.assetId.substring(0, 12)}...`);
+    if (SUPPLY_TOKENS.PSWAP.assetId) console.log(`🔥 Supply: PSWAP assetId resolved: ${SUPPLY_TOKENS.PSWAP.assetId.substring(0, 12)}...`);
+}
+
+// Take historical supply snapshot at a specific block
+async function takeHistoricalSupplySnapshot(blockNumber, blockHash, blockTimestamp) {
+    try {
+        const apiAt = await api.at(blockHash);
+        for (const [symbol, config] of Object.entries(SUPPLY_TOKENS)) {
+            if (!config.assetId && !config.isNative) continue;
+            try {
+                let raw;
+                if (config.isNative) {
+                    raw = await apiAt.query.balances.totalIssuance();
+                } else {
+                    raw = await apiAt.query.tokens.totalIssuance({ code: config.assetId });
+                }
+                const rawStr = raw.toString().replace(/,/g, '');
+                const supply = new BigNumber(rawStr).div(new BigNumber(10).pow(config.decimals)).toNumber();
+                if (supply > 0) {
+                    stmts.insertSupplySnapshot.run(blockTimestamp, symbol, config.assetId || '', supply);
+                }
+            } catch (e) { /* token may not exist at this block */ }
+        }
+    } catch (e) {
+        // Silently skip — some early blocks may not have these pallets
+    }
+}
+
 function getAssetInfo(rawId) {
     if (!rawId) return null;
     let str = rawId.toString();
@@ -346,10 +405,9 @@ async function getPriceInDaiAtBlock(assetId, decimals, blockHash) {
             const xstusdPrice = await getPriceInDaiAtBlock(XSTUS_ID, 18, blockHash);
             if (xstusdPrice === 0) return 0;
             const reserves = await apiAt.query.poolXYK.reserves(XSTUS_ID, XST_ID);
-            const jsonData = reserves.toJSON();
-            if (jsonData && jsonData.length >= 2) {
-                const baseRes = new BigNumber(jsonData[0]);
-                const targetRes = new BigNumber(jsonData[1]);
+            if (reserves && reserves.length >= 2) {
+                const baseRes = new BigNumber(reserves[0].toString());
+                const targetRes = new BigNumber(reserves[1].toString());
                 if (!targetRes.isZero()) {
                     return baseRes.div('1e18').div(targetRes.div('1e18')).toNumber() * xstusdPrice;
                 }
@@ -370,10 +428,9 @@ async function getPriceInDaiAtBlock(assetId, decimals, blockHash) {
 async function getXorPriceInDai(apiAt) {
     try {
         const reserves = await apiAt.query.poolXYK.reserves(XOR_ID, DAI_ID);
-        const jsonData = reserves.toJSON();
-        if (!jsonData || jsonData.length < 2) return 0;
-        const xorRes = new BigNumber(jsonData[0]);
-        const daiRes = new BigNumber(jsonData[1]);
+        if (!reserves || reserves.length < 2) return 0;
+        const xorRes = new BigNumber(reserves[0].toString());
+        const daiRes = new BigNumber(reserves[1].toString());
         if (xorRes.isZero()) return 0;
         return daiRes.div(xorRes).toNumber();
     } catch (e) { return 0; }
@@ -382,10 +439,9 @@ async function getXorPriceInDai(apiAt) {
 async function getTokenPriceInXor(apiAt, assetId, tokenDecimals) {
     try {
         const reserves = await apiAt.query.poolXYK.reserves(XOR_ID, assetId);
-        const jsonData = reserves.toJSON();
-        if (!jsonData || jsonData.length < 2) return 0;
-        const xorRes = new BigNumber(jsonData[0]);
-        const tokenRes = new BigNumber(jsonData[1]);
+        if (!reserves || reserves.length < 2) return 0;
+        const xorRes = new BigNumber(reserves[0].toString());
+        const tokenRes = new BigNumber(reserves[1].toString());
         if (tokenRes.isZero()) return 0;
         return xorRes.div('1e18').div(tokenRes.div(new BigNumber(10).pow(tokenDecimals))).toNumber();
     } catch (e) { return 0; }
@@ -423,12 +479,13 @@ async function processBlock(blockNumber) {
 
         for (const { event, phase } of swapEvents) {
             try {
-                const data = event.data.toJSON();
-                const wallet = data[0];
-                const inAssetId = data[2]?.code || data[2];
-                const outAssetId = data[3]?.code || data[3];
-                const inAmountRaw = data[4];
-                const outAmountRaw = data[5];
+                const d = event.data;
+                const dJson = d.toJSON ? d.toJSON() : d; // for structured fields (assetId)
+                const wallet = d[0].toString();
+                const inAssetId = (dJson[2] && typeof dJson[2] === 'object' && dJson[2].code) ? dJson[2].code : d[2].toString();
+                const outAssetId = (dJson[3] && typeof dJson[3] === 'object' && dJson[3].code) ? dJson[3].code : d[3].toString();
+                const inAmountRaw = d[4].toString();
+                const outAmountRaw = d[5].toString();
 
                 const inAsset = getAssetInfo(inAssetId);
                 const outAsset = getAssetInfo(outAssetId);
@@ -474,19 +531,20 @@ async function processBlock(blockNumber) {
 
         for (const { event, phase } of transferEvents) {
             try {
-                const data = event.data.toJSON();
+                const d = event.data;
                 let from, to, amountRaw, assetId;
 
                 if (event.section === 'balances') {
-                    from = data[0]; to = data[1]; amountRaw = data[2];
+                    from = d[0].toString(); to = d[1].toString(); amountRaw = d[2].toString();
                     assetId = XOR_ID;
                 } else {
-                    assetId = data[0]?.code || data[0];
-                    from = data[1]; to = data[2]; amountRaw = data[3];
+                    const assetJson = d[0].toJSON ? d[0].toJSON() : d[0];
+                    assetId = (typeof assetJson === 'object' && assetJson.code) ? assetJson.code : d[0].toString();
+                    from = d[1].toString(); to = d[2].toString(); amountRaw = d[3].toString();
                 }
 
-                if (typeof from === 'string' && from.startsWith('cnTQ')) continue;
-                if (typeof to === 'string' && to.startsWith('cnTQ')) continue;
+                if (from.startsWith('cnTQ')) continue;
+                if (to.startsWith('cnTQ')) continue;
 
                 const asset = getAssetInfo(assetId);
                 if (asset) {
@@ -628,17 +686,18 @@ async function processBlock(blockNumber) {
 
         for (const { event, phase } of liquidityEvents) {
             try {
-                const data = event.data.toJSON();
-                const wallet = data[0];
-                const baseAssetId = data[2]?.code || data[2];
-                const targetAssetId = data[3]?.code || data[3];
+                const d = event.data;
+                const dJson = d.toJSON ? d.toJSON() : d;
+                const wallet = d[0].toString();
+                const baseAssetId = (dJson[2] && typeof dJson[2] === 'object' && dJson[2].code) ? dJson[2].code : d[2].toString();
+                const targetAssetId = (dJson[3] && typeof dJson[3] === 'object' && dJson[3].code) ? dJson[3].code : d[3].toString();
 
                 const baseAsset = getAssetInfo(baseAssetId);
                 const targetAsset = getAssetInfo(targetAssetId);
 
                 if (baseAsset && targetAsset) {
-                    const baseNum = new BigNumber(data[4]).div(new BigNumber(10).pow(baseAsset.decimals || 18));
-                    const targetNum = new BigNumber(data[5]).div(new BigNumber(10).pow(targetAsset.decimals || 18));
+                    const baseNum = new BigNumber(d[4].toString()).div(new BigNumber(10).pow(baseAsset.decimals || 18));
+                    const targetNum = new BigNumber(d[5].toString()).div(new BigNumber(10).pow(targetAsset.decimals || 18));
 
                     const basePrice = await getPriceInDaiAtBlock(baseAssetId, baseAsset.decimals || 18, blockHash);
                     const targetPrice = await getPriceInDaiAtBlock(targetAssetId, targetAsset.decimals || 18, blockHash);
@@ -738,10 +797,11 @@ async function processBlock(blockNumber) {
         for (const { event, phase } of orderBookEvts) {
             try {
                 const m = event.method;
-                const d = event.data.toJSON();
+                const d = event.data;
+                const dJson = d.toJSON ? d.toJSON() : d;
                 let eventType = '', wallet = '', orderId = '', baseAsset = '', quoteAsset = '', side = '', price = '', amount = '';
 
-                const obId = d[0];
+                const obId = dJson[0];
                 if (obId && typeof obId === 'object') {
                     const bInfo = getAssetInfo(obId.base);
                     const qInfo = getAssetInfo(obId.quote);
@@ -750,22 +810,25 @@ async function processBlock(blockNumber) {
                 }
 
                 if (m === 'LimitOrderPlaced') {
-                    eventType = 'placed'; orderId = String(d[1] || ''); wallet = d[2] || '';
-                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                    eventType = 'placed'; orderId = d[1].toString(); wallet = d[2].toString();
+                    const sideJson = dJson[3]; side = sideJson === 'Buy' ? 'buy' : 'sell';
+                    price = d[4].toString(); amount = d[5].toString();
                 } else if (m === 'LimitOrderCanceled') {
-                    eventType = 'canceled'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                    eventType = 'canceled'; orderId = d[1].toString(); wallet = d[2].toString();
                 } else if (m === 'LimitOrderExecuted') {
-                    eventType = 'executed'; orderId = String(d[1] || ''); wallet = d[2] || '';
-                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                    eventType = 'executed'; orderId = d[1].toString(); wallet = d[2].toString();
+                    const sideJson = dJson[3]; side = sideJson === 'Buy' ? 'buy' : 'sell';
+                    price = d[4].toString(); amount = d[5].toString();
                 } else if (m === 'LimitOrderFilled') {
-                    eventType = 'filled'; orderId = String(d[1] || ''); wallet = d[2] || '';
+                    eventType = 'filled'; orderId = d[1].toString(); wallet = d[2].toString();
                 } else if (m === 'MarketOrderExecuted') {
-                    eventType = 'market'; wallet = d[1] || '';
-                    side = d[2] === 'Buy' ? 'buy' : 'sell'; amount = d[3] || ''; price = d[4] || '';
+                    eventType = 'market'; wallet = d[1].toString();
+                    const sideJson = dJson[2]; side = sideJson === 'Buy' ? 'buy' : 'sell';
+                    amount = d[3].toString(); price = d[4].toString();
                 } else { continue; }
 
-                if (typeof price === 'string') price = price.replace(/,/g, '');
-                if (typeof amount === 'string') amount = amount.replace(/,/g, '');
+                price = price.replace(/,/g, '');
+                amount = amount.replace(/,/g, '');
 
                 let hash = '', extrinsic_id = '';
                 if (phase && phase.isApplyExtrinsic) {
@@ -789,13 +852,24 @@ async function processBlock(blockNumber) {
             event.section === 'transactionPayment' && event.method === 'TransactionFeePaid'
         );
 
+        // Query denomination factor once per block (for XOR price normalization)
+        let blockDenomFactor = '1';
+        if (feeEvents.length > 0) {
+            try {
+                const apiAt = await api.at(blockHash);
+                const denom = await apiAt.query.denomination.denominator();
+                blockDenomFactor = denom.toString().replace(/,/g, '');
+            } catch (e) { /* denomination pallet may not exist in early blocks */ }
+        }
+
         for (const { event, phase } of feeEvents) {
             try {
-                const data = event.data.toJSON();
-                const feeRaw = data.actual_fee || data.actualFee || data[1];
+                const d = event.data;
+                // TransactionFeePaid: [who, actual_fee, tip] — use toString() for u128 precision
+                const feeRaw = d[1].toString();
 
-                if (feeRaw && feeRaw !== '0' && feeRaw !== 0) {
-                    const feeNum = new BigNumber(String(feeRaw)).div(new BigNumber(10).pow(18));
+                if (feeRaw && feeRaw !== '0') {
+                    const feeNum = new BigNumber(feeRaw).div(new BigNumber(10).pow(18));
                     const xorPrice = await getPriceInDaiAtBlock(XOR_ID, 18, blockHash);
 
                     let extrinsicType = '';
@@ -813,7 +887,7 @@ async function processBlock(blockNumber) {
                     pendingFees.push({
                         timestamp: blockTimestamp, block: blockNumber,
                         feeXor: feeNum.toFixed(8), feeUsd: feeNum.times(xorPrice).toNumber(),
-                        extrinsicType
+                        extrinsicType, denomFactor: blockDenomFactor
                     });
                 }
             } catch (e) { }
@@ -911,6 +985,7 @@ async function runBackfill() {
 
     initDB();
     await loadAssets();
+    resolveSupplyTokenIds();
 
     const provider = new WsProvider(WS_ENDPOINT);
     api = await ApiPromise.create(options({ provider }));
@@ -951,6 +1026,13 @@ async function runBackfill() {
 
             if (blocksProcessedThisSession % PROGRESS_SAVE_INTERVAL === 0) {
                 saveState(state);
+            }
+
+            // Supply snapshot every SUPPLY_SNAPSHOT_INTERVAL blocks
+            if (b % SUPPLY_SNAPSHOT_INTERVAL === 0) {
+                const snapHash = await api.rpc.chain.getBlockHash(b);
+                const snapTs = await api.query.timestamp.now.at(snapHash);
+                await takeHistoricalSupplySnapshot(b, snapHash, snapTs.toNumber());
             }
         }
         await new Promise(r => setTimeout(r, DELAY_BETWEEN_BATCHES_MS));
