@@ -66,6 +66,8 @@ function initDB() {
 
                     // Add error_msg column to history extrinsics if missing
                     try { db.exec(`ALTER TABLE history.extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
+                    // Add denom_factor column to history fees if missing
+                    try { db.exec(`ALTER TABLE history.fees ADD COLUMN denom_factor TEXT DEFAULT '1'`); } catch (e) { /* already exists */ }
                 } catch (e) {
                     console.warn('⚠️ Could not attach history DB:', e.message);
                 }
@@ -495,13 +497,22 @@ function insertFee(f) {
 }
 
 // Fix legacy fees that have denom_factor='1' (from before we tracked it)
+// Updates both main DB and history DB (attached as 'history')
 function fixFeeDenomFactor(correctFactor) {
+    let total = 0;
     try {
-        const result = db.prepare(
-            `UPDATE fees SET denom_factor = ? WHERE denom_factor = '1' OR denom_factor IS NULL`
+        const r1 = db.prepare(
+            `UPDATE main.fees SET denom_factor = ? WHERE denom_factor = '1' OR denom_factor IS NULL`
         ).run(correctFactor);
-        return result.changes;
-    } catch (e) { return 0; }
+        total += r1.changes;
+    } catch (e) { /* ignore */ }
+    try {
+        const r2 = db.prepare(
+            `UPDATE history.fees SET denom_factor = ? WHERE denom_factor = '1' OR denom_factor IS NULL`
+        ).run(correctFactor);
+        total += r2.changes;
+    } catch (e) { /* history DB may not have fees table or denom_factor column */ }
+    return total;
 }
 
 function insertExtrinsic(e) {
