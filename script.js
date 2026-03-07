@@ -79,7 +79,13 @@ const TRANSLATIONS = {
         network_stats_btn: "Estadísticas de Red", timeframe: "Temporalidad:", current_block: "Bloque Actual", live: "En Vivo", bridges: "Puentes", time_filtered: "Filtrado", whale_leaderboard: "🐳 Ranking de Acumulación", loading_whales: "Cargando Ballenas...", network_info: "📊 Info de Red", active_accounts: "Cuentas Activas", swap_volume: "Volumen Swaps (KUSD)", lp_volume: "Nuevo Vol. LP", transfer_volume: "Volumen Transferencias", stablecoin_monitor: "⚖️ Monitor de Stablecoins", deviation_target: "* Desviación del objetivo $1.00", trending_tokens: "📈 Tokens en Tendencia", network_fees: "💸 Tarifas de Red Pagadas", total_xor: "Total XOR", total_usd: "Total USD", network: "Red", asset: "Activo",
         providers: "Proveedores", activity: "Actividad", rank: "Rango", wallet: "Billetera", liquidity_shares: "Cuota de Liquidez", pool_details: "Detalles del Pool", no_providers_found: "No se encontraron proveedores", no_activity_found: "No se encontró actividad", shares: "Cuota",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Todos los Pallets", signer: "Firmante", result: "Resultado", extrinsic_details: "Detalles del Extrinsic",
-        tab_governance: "Gobernanza", gov_council: "Consejo", gov_elections: "Elecciones", gov_motions: "Mociones", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_council_members: "Miembros del Consejo", gov_elected: "Miembros Electos", gov_candidates: "Candidatos", gov_runners_up: "Suplentes (Runners-up)", gov_deposit: "Deposito (XOR)", gov_council_motions: "Mociones del Consejo", gov_tech_motions: "Mociones del Comite Tecnico", gov_referendums: "Referendums Activos", gov_proposals: "Propuestas Publicas", gov_tech_members: "Miembros del Comite Tecnico", gov_no_motions: "No hay mociones activas", gov_no_referendums: "No hay referendums activos", gov_no_proposals: "No hay propuestas activas", gov_next_election: "Proxima Eleccion", gov_term_duration: "Duracion del Mandato", gov_seats: "Asientos", gov_rounds: "Rondas Completadas", gov_threshold: "Umbral", gov_aye: "A favor", gov_nay: "En contra", gov_turnout: "Participacion", gov_ends_block: "Finaliza bloque", gov_time_left: "Tiempo restante"
+        tab_governance: "Gobernanza", gov_council: "Consejo", gov_elections: "Elecciones", gov_motions: "Mociones", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_council_members: "Miembros del Consejo", gov_elected: "Miembros Electos", gov_candidates: "Candidatos", gov_runners_up: "Suplentes (Runners-up)", gov_deposit: "Deposito (XOR)", gov_council_motions: "Mociones del Consejo", gov_tech_motions: "Mociones del Comite Tecnico", gov_referendums: "Referendums Activos", gov_proposals: "Propuestas Publicas", gov_tech_members: "Miembros del Comite Tecnico", gov_no_motions: "No hay mociones activas", gov_no_referendums: "No hay referendums activos", gov_no_proposals: "No hay propuestas activas", gov_next_election: "Proxima Eleccion", gov_term_duration: "Duracion del Mandato", gov_seats: "Asientos", gov_rounds: "Rondas Completadas", gov_threshold: "Umbral", gov_aye: "A favor", gov_nay: "En contra", gov_turnout: "Participacion", gov_ends_block: "Finaliza bloque", gov_time_left: "Tiempo restante",
+        tab_burns: "Quemado", burn_total_burned: "Total XOR Quemado (Tarifas de Red)", burn_supply_history: "Historial de Supply", burn_top_holders: "Top Holders", burn_current_supply: "Supply Actual", burn_rate_24h: "Quemado 24h", burn_rate_7d: "Quemado 7d", burn_rate_30d: "Quemado 30d", burn_rate_all: "Total Quemado",
+        burn_xor_supply: "XOR en Circulación", burn_xor_supply_sub: "paquetes XOR (empaquetado)", burn_xor_unpacked: "Supply XOR Desempaquetado", burn_xor_price: "Precio / Paquete", burn_xor_price_sub: "paquete", burn_xor_factor: "Factor Empaquetado", burn_xor_factor_sub: "auto-detectado on-chain", burn_xor_pack_eq: "1 paquete =", burn_xor_original: "XOR originales", burn_no_change: "Sin cambios detectados", burn_supply_decreased: "Supply disminuyó", burn_xor_hero: "paquetes XOR en circulación",
+        burn_loading: "Cargando...", burn_loading_holders: "Cargando holders...", burn_no_holders: "No hay datos de holders", burn_error_supply: "Error al cargar datos de supply", burn_error_holders: "Error al cargar holders", burn_collecting_data: "Recopilando datos... Primer snapshot en ~15s", burn_loading_flow: "Cargando flujo de fees...", burn_supply_label: "Supply", burn_page: "Página", burn_xor_fees: "TARIFAS XOR", burn_furnace: "HORNO", burn_xor_burn: "Quema XOR", burn_val_burn: "Quema VAL", burn_kusd_buy: "Compra KUSD", burn_tbcd_buy: "Compra TBCD", burn_referrer: "Referido", burn_xor_mcap: "Market Cap XOR",
+        usd_value_at_tx: "Valor USD (al momento de TX)",
+        search_method: "Buscar método...",
+        max_sections_alert: "Máximo 5 secciones permitidas. Desactiva una primero."
     },
     en: {
         tab_balance: "Balance", tab_swaps: "Swaps", tab_transfers: "Transfers", tab_tokens: "Tokens", tab_liquidity: "Liquidity", tab_bridges: "Bridges", total_net_worth: "Total Net Worth", header_my_wallets: "💼 My Wallets", btn_add_wallet: "+ Add Wallet", header_watch_wallets: "👀 Watched Wallets", live_transfers: "💸 Live Transfers", time: "Time", from: "From", amount: "Amount", to: "To", waiting_activity: "Waiting for activity...", previous: "Previous", next: "Next", page: "Page", liquidity_pools: "🌊 Liquidity (Pools)", all: "All", total_pools: "Total Pools:", pair: "Pair", reserves: "Reserves", action: "Action", loading_pools: "Loading pools...", live_swaps: "⚡ Live Swaps", all_tokens: "All Tokens", search_token: "Search token...", input: "Input", output: "Output", account: "Account", refresh: "Refresh", favorites: "⭐ Favorites", search_token_name_symbol_id: "Search by name, symbol or ID...", asset: "Asset", price: "Price", loading: "Loading...", holders: "Holders", rank: "Rank", wallet: "Wallet", balance: "Balance", add_wallet: "Add Wallet", sora_address: "SORA Address", name_alias: "Name (Alias)", example_savings: "Ex: Savings", type: "Type", my_wallet_total: "My Wallet (Adds to total)", watched_wallet_tracking: "Watched (Tracking)", save_wallet: "Save Wallet", wallet: "Wallet", assets: "Assets", swaps: "Swaps", transfers: "Transfers", other: "Other", no_wallets_saved: "You have no wallets saved.", not_watching_wallets: "You are not watching any wallets.", no_favorites_yet: "You have no favorites yet.", no_data: "No data.", no_swaps_found: "No swaps found.", no_assets_found: "No assets found.", no_recent_swaps: "No recent swaps.", no_recent_transfers: "No recent transfers.", error_loading_data: "Error loading data", error_loading_pools: "Error loading pools", error_loading: "Error loading", page_x_of_y: "Page {current} of {total}", filter: "Filter:", all_tokens_star: "🌟 All", received: "⬇ RECEIVED", sent: "⬆ SENT", accounts: "accounts", chart: "Chart", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend (Fees)",
@@ -87,7 +93,13 @@ const TRANSLATIONS = {
         network_stats_btn: "Network Stats", timeframe: "Timeframe:", current_block: "Current Block", live: "Live", bridges: "Bridges", time_filtered: "Filtered", whale_leaderboard: "🐳 Whale Accumulation Ranking", loading_whales: "Loading Whales...", network_info: "📊 Network Info", active_accounts: "Active Accounts", swap_volume: "Swap Volume (KUSD)", lp_volume: "New LP Volume", transfer_volume: "Transfer Volume", stablecoin_monitor: "⚖️ Stablecoin Monitor", deviation_target: "* Deviation from $1.00 target", trending_tokens: "📈 Trending Tokens", network_fees: "💸 Network Fees Paid", total_xor: "Total XOR", total_usd: "Total USD", network: "Network", asset: "Asset",
         providers: "Providers", activity: "Activity", rank: "Rank", wallet: "Wallet", liquidity_shares: "Liquidity Shares", pool_details: "Pool Details", no_providers_found: "No providers found", no_activity_found: "No activity found", shares: "Shares",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "All Pallets", signer: "Signer", result: "Result", extrinsic_details: "Extrinsic Details",
-        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_council_members: "Council Members", gov_elected: "Elected Members", gov_candidates: "Candidates", gov_runners_up: "Runners-up", gov_deposit: "Deposit (XOR)", gov_council_motions: "Council Motions", gov_tech_motions: "Technical Committee Motions", gov_referendums: "Active Referendums", gov_proposals: "Public Proposals", gov_tech_members: "Technical Committee Members", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_next_election: "Next Election", gov_term_duration: "Term Duration", gov_seats: "Seats", gov_rounds: "Rounds Completed", gov_threshold: "Threshold", gov_aye: "Aye", gov_nay: "Nay", gov_turnout: "Turnout", gov_ends_block: "Ends at block", gov_time_left: "Time left"
+        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_council_members: "Council Members", gov_elected: "Elected Members", gov_candidates: "Candidates", gov_runners_up: "Runners-up", gov_deposit: "Deposit (XOR)", gov_council_motions: "Council Motions", gov_tech_motions: "Technical Committee Motions", gov_referendums: "Active Referendums", gov_proposals: "Public Proposals", gov_tech_members: "Technical Committee Members", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_next_election: "Next Election", gov_term_duration: "Term Duration", gov_seats: "Seats", gov_rounds: "Rounds Completed", gov_threshold: "Threshold", gov_aye: "Aye", gov_nay: "Nay", gov_turnout: "Turnout", gov_ends_block: "Ends at block", gov_time_left: "Time left",
+        tab_burns: "Burn Tracker", burn_total_burned: "Total XOR Burned (Network Fees)", burn_supply_history: "Supply History", burn_top_holders: "Top Holders", burn_current_supply: "Current Supply", burn_rate_24h: "Burned 24h", burn_rate_7d: "Burned 7d", burn_rate_30d: "Burned 30d", burn_rate_all: "Total Burned",
+        burn_xor_supply: "XOR in Circulation", burn_xor_supply_sub: "XOR packages (packaged)", burn_xor_unpacked: "Unpacked XOR Supply", burn_xor_price: "Price / Package", burn_xor_price_sub: "package", burn_xor_factor: "Packaging Factor", burn_xor_factor_sub: "auto-detected on-chain", burn_xor_pack_eq: "1 package =", burn_xor_original: "original XOR", burn_no_change: "No change detected", burn_supply_decreased: "Supply decreased", burn_xor_hero: "XOR packages in circulation",
+        burn_loading: "Loading...", burn_loading_holders: "Loading holders...", burn_no_holders: "No holder data available", burn_error_supply: "Error loading supply data", burn_error_holders: "Error loading holders", burn_collecting_data: "Collecting data... First snapshot in ~15s", burn_loading_flow: "Loading fee flow...", burn_supply_label: "Supply", burn_page: "Page", burn_xor_fees: "XOR FEES", burn_furnace: "FURNACE", burn_xor_burn: "XOR Burn", burn_val_burn: "VAL Burn", burn_kusd_buy: "KUSD Buy", burn_tbcd_buy: "TBCD Buy", burn_referrer: "Referrer", burn_xor_mcap: "XOR Market Cap",
+        usd_value_at_tx: "USD Value (at TX time)",
+        search_method: "Search method...",
+        max_sections_alert: "Maximum 5 sections allowed. Disable one first."
     },
     jp: {
         tab_balance: "残高", tab_swaps: "スワップ", tab_transfers: "転送", tab_tokens: "トークン", tab_liquidity: "流動性", tab_bridges: "ブリッジ", total_net_worth: "総資産", header_my_wallets: "💼 マイウォレット", btn_add_wallet: "+ ウォレット追加", header_watch_wallets: "👀 監視ウォレット", live_transfers: "💸 ライブ転送", time: "時間", from: "送信元", amount: "金額", to: "送信先", waiting_activity: "アクティビティ待機中...", previous: "前へ", next: "次へ", page: "ページ", liquidity_pools: "🌊 流動性 (プール)", all: "すべて", total_pools: "プール総数:", pair: "ペア", reserves: "準備金", action: "アクション", loading_pools: "プールを読み込み中...", live_swaps: "⚡ ライブスワップ", all_tokens: "すべてのトークン", search_token: "トークン検索...", input: "入力", output: "出力", account: "アカウント", refresh: "更新", favorites: "⭐ お気に入り", search_token_name_symbol_id: "名前、シンボル、IDで検索...", asset: "資産", price: "価格", loading: "読み込み中...", holders: "ホルダー", rank: "ランク", wallet: "ウォレット", balance: "残高", add_wallet: "ウォレット追加", sora_address: "SORAアドレス", name_alias: "名前 (エイリアス)", example_savings: "例: 貯金", type: "タイプ", my_wallet_total: "マイウォレット (合計に加算)", watched_wallet_tracking: "監視 (追跡のみ)", save_wallet: "ウォレット保存", wallet: "ウォレット", assets: "資産", swaps: "スワップ", transfers: "転送", other: "その他", no_wallets_saved: "保存されたウォレットはありません。", not_watching_wallets: "監視中のウォレットはありません。", no_favorites_yet: "お気に入りはまだありません。", no_data: "データなし。", no_swaps_found: "スワップが見つかりません。", no_assets_found: "資産が見つかりません。", no_recent_swaps: "最近のスワップはありません。", no_recent_transfers: "最近の転送はありません。", error_loading_data: "データの読み込みエラー", error_loading_pools: "プールの読み込みエラー", error_loading: "読み込みエラー", page_x_of_y: "ページ {current} / {total}", filter: "フィルター:", all_tokens_star: "🌟 すべて", received: "⬇ 受信", sent: "⬆ 送信", accounts: "アカウント", chart: "チャート", fees_pie_title: "種類別のXOR焼却", fees_line_title: "活動傾向 (手数料)",
@@ -95,28 +107,35 @@ const TRANSLATIONS = {
         network_stats_btn: "ネットワーク統計", timeframe: "期間:", current_block: "現在のブロック", live: "ライブ", bridges: "ブリッジ", time_filtered: "フィルター済", whale_leaderboard: "🐳 クジラ蓄積ランキング", loading_whales: "クジラを読み込み中...", network_health: "⚡ ネットワークの状態", global_volume: "グローバルボリューム", active_users: "アクティブユーザー", est_tps: "推定TPS", stablecoin_monitor: "⚖️ ステーブルコイン監視", deviation_target: "* $1.00ターゲットからの乖離", trending_tokens: "📈 トレンドトークン", network_fees: "💸 支払われたネットワーク料金", total_xor: "合計 XOR", total_usd: "合計 USD", bridges: "ブリッジ", network: "ネットワーク", asset: "資産",
         providers: "プロバイダー", activity: "アクティビティ", rank: "ランク", wallet: "ウォレット", liquidity_shares: "流動性シェア", pool_details: "プールの詳細", no_providers_found: "プロバイダーが見つかりません", no_activity_found: "アクティビティが見つかりません", shares: "シェア",
         tab_orderbook: "Order Book", tab_extrinsics: "エクストリンシクス", all_pallets: "全パレット", signer: "署名者", result: "結果", extrinsic_details: "エクストリンシクス詳細",
-        tab_governance: "ガバナンス", gov_council: "カウンシル", gov_elections: "選挙", gov_motions: "動議", gov_democracy: "民主主義", gov_tech_committee: "技術委員会", gov_council_members: "カウンシルメンバー", gov_elected: "選出メンバー", gov_candidates: "候補者", gov_runners_up: "次点者", gov_no_motions: "アクティブな動議はありません", gov_no_referendums: "アクティブな住民投票はありません", gov_no_proposals: "アクティブな提案はありません", gov_referendums: "住民投票", gov_proposals: "公開提案", gov_next_election: "次の選挙", gov_aye: "賛成", gov_nay: "反対"
+        tab_governance: "ガバナンス", gov_council: "カウンシル", gov_elections: "選挙", gov_motions: "動議", gov_democracy: "民主主義", gov_tech_committee: "技術委員会", gov_council_members: "カウンシルメンバー", gov_elected: "選出メンバー", gov_candidates: "候補者", gov_runners_up: "次点者", gov_no_motions: "アクティブな動議はありません", gov_no_referendums: "アクティブな住民投票はありません", gov_no_proposals: "アクティブな提案はありません", gov_referendums: "住民投票", gov_proposals: "公開提案", gov_next_election: "次の選挙", gov_aye: "賛成", gov_nay: "反対",
+        usd_value_at_tx: "USD価値 (TX時点)",
+        search_method: "メソッド検索..."
     },
     pt: {
         tab_balance: "Saldo", tab_swaps: "Trocas", tab_transfers: "Transferências", tab_tokens: "Tokens", tab_liquidity: "Liquidez", tab_bridges: "Pontes", total_net_worth: "Patrimônio Total", header_my_wallets: "💼 Minhas Carteiras", btn_add_wallet: "+ Adicionar Carteira", header_watch_wallets: "👀 Carteiras Observadas", live_transfers: "💸 Transferências ao Vivo", time: "Hora", from: "De", amount: "Quantia", to: "Para", waiting_activity: "Aguardando atividade...", previous: "Anterior", next: "Próximo", page: "Página", liquidity_pools: "🌊 Liquidez (Pools)", all: "Todos", total_pools: "Total de Pools:", pair: "Par", reserves: "Reservas", action: "Ação", loading_pools: "Carregando pools...", live_swaps: "⚡ Trocas ao Vivo", all_tokens: "Todos os Tokens", search_token: "Buscar token...", input: "Entrada", output: "Saída", account: "Conta", refresh: "Atualizar", favorites: "⭐ Favoritos", search_token_name_symbol_id: "Buscar por nome, símbolo o ID...", asset: "Ativo", price: "Preço", loading: "Carregando...", holders: "Detentores", rank: "Ranking", wallet: "Carteira", balance: "Saldo", add_wallet: "Adicionar Carteira", sora_address: "Endereço SORA", name_alias: "Nome (Apelido)", example_savings: "Ex: Poupança", type: "Tipo", my_wallet_total: "Minha Carteira (Soma ao total)", watched_wallet_tracking: "Observada (Apenas rastreamento)", save_wallet: "Salvar Carteira", wallet: "Carteira", assets: "Ativos", swaps: "Trocas", transfers: "Transferências", other: "Outro", no_wallets_saved: "Nenhuma carteira salva.", not_watching_wallets: "Você não está observando nenhuma carteira.", no_favorites_yet: "Você ainda não tem favoritos.", no_data: "Sem dados.", no_swaps_found: "Nenhuma troca encontrada.", no_assets_found: "Nenhum ativo encontrado.", no_recent_swaps: "Nenhuma troca recente.", no_recent_transfers: "Nenhuma transferência recente.", error_loading_data: "Erro ao carregar dados", error_loading_pools: "Erro ao carregar pools", error_loading: "Erro ao carregar", page_x_of_y: "Página {current} de {total}", filter: "Filtro:", all_tokens_star: "🌟 Todos", received: "⬇ RECEBIDO", sent: "⬆ ENVIADO", accounts: "contas", chart: "Gráfico", fees_pie_title: "XOR Queimado por Tipo", fees_line_title: "Tendência de Atividade",
         bridge_contract: "Contrato Bridge", bridge_internal_hash: "Este hash é um ID interno da bridge SORA. Não é visível no Etherscan.", view: "Ver", direction: "Direção", view_on_subscan: "Ver no Subscan", transaction_hash: "Hash da Transação", ethereum_request_hash: "Hash de Solicitação Ethereum", origin: "Origem", extrinsic_id: "ID do Extrinsic", ethereum_network: "Rede Ethereum", no_external_link: "Sem link externo disponível",
         network_stats_btn: "Estatísticas da Rede", timeframe: "Período:", current_block: "Bloco Atual", live: "Ao Vivo", bridges: "Pontes", time_filtered: "Filtrado", whale_leaderboard: "🐳 Ranking de Acumulação de Baleias", loading_whales: "Carregando Baleias...", network_health: "⚡ Saúde da Rede", global_volume: "Volume Global", active_users: "Usuários Ativos", est_tps: "TPS Est.", stablecoin_monitor: "⚖️ Monitor de Stablecoins", deviation_target: "* Desvio da meta de $1.00", trending_tokens: "📈 Tokens em Tendência", network_fees: "💸 Taxas de Rede Pagas", total_xor: "Total XOR", total_usd: "Total USD", bridges: "Pontes", network: "Rede", asset: "Ativo",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Todos os Pallets", signer: "Assinante", result: "Resultado", extrinsic_details: "Detalhes do Extrinsic",
-        tab_governance: "Governanca", gov_council: "Conselho", gov_elections: "Eleicoes", gov_motions: "Mocoes", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_no_motions: "Sem mocoes ativas", gov_no_referendums: "Sem referendos ativos", gov_no_proposals: "Sem propostas ativas", gov_referendums: "Referendos Ativos", gov_proposals: "Propostas Publicas", gov_next_election: "Proxima Eleicao", gov_aye: "A favor", gov_nay: "Contra"
+        tab_governance: "Governanca", gov_council: "Conselho", gov_elections: "Eleicoes", gov_motions: "Mocoes", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_no_motions: "Sem mocoes ativas", gov_no_referendums: "Sem referendos ativos", gov_no_proposals: "Sem propostas ativas", gov_referendums: "Referendos Ativos", gov_proposals: "Propostas Publicas", gov_next_election: "Proxima Eleicao", gov_aye: "A favor", gov_nay: "Contra",
+        usd_value_at_tx: "Valor USD (no momento da TX)",
+        search_method: "Buscar método..."
     },
     it: {
         tab_balance: "Saldo", tab_swaps: "Swap", tab_transfers: "Trasferimenti", tab_tokens: "Token", tab_liquidity: "Liquidità", tab_bridges: "Ponti", total_net_worth: "Patrimonio Totale", header_my_wallets: "💼 I Miei Wallet", btn_add_wallet: "+ Aggiungi Wallet", header_watch_wallets: "👀 Wallet Osservati", live_transfers: "💸 Trasferimenti Live", time: "Ora", from: "Da", amount: "Importo", to: "A", waiting_activity: "In attesa di attività...", previous: "Precedente", next: "Successivo", page: "Pagina", liquidity_pools: "🌊 Liquidità (Pools)", all: "Tutto", total_pools: "Pools Totali:", pair: "Coppia", reserves: "Riserve", action: "Azione", loading_pools: "Caricamento pools...", live_swaps: "⚡ Swap Live", all_tokens: "Tutti i Token", search_token: "Cerca token...", input: "Input", output: "Output", account: "Account", refresh: "Aggiorna", favorites: "⭐ Preferiti", search_token_name_symbol_id: "Cerca per nome, simbolo o ID...", asset: "Asset", price: "Prezzo", loading: "Caricamento...", holders: "Detentori", rank: "Rango", wallet: "Wallet", balance: "Saldo", add_wallet: "Aggiungi Wallet", sora_address: "Indirizzo SORA", name_alias: "Nome (Alias)", example_savings: "Es: Risparmi", type: "Tipo", my_wallet_total: "Mio Wallet (Aggiunge al totale)", watched_wallet_tracking: "Osservato (Solo tracciamento)", save_wallet: "Salva Wallet", wallet: "Wallet", assets: "Asset", swaps: "Swap", transfers: "Trasferimenti", other: "Altro", no_wallets_saved: "Non hai wallet salvati.", not_watching_wallets: "Non stai osservando nessun wallet.", no_favorites_yet: "Non hai ancora preferiti.", no_data: "Nessun dato.", no_swaps_found: "Nessuno swap trovato.", no_assets_found: "Nessun asset trovato.", no_recent_swaps: "Nessuno swap recente.", no_recent_transfers: "Nessun trasferimento recente.", error_loading_data: "Errore caricamento dati", error_loading_pools: "Errore caricamento pools", error_loading: "Errore caricamento", page_x_of_y: "Pagina {current} di {total}", filter: "Filtro:", all_tokens_star: "🌟 Tutti", received: "⬇ RICEVUTO", sent: "⬆ INVIATO", accounts: "account", chart: "Grafico", fees_pie_title: "XOR Bruciato per Tipo", fees_line_title: "Tendenza Attività",
         bridge_contract: "Contratto Bridge", bridge_internal_hash: "Questo hash è un ID interno del bridge SORA. Non è visibile su Etherscan.", view: "Vedi", direction: "Direzione", view_on_subscan: "Vedi su Subscan", transaction_hash: "Hash della Transazione", ethereum_request_hash: "Hash Richiesta Ethereum", origin: "Origine", extrinsic_id: "ID Extrinsic", ethereum_network: "Rete Ethereum", no_external_link: "Nessun link esterno disponibile",
         network_stats_btn: "Statistiche Rete", timeframe: "Intervallo:", current_block: "Blocco Attuale", live: "Live", bridges: "Ponti", time_filtered: "Filtrato", whale_leaderboard: "🐳 Classifica Accumulo Balene", loading_whales: "Caricamento Balene...", network_health: "⚡ Salute della Rete", global_volume: "Volume Globale", active_users: "Utenti Attivi", est_tps: "TPS Stimato", stablecoin_monitor: "⚖️ Monitor Stablecoin", deviation_target: "* Deviazione dal target $1.00", trending_tokens: "📈 Token in Tendenza", network_fees: "💸 Commissioni di Rete Pagate", total_xor: "Totale XOR", total_usd: "Totale USD", bridges: "Ponti", network: "Rete", asset: "Asset",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Tutti i Pallet", signer: "Firmatario", result: "Risultato", extrinsic_details: "Dettagli Extrinsic",
-        tab_governance: "Governance", gov_council: "Consiglio", gov_elections: "Elezioni", gov_motions: "Mozioni", gov_democracy: "Democrazia", gov_tech_committee: "Comitato Tecnico", gov_no_motions: "Nessuna mozione attiva", gov_no_referendums: "Nessun referendum attivo", gov_no_proposals: "Nessuna proposta attiva", gov_referendums: "Referendum Attivi", gov_proposals: "Proposte Pubbliche", gov_next_election: "Prossima Elezione", gov_aye: "A favore", gov_nay: "Contro"
+        tab_governance: "Governance", gov_council: "Consiglio", gov_elections: "Elezioni", gov_motions: "Mozioni", gov_democracy: "Democrazia", gov_tech_committee: "Comitato Tecnico", gov_no_motions: "Nessuna mozione attiva", gov_no_referendums: "Nessun referendum attivo", gov_no_proposals: "Nessuna proposta attiva", gov_referendums: "Referendum Attivi", gov_proposals: "Proposte Pubbliche", gov_next_election: "Prossima Elezione", gov_aye: "A favore", gov_nay: "Contro",
+        usd_value_at_tx: "Valore USD (al momento della TX)",
+        search_method: "Cerca metodo..."
     },
     tr: {
         tab_balance: "Bakiye", tab_swaps: "Swaplar", tab_transfers: "Transferler", tab_tokens: "Tokenlar", tab_liquidity: "Likidite", tab_bridges: "Köprüler", total_net_worth: "Toplam Varlık", header_my_wallets: "💼 Cüzdanlarım", btn_add_wallet: "+ Cüzdan Ekle", header_watch_wallets: "👀 İzlenen Cüzdanlar", live_transfers: "💸 Canlı Transferler", time: "Zaman", from: "Gönderen", amount: "Miktar", to: "Alıcı", waiting_activity: "Aktivite bekleniyor...", previous: "Önceki", next: "Sonraki", page: "Sayfa", liquidity_pools: "🌊 Likidite (Havuzlar)", all: "Tümü", total_pools: "Toplam Havuz:", pair: "Çift", reserves: "Rezervler", action: "İşlem", loading_pools: "Havuzlar yükleniyor...", live_swaps: "⚡ Canlı Swaplar", all_tokens: "Tüm Tokenlar", search_token: "Token ara...", input: "Giriş", output: "Çıkış", account: "Hesap", refresh: "Yenile", favorites: "⭐ Favoriler", search_token_name_symbol_id: "İsim, sembol veya ID ile ara...", asset: "Varlık", price: "Fiyat", loading: "Yükleniyor...", holders: "Sahipler", rank: "Sıra", wallet: "Cüzdan", balance: "Bakiye", add_wallet: "Cüzdan Ekle", sora_address: "SORA Adresi", name_alias: "İsim (Takma Ad)", example_savings: "Örn: Tasarruf", type: "Tip", my_wallet_total: "Cüzdanım (Toplama eklenir)", watched_wallet_tracking: "İzlenen (Sadece takip)", save_wallet: "Cüzdanı Kaydet", wallet: "Cüzdan", assets: "Varlıklar", swaps: "Swaplar", transfers: "Transferler", other: "Diğer", no_wallets_saved: "Kayıtlı cüzdanınız yok.", not_watching_wallets: "Hiçbir cüzdanı izlemiyorsunuz.", no_favorites_yet: "Henüz favoriniz yok.", no_data: "Veri yok.", no_swaps_found: "Swap bulunamadı.", no_assets_found: "Varlık bulunamadı.", no_recent_swaps: "Son swap yok.", no_recent_transfers: "Son transfer yok.", error_loading_data: "Veri yükleme hatası", error_loading_pools: "Havuz yükleme hatası", error_loading: "Yükleme hatası", page_x_of_y: "Sayfa {current} / {total}", filter: "Filtre:", all_tokens_star: "🌟 Tümü", received: "⬇ ALINAN", sent: "⬆ GÖNDERİLEN", accounts: "hesap", chart: "Grafik", fees_pie_title: "Türe Göre Yakılan XOR", fees_line_title: "Aktivite Trendi (Ücretler)",
         bridge_contract: "Köprü Kontratı", bridge_internal_hash: "Bu hash, SORA köprüsünün dahili kimliğidir. Etherscan'da görünmez.", view: "Görüntüle", direction: "Yön", view_on_subscan: "Subscan'da Gör", transaction_hash: "İşlem Hash'i", ethereum_request_hash: "Ethereum İstek Hash'i", origin: "Köken", extrinsic_id: "Extrinsic ID", ethereum_network: "Ethereum Ağı", no_external_link: "Harici bağlantı yok",
         network_stats_btn: "Ağ İstatistikleri", timeframe: "Zaman Aralığı:", current_block: "Mevcut Blok", live: "Canlı", bridges: "Köprüler", time_filtered: "Filtreli", whale_leaderboard: "🐳 Balina Birikim Liderliği", loading_whales: "Balinalar Yükleniyor...", network_health: "⚡ Ağ Sağlığı", global_volume: "Küresel Hacim", active_users: "Aktif Kullanıcılar", est_tps: "Tahmini TPS", stablecoin_monitor: "⚖️ Stabil Coin İzleyici", deviation_target: "* $1.00 hedefinden sapma", trending_tokens: "📈 Trend Olan Tokenlar", network_fees: "💸 Ödenen Ağ Ücretleri", total_xor: "Toplam XOR", total_usd: "Toplam USD", bridges: "Köprüler", network: "Ağ", asset: "Varlık",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Tüm Paletler", signer: "İmzalayan", result: "Sonuç", extrinsic_details: "Extrinsic Detayları",
-        tab_governance: "Yonetisim", gov_council: "Konsey", gov_elections: "Secimler", gov_motions: "Oneriler", gov_democracy: "Demokrasi", gov_tech_committee: "Teknik Komite", gov_no_motions: "Aktif onerge yok", gov_no_referendums: "Aktif referandum yok", gov_no_proposals: "Aktif teklif yok", gov_aye: "Evet", gov_nay: "Hayir"
+        tab_governance: "Yonetisim", gov_council: "Konsey", gov_elections: "Secimler", gov_motions: "Oneriler", gov_democracy: "Demokrasi", gov_tech_committee: "Teknik Komite", gov_no_motions: "Aktif onerge yok", gov_no_referendums: "Aktif referandum yok", gov_no_proposals: "Aktif teklif yok", gov_aye: "Evet", gov_nay: "Hayir",
+        search_method: "Metod ara..."
     },
     ur: {
         tab_balance: "بیلنس", tab_swaps: "تبادلے", tab_transfers: "ٹرانسفرز", tab_tokens: "ٹوکنز", tab_liquidity: "لیکویڈیٹی", tab_bridges: "پل", total_net_worth: "کل اثاثے", header_my_wallets: "💼 میرے بٹوے", btn_add_wallet: "+ بٹوا شامل کریں", header_watch_wallets: "👀 دیکھے گئے بٹوے", live_transfers: "💸 لائیو ٹرانسفرز", time: "وقت", from: "سے", amount: "رقم", to: "کو", waiting_activity: "سرگرمی کا انتظار ہے...", previous: "پچھلا", next: "اگلا", page: "صفحہ", liquidity_pools: "🌊 لیکویڈیٹی (پول)", all: "سب", total_pools: "کل پول:", pair: "جوڑا", reserves: "ذخائر", action: "عمل", loading_pools: "پول لوڈ ہو رہے ہیں...", live_swaps: "⚡ لائیو تبادلے", all_tokens: "تمام ٹوکنز", search_token: "ٹوکن تلاش کریں...", input: "ان پٹ", output: "آؤٹ پٹ", account: "اکاؤنٹ", refresh: "ریفریش", favorites: "⭐ پسندیدہ", search_token_name_symbol_id: "نام، علامت یا آئی ڈی سے تلاش کریں...", asset: "اثاثہ", price: "قیمت", loading: "لوڈ ہو رہا ہے...", holders: "ہولڈرز", rank: "درجہ", wallet: "بٹوا", balance: "بیلنس", add_wallet: "بٹوا شامل کریں", sora_address: "SORA ایڈریس", name_alias: "نام (عرف)", example_savings: "مثال: بچت", type: "قسم", my_wallet_total: "میرا بٹوا (کل میں شامل کریں)", watched_wallet_tracking: "دیکھا گیا (صرف ٹریکنگ)", save_wallet: "بٹوا محفوظ کریں", wallet: "بٹوا", assets: "اثاثے", swaps: "تبادلے", transfers: "ٹرانسفرز", other: "دیگر", no_wallets_saved: "آپ کے پاس کوئی محفوظ شدہ بٹوے نہیں ہیں۔", not_watching_wallets: "آپ کسی بٹوے کو نہیں دیکھ رہے ہیں۔", no_favorites_yet: "آپ کے پاس ابھی کوئی پسندیدہ نہیں ہے۔", no_data: "کوئی ڈیٹا نہیں۔", no_swaps_found: "کوئی تبادلہ نہیں ملا۔", no_assets_found: "کوئی اثاثہ نہیں ملا۔", no_recent_swaps: "کوئی حالیہ تبادلہ نہیں۔", no_recent_transfers: "کوئی حالیہ ٹرانسفر نہیں۔", error_loading_data: "ڈیٹا لوڈ کرنے میں خرابی", error_loading_pools: "پولز لوڈ کرنے میں خرابی", error_loading: "لوڈ کرنے میں خرابی", page_x_of_y: "صفحہ {current} از {total}", filter: "فلٹر:", all_tokens_star: "🌟 سب", received: "⬇ موصول ہوا", sent: "⬆ بھیجا گیا", accounts: "اکاؤنٹس", chart: "چارٹ", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend",
@@ -601,7 +620,7 @@ socket.on('transfers-batch', (batch) => {
 <td style="color:#D1D5DB;">➜</td>
 <td><span onclick="openWalletDetails('${esc(d.to)}')" class="${toShort ? 'wallet-unsaved' : ''}">${toShort}</span></td>
 <td>
-    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}', '${esc(d.usdValue)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
 </td>`;
         tbody.insertBefore(row, tbody.firstChild);
     }
@@ -661,6 +680,7 @@ function openTab(name) {
     if (name === 'governance') loadGovernance();
     if (name === 'extrinsics') loadGlobalExtrinsics();
     if (name === 'section-intelligence') loadSoraIntelligence();
+    if (name === 'burns') loadBurnTracker();
 }
 
 async function loadWalletLiquidity() {
@@ -764,6 +784,10 @@ socket.on('new-block-stats', (stats) => {
     if (!stats || typeof stats !== 'object') return;
     if (_headerDebounce) clearTimeout(_headerDebounce);
     _headerDebounce = setTimeout(() => loadNetworkHeader(), 10000);
+    // Trigger burn flow animation if burn tab is visible
+    if (document.getElementById('burns')?.style.display === 'block') {
+        triggerBurnFlowAnimation();
+    }
 });
 
 let lastSwapUpdate = 0;
@@ -815,7 +839,7 @@ socket.on('swaps-batch', (batch) => {
 <span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
 </td>
 <td>
-    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+    <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}', '${esc(d.in?.usd || '')}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
 </td>`;
         tbody.insertBefore(row, tbody.firstChild);
     }
@@ -836,6 +860,7 @@ socket.on('extrinsics-batch', (batch) => {
 
     // Respect active filters
     const activeFilter = document.getElementById('extrinsicSectionFilter')?.value || '';
+    const activeMethodFilter = document.getElementById('extrinsicMethodFilter')?.value?.trim().toLowerCase() || '';
     const dateFilter = document.getElementById('extrinsicDateInput')?.value || '';
     const resultFilterVal = document.getElementById('extrinsicResultFilter')?.value || '';
     if (dateFilter) return; // Don't inject live items when viewing historical data
@@ -850,6 +875,7 @@ socket.on('extrinsics-batch', (batch) => {
         if (d.section === 'timestamp' && d.method === 'set') continue;
         // Skip if doesn't match active filters
         if (activeFilter && d.section !== activeFilter) continue;
+        if (activeMethodFilter && !(d.method || '').toLowerCase().includes(activeMethodFilter)) continue;
         if (resultFilterVal === '1' && !d.success) continue;
         if (resultFilterVal === '0' && d.success) continue;
         const exId = d.extrinsic_id || d.block + '-' + d.extrinsic_index;
@@ -2711,6 +2737,773 @@ async function loadGovTechCommittee() {
     } catch (e) { grid.innerHTML = '<div class="gov-empty">Error: ' + e.message + '</div>'; }
 }
 
+// =====================================================
+// ========== BURN TRACKER — EPIC DASHBOARD 🔥 =========
+// =====================================================
+
+let currentBurnTab = 'xor';
+let burnCharts = {};
+let burnTimeframes = { xor:'7d', val:'7d', pswap:'7d', tbcd:'7d', kusd:'7d' };
+let burnHolderPages = { xor:1, val:1, pswap:1, tbcd:1, kusd:1 };
+let burnParticleInterval = null;
+const BURN_TOKEN_CONFIG = {
+    xor:   { symbol:'XOR',   color:'#E5243B', colorRgba:'rgba(229,36,59,',   letter:'X' },
+    val:   { symbol:'VAL',   color:'#F5B041', colorRgba:'rgba(245,176,65,',  letter:'V' },
+    pswap: { symbol:'PSWAP', color:'#EC4899', colorRgba:'rgba(236,72,153,',  letter:'P' },
+    tbcd:  { symbol:'TBCD',  color:'#10B981', colorRgba:'rgba(16,185,129,',  letter:'T' },
+    kusd:  { symbol:'KUSD',  color:'#DC2626', colorRgba:'rgba(220,38,38,',   letter:'K' }
+};
+
+const _sup = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+
+function formatSuperscript(n) {
+    return n.toString().split('').map(c => _sup[c] || c).join('');
+}
+
+function formatExponent(num) {
+    if (num == null || num === 0 || isNaN(num)) return '0';
+    const exp = Math.floor(Math.log10(Math.abs(num)));
+    const mantissa = num / Math.pow(10, exp);
+    return mantissa.toFixed(2) + ' ×10' + formatSuperscript(exp);
+}
+
+// Format large exponents that overflow JS Number (e.g., 10^56)
+// Takes mantissa and exponent separately
+function formatLargeExponent(mantissa, exp) {
+    return mantissa.toFixed(2) + ' ×10' + formatSuperscript(exp);
+}
+
+function formatBurnNumber(num) {
+    if (num == null || isNaN(num)) return '—';
+    const abs = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+    // For extremely large numbers (> 1e21), use compact scientific notation
+    if (abs >= 1e21) return sign + abs.toExponential(2);
+    if (abs >= 1e18) return sign + (abs / 1e18).toFixed(2) + 'Qi';
+    if (abs >= 1e15) return sign + (abs / 1e15).toFixed(2) + 'Qa';
+    if (abs >= 1e12) return sign + (abs / 1e12).toFixed(2) + 'T';
+    if (abs >= 1e9)  return sign + (abs / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6)  return sign + (abs / 1e6).toFixed(2) + 'M';
+    if (abs >= 1e3)  return sign + (abs / 1e3).toFixed(2) + 'K';
+    return num.toFixed(2);
+}
+
+// Burn token logo cache — fetched from /tokens API
+const burnLogoCache = {};
+async function loadBurnTokenLogo(tab) {
+    const wrap = document.getElementById('burnIconWrap-' + tab);
+    if (!wrap) return;
+    const cfg = BURN_TOKEN_CONFIG[tab];
+    if (!cfg) return;
+
+    // Already loaded?
+    if (burnLogoCache[tab]) {
+        wrap.innerHTML = `<img src="${burnLogoCache[tab]}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML='<span style=\\'color:white;font-weight:800;font-size:18px;\\'>${cfg.letter}</span>'">`;
+        return;
+    }
+
+    // Fetch from tokens API (first 2 pages cover main tokens)
+    if (!burnLogoCache._fetched) {
+        burnLogoCache._fetched = true;
+        try {
+            for (let p = 1; p <= 2; p++) {
+                const res = await fetch('/tokens?page=' + p);
+                if (!res.ok) continue;
+                const data = await res.json();
+                const tokens = data.data || data.tokens || data;
+                if (!Array.isArray(tokens)) continue;
+                for (const t of tokens) {
+                    const sym = (t.symbol || '').toUpperCase();
+                    const key = Object.keys(BURN_TOKEN_CONFIG).find(k => BURN_TOKEN_CONFIG[k].symbol === sym);
+                    if (key && t.logo) {
+                        burnLogoCache[key] = getProxyUrl(t.logo);
+                    }
+                }
+            }
+        } catch (e) { console.error('Burn logo fetch error:', e.message); }
+    }
+
+    // Apply logo if found
+    if (burnLogoCache[tab]) {
+        wrap.innerHTML = `<img src="${burnLogoCache[tab]}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.innerHTML='<span style=\\'color:white;font-weight:800;font-size:18px;\\'>${cfg.letter}</span>'">`;
+    }
+
+    // Also update sub-tab button with small logo
+    updateBurnTabBtnLogo(tab);
+}
+
+function updateBurnTabBtnLogo(tab) {
+    const btn = document.getElementById('burntab-' + tab);
+    if (!btn) return;
+    const cfg = BURN_TOKEN_CONFIG[tab];
+    if (!cfg) return;
+    const logoUrl = burnLogoCache[tab];
+    // Remove existing logo img if any
+    const existingImg = btn.querySelector('.burn-tab-logo');
+    if (existingImg) existingImg.remove();
+    if (logoUrl) {
+        const img = document.createElement('img');
+        img.className = 'burn-tab-logo';
+        img.src = logoUrl;
+        img.style.cssText = 'width:18px;height:18px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px;';
+        img.onerror = function() { this.remove(); };
+        // Insert after the dot span
+        const dot = btn.querySelector('.burn-tab-dot');
+        if (dot) {
+            dot.style.display = 'none'; // hide colored dot when logo loads
+            dot.after(img);
+        } else {
+            btn.prepend(img);
+        }
+    }
+}
+
+async function loadBurnTracker() {
+    loadBurnFeeFlow();
+    openBurnSubTab(currentBurnTab);
+    startBurnParticles();
+
+    // Preload all token logos (fetch once, apply to all tabs + buttons)
+    loadBurnTokenLogo(currentBurnTab).then(() => {
+        Object.keys(BURN_TOKEN_CONFIG).forEach(t => {
+            if (t !== currentBurnTab) updateBurnTabBtnLogo(t);
+        });
+    });
+
+    // Populate hero counter with total XOR burned
+    try {
+        const statsRes = await fetch('/burns/stats/XOR').then(r => r.json());
+        const supplyRes = await fetch('/burns/supply/XOR').then(r => r.json());
+        const allStats = statsRes?.stats?.['all'] || {};
+        const burnedAll = allStats.totalBurned || 0;
+        const burnedAllUsd = allStats.totalBurnedUsd || 0;
+        const price = supplyRes?.price || 0;
+        const heroVal = document.getElementById('burnHeroValue');
+        const heroSub = document.getElementById('burnHeroSubtitle');
+        if (heroVal && burnedAll) {
+            heroVal.textContent = formatBurnNumber(Math.abs(burnedAll)) + ' XOR';
+            heroVal.style.animation = 'counterTick 0.4s ease';
+        }
+        if (heroSub && burnedAll) {
+            // Use real USD from fees table (not burned * current price, which mixes denominations)
+            const usdValue = burnedAllUsd > 0 ? burnedAllUsd : Math.abs(burnedAll) * price;
+            heroSub.textContent = '$' + formatBurnNumber(usdValue) + ' USD (Total)';
+        }
+    } catch (e) { console.error('Burn hero load error:', e); }
+}
+
+function openBurnSubTab(tab) {
+    currentBurnTab = tab;
+    // Toggle sub-tab buttons
+    document.querySelectorAll('.burn-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.id === 'burntab-' + tab);
+    });
+    // Toggle views
+    Object.keys(BURN_TOKEN_CONFIG).forEach(t => {
+        const view = document.getElementById('burnview-' + t);
+        if (view) view.style.display = (t === tab) ? 'block' : 'none';
+    });
+    loadBurnSubTabData(tab);
+}
+
+async function loadBurnSubTabData(tab) {
+    await Promise.all([
+        loadBurnSupply(tab),
+        loadBurnChart(tab, burnTimeframes[tab]),
+        loadBurnHolders(tab, 1)
+    ]);
+}
+
+async function loadBurnSupply(tab) {
+    const cfg = BURN_TOKEN_CONFIG[tab];
+    const cards = document.getElementById('burnStats-' + tab);
+    if (!cards) return;
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+    cards.innerHTML = `<div style="text-align:center;padding:20px;color:#999;">${esc(lang.burn_loading || 'Loading...')}</div>`;
+    try {
+        const [supplyRes, statsRes] = await Promise.all([
+            fetch('/burns/supply/' + cfg.symbol).then(r => r.json()),
+            fetch('/burns/stats/' + cfg.symbol).then(r => r.json())
+        ]);
+        const supply = supplyRes.totalSupply || 0;
+        const price = supplyRes.price || 0;
+        const marketCap = supplyRes.marketCap || 0;
+        const burned24h = statsRes?.stats?.['24h']?.totalBurned || 0;
+        const burned7d  = statsRes?.stats?.['7d']?.totalBurned  || 0;
+        const burned30d = statsRes?.stats?.['30d']?.totalBurned  || 0;
+        const burnedAll = statsRes?.stats?.['all']?.totalBurned  || 0;
+        const burnedAllUsd = statsRes?.stats?.['all']?.totalBurnedUsd || 0;
+
+        // Update token hero supply text
+        const supplyEl = document.getElementById('burnSupply-' + tab);
+        if (supplyEl) {
+            if (tab === 'xor') {
+                supplyEl.textContent = formatExponent(supply) + ' ' + (lang.burn_xor_hero || 'XOR packages in circulation');
+            } else {
+                supplyEl.textContent = (lang.burn_supply_label || 'Supply') + ': ' + formatBurnNumber(supply) + ' ' + cfg.symbol;
+            }
+        }
+
+        // Load token logo into hero icon
+        loadBurnTokenLogo(tab);
+
+        // XOR special case: show packaged supply, unpacked supply, packaging factor, burns
+        // The denomination factor is queried live from on-chain (api.query.denomination.denominator)
+        // so if a new denomination event happens, it auto-updates on next refresh
+        let supplyCardHtml = '';
+        if (tab === 'xor' && supplyRes.xorMarket) {
+            const xm = supplyRes.xorMarket;
+            const cgMcap = xm.cgMarketCap || 0;
+            // Denomination factor from on-chain — auto-updates if new events happen
+            const denomFactor = xm.denominationFactor || '1';
+            const denomExp = denomFactor.length - 1; // e.g. 38 for 10^38
+
+            // Calculate unpacked XOR supply (packaged × denomination factor)
+            // Use exponent arithmetic to avoid JS Number overflow
+            const supplyExp = supply > 0 ? Math.floor(Math.log10(supply)) : 0;
+            const supplyMantissa = supply > 0 ? supply / Math.pow(10, supplyExp) : 0;
+            const unpackedExp = supplyExp + denomExp;
+
+            supplyCardHtml = `
+                <div class="burn-stat-card" style="position:relative;">
+                    <div class="burn-stat-label">${esc(lang.burn_xor_supply || 'XOR in Circulation')}</div>
+                    <div class="burn-stat-value" style="font-size:18px;">${formatExponent(supply)}</div>
+                    <div class="burn-stat-sub" style="color:var(--text-secondary);font-size:10px;">${esc(lang.burn_xor_supply_sub || 'XOR packages (packaged)')}</div>
+                </div>
+                <div class="burn-stat-card" style="position:relative;">
+                    <div class="burn-stat-label">${esc(lang.burn_xor_unpacked || 'Unpacked XOR Supply')}</div>
+                    <div class="burn-stat-value" style="font-size:18px; color:#3B82F6;">${supply > 0 ? formatLargeExponent(supplyMantissa, unpackedExp) : '\u2014'}</div>
+                    <div class="burn-stat-sub" style="color:var(--text-secondary);font-size:10px;">${esc(lang.burn_xor_original || 'original XOR')} (\u00d710${formatSuperscript(denomExp)})</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_xor_price || 'Price / Package')}</div>
+                    <div class="burn-stat-value" style="color:#10B981;">$${price > 0 ? price.toFixed(4) : '\u2014'}</div>
+                    <div class="burn-stat-sub" style="font-size:10px;">${esc(lang.burn_xor_pack_eq || '1 package =')} 10${formatSuperscript(denomExp)} XOR</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_xor_factor || 'Packaging Factor')}</div>
+                    <div class="burn-stat-value" style="color:#F59E0B;font-size:18px;">\u00d710${formatSuperscript(denomExp)}</div>
+                    <div class="burn-stat-sub" style="font-size:10px;">${esc(lang.burn_xor_factor_sub || 'auto-detected on-chain')}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_30d || 'Burned 30d')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burned30d > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned30d))}</div>
+                    <div class="burn-stat-sub">${burned30d > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected')}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_all || 'Total Burned')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burnedAll > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burnedAll))}</div>
+                    <div class="burn-stat-sub">${burnedAllUsd > 0 ? '$' + formatBurnNumber(burnedAllUsd) : (burnedAll > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected'))}</div>
+                </div>
+            `;
+        } else {
+            // Normal display for VAL, PSWAP, TBCD, KUSD
+            supplyCardHtml = `
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_current_supply || 'Current Supply')}</div>
+                    <div class="burn-stat-value">${formatBurnNumber(supply)}</div>
+                    <div class="burn-stat-sub">$${formatBurnNumber(supply * price)}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_24h || 'Burned 24h')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burned24h > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned24h))}</div>
+                    <div class="burn-stat-sub">$${formatBurnNumber(Math.abs(burned24h) * price)}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_7d || 'Burned 7d')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burned7d > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned7d))}</div>
+                    <div class="burn-stat-sub">$${formatBurnNumber(Math.abs(burned7d) * price)}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_30d || 'Burned 30d')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burned30d > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned30d))}</div>
+                    <div class="burn-stat-sub">$${formatBurnNumber(Math.abs(burned30d) * price)}</div>
+                </div>
+                <div class="burn-stat-card">
+                    <div class="burn-stat-label">${esc(lang.burn_rate_all || 'Total Burned')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burnedAll > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burnedAll))}</div>
+                    <div class="burn-stat-sub">$${formatBurnNumber(Math.abs(burnedAll) * price)}</div>
+                </div>
+            `;
+        }
+        cards.innerHTML = supplyCardHtml;
+        // XOR has 6 cards (includes unpacked supply), use 3-column grid for clean 2×3 layout
+        if (tab === 'xor') {
+            cards.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        } else {
+            cards.style.gridTemplateColumns = '';
+        }
+    } catch (e) {
+        console.error('loadBurnSupply error:', e);
+        cards.innerHTML = `<div style="text-align:center;padding:20px;color:#f87171;">${esc(lang.burn_error_supply || 'Error loading supply data')}</div>`;
+    }
+}
+
+async function loadBurnChart(tab, tf) {
+    burnTimeframes[tab] = tf;
+    const cfg = BURN_TOKEN_CONFIG[tab];
+    const canvas = document.getElementById('burnChart-' + tab);
+    if (!canvas) return;
+
+    // Update timeframe button states
+    const btnsContainer = document.getElementById('burnTfBtns-' + tab);
+    if (btnsContainer) {
+        const tfMap = { '4h':'4H', '1d':'1D', '7d':'7D', '1m':'1M', '1y':'1Y', 'all':'ALL' };
+        btnsContainer.querySelectorAll('.burn-tf-btn').forEach(b => {
+            b.classList.toggle('active', b.textContent.trim() === (tfMap[tf] || tf.toUpperCase()));
+        });
+    }
+
+    try {
+        const res = await fetch(`/burns/supply-history/${cfg.symbol}?timeframe=${tf}`);
+        const data = await res.json();
+
+        const snapshots = Array.isArray(data) ? data : (data.snapshots || []);
+        if (!snapshots || snapshots.length === 0) {
+            // Destroy existing chart
+            const existing = Chart.getChart(canvas);
+            if (existing) existing.destroy();
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#999';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const _lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+            ctx.fillText(_lang.burn_collecting_data || 'Collecting data... First snapshot in ~15s', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+
+        const labels = snapshots.map(s => {
+            const d = new Date(s.timestamp);
+            if (tf === '4h' || tf === '1d') return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+            return d.toLocaleDateString([], { month:'short', day:'numeric' });
+        });
+        const values = snapshots.map(s => s.total_supply);
+
+        // Destroy existing chart
+        const existing = Chart.getChart(canvas);
+        if (existing) existing.destroy();
+
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, cfg.colorRgba + '0.25)');
+        gradient.addColorStop(1, cfg.colorRgba + '0.02)');
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#9ca3af' : '#6B7280';
+        const gridColor = isDark ? '#333333' : '#E5E7EB';
+
+        burnCharts[tab] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: cfg.symbol + ' Supply',
+                    data: values,
+                    borderColor: cfg.color,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: cfg.color,
+                    borderWidth: 2.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDark ? '#1f2937' : '#111827',
+                        titleColor: '#fff',
+                        bodyColor: '#d1d5db',
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(ctx) {
+                                return cfg.symbol + ': ' + formatBurnNumber(ctx.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor, maxTicksLimit: 8, font: { size: 11 } }
+                    },
+                    y: {
+                        grid: { color: gridColor, drawBorder: false },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 11 },
+                            callback: function(value) { return formatBurnNumber(value); }
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (e) {
+        console.error('loadBurnChart error:', e);
+    }
+}
+
+function setBurnTimeframe(tab, tf) {
+    loadBurnChart(tab, tf);
+}
+
+async function loadBurnHolders(tab, page) {
+    burnHolderPages[tab] = page;
+    const cfg = BURN_TOKEN_CONFIG[tab];
+    const listEl = document.getElementById('burnHoldersList-' + tab);
+    const pagEl = document.getElementById('burnHoldersPag-' + tab);
+    if (!listEl) return;
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+    listEl.innerHTML = `<div style="text-align:center;padding:20px;color:#999;">${esc(lang.burn_loading_holders || 'Loading holders...')}</div>`;
+
+    try {
+        const res = await fetch(`/burns/holders/${cfg.symbol}?page=${page}`);
+        const data = await res.json();
+
+        const holders = data.data || data.holders || [];
+        if (!holders || holders.length === 0) {
+            listEl.innerHTML = `<div style="text-align:center;padding:20px;color:#999;">${esc(lang.burn_no_holders || 'No holder data available')}</div>`;
+            if (pagEl) pagEl.innerHTML = '';
+            return;
+        }
+
+        const totalSupply = data.totalSupply || 1;
+        let html = '';
+        holders.forEach((h, i) => {
+            const rank = (page - 1) * 15 + i + 1;
+            const pct = ((h.balance / totalSupply) * 100);
+            const pctStr = pct >= 0.01 ? pct.toFixed(2) + '%' : '<0.01%';
+            const shortAddr = h.address.substring(0, 8) + '...' + h.address.substring(h.address.length - 6);
+            html += `
+                <div class="burn-holder-row" onclick="openWalletDetails('${esc(h.address)}')">
+                    <span class="burn-holder-rank">#${rank}</span>
+                    <span class="burn-holder-addr">${esc(h.name || shortAddr)}</span>
+                    <div class="burn-holder-bar-wrap">
+                        <div class="burn-holder-bar" style="width:${Math.min(pct, 100)}%;background:${cfg.color}"></div>
+                        <span class="burn-holder-pct">${pctStr}</span>
+                    </div>
+                    <span class="burn-holder-amount">${formatBurnNumber(h.balance)}</span>
+                </div>`;
+        });
+        listEl.innerHTML = html;
+
+        // Pagination
+        if (pagEl) {
+            const totalHolders = data.totalHolders || holders.length;
+            const totalPages = Math.ceil(totalHolders / 15);
+            if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+            let pHtml = '';
+            if (page > 1) pHtml += `<button class="burn-tf-btn" onclick="loadBurnHolders('${tab}', ${page - 1})">&#8592;</button>`;
+            pHtml += `<span style="margin:0 10px;color:var(--text-color,#666);font-size:13px">${esc(lang.burn_page || 'Page')} ${page}/${totalPages}</span>`;
+            if (page < totalPages) pHtml += `<button class="burn-tf-btn" onclick="loadBurnHolders('${tab}', ${page + 1})">&#8594;</button>`;
+            pagEl.innerHTML = pHtml;
+        }
+    } catch (e) {
+        console.error('loadBurnHolders error:', e);
+        listEl.innerHTML = `<div style="text-align:center;padding:20px;color:#f87171;">${esc(lang.burn_error_holders || 'Error loading holders')}</div>`;
+    }
+}
+
+// ==================== SVG FEE FLOW VISUALIZATION ====================
+
+async function loadBurnFeeFlow() {
+    const container = document.getElementById('burnFlowSvg');
+    if (!container) return;
+    try {
+        const res = await fetch('/burns/fee-flow');
+        const data = await res.json();
+        renderBurnFlowSvg(container, data);
+    } catch (e) {
+        console.error('loadBurnFeeFlow error:', e);
+        const _lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+        container.innerHTML = `<text x="450" y="160" text-anchor="middle" fill="#999" font-size="14">${esc(_lang.burn_loading_flow || 'Loading fee flow...')}</text>`;
+    }
+}
+
+function renderBurnFlowSvg(container, data) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const subtextColor = isDark ? '#9ca3af' : '#6b7280';
+    const bgCard = isDark ? '#1f2937' : '#ffffff';
+    const bgCardStroke = isDark ? '#374151' : '#e5e7eb';
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+
+    const fees24h = data.totalXorFees || 0;
+    const distributions = data.distribution || {};
+    const supplies = data.supplies || {};
+
+    // Token keys for logo lookup: xor, val, kusd, tbcd, referrer
+    const tokenLogoKeys = ['xor', 'val', 'kusd', 'tbcd', null];
+
+    // Distribution outputs
+    const outputs = [
+        { label: lang.burn_xor_burn || 'XOR Burn',    pct: '20%',   color: '#E5243B', amount: distributions.xorBurn      || fees24h * 0.20, y: 55,  logoKey: 'xor' },
+        { label: lang.burn_val_burn || 'VAL Burn',    pct: '30%',   color: '#F5B041', amount: distributions.valBurn      || fees24h * 0.30, y: 130, logoKey: 'val' },
+        { label: lang.burn_kusd_buy || 'KUSD Buy',    pct: '39.5%', color: '#DC2626', amount: distributions.kusdBuyback  || fees24h * 0.395, y: 200, logoKey: 'kusd' },
+        { label: lang.burn_tbcd_buy || 'TBCD Buy',    pct: '0.5%',  color: '#10B981', amount: distributions.tbcdBuyback  || fees24h * 0.005, y: 275, logoKey: 'tbcd' },
+        { label: lang.burn_referrer || 'Referrer',    pct: '10%',   color: '#8B5CF6', amount: distributions.referrer     || fees24h * 0.10, y: 350, logoKey: null }
+    ];
+
+    let svg = '';
+    // Defs: gradients + filters + clip paths
+    svg += `<defs>
+        <radialGradient id="furnaceGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.9"/>
+            <stop offset="40%" stop-color="#F97316" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="furnaceCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FEF9C3"/>
+            <stop offset="30%" stop-color="#FBBF24"/>
+            <stop offset="70%" stop-color="#F97316"/>
+            <stop offset="100%" stop-color="#DC2626"/>
+        </radialGradient>
+        <radialGradient id="furnaceInner" cx="50%" cy="40%" r="50%">
+            <stop offset="0%" stop-color="#FFFBEB" stop-opacity="1"/>
+            <stop offset="50%" stop-color="#FDE68A" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="8" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <filter id="fireGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="12" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <clipPath id="xorClip"><circle cx="90" cy="200" r="26"/></clipPath>
+        ${outputs.map((o, i) => `<clipPath id="outClip${i}"><circle cx="720" cy="${o.y}" r="20"/></clipPath>`).join('')}
+    </defs>`;
+
+    // ===== XOR FEES INPUT (left side) — logo circle =====
+    const xorLogo = burnLogoCache['xor'];
+    svg += `<g>
+        <circle cx="90" cy="200" r="30" fill="${bgCard}" stroke="#E5243B" stroke-width="2.5" filter="url(#softGlow)"/>`;
+    if (xorLogo) {
+        svg += `<image href="${esc(xorLogo)}" x="64" y="174" width="52" height="52" clip-path="url(#xorClip)" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+        svg += `<text x="90" y="206" text-anchor="middle" fill="#E5243B" font-size="22" font-weight="800">X</text>`;
+    }
+    svg += `<text x="90" y="243" text-anchor="middle" fill="${subtextColor}" font-size="10" font-weight="600">${formatBurnNumber(fees24h)} XOR</text>
+        <text x="90" y="256" text-anchor="middle" fill="${subtextColor}" font-size="9">24h</text>
+    </g>`;
+
+    // ===== Input flow path (XOR → Furnace) =====
+    svg += `<path id="inputPath" d="M 130 200 Q 260 200 360 200" stroke="#E5243B" stroke-width="2" fill="none" stroke-dasharray="8 4" opacity="0.5">
+        <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1.5s" repeatCount="indefinite"/>
+    </path>`;
+    svg += generateFlowDots(130, 200, 360, 200, '#E5243B', 3, 2.5);
+
+    // ===== FURNACE (center) — pure fireball, no text =====
+    svg += `<g filter="url(#fireGlow)" class="furnace-core" id="furnaceGroup">
+        <!-- Outer glow pulse -->
+        <circle cx="420" cy="200" r="55" fill="url(#furnaceGlow)" opacity="0.4">
+            <animate attributeName="r" values="55;65;55" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Mid flame layer -->
+        <circle cx="420" cy="200" r="42" fill="url(#furnaceCore)" opacity="0.85">
+            <animate attributeName="r" values="42;46;42" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Inner bright core -->
+        <circle cx="420" cy="195" r="22" fill="url(#furnaceInner)" opacity="0.9">
+            <animate attributeName="r" values="22;26;20;22" dur="1.2s" repeatCount="indefinite"/>
+            <animate attributeName="cy" values="195;193;197;195" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Flame wisps -->
+        <ellipse cx="410" cy="173" rx="8" ry="16" fill="#FBBF24" opacity="0.6">
+            <animate attributeName="cy" values="173;165;173" dur="1s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.6;0.3;0.6" dur="1s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="16;22;16" dur="1s" repeatCount="indefinite"/>
+        </ellipse>
+        <ellipse cx="425" cy="170" rx="6" ry="18" fill="#F97316" opacity="0.5">
+            <animate attributeName="cy" values="170;160;170" dur="1.3s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.5;0.2;0.5" dur="1.3s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="18;25;18" dur="1.3s" repeatCount="indefinite"/>
+        </ellipse>
+        <ellipse cx="435" cy="175" rx="5" ry="14" fill="#EF4444" opacity="0.4">
+            <animate attributeName="cy" values="175;167;175" dur="0.9s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.4;0.15;0.4" dur="0.9s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="14;20;14" dur="0.9s" repeatCount="indefinite"/>
+        </ellipse>
+    </g>`;
+
+    // ===== Output paths (Furnace → destinations) =====
+    outputs.forEach((out, idx) => {
+        const startX = 460;
+        const startY = 200;
+        const endX = 720;
+        const endY = out.y;
+        const cpX = 580;
+        const cpY = (startY + endY) / 2;
+
+        // Curved path
+        svg += `<path id="outPath${idx}" d="M ${startX} ${startY} Q ${cpX} ${cpY} ${endX} ${endY}"
+            stroke="${out.color}" stroke-width="2" fill="none" stroke-dasharray="8 4" opacity="0.4">
+            <animate attributeName="stroke-dashoffset" from="24" to="0" dur="2s" repeatCount="indefinite"/>
+        </path>`;
+
+        // Flow dots along path
+        svg += generateFlowDots(startX, startY, endX, endY, out.color, 2, 3 + idx * 0.3);
+
+        // Destination circle with token logo
+        const logo = out.logoKey ? burnLogoCache[out.logoKey] : null;
+        svg += `<g>
+            <circle cx="${endX}" cy="${endY}" r="24" fill="${bgCard}" stroke="${out.color}" stroke-width="2"/>`;
+        if (logo) {
+            svg += `<image href="${esc(logo)}" x="${endX - 20}" y="${endY - 20}" width="40" height="40" clip-path="url(#outClip${idx})" preserveAspectRatio="xMidYMid slice"/>`;
+        } else {
+            // Referrer or fallback: letter icon
+            const letter = out.logoKey ? (BURN_TOKEN_CONFIG[out.logoKey]?.letter || '?') : 'R';
+            svg += `<text x="${endX}" y="${endY + 5}" text-anchor="middle" fill="${out.color}" font-size="18" font-weight="800">${letter}</text>`;
+        }
+        svg += `</g>`;
+
+        // Label + percentage below/beside circle
+        svg += `<text x="${endX}" y="${endY + 34}" text-anchor="middle" fill="${out.color}" font-size="9" font-weight="700">${esc(out.pct)}</text>`;
+        svg += `<text x="${endX}" y="${endY + 44}" text-anchor="middle" fill="${subtextColor}" font-size="8">${formatBurnNumber(out.amount)}</text>`;
+    });
+
+    container.innerHTML = svg;
+
+    // Store data for TX animations
+    container._flowData = data;
+    container._outputs = outputs;
+}
+
+// ===== TX BURST ANIMATION (triggered on new block/fee) =====
+function triggerBurnFlowAnimation() {
+    const svg = document.getElementById('burnFlowSvg');
+    if (!svg || !svg._flowData) return;
+    const outputs = svg._outputs;
+    if (!outputs) return;
+
+    // 1. Create a large ball traveling from XOR fees → furnace
+    const inputBall = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    inputBall.setAttribute('r', '8');
+    inputBall.setAttribute('fill', '#E5243B');
+    inputBall.setAttribute('opacity', '0.9');
+    inputBall.setAttribute('filter', 'url(#softGlow)');
+    inputBall.innerHTML = `
+        <animateMotion dur="1s" path="M 130 200 Q 260 200 420 200" fill="freeze"/>
+        <animate attributeName="r" values="8;12;6" dur="1s" fill="freeze"/>
+        <animate attributeName="opacity" values="0.9;1;0" dur="1s" fill="freeze"/>
+    `;
+    svg.appendChild(inputBall);
+
+    // 2. After the ball reaches furnace, pulse the furnace and send smaller balls to outputs
+    setTimeout(() => {
+        // Furnace pulse
+        const furnace = document.getElementById('furnaceGroup');
+        if (furnace) {
+            furnace.style.transition = 'transform 0.3s ease';
+            furnace.style.transformOrigin = '420px 200px';
+            furnace.style.transform = 'scale(1.3)';
+            setTimeout(() => { furnace.style.transform = 'scale(1)'; }, 300);
+        }
+
+        // Spawn output balls with size proportional to percentage
+        const sizes = [6, 5.5, 5, 3, 4]; // XOR 20%, VAL 30%, KUSD 39.5%, TBCD 0.5%, Referrer 10%
+        outputs.forEach((out, idx) => {
+            setTimeout(() => {
+                const ball = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                const cpX = 580;
+                const cpY = (200 + out.y) / 2;
+                ball.setAttribute('r', String(sizes[idx]));
+                ball.setAttribute('fill', out.color);
+                ball.setAttribute('opacity', '0.9');
+                ball.setAttribute('filter', 'url(#softGlow)');
+                ball.innerHTML = `
+                    <animateMotion dur="1.2s" path="M 460 200 Q ${cpX} ${cpY} 720 ${out.y}" fill="freeze"/>
+                    <animate attributeName="r" values="${sizes[idx]};${sizes[idx] + 2};${sizes[idx] - 1}" dur="1.2s" fill="freeze"/>
+                    <animate attributeName="opacity" values="0.9;0.8;0" dur="1.2s" fill="freeze"/>
+                `;
+                svg.appendChild(ball);
+                setTimeout(() => { if (ball.parentNode) ball.remove(); }, 1400);
+            }, idx * 100);
+        });
+    }, 900);
+
+    // Cleanup input ball
+    setTimeout(() => { if (inputBall.parentNode) inputBall.remove(); }, 1200);
+}
+
+function generateFlowDots(x1, y1, x2, y2, color, count, duration) {
+    let dots = '';
+    const cpX = (x1 + x2) / 2 + (x2 - x1) * 0.1;
+    const cpY = (y1 + y2) / 2;
+    const pathD = `M ${x1} ${y1} Q ${cpX} ${cpY} ${x2} ${y2}`;
+
+    for (let i = 0; i < count; i++) {
+        const delay = (duration / count) * i;
+        dots += `<circle r="3" fill="${color}" opacity="0">
+            <animateMotion dur="${duration}s" begin="${delay}s" path="${pathD}" repeatCount="indefinite" rotate="auto"/>
+            <animate attributeName="opacity" values="0;0.9;0.9;0" dur="${duration}s" begin="${delay}s" repeatCount="indefinite"/>
+            <animate attributeName="r" values="2;4;2" dur="${duration}s" begin="${delay}s" repeatCount="indefinite"/>
+        </circle>`;
+    }
+    return dots;
+}
+
+// ==================== PARTICLE SYSTEM ====================
+
+function startBurnParticles() {
+    if (burnParticleInterval) clearInterval(burnParticleInterval);
+    const container = document.getElementById('burnParticleOverlay');
+    if (!container) return;
+    container.innerHTML = '';
+
+    burnParticleInterval = setInterval(() => {
+        // Only create particles if burn tab is visible
+        if (document.getElementById('burns')?.style.display !== 'block') {
+            clearInterval(burnParticleInterval);
+            burnParticleInterval = null;
+            return;
+        }
+        createBurnEmber(container);
+    }, 300);
+}
+
+function createBurnEmber(container) {
+    if (!container) return;
+    // Limit particles to prevent memory issues
+    if (container.children.length > 30) return;
+
+    const ember = document.createElement('div');
+    const colors = ['#F97316', '#EF4444', '#FBBF24', '#E5243B', '#F59E0B'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const size = 2 + Math.random() * 4;
+    const dx = (Math.random() - 0.5) * 160;
+    const dy = -(30 + Math.random() * 60);
+    const dur = 1 + Math.random() * 1.5;
+
+    ember.style.cssText = `
+        position:absolute;
+        left:50%;top:50%;
+        width:${size}px;height:${size}px;
+        background:${color};
+        border-radius:50%;
+        pointer-events:none;
+        --dx:${dx}px;
+        --dy:${dy}px;
+        animation: emberFloat ${dur}s ease-out forwards;
+    `;
+    container.appendChild(ember);
+    setTimeout(() => { if (ember.parentNode) ember.parentNode.removeChild(ember); }, dur * 1000 + 200);
+}
+
 // --- CUSTOMIZABLE NAVIGATION LOGIC ---
 
 const allSections = [
@@ -2723,12 +3516,18 @@ const allSections = [
     { id: 'governance', name: 'Governance', icon: '🏛️', translateKey: 'tab_governance' },
     { id: 'extrinsics', name: 'Extrinsics', icon: '🔬', translateKey: 'tab_extrinsics' },
     { id: 'liquidity', name: 'Liquidez', icon: '🌊', translateKey: 'tab_liquidity' },
-    { id: 'section-intelligence', name: 'Estadísticas de Red', icon: '🧠', translateKey: 'network_stats_btn' }
+    { id: 'section-intelligence', name: 'Estadísticas de Red', icon: '🧠', translateKey: 'network_stats_btn' },
+    { id: 'burns', name: 'Burn Tracker', icon: '🔥', translateKey: 'tab_burns' }
 ];
 
 // Default actives
 const defaultActives = ['balance', 'swaps', 'transfers', 'tokens', 'liquidity'];
 let activeSectionIds = JSON.parse(localStorage.getItem('sorametrics_active_tabs')) || defaultActives;
+// Enforce max 5 sections (in case localStorage has stale data from before the limit)
+if (activeSectionIds.length > 5) {
+    activeSectionIds = activeSectionIds.slice(0, 5);
+    localStorage.setItem('sorametrics_active_tabs', JSON.stringify(activeSectionIds));
+}
 
 function initNavigation() {
     renderTabs();
@@ -2858,7 +3657,8 @@ function toggleSection(id, checkbox) {
             slider.style.backgroundColor = '#ccc';
             slider.querySelector('.knob').style.transform = 'translateX(0)';
 
-            alert("Máximo 5 secciones permitidas. Desactiva una primero.");
+            const _l = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+            alert(_l.max_sections_alert || 'Maximum 5 sections allowed. Disable one first.');
             return;
         }
         activeSectionIds.push(id);
@@ -3423,7 +4223,7 @@ async function loadGlobalSwaps(reset = false) {
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
-                <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+                <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.in.usd || ''}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
             </td>`;
             tbody.appendChild(row);
         });
@@ -3483,7 +4283,7 @@ async function loadGlobalTransfers(reset = false) {
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
             <td>
-                <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
+                <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usdValue || ''}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
             </td>`;
             tbody.appendChild(row);
         });
@@ -3558,7 +4358,7 @@ async function loadGlobalBridges(reset = false) {
 
                     if (isIncoming && isNullAddress) {
                         // Unknown origin - show Bridge Contract (clickable to view tx details)
-                        return `<a href="#" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}'); return false;" style="color:#627EEA; text-decoration:none; font-weight:500;" title="Ver detalles de transacción">🌉 ${TRANSLATIONS[currentLang].bridge_contract || 'Bridge Contract'} 🔗</a>`;
+                        return `<a href="#" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usd_value || ''}'); return false;" style="color:#627EEA; text-decoration:none; font-weight:500;" title="Ver detalles de transacción">🌉 ${TRANSLATIONS[currentLang].bridge_contract || 'Bridge Contract'} 🔗</a>`;
                     } else if (isEthAddress) {
                         // Real ETH address - link to Etherscan
                         return `<a href="https://etherscan.io/address/${d.sender}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.sender}">${senderShort} 🔗</a>`;
@@ -3592,7 +4392,7 @@ async function loadGlobalBridges(reset = false) {
                     </div>
                 </td>
                 <td>
-                    <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang].view || 'View'}</button>
+                    <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usd_value || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang].view || 'View'}</button>
                 </td>
             `;
             tbody.appendChild(row);
@@ -3732,10 +4532,15 @@ async function loadGlobalExtrinsics(reset = false) {
                 extrinsicSectionsLoaded = true;
             }
         } catch (e) { console.error('Error loading sections:', e); }
+        // Set method filter placeholder in current language
+        const methodEl = document.getElementById('extrinsicMethodFilter');
+        if (methodEl) methodEl.placeholder = TRANSLATIONS[currentLang]?.search_method || 'Search method...';
     }
 
     const sectionSelect = document.getElementById('extrinsicSectionFilter');
     const section = sectionSelect ? sectionSelect.value : '';
+    const methodInput = document.getElementById('extrinsicMethodFilter');
+    const method = methodInput ? methodInput.value.trim() : '';
     const dateInput = document.getElementById('extrinsicDateInput');
     const timestamp = dateInput && dateInput.value ? new Date(dateInput.value).getTime() : null;
     const resultFilter = document.getElementById('extrinsicResultFilter');
@@ -3744,6 +4549,7 @@ async function loadGlobalExtrinsics(reset = false) {
     try {
         let url = `/history/global/extrinsics?page=${extrinsicPage}&limit=25`;
         if (section) url += `&section=${encodeURIComponent(section)}`;
+        if (method) url += `&method=${encodeURIComponent(method)}`;
         if (timestamp) url += `&timestamp=${timestamp}`;
         if (successVal !== '') url += `&success=${successVal}`;
 
@@ -3904,7 +4710,7 @@ function openBlockModal(block) {
         });
 }
 
-function openTxModal(hash, extrinsic_id) {
+function openTxModal(hash, extrinsic_id, usdValue) {
     document.getElementById('txModal').style.display = 'flex';
     const contentEl = document.getElementById('txModalContent');
 
@@ -3977,6 +4783,7 @@ function openTxModal(hash, extrinsic_id) {
                             <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
                             ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
                             <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
+                            ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
                         </div>
                         <div>
                             <strong>Arguments (JSON):</strong>
@@ -3990,6 +4797,7 @@ function openTxModal(hash, extrinsic_id) {
                         <div style="margin-bottom:12px; line-height:2;">
                             <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
                             <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                            ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
                         </div>
                         <p style="color:#6B7280; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.no_data || 'No detailed data available for this extrinsic.'}</p>
                     </div>`;
@@ -4001,6 +4809,7 @@ function openTxModal(hash, extrinsic_id) {
                     <div style="margin-bottom:12px; line-height:2;">
                         <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
                         <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                        ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
                     </div>
                     <p style="color:#EF4444; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.error_loading || 'Error loading extrinsic details.'}</p>
                 </div>`;
@@ -4180,6 +4989,11 @@ function updateChartTheme(theme) {
         // ideally renderFeeCharts should read getComputedStyle for colors
         // For now, let's just re-call it.
         renderFeeCharts();
+    }
+
+    // Re-render burn SVG flow on theme change
+    if (document.getElementById('burns')?.style.display === 'block') {
+        loadBurnFeeFlow();
     }
 }
 
@@ -4749,7 +5563,7 @@ async function loadGlobalLiquidity(reset = false) {
                     </td>
                     <td><span onclick="openWalletDetails('${esc(d.wallet)}')" class="clickable-address ${walletShort.includes('...') ? '' : 'wallet-alias'}">${walletShort}</span></td>
                     <td>
-                        <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}')" style="font-size:11px; padding:2px 6px;">🔍</button>
+                        <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}', '${esc(d.usd_value || '')}')" style="font-size:11px; padding:2px 6px;">🔍</button>
                     </td>
                 </tr>
             `;

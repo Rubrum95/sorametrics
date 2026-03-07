@@ -207,6 +207,14 @@ function createTables() {
     )`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_identity_updated ON identity_cache(updated_at)`);
 
+    db.exec(`CREATE TABLE IF NOT EXISTS supply_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp INTEGER,
+        symbol TEXT,
+        asset_id TEXT,
+        total_supply REAL
+    )`);
+
     // Safe migrations
     const safeAlter = (table, col, type) => {
         if (!/^[a-zA-Z_]+$/.test(table) || !/^[a-zA-Z_]+$/.test(col) || !/^[a-zA-Z_ ()]+$/.test(type)) return;
@@ -263,7 +271,8 @@ function createTables() {
         `CREATE INDEX IF NOT EXISTS idx_orderbook_wallet ON order_book_events(wallet)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_event_type ON order_book_events(event_type)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_block ON order_book_events(block)`,
-        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`
+        `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp_type ON order_book_events(timestamp, event_type)`,
+        `CREATE INDEX IF NOT EXISTS idx_supply_symbol_timestamp ON supply_snapshots(symbol, timestamp)`
     ];
 
     for (const idx of indices) {
@@ -539,7 +548,7 @@ function insertOrderBookEvent(e) {
 
 // --- EXTRINSICS READ ---
 
-function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null) {
+function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null, method = null) {
     const offset = (page - 1) * limit;
     const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg`;
 
@@ -552,6 +561,10 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     if (section) {
         conditions.push(`section = ?`);
         params.push(section);
+    }
+    if (method) {
+        conditions.push(`method LIKE ?`);
+        params.push('%' + method + '%');
     }
     if (timestamp) {
         conditions.push(`timestamp <= ?`);
@@ -1133,6 +1146,13 @@ function getFeeStats(startTime) {
     }
 }
 
+// Query fees from main DB only (skip history DB which may have different scale data)
+function getFeeStatsMainOnly(startTime) {
+    return getStmt('getFeeStats_mainOnly',
+        `SELECT type, SUM(amount) as total_xor, SUM(usd_value) as total_usd FROM main.fees WHERE timestamp >= ? GROUP BY type`
+    ).all(startTime);
+}
+
 function getFeeTrend(startTime, interval) {
     let fmt = '%Y-%m-%d %H:00:00';
     if (interval === 'day') fmt = '%Y-%m-%d';
@@ -1543,6 +1563,93 @@ function getStablecoinStats(startTime) {
     return results;
 }
 
+// --- SUPPLY SNAPSHOTS (BURN TRACKER) ---
+
+function insertSupplySnapshot(symbol, assetId, totalSupply) {
+    try {
+        if (!insertStmts.supply) {
+            insertStmts.supply = db.prepare(`INSERT INTO supply_snapshots (timestamp, symbol, asset_id, total_supply) VALUES (?, ?, ?, ?)`);
+        }
+        insertStmts.supply.run(Date.now(), symbol, assetId, totalSupply);
+    } catch (e) {
+        console.error('Error insertSupplySnapshot:', e.message);
+    }
+}
+
+function getSupplyHistory(symbol, startTime) {
+    try {
+        if (historyHasTable('supply_snapshots')) {
+            return getStmt('getSupplyHistory_unified',
+                `SELECT timestamp, total_supply FROM (
+                    SELECT timestamp, total_supply FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                    UNION ALL
+                    SELECT timestamp, total_supply FROM history.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                ) ORDER BY timestamp ASC`
+            ).all(symbol, startTime, symbol, startTime);
+        }
+        return getStmt('getSupplyHistory_main',
+            `SELECT timestamp, total_supply FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ? ORDER BY timestamp ASC`
+        ).all(symbol, startTime);
+    } catch (e) {
+        console.error('Error getSupplyHistory:', e.message);
+        return [];
+    }
+}
+
+function getLatestSupplySnapshot(symbol) {
+    try {
+        return getStmt('getLatestSupply',
+            `SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1`
+        ).get(symbol) || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function purgeSupplySnapshotsForSymbol(symbol) {
+    try {
+        const result = db.prepare('DELETE FROM supply_snapshots WHERE symbol = ?').run(symbol);
+        return result.changes;
+    } catch (e) {
+        console.error('Error purging snapshots for', symbol, ':', e.message);
+        return 0;
+    }
+}
+
+function getBurnStats(symbol, startTime) {
+    try {
+        const sql = historyHasTable('supply_snapshots')
+            ? `SELECT total_supply, timestamp FROM (
+                SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+                UNION ALL
+                SELECT total_supply, timestamp FROM history.supply_snapshots WHERE symbol = ? AND timestamp >= ?
+            ) ORDER BY timestamp ASC`
+            : `SELECT total_supply, timestamp FROM main.supply_snapshots WHERE symbol = ? AND timestamp >= ? ORDER BY timestamp ASC`;
+
+        const params = historyHasTable('supply_snapshots')
+            ? [symbol, startTime, symbol, startTime]
+            : [symbol, startTime];
+
+        const rows = db.prepare(sql).all(...params);
+        if (rows.length < 2) return { totalBurned: 0, startSupply: 0, endSupply: 0 };
+
+        const first = rows[0];
+        const last = rows[rows.length - 1];
+        const burned = first.total_supply - last.total_supply;
+
+        return {
+            totalBurned: Math.max(burned, 0),
+            startSupply: first.total_supply,
+            endSupply: last.total_supply,
+            startTime: first.timestamp,
+            endTime: last.timestamp
+        };
+    } catch (e) {
+        console.error('Error getBurnStats:', e.message);
+        return { totalBurned: 0, startSupply: 0, endSupply: 0 };
+    }
+}
+
 module.exports = {
     initDB,
     insertTransfer,
@@ -1562,6 +1669,7 @@ module.exports = {
     getFilteredStats,
     insertFee,
     getFeeStats,
+    getFeeStatsMainOnly,
     getFeeTrend,
     getWalletBridges,
     getLatestBridges,
@@ -1583,5 +1691,10 @@ module.exports = {
     upsertIdentity,
     upsertIdentityBatch,
     getIdentities,
-    getAllCachedIdentities
+    getAllCachedIdentities,
+    insertSupplySnapshot,
+    getSupplyHistory,
+    getLatestSupplySnapshot,
+    getBurnStats,
+    purgeSupplySnapshotsForSymbol
 };
