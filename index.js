@@ -1309,7 +1309,7 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(15, 60000), async (req, 
     }
 });
 
-app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), async (req, res) => {
+app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API not ready' });
     const address = req.params.address;
     try {
@@ -1417,7 +1417,7 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(10, 60000), asy
 });
 
 // Native staking info for a wallet
-app.get('/wallet/staking/:address', validateAddress, rateLimit(10, 60000), async (req, res) => {
+app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0 });
     const address = req.params.address;
     try {
@@ -1478,7 +1478,7 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(10, 60000), async
 });
 
 // Identity lookup for a single address
-app.get('/identity/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
+app.get('/identity/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     const address = req.params.address;
     try {
         // Check cache first
@@ -1520,7 +1520,7 @@ app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
     }).on('error', () => res.json({ EUR: eurRateCache.rate }));
 });
 
-app.get('/balance/:address', validateAddress, rateLimit(20, 60000), async (req, res) => {
+app.get('/balance/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.json([]);
     const address = req.params.address;
     const balances = [];
@@ -1613,7 +1613,7 @@ async function getAddressBalances(address) {
     } catch (e) { return []; }
 }
 
-app.post('/balances', rateLimit(5, 60000), async (req, res) => {
+app.post('/balances', rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json({ result: [] });
     const { addresses } = req.body;
     if (!addresses || !Array.isArray(addresses)) return res.json({ result: [] });

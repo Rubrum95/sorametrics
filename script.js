@@ -972,18 +972,26 @@ async function loadBalanceTab() {
         return;
     }
 
-    // Fetch each wallet sequentially to avoid parallel RPC conflicts
-    for (const addr of allAddresses) {
-        try {
-            const res = await fetch(`/balance/${addr}`);
-            const tokens = await res.json();
-            const totalUsd = tokens.reduce((acc, t) => acc + parseFloat(t.usdValue || 0), 0);
-            resultsMap[addr] = { address: addr, tokens, totalUsd };
-        } catch (e) {
-            console.error(`Balance error for ${addr.substring(0,8)}:`, e);
-            resultsMap[addr] = { address: addr, tokens: [], totalUsd: 0 };
+    // Use batch endpoint to fetch all wallet balances in one request
+    try {
+        const batchRes = await fetch('/balances', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ addresses: allAddresses })
+        });
+        const batchData = await batchRes.json();
+        if (batchData.result && Array.isArray(batchData.result)) {
+            batchData.result.forEach(r => {
+                resultsMap[r.address] = { address: r.address, tokens: r.tokens || [], totalUsd: r.totalUsd || 0 };
+            });
         }
+    } catch (e) {
+        console.error('Batch balance error:', e);
     }
+    // Fill in any missing wallets with empty data
+    allAddresses.forEach(addr => {
+        if (!resultsMap[addr]) resultsMap[addr] = { address: addr, tokens: [], totalUsd: 0 };
+    });
 
     const myW = myWallets.filter(w => w.type === 'my');
     const watchW = myWallets.filter(w => w.type === 'watch');
@@ -1323,17 +1331,23 @@ async function loadLpSummaryLazy() {
     }
 
     try {
-        // Fetch LP and Staking in parallel
-        const lpPromises = myW.map(w =>
+        // Fetch LP and Staking with concurrency limit to avoid 429
+        const CONCURRENCY = 3;
+        async function fetchQueued(items, fn) {
+            const results = [];
+            for (let i = 0; i < items.length; i += CONCURRENCY) {
+                const chunk = items.slice(i, i + CONCURRENCY);
+                const chunkResults = await Promise.all(chunk.map(fn));
+                results.push(...chunkResults);
+            }
+            return results;
+        }
+        const lpResults = await fetchQueued(myW, w =>
             fetch(`/wallet/liquidity/${w.address}`).then(r => r.ok ? r.json() : []).catch(() => [])
         );
-        const stakingPromises = myW.map(w =>
+        const stakingResults = await fetchQueued(myW, w =>
             fetch(`/wallet/staking/${w.address}`).then(r => r.ok ? r.json() : { staked: 0, unbonding: 0, usdValue: 0 }).catch(() => ({ staked: 0, unbonding: 0, usdValue: 0 }))
         );
-        const [lpResults, stakingResults] = await Promise.all([
-            Promise.all(lpPromises),
-            Promise.all(stakingPromises)
-        ]);
 
         // Aggregate LP pools
         const poolMap = {};
