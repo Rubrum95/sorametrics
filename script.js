@@ -957,8 +957,10 @@ var HOLDINGS_PER_PAGE = 10;
 var portfolioCurrency = localStorage.getItem('sora_portfolio_currency') || 'USD';
 var currencyRates = { USD: 1, EUR: 1, XOR: 1 }; // Will be updated on load
 var hideLowBalances = localStorage.getItem('sora_hide_low_balances') === 'true';
+var hideBalances = localStorage.getItem('sora_hide_balances') === 'true';
 
 async function loadBalanceTab() {
+    updateHideBalancesIcon();
     const allAddresses = myWallets.map(w => w.address);
     const resultsMap = {};
     let grandTotal = 0;
@@ -1066,6 +1068,10 @@ function convertValue(usdValue) {
 }
 
 function formatPortfolioPrice(usdVal) {
+    if (hideBalances) {
+        const sym = portfolioCurrency === 'XOR' ? getXorLogoHtml(20) : getCurrencySymbol();
+        return `<span class="currency-symbol">${sym}</span><span class="price-value">****</span>`;
+    }
     const val = convertValue(usdVal);
     if (portfolioCurrency === 'XOR') {
         const formatted = val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -1080,6 +1086,7 @@ function formatPortfolioPrice(usdVal) {
 }
 
 function formatPortfolioPricePlain(usdVal) {
+    if (hideBalances) return '****';
     const val = convertValue(usdVal);
     const sym = portfolioCurrency === 'XOR' ? '' : (portfolioCurrency === 'EUR' ? '€' : '$');
     return sym + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1143,6 +1150,27 @@ function toggleHideLowBalances() {
 function filterLowBalances(tokens) {
     if (!hideLowBalances) return tokens;
     return tokens.filter(t => t.usdValue > 0.05);
+}
+
+function toggleHideBalances() {
+    hideBalances = !hideBalances;
+    localStorage.setItem('sora_hide_balances', hideBalances);
+    updateHideBalancesIcon();
+    renderCurrentBalanceSubTab();
+    // Also update net worth display
+    if (cachedBalanceData) {
+        document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(cachedBalanceData.grandTotal);
+    }
+}
+
+function updateHideBalancesIcon() {
+    const icon = document.getElementById('hideBalancesIcon');
+    if (icon) icon.innerHTML = hideBalances ? '&#128064;' : '&#128065;';
+}
+
+// Mask token amounts in portfolio when hideBalances is active
+function portfolioAmount(val) {
+    return hideBalances ? '****' : formatAmount(val);
 }
 
 function renderPortfolioOverview() {
@@ -1308,7 +1336,7 @@ function renderHoldingsTable(tokens, total) {
         const price = t.amount > 0 ? (t.usdValue / t.amount) : 0;
         html += `<tr>
             <td><div class="token-name-cell"><img class="token-logo-sm" src="${getProxyUrl(t.logo)}" loading="lazy" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span style="font-weight:600;">${esc(t.symbol)}</span></div></td>
-            <td>${formatAmount(t.amount)}</td>
+            <td>${portfolioAmount(t.amount)}</td>
             <td style="color:var(--text-secondary);">${formatPortfolioPrice(price)}</td>
             <td style="font-weight:600;">${formatPortfolioPrice(t.usdValue)}</td>
             <td><div style="display:flex; align-items:center; gap:6px;"><div style="width:50px; height:6px; border-radius:3px; background:var(--border-color); overflow:hidden;"><div style="height:100%; width:${Math.min(pct, 100)}%; background:var(--primary-color); border-radius:3px;"></div></div><span style="font-size:12px; color:var(--text-secondary);">${pct.toFixed(1)}%</span></div></td>
@@ -1542,7 +1570,7 @@ function createExpandableWalletCard(wallet, data) {
                 <span style="font-weight:500;">${esc(t.symbol)}</span>
             </div>
             <div style="text-align:right;">
-                <div style="font-weight:600;">${formatAmount(t.amount)}</div>
+                <div style="font-weight:600;">${portfolioAmount(t.amount)}</div>
                 <div style="font-size:12px;color:#10B981;">${formatPortfolioPrice(t.usdValue)}</div>
             </div>
         </div>`).join('');
@@ -1563,7 +1591,7 @@ function createExpandableWalletCard(wallet, data) {
             </div>
             <div style="display:flex;align-items:center;gap:15px;flex-shrink:0;">
                 <span style="font-size:18px;font-weight:700;color:#10B981;">${formatPortfolioPrice(d.totalUsd)}</span>
-                <span style="font-size:12px;color:var(--text-secondary);">${d.tokens.length} tokens</span>
+                <span style="font-size:12px;color:var(--text-secondary);">${hideBalances ? '** tokens' : d.tokens.length + ' tokens'}</span>
                 <span class="wallet-expand-arrow">▼</span>
                 <button style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:14px;padding:4px;" onclick="event.stopPropagation();deleteWallet('${esc(addr)}')" title="Eliminar">🗑️</button>
             </div>

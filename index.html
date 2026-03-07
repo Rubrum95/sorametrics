@@ -2778,7 +2778,12 @@
             <div class="portfolio-header">
                 <div>
                     <h2 class="portfolio-label" data-i18n="total_net_worth">Patrimonio Total</h2>
-                    <div class="portfolio-total" id="totalNetWorth">$0.00</div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="portfolio-total" id="totalNetWorth">$0.00</div>
+                        <button id="toggleHideBalancesBtn" onclick="toggleHideBalances()" title="Show/Hide balances" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text-secondary);padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">
+                            <span id="hideBalancesIcon">&#128065;</span>
+                        </button>
+                    </div>
                     <div class="portfolio-change" id="portfolioChange"></div>
                 </div>
                 <div class="portfolio-selectors">
