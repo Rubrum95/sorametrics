@@ -146,6 +146,9 @@ function createTables() {
         usd_value REAL
     )`);
 
+    // Migration: add denom_factor column for denomination-aware XOR burn tracking
+    try { db.exec(`ALTER TABLE fees ADD COLUMN denom_factor TEXT DEFAULT '1'`); } catch (e) { /* already exists */ }
+
     db.exec(`CREATE TABLE IF NOT EXISTS liquidity_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER,
@@ -483,12 +486,22 @@ function insertBridge(b) {
 function insertFee(f) {
     try {
         if (!insertStmts.fee) {
-            insertStmts.fee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value) VALUES (?, ?, ?, ?, ?)`);
+            insertStmts.fee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value, denom_factor) VALUES (?, ?, ?, ?, ?, ?)`);
         }
-        insertStmts.fee.run(Date.now(), f.block, f.type, f.amount, f.usdValue);
+        insertStmts.fee.run(Date.now(), f.block, f.type, f.amount, f.usdValue, f.denomFactor || '1');
     } catch (e) {
         console.error('Error insertFee:', e.message);
     }
+}
+
+// Fix legacy fees that have denom_factor='1' (from before we tracked it)
+function fixFeeDenomFactor(correctFactor) {
+    try {
+        const result = db.prepare(
+            `UPDATE fees SET denom_factor = ? WHERE denom_factor = '1' OR denom_factor IS NULL`
+        ).run(correctFactor);
+        return result.changes;
+    } catch (e) { return 0; }
 }
 
 function insertExtrinsic(e) {
@@ -1796,6 +1809,7 @@ module.exports = {
     insertBridge,
     getFilteredStats,
     insertFee,
+    fixFeeDenomFactor,
     getFeeStats,
     getFeeStatsMainOnly,
     getFeeTrend,

@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
 // ... (imports)
 
 
@@ -281,6 +281,7 @@ let api = null;
 let ASSETS = [];
 let tokenPrices = {};
 let holdersCache = {};
+let currentDenomFactor = '1'; // XOR denomination factor (cumulative, queried on-chain)
 const CACHE_DURATION = 5 * 60 * 1000;
 
 // Caché para endpoints
@@ -454,6 +455,20 @@ async function getValRemintPercentage() {
 // Use CoinGecko for realistic XOR market data.
 let xorMarketCache = { data: null, ts: 0 };
 const XOR_MARKET_TTL = 300000; // 5 minutes
+
+// Update cached denomination factor from on-chain (called at startup + every 1h)
+async function updateDenomFactor() {
+    try {
+        if (api && api.query.denomination && api.query.denomination.denominator) {
+            const d = await withTimeout(api.query.denomination.denominator());
+            const val = d.toString().replace(/,/g, '');
+            if (val && val !== '0') {
+                currentDenomFactor = val;
+                console.log(`📦 Denomination factor updated: 10^${val.length - 1}`);
+            }
+        }
+    } catch (e) { /* denomination query failed, keep previous value */ }
+}
 
 const XOR_ETH_CONTRACT = '0x40fd72257597aa14c7231a7b1aaa29fce868f677';
 
@@ -2132,7 +2147,7 @@ app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
             stats[tf] = supplyBurn;
         }
         const currentSupply = await getTokenTotalSupply(symbol);
-        res.json({ symbol, currentSupply, stats });
+        res.json({ symbol, currentSupply, stats, denomFactor: currentDenomFactor });
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -2192,6 +2207,9 @@ app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
         if (xorMarket.cgMarketCap) {
             flow.xorMarketCap = xorMarket.cgMarketCap;
         }
+
+        // Denomination factor for frontend unpacked XOR display
+        flow.denomFactor = currentDenomFactor;
 
         res.json(flow);
     } catch (e) {
@@ -2285,6 +2303,14 @@ async function startApp() {
     await loadOfficialWhitelist();
     resolveBurnTokenIds();
     api = await initApi();
+
+    // Initialize denomination factor from on-chain + fix legacy fees with missing denom_factor
+    await updateDenomFactor();
+    if (currentDenomFactor !== '1') {
+        const fixed = fixFeeDenomFactor(currentDenomFactor);
+        if (fixed > 0) console.log(`✅ Fixed ${fixed} fees with denom_factor=10^${currentDenomFactor.length - 1}`);
+    }
+    setInterval(updateDenomFactor, 3600000); // refresh every 1h
 
     setInterval(updateKeyPrices, 60000);
     updateKeyPrices();
@@ -3062,7 +3088,8 @@ async function startApp() {
                         block: blockNumber,
                         type,
                         amount: feeVal.toNumber(),
-                        usdValue
+                        usdValue,
+                        denomFactor: currentDenomFactor
                     });
                 } catch (e) { console.error('Fee parsing error', e); }
             }
