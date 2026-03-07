@@ -1141,29 +1141,45 @@ function getFilteredStats(startTime) {
 
 // --- FEES ---
 
-function getFeeStats(startTime) {
+function getFeeStats(startTime, currentDenomFactor) {
+    // Normalize amounts across denomination eras:
+    // Each fee's amount is in its era's packaged units. To sum correctly,
+    // divide by 10^(len(currentDenom) - len(feeDenom)) to normalize to current scale.
+    // When all fees share the same denom_factor, this is a no-op (POWER(10,0)=1).
+    const denomLen = currentDenomFactor ? currentDenomFactor.length : 1;
     if (historyHasTable('fees')) {
-        return getStmt('getFeeStats_unified',
-            `SELECT type, SUM(amount) as total_xor, SUM(usd_value) as total_usd
+        return db.prepare(
+            `SELECT type,
+                    SUM(amount / POWER(10, ? - LENGTH(COALESCE(denom_factor, '1')))) as total_xor,
+                    SUM(usd_value) as total_usd
              FROM (
-                 SELECT type, amount, usd_value FROM main.fees WHERE timestamp >= ?
+                 SELECT type, amount, usd_value, denom_factor FROM main.fees WHERE timestamp >= ?
                  UNION ALL
-                 SELECT type, amount, usd_value FROM history.fees WHERE timestamp >= ?
+                 SELECT type, amount, usd_value, denom_factor FROM history.fees WHERE timestamp >= ?
              )
              GROUP BY type`
-        ).all(startTime, startTime);
+        ).all(denomLen, startTime, startTime);
     } else {
-        return getStmt('getFeeStats_main',
-            `SELECT type, SUM(amount) as total_xor, SUM(usd_value) as total_usd FROM main.fees WHERE timestamp >= ? GROUP BY type`
-        ).all(startTime);
+        return db.prepare(
+            `SELECT type,
+                    SUM(amount / POWER(10, ? - LENGTH(COALESCE(denom_factor, '1')))) as total_xor,
+                    SUM(usd_value) as total_usd
+             FROM main.fees WHERE timestamp >= ?
+             GROUP BY type`
+        ).all(denomLen, startTime);
     }
 }
 
 // Query fees from main DB only (skip history DB which may have different scale data)
-function getFeeStatsMainOnly(startTime) {
-    return getStmt('getFeeStats_mainOnly',
-        `SELECT type, SUM(amount) as total_xor, SUM(usd_value) as total_usd FROM main.fees WHERE timestamp >= ? GROUP BY type`
-    ).all(startTime);
+function getFeeStatsMainOnly(startTime, currentDenomFactor) {
+    const denomLen = currentDenomFactor ? currentDenomFactor.length : 1;
+    return db.prepare(
+        `SELECT type,
+                SUM(amount / POWER(10, ? - LENGTH(COALESCE(denom_factor, '1')))) as total_xor,
+                SUM(usd_value) as total_usd
+         FROM main.fees WHERE timestamp >= ?
+         GROUP BY type`
+    ).all(denomLen, startTime);
 }
 
 function getFeeTrend(startTime, interval) {

@@ -2010,7 +2010,7 @@ app.get('/stats/fees', rateLimit(20, 60000), async (req, res) => {
         const ms = msMap[timeframe];
         const startTime = (ms === undefined || ms === 0) ? 0 : (Date.now() - ms);
 
-        const stats = await getFeeStats(startTime);
+        const stats = await getFeeStats(startTime, currentDenomFactor);
         res.json(stats);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -2124,7 +2124,7 @@ app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
             // Calculate fee-based burns instead: 20% of all XOR fees are burned directly.
             // Note: pre-redenomination XOR amounts are larger (correct for that era).
             if (symbol === 'XOR') {
-                const feeData = getFeeStats(startTime);
+                const feeData = getFeeStats(startTime, currentDenomFactor);
                 let totalFees = 0;
                 let totalFeesUsd = 0;
                 feeData.forEach(r => {
@@ -2156,7 +2156,7 @@ app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
 app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
     try {
         const startTime = Date.now() - 86400000;
-        const feeStats = getFeeStats(startTime);
+        const feeStats = getFeeStats(startTime, currentDenomFactor);
 
         let totalXor = 0;
         feeStats.forEach(row => { totalXor += row.total_xor || 0; });
