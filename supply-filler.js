@@ -1,6 +1,7 @@
 // supply-filler.js - One-shot script to fill supply snapshot gap
 // Fills from current block backwards to backfiller position
 // Run once: node supply-filler.js
+// Run for specific tokens only: node supply-filler.js VAL PSWAP
 
 const { ApiPromise, WsProvider } = require('@polkadot/api');
 const { options } = require('@sora-substrate/api');
@@ -17,45 +18,14 @@ const HISTORY_DB_PATH = path.join(__dirname, 'database.db');
 // Snapshot every 1800 blocks ≈ 3 hours (6s/block)
 const SNAPSHOT_INTERVAL = 1800;
 
-// Tokens to track
+// Tokens to track (all asset IDs hardcoded from SORA chain)
 const SUPPLY_TOKENS = {
     XOR:   { assetId: '0x0200000000000000000000000000000000000000000000000000000000000000', decimals: 18, isNative: true },
-    VAL:   { assetId: null, decimals: 18 },
-    PSWAP: { assetId: null, decimals: 18 },
+    VAL:   { assetId: '0x0200040000000000000000000000000000000000000000000000000000000000', decimals: 18 },
+    PSWAP: { assetId: '0x0200050000000000000000000000000000000000000000000000000000000000', decimals: 18 },
     TBCD:  { assetId: '0x02000a0000000000000000000000000000000000000000000000000000000000', decimals: 18 },
     KUSD:  { assetId: '0x0200080000000000000000000000000000000000000000000000000000000000', decimals: 18 }
 };
-
-// Known asset IDs for VAL and PSWAP resolution
-const KNOWN_ASSETS = {
-    VAL: null,
-    PSWAP: null
-};
-
-async function resolveAssetIds(api) {
-    try {
-        const entries = await api.query.assets.assetInfos.entries();
-        for (const [key, value] of entries) {
-            const assetId = key.args[0].toString();
-            const info = value.toJSON ? value.toJSON() : value;
-            const symbol = info?.[0] || info?.symbol || '';
-            const decoded = typeof symbol === 'string' && symbol.startsWith('0x')
-                ? Buffer.from(symbol.replace('0x', ''), 'hex').toString('utf8').replace(/\0/g, '')
-                : String(symbol);
-            if (decoded === 'VAL' && !SUPPLY_TOKENS.VAL.assetId) {
-                SUPPLY_TOKENS.VAL.assetId = assetId;
-                console.log(`  ✅ VAL assetId: ${assetId.substring(0, 12)}...`);
-            }
-            if (decoded === 'PSWAP' && !SUPPLY_TOKENS.PSWAP.assetId) {
-                SUPPLY_TOKENS.PSWAP.assetId = assetId;
-                console.log(`  ✅ PSWAP assetId: ${assetId.substring(0, 12)}...`);
-            }
-            if (SUPPLY_TOKENS.VAL.assetId && SUPPLY_TOKENS.PSWAP.assetId) break;
-        }
-    } catch (e) {
-        console.error('Error resolving asset IDs:', e.message);
-    }
-}
 
 async function getSupplyAtBlock(apiAt, symbol, config) {
     try {
@@ -74,7 +44,20 @@ async function getSupplyAtBlock(apiAt, symbol, config) {
 }
 
 async function main() {
-    console.log('🔄 Supply Filler — Filling snapshot gap\n');
+    // Parse CLI args for token filter
+    const cliTokens = process.argv.slice(2).map(t => t.toUpperCase());
+    const tokensToProcess = cliTokens.length > 0
+        ? Object.fromEntries(Object.entries(SUPPLY_TOKENS).filter(([k]) => cliTokens.includes(k)))
+        : SUPPLY_TOKENS;
+
+    const tokenNames = Object.keys(tokensToProcess);
+    if (tokenNames.length === 0) {
+        console.error('❌ No valid tokens specified. Available: XOR, VAL, PSWAP, TBCD, KUSD');
+        process.exit(1);
+    }
+
+    console.log(`🔄 Supply Filler — Filling snapshot gap`);
+    console.log(`📋 Tokens: ${tokenNames.join(', ')}\n`);
 
     // 1. Read backfiller state
     let backfillerBlock = 0;
@@ -92,17 +75,7 @@ async function main() {
     const api = await ApiPromise.create(options({ provider }));
     console.log('✅ Connected to blockchain\n');
 
-    // 3. Resolve VAL/PSWAP asset IDs
-    console.log('🔍 Resolving asset IDs...');
-    await resolveAssetIds(api);
-
-    if (!SUPPLY_TOKENS.VAL.assetId || !SUPPLY_TOKENS.PSWAP.assetId) {
-        console.error('❌ Could not resolve VAL or PSWAP asset IDs');
-        await api.disconnect();
-        process.exit(1);
-    }
-
-    // 4. Get current block
+    // 3. Get current block
     const currentHeader = await api.rpc.chain.getHeader();
     const currentBlock = currentHeader.number.toNumber();
     console.log(`📦 Current block: ${currentBlock.toLocaleString()}`);
@@ -113,11 +86,10 @@ async function main() {
     const totalSnapshots = Math.ceil(totalBlocks / SNAPSHOT_INTERVAL);
     console.log(`📊 Gap: ${totalBlocks.toLocaleString()} blocks (${totalSnapshots} snapshots to take)\n`);
 
-    // 5. Open main DB
+    // 4. Open main DB
     const db = new Database(MAIN_DB_PATH);
     db.pragma('journal_mode = WAL');
 
-    // Create table if needed
     db.exec(`CREATE TABLE IF NOT EXISTS supply_snapshots (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         timestamp INTEGER,
@@ -132,7 +104,7 @@ async function main() {
         for (const r of rows) insertStmt.run(r.timestamp, r.symbol, r.assetId, r.supply);
     });
 
-    // 6. Also open history DB for writing there too
+    // 5. Also open history DB for writing there too
     let histDb = null;
     if (fs.existsSync(HISTORY_DB_PATH)) {
         histDb = new Database(HISTORY_DB_PATH);
@@ -151,9 +123,10 @@ async function main() {
         for (const r of rows) histInsertStmt.run(r.timestamp, r.symbol, r.assetId, r.supply);
     }) : null;
 
-    // 7. Process blocks from current backwards
+    // 6. Process blocks from current backwards
     let snapshotCount = 0;
     let errorCount = 0;
+    let recordCount = 0;
 
     for (let block = startBlock; block >= endBlock; block -= SNAPSHOT_INTERVAL) {
         try {
@@ -165,7 +138,7 @@ async function main() {
             const blockTimestamp = parseInt(tsRaw.toString());
 
             const rows = [];
-            for (const [symbol, config] of Object.entries(SUPPLY_TOKENS)) {
+            for (const [symbol, config] of Object.entries(tokensToProcess)) {
                 const supply = await getSupplyAtBlock(apiAt, symbol, config);
                 if (supply !== null && supply > 0) {
                     rows.push({
@@ -178,11 +151,10 @@ async function main() {
             }
 
             if (rows.length > 0) {
-                // Insert into main DB
                 insertBatch(rows);
-                // Also insert into history DB
                 if (histInsertBatch) histInsertBatch(rows);
                 snapshotCount++;
+                recordCount += rows.length;
             }
 
             const pct = (((startBlock - block) / totalBlocks) * 100).toFixed(1);
@@ -195,7 +167,7 @@ async function main() {
         }
     }
 
-    console.log(`\n✅ Done! ${snapshotCount} snapshots inserted (${snapshotCount * 5} records)`);
+    console.log(`\n✅ Done! ${snapshotCount} snapshots, ${recordCount} records inserted`);
     if (errorCount > 0) console.log(`⚠️  ${errorCount} errors skipped`);
 
     // Verify
