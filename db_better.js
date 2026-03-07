@@ -1755,6 +1755,29 @@ function globalSearch(query) {
     return { type: null };
 }
 
+// Total swap volume in USD for a given time range (for PSWAP fee calculations)
+function getSwapVolumeUsd(startTime) {
+    try {
+        if (historyHasTable('swaps')) {
+            const row = getStmt('getSwapVolumeUsd_unified',
+                `SELECT COALESCE(SUM(vol), 0) as total FROM (
+                    SELECT COALESCE(in_usd, 0) as vol FROM main.swaps WHERE timestamp >= ?
+                    UNION ALL
+                    SELECT COALESCE(in_usd, 0) as vol FROM history.swaps WHERE timestamp >= ?
+                )`
+            ).get(startTime, startTime);
+            return row?.total || 0;
+        }
+        const row = getStmt('getSwapVolumeUsd_main',
+            `SELECT COALESCE(SUM(in_usd), 0) as total FROM main.swaps WHERE timestamp >= ?`
+        ).get(startTime);
+        return row?.total || 0;
+    } catch (e) {
+        console.error('Error getSwapVolumeUsd:', e.message);
+        return 0;
+    }
+}
+
 module.exports = {
     initDB,
     insertTransfer,
@@ -1803,5 +1826,6 @@ module.exports = {
     getBurnStats,
     purgeSupplySnapshotsForSymbol,
     lookupExtrinsicUsdValue,
-    globalSearch
+    globalSearch,
+    getSwapVolumeUsd
 };

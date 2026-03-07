@@ -2905,6 +2905,11 @@ function openBurnSubTab(tab) {
         const view = document.getElementById('burnview-' + t);
         if (view) view.style.display = (t === tab) ? 'block' : 'none';
     });
+    // Re-render fee flow SVG for selected tab (XOR flow vs PSWAP flow)
+    if (burnFeeFlowCache) {
+        const container = document.getElementById('burnFlowSvg');
+        if (container) renderBurnFlowForTab(container, burnFeeFlowCache, tab);
+    }
     loadBurnSubTabData(tab);
 }
 
@@ -3217,17 +3222,28 @@ async function loadBurnHolders(tab, page) {
 
 // ==================== SVG FEE FLOW VISUALIZATION ====================
 
+let burnFeeFlowCache = null;
+
 async function loadBurnFeeFlow() {
     const container = document.getElementById('burnFlowSvg');
     if (!container) return;
     try {
         const res = await fetch('/burns/fee-flow');
         const data = await res.json();
-        renderBurnFlowSvg(container, data);
+        burnFeeFlowCache = data;
+        renderBurnFlowForTab(container, data, currentBurnTab);
     } catch (e) {
         console.error('loadBurnFeeFlow error:', e);
         const _lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
-        container.innerHTML = `<text x="450" y="160" text-anchor="middle" fill="#999" font-size="14">${esc(_lang.burn_loading_flow || 'Loading fee flow...')}</text>`;
+        container.innerHTML = `<text x="420" y="200" text-anchor="middle" fill="#999" font-size="14">${esc(_lang.burn_loading_flow || 'Loading fee flow...')}</text>`;
+    }
+}
+
+function renderBurnFlowForTab(container, data, tab) {
+    if (tab === 'pswap') {
+        renderPswapFlowSvg(container, data);
+    } else {
+        renderBurnFlowSvg(container, data);
     }
 }
 
@@ -3242,16 +3258,18 @@ function renderBurnFlowSvg(container, data) {
     const distributions = data.distribution || {};
     const supplies = data.supplies || {};
 
+    const valRemintPct = data.valRemintPercentage || 35;
+
     // Token keys for logo lookup: xor, val, kusd, tbcd, referrer
     const tokenLogoKeys = ['xor', 'val', 'kusd', 'tbcd', null];
 
-    // Distribution outputs
+    // Distribution outputs (XOR fee flow)
     const outputs = [
-        { label: lang.burn_xor_burn || 'XOR Burn',    pct: '20%',   color: '#E5243B', amount: distributions.xorBurn      || fees24h * 0.20, y: 55,  logoKey: 'xor' },
-        { label: lang.burn_val_burn || 'VAL Burn',    pct: '30%',   color: '#F5B041', amount: distributions.valBurn      || fees24h * 0.30, y: 130, logoKey: 'val' },
-        { label: lang.burn_kusd_buy || 'KUSD Buy',    pct: '39.5%', color: '#DC2626', amount: distributions.kusdBuyback  || fees24h * 0.395, y: 200, logoKey: 'kusd' },
-        { label: lang.burn_tbcd_buy || 'TBCD Buy',    pct: '0.5%',  color: '#10B981', amount: distributions.tbcdBuyback  || fees24h * 0.005, y: 275, logoKey: 'tbcd' },
-        { label: lang.burn_referrer || 'Referrer',    pct: '10%',   color: '#8B5CF6', amount: distributions.referrer     || fees24h * 0.10, y: 350, logoKey: null }
+        { label: lang.burn_xor_burn || 'XOR Burn',    pct: '20%',   color: '#E5243B', amount: distributions.xorBurn      || fees24h * 0.20, y: 55,  logoKey: 'xor',  subLabel: null },
+        { label: lang.burn_val_burn || 'VAL Burn',    pct: '30%',   color: '#F5B041', amount: distributions.valBurn      || fees24h * 0.30, y: 130, logoKey: 'val',  subLabel: `~${valRemintPct.toFixed(0)}% reminted (staking)` },
+        { label: lang.burn_kusd_buy || 'KUSD Buy',    pct: '39.5%', color: '#DC2626', amount: distributions.kusdBuyback  || fees24h * 0.395, y: 200, logoKey: 'kusd', subLabel: '+10% when no referrer' },
+        { label: lang.burn_tbcd_buy || 'TBCD Buy',    pct: '0.5%',  color: '#10B981', amount: distributions.tbcdBuyback  || fees24h * 0.005, y: 275, logoKey: 'tbcd', subLabel: null },
+        { label: lang.burn_referrer || 'Referrer',    pct: '10%',   color: '#8B5CF6', amount: distributions.referrer     || fees24h * 0.10, y: 350, logoKey: null,   subLabel: '\u2192 KUSD buyback if none' }
     ];
 
     let svg = '';
@@ -3376,6 +3394,10 @@ function renderBurnFlowSvg(container, data) {
         // Label + percentage below/beside circle
         svg += `<text x="${endX}" y="${endY + 34}" text-anchor="middle" fill="${out.color}" font-size="9" font-weight="700">${esc(out.pct)}</text>`;
         svg += `<text x="${endX}" y="${endY + 44}" text-anchor="middle" fill="${subtextColor}" font-size="8">${formatBurnNumber(out.amount)}</text>`;
+        // Sub-label (contextual note)
+        if (out.subLabel) {
+            svg += `<text x="${endX}" y="${endY + 54}" text-anchor="middle" fill="${subtextColor}" font-size="7" opacity="0.7">${esc(out.subLabel)}</text>`;
+        }
     });
 
     container.innerHTML = svg;
@@ -3383,6 +3405,143 @@ function renderBurnFlowSvg(container, data) {
     // Store data for TX animations
     container._flowData = data;
     container._outputs = outputs;
+}
+
+// ===== PSWAP SWAP FEE FLOW (full-size, shown when PSWAP tab selected) =====
+function renderPswapFlowSvg(container, data) {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const subtextColor = isDark ? '#9ca3af' : '#6b7280';
+    const bgCard = isDark ? '#1f2937' : '#ffffff';
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+
+    const pswapFlow = data.pswapFlow || {};
+    const pswapFeeUsd = pswapFlow.estimatedFeesUsd || 0;
+    const swapVolume = pswapFlow.totalSwapVolumeUsd24h || 0;
+    // BurnRate = 65% (burn+vesting+buyback), LPs get 35% (1 - BurnRate)
+    const pswapBurnRate = pswapFlow.burnRate || 65;
+    const pswapLpRate = 100 - pswapBurnRate;
+    const pswapBurnAmt = pswapFeeUsd * (pswapBurnRate / 100);
+    const pswapLpAmt = pswapFeeUsd * (pswapLpRate / 100);
+
+    let svg = '';
+
+    // Defs: reuse same gradients/filters
+    svg += `<defs>
+        <radialGradient id="furnaceGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.9"/>
+            <stop offset="40%" stop-color="#F97316" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#DC2626" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="furnaceCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FEF9C3"/>
+            <stop offset="30%" stop-color="#FBBF24"/>
+            <stop offset="70%" stop-color="#F97316"/>
+            <stop offset="100%" stop-color="#DC2626"/>
+        </radialGradient>
+        <radialGradient id="furnaceInner" cx="50%" cy="40%" r="50%">
+            <stop offset="0%" stop-color="#FFFBEB" stop-opacity="1"/>
+            <stop offset="50%" stop-color="#FDE68A" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <filter id="fireGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="12" result="blur"/>
+            <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        <clipPath id="pswapInputClip"><circle cx="90" cy="200" r="30"/></clipPath>
+        <clipPath id="pswapBurnClip"><circle cx="700" cy="130" r="26"/></clipPath>
+        <clipPath id="pswapLpClip"><circle cx="700" cy="270" r="26"/></clipPath>
+    </defs>`;
+
+    // Title
+    svg += `<text x="420" y="30" text-anchor="middle" fill="${subtextColor}" font-size="13" font-weight="700">PSWAP Swap Fee Burn Mechanism</text>`;
+    svg += `<text x="420" y="48" text-anchor="middle" fill="${subtextColor}" font-size="10" opacity="0.7">0.3% fee on every Polkaswap trade</text>`;
+
+    // ===== PSWAP INPUT (left side) =====
+    const pswapLogo = burnLogoCache['pswap'];
+    svg += `<g>
+        <circle cx="90" cy="200" r="34" fill="${bgCard}" stroke="#EC4899" stroke-width="2.5" filter="url(#softGlow)"/>`;
+    if (pswapLogo) {
+        svg += `<image href="${esc(pswapLogo)}" x="60" y="170" width="60" height="60" clip-path="url(#pswapInputClip)" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+        svg += `<text x="90" y="208" text-anchor="middle" fill="#EC4899" font-size="26" font-weight="800">P</text>`;
+    }
+    svg += `<text x="90" y="250" text-anchor="middle" fill="#EC4899" font-size="11" font-weight="700">PSWAP</text>
+        <text x="90" y="265" text-anchor="middle" fill="${subtextColor}" font-size="10">$${formatBurnNumber(swapVolume)}</text>
+        <text x="90" y="278" text-anchor="middle" fill="${subtextColor}" font-size="9">swap vol 24h</text>
+    </g>`;
+
+    // ===== Input flow path =====
+    svg += `<path d="M 134 200 Q 250 200 350 200" stroke="#EC4899" stroke-width="2.5" fill="none" stroke-dasharray="8 4" opacity="0.5">
+        <animate attributeName="stroke-dashoffset" from="24" to="0" dur="1.5s" repeatCount="indefinite"/>
+    </path>`;
+    svg += generateFlowDots(134, 200, 350, 200, '#EC4899', 3, 2.5);
+
+    // ===== FURNACE (center) =====
+    svg += `<g filter="url(#fireGlow)" class="furnace-core">
+        <circle cx="420" cy="200" r="55" fill="url(#furnaceGlow)" opacity="0.4">
+            <animate attributeName="r" values="55;65;55" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.4;0.7;0.4" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="420" cy="200" r="42" fill="url(#furnaceCore)" opacity="0.85">
+            <animate attributeName="r" values="42;46;42" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="420" cy="195" r="22" fill="url(#furnaceInner)" opacity="0.9">
+            <animate attributeName="r" values="22;26;20;22" dur="1.2s" repeatCount="indefinite"/>
+            <animate attributeName="cy" values="195;193;197;195" dur="1.8s" repeatCount="indefinite"/>
+        </circle>
+        <ellipse cx="410" cy="173" rx="8" ry="16" fill="#FBBF24" opacity="0.6">
+            <animate attributeName="cy" values="173;165;173" dur="1s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.6;0.3;0.6" dur="1s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="16;22;16" dur="1s" repeatCount="indefinite"/>
+        </ellipse>
+        <ellipse cx="430" cy="170" rx="6" ry="18" fill="#F97316" opacity="0.5">
+            <animate attributeName="cy" values="170;160;170" dur="1.3s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.5;0.2;0.5" dur="1.3s" repeatCount="indefinite"/>
+            <animate attributeName="ry" values="18;25;18" dur="1.3s" repeatCount="indefinite"/>
+        </ellipse>
+    </g>`;
+
+    // Fee label under furnace
+    svg += `<text x="420" y="268" text-anchor="middle" fill="${subtextColor}" font-size="10" font-weight="600">$${formatBurnNumber(pswapFeeUsd)} fees</text>`;
+    svg += `<text x="420" y="282" text-anchor="middle" fill="${subtextColor}" font-size="9" opacity="0.7">0.3% of volume</text>`;
+
+    // ===== OUTPUT 1: Permanent Burn (top-right) =====
+    const burnY = 130;
+    svg += `<path d="M 470 185 Q 580 155 670 ${burnY}" stroke="#EF4444" stroke-width="2.5" fill="none" stroke-dasharray="8 4" opacity="0.5">
+        <animate attributeName="stroke-dashoffset" from="24" to="0" dur="2s" repeatCount="indefinite"/>
+    </path>`;
+    svg += generateFlowDots(470, 185, 670, burnY, '#EF4444', 3, 3);
+
+    svg += `<circle cx="700" cy="${burnY}" r="30" fill="${bgCard}" stroke="#EF4444" stroke-width="2.5"/>`;
+    svg += `<text x="700" y="${burnY + 6}" text-anchor="middle" fill="#EF4444" font-size="22">\u{1F525}</text>`;
+    svg += `<text x="700" y="${burnY + 42}" text-anchor="middle" fill="#EF4444" font-size="12" font-weight="700">${pswapBurnRate}% Burn</text>`;
+    svg += `<text x="700" y="${burnY + 56}" text-anchor="middle" fill="${subtextColor}" font-size="10">$${formatBurnNumber(pswapBurnAmt)}</text>`;
+    svg += `<text x="700" y="${burnY + 69}" text-anchor="middle" fill="${subtextColor}" font-size="9" opacity="0.7">Permanent</text>`;
+
+    // ===== OUTPUT 2: LP Rewards (bottom-right) =====
+    const lpY = 270;
+    svg += `<path d="M 470 215 Q 580 245 670 ${lpY}" stroke="#3B82F6" stroke-width="2.5" fill="none" stroke-dasharray="8 4" opacity="0.5">
+        <animate attributeName="stroke-dashoffset" from="24" to="0" dur="2s" repeatCount="indefinite"/>
+    </path>`;
+    svg += generateFlowDots(470, 215, 670, lpY, '#3B82F6', 3, 3.3);
+
+    svg += `<circle cx="700" cy="${lpY}" r="30" fill="${bgCard}" stroke="#3B82F6" stroke-width="2.5"/>`;
+    svg += `<text x="700" y="${lpY + 6}" text-anchor="middle" fill="#3B82F6" font-size="22">\u{1F4A7}</text>`;
+    svg += `<text x="700" y="${lpY + 42}" text-anchor="middle" fill="#3B82F6" font-size="12" font-weight="700">${pswapLpRate}% LP</text>`;
+    svg += `<text x="700" y="${lpY + 56}" text-anchor="middle" fill="${subtextColor}" font-size="10">$${formatBurnNumber(pswapLpAmt)}</text>`;
+    svg += `<text x="700" y="${lpY + 69}" text-anchor="middle" fill="${subtextColor}" font-size="9" opacity="0.7">LP Rewards</text>`;
+
+    // ===== Description at bottom =====
+    svg += `<text x="420" y="355" text-anchor="middle" fill="${subtextColor}" font-size="9" opacity="0.6">All swap fees are converted to PSWAP and burned. ${pswapLpRate}% is reminted as LP incentives.</text>`;
+    svg += `<text x="420" y="370" text-anchor="middle" fill="${subtextColor}" font-size="9" opacity="0.6">Burn rate reached max cap of ${pswapBurnRate}% \u2014 permanently destroyed (incl. vesting + buyback).</text>`;
+
+    container.innerHTML = svg;
+    container._flowData = data;
+    container._outputs = [];
 }
 
 // ===== TX BURST ANIMATION (triggered on new block/fee) =====

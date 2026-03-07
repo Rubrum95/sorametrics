@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
 // ... (imports)
 
 
@@ -403,6 +403,48 @@ async function getOnChainTotalIssuance(symbol) {
     } catch (e) {
         console.error(`On-chain issuance query error for ${symbol}:`, e.message);
         return null;
+    }
+}
+
+// Query VAL remint percentage from on-chain timeSinceGenesis.
+// SORA staking remints a declining percentage (90%→35% over 5 years) of burned VAL as staking rewards.
+// Formula: remint% = max(35, 90 - 55 * elapsed_secs / 157680000)
+// Source: sora-xor/substrate frame/staking/src/sora.rs — ValRewardCurve::current_reward_coefficient
+let valRemintCache = { value: null, ts: 0 };
+const VAL_REMINT_TTL = 3600000; // 1 hour
+
+async function getValRemintPercentage() {
+    if (valRemintCache.value !== null && Date.now() - valRemintCache.ts < VAL_REMINT_TTL) {
+        return valRemintCache.value;
+    }
+    try {
+        if (!api || !api.query.staking || !api.query.staking.timeSinceGenesis) {
+            // Fallback: calculate from known genesis date (~April 2021)
+            const genesisApprox = new Date('2021-04-20T00:00:00Z').getTime();
+            const elapsedMs = Date.now() - genesisApprox;
+            const elapsedSecs = Math.floor(elapsedMs / 1000);
+            const fiveYears = 5 * 365 * 24 * 60 * 60;
+            if (elapsedSecs >= fiveYears) return 35;
+            const pct = 90 - (55 * elapsedSecs / fiveYears);
+            valRemintCache = { value: Math.max(35, parseFloat(pct.toFixed(2))), ts: Date.now() };
+            return valRemintCache.value;
+        }
+        const tsg = await withTimeout(api.query.staking.timeSinceGenesis());
+        const elapsedSecs = BigInt(tsg.secs.toString());
+        const FIVE_YEARS = BigInt(5 * 365 * 24 * 60 * 60); // 157680000
+        let pct;
+        if (elapsedSecs >= FIVE_YEARS) {
+            pct = 35;
+        } else {
+            const num = 90n * (FIVE_YEARS - elapsedSecs) + 35n * elapsedSecs;
+            pct = Number(num * 10000n / (100n * FIVE_YEARS)) / 100;
+        }
+        valRemintCache = { value: parseFloat(pct.toFixed(2)), ts: Date.now() };
+        return valRemintCache.value;
+    } catch (e) {
+        console.error('VAL remint query error:', e.message);
+        // Fallback estimate
+        return 35.5;
     }
 }
 
@@ -2031,6 +2073,20 @@ app.get('/burns/supply-history/:symbol', rateLimit(15, 60000), async (req, res) 
 
     try {
         const data = getSupplyHistory(symbol, startTime);
+
+        // Delta-based offset: anchor on-chain snapshots to MOF circulating supply
+        // On-chain totalIssuance includes locked/vesting tokens, MOF returns circulating.
+        // The delta between consecutive on-chain snapshots IS the real burn/mint change.
+        // We shift the entire curve so the latest point matches MOF's current supply.
+        const anchorSupply = await getTokenTotalSupply(symbol);
+        const latest = getLatestSupplySnapshot(symbol);
+        if (anchorSupply && latest && data.length > 0) {
+            const offset = anchorSupply - latest.total_supply;
+            for (let i = 0; i < data.length; i++) {
+                data[i] = { ...data[i], total_supply: data[i].total_supply + offset };
+            }
+        }
+
         res.json(data);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -2106,6 +2162,29 @@ app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
 
         for (const sym of Object.keys(BURN_TOKENS)) {
             flow.supplies[sym] = await getTokenTotalSupply(sym);
+        }
+
+        // VAL remint percentage — real-time from on-chain timeSinceGenesis
+        // This tells us what % of burned VAL gets reminted as staking rewards
+        try {
+            flow.valRemintPercentage = await getValRemintPercentage();
+        } catch (e) {
+            flow.valRemintPercentage = 35.5; // fallback
+        }
+
+        // PSWAP swap fee data — 0.3% of all DEX swap volume goes to PSWAP burn mechanism
+        // BurnRate started at 10%, increases ~0.0357%/day, capped at 65% (reached ~mid-2025).
+        // LP share = 1 - BurnRate = 35%. This is permanent — no mechanism to disable.
+        try {
+            const swapVolumeUsd = getSwapVolumeUsd(startTime);
+            const estimatedFees = swapVolumeUsd * 0.003;
+            flow.pswapFlow = {
+                totalSwapVolumeUsd24h: swapVolumeUsd,
+                estimatedFeesUsd: estimatedFees,
+                burnRate: 65 // BurnRate capped at 65% (burn+vesting+buyback), 35% to LPs
+            };
+        } catch (e) {
+            flow.pswapFlow = { totalSwapVolumeUsd24h: 0, estimatedFeesUsd: 0, burnRate: 65 };
         }
 
         // Include CoinGecko market cap for XOR context
