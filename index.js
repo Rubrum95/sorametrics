@@ -5,7 +5,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch } = require('./db_better');
 // ... (imports)
 
 
@@ -1706,6 +1706,29 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
 app.get('/history/extrinsic-sections', rateLimit(10, 60000), (req, res) => {
     try {
         res.json(getExtrinsicSections());
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// USD value lookup for an extrinsic (cross-table search)
+app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), (req, res) => {
+    const exId = req.params.extrinsicId;
+    if (!/^\d+-\d+$/.test(exId)) return res.status(400).json({ error: 'Invalid extrinsic ID' });
+    try {
+        const result = lookupExtrinsicUsdValue(exId);
+        res.json(result || { usd_value: null });
+    } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Global search endpoint (wallet, hash, extrinsic_id, block)
+app.get('/search', rateLimit(20, 60000), (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q || q.length < 3 || q.length > 128) return res.status(400).json({ error: 'Invalid query' });
+    try {
+        res.json(globalSearch(q));
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }

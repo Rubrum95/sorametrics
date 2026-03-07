@@ -1650,6 +1650,111 @@ function getBurnStats(symbol, startTime) {
     }
 }
 
+// Lookup USD value for an extrinsic by extrinsic_id (cross-table search)
+function lookupExtrinsicUsdValue(extrinsicId) {
+    if (!extrinsicId) return null;
+    try {
+        // 1. Transfers
+        const trSql = historyHasTable('transfers')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.transfers WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.transfers WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.transfers WHERE extrinsic_id = ? LIMIT 1`;
+        const trParams = historyHasTable('transfers') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const tr = db.prepare(trSql).get(...trParams);
+        if (tr && tr.usd_value) return { usd_value: tr.usd_value, source: 'transfer' };
+
+        // 2. Swaps (use in_usd as main value)
+        const swSql = historyHasTable('swaps')
+            ? `SELECT in_usd, out_usd FROM (SELECT in_usd, out_usd FROM main.swaps WHERE extrinsic_id = ? UNION ALL SELECT in_usd, out_usd FROM history.swaps WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT in_usd, out_usd FROM main.swaps WHERE extrinsic_id = ? LIMIT 1`;
+        const swParams = historyHasTable('swaps') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const sw = db.prepare(swSql).get(...swParams);
+        if (sw && (sw.in_usd || sw.out_usd)) return { usd_value: sw.in_usd || sw.out_usd, source: 'swap' };
+
+        // 3. Bridges
+        const brSql = historyHasTable('bridges')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.bridges WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.bridges WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.bridges WHERE extrinsic_id = ? LIMIT 1`;
+        const brParams = historyHasTable('bridges') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const br = db.prepare(brSql).get(...brParams);
+        if (br && br.usd_value) return { usd_value: br.usd_value, source: 'bridge' };
+
+        // 4. Liquidity events
+        const lqSql = historyHasTable('liquidity_events')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.liquidity_events WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.liquidity_events WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.liquidity_events WHERE extrinsic_id = ? LIMIT 1`;
+        const lqParams = historyHasTable('liquidity_events') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const lq = db.prepare(lqSql).get(...lqParams);
+        if (lq && lq.usd_value) return { usd_value: lq.usd_value, source: 'liquidity' };
+
+        // 5. Order book
+        const obSql = historyHasTable('order_book_events')
+            ? `SELECT usd_value FROM (SELECT usd_value FROM main.order_book_events WHERE extrinsic_id = ? UNION ALL SELECT usd_value FROM history.order_book_events WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT usd_value FROM main.order_book_events WHERE extrinsic_id = ? LIMIT 1`;
+        const obParams = historyHasTable('order_book_events') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const ob = db.prepare(obSql).get(...obParams);
+        if (ob && ob.usd_value) return { usd_value: ob.usd_value, source: 'orderbook' };
+
+        // 6. Fees
+        const feSql = historyHasTable('fees')
+            ? `SELECT total_usd FROM (SELECT total_usd FROM main.fees WHERE extrinsic_id = ? UNION ALL SELECT total_usd FROM history.fees WHERE extrinsic_id = ?) LIMIT 1`
+            : `SELECT total_usd FROM main.fees WHERE extrinsic_id = ? LIMIT 1`;
+        const feParams = historyHasTable('fees') ? [extrinsicId, extrinsicId] : [extrinsicId];
+        const fe = db.prepare(feSql).get(...feParams);
+        if (fe && fe.total_usd) return { usd_value: fe.total_usd, source: 'fee' };
+
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Global search: find entity by query (wallet address, tx hash, extrinsic_id, block)
+function globalSearch(query) {
+    if (!query || query.length < 3) return { type: null };
+    query = query.trim();
+
+    // Extrinsic ID pattern: number-number (e.g., 25135395-1)
+    if (/^\d+-\d+$/.test(query)) {
+        try {
+            const sql = historyHasTable('extrinsics')
+                ? `SELECT extrinsic_id, section, method, block FROM (SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? UNION ALL SELECT extrinsic_id, section, method, block FROM history.extrinsics WHERE extrinsic_id = ?) LIMIT 1`
+                : `SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? LIMIT 1`;
+            const params = historyHasTable('extrinsics') ? [query, query] : [query];
+            const row = db.prepare(sql).get(...params);
+            if (row) return { type: 'extrinsic', data: row };
+        } catch (e) { /* continue */ }
+    }
+
+    // Block number (pure digits)
+    if (/^\d+$/.test(query)) {
+        const block = parseInt(query);
+        if (block > 0 && block < 100000000) {
+            return { type: 'block', data: { block } };
+        }
+    }
+
+    // Transaction hash (0x...)
+    if (/^0x[a-fA-F0-9]{64}$/.test(query)) {
+        // Search in extrinsics table
+        try {
+            const sql = historyHasTable('extrinsics')
+                ? `SELECT extrinsic_id, section, method, block, signer FROM (SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? UNION ALL SELECT extrinsic_id, section, method, block, signer FROM history.extrinsics WHERE hash = ?) LIMIT 1`
+                : `SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? LIMIT 1`;
+            const params = historyHasTable('extrinsics') ? [query, query] : [query];
+            const row = db.prepare(sql).get(...params);
+            if (row) return { type: 'extrinsic', data: row };
+        } catch (e) { /* continue */ }
+        return { type: 'hash_not_found', data: { hash: query } };
+    }
+
+    // Wallet address (cn... , 48+ chars)
+    if (/^cn[a-zA-Z0-9]{46,}$/.test(query)) {
+        return { type: 'wallet', data: { address: query } };
+    }
+
+    return { type: null };
+}
+
 module.exports = {
     initDB,
     insertTransfer,
@@ -1696,5 +1801,7 @@ module.exports = {
     getSupplyHistory,
     getLatestSupplySnapshot,
     getBurnStats,
-    purgeSupplySnapshotsForSymbol
+    purgeSupplySnapshotsForSymbol,
+    lookupExtrinsicUsdValue,
+    globalSearch
 };

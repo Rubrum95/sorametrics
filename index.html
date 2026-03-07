@@ -2451,6 +2451,15 @@
 
             <!-- Header Actions -->
             <div style="display:flex; gap:10px; align-items:center;">
+                <!-- Global Search Toggle -->
+                <button class="btn-icon-only" onclick="toggleGlobalSearch()" title="Search" id="globalSearchBtn"
+                    style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary); cursor:pointer;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </button>
                 <!-- Theme Toggle -->
                 <button class="btn-icon-only" onclick="toggleTheme()" title="Cambiar Tema" id="themeToggleBtn"
                     style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary);">
@@ -2513,6 +2522,16 @@
 
                 <!-- Add Wallet -->
                 <button class="btn-primary" onclick="openAddWalletModal()" data-i18n="btn_add_wallet">+ Añadir
+            </div>
+        </div>
+
+        <!-- GLOBAL SEARCH BAR (hidden by default) -->
+        <div id="globalSearchBar" style="display:none; padding:12px 0; animation:fadeIn 0.2s;">
+            <div style="position:relative; max-width:600px; margin:0 auto;">
+                <input type="text" id="globalSearchInput" autocomplete="off"
+                    placeholder="Search wallet, tx hash, block, extrinsic ID..."
+                    style="width:100%; padding:12px 44px 12px 16px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card); color:var(--text-primary); font-family:inherit; font-size:14px; box-shadow:var(--shadow-card); outline:none; transition:border-color 0.2s;">
+                <div id="globalSearchStatus" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--text-secondary); font-size:12px;"></div>
             </div>
         </div>
 

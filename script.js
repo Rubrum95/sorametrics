@@ -85,6 +85,7 @@ const TRANSLATIONS = {
         burn_loading: "Cargando...", burn_loading_holders: "Cargando holders...", burn_no_holders: "No hay datos de holders", burn_error_supply: "Error al cargar datos de supply", burn_error_holders: "Error al cargar holders", burn_collecting_data: "Recopilando datos... Primer snapshot en ~15s", burn_loading_flow: "Cargando flujo de fees...", burn_supply_label: "Supply", burn_page: "Página", burn_xor_fees: "TARIFAS XOR", burn_furnace: "HORNO", burn_xor_burn: "Quema XOR", burn_val_burn: "Quema VAL", burn_kusd_buy: "Compra KUSD", burn_tbcd_buy: "Compra TBCD", burn_referrer: "Referido", burn_xor_mcap: "Market Cap XOR",
         usd_value_at_tx: "Valor USD (al momento de TX)",
         search_method: "Buscar método...",
+        search_placeholder: "Buscar wallet, tx hash, bloque, extrinsic ID...",
         max_sections_alert: "Máximo 5 secciones permitidas. Desactiva una primero."
     },
     en: {
@@ -99,6 +100,7 @@ const TRANSLATIONS = {
         burn_loading: "Loading...", burn_loading_holders: "Loading holders...", burn_no_holders: "No holder data available", burn_error_supply: "Error loading supply data", burn_error_holders: "Error loading holders", burn_collecting_data: "Collecting data... First snapshot in ~15s", burn_loading_flow: "Loading fee flow...", burn_supply_label: "Supply", burn_page: "Page", burn_xor_fees: "XOR FEES", burn_furnace: "FURNACE", burn_xor_burn: "XOR Burn", burn_val_burn: "VAL Burn", burn_kusd_buy: "KUSD Buy", burn_tbcd_buy: "TBCD Buy", burn_referrer: "Referrer", burn_xor_mcap: "XOR Market Cap",
         usd_value_at_tx: "USD Value (at TX time)",
         search_method: "Search method...",
+        search_placeholder: "Search wallet, tx hash, block, extrinsic ID...",
         max_sections_alert: "Maximum 5 sections allowed. Disable one first."
     },
     jp: {
@@ -4623,6 +4625,7 @@ function openExtrinsicDetail(extrinsicId) {
     const content = document.getElementById('extrinsicDetailContent');
     modal.style.display = 'flex';
 
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
     const match = _extrinsicsPageData.find(d => d.extrinsic_id === extrinsicId);
     if (match) {
         let argsFormatted = '{}';
@@ -4637,21 +4640,32 @@ function openExtrinsicDetail(extrinsicId) {
                 <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${esc(match.hash)}</span><br>
                 <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#9B1B30;">#${esc(String(match.block))}</a><br>
                 <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
-                <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
-                <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                <strong>${lang.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
+                <strong>${lang.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
                 ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
-                <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
+                <strong>${lang.time || 'Time'}:</strong> ${esc(match.time)}
+                <span id="extrinsicUsdPlaceholder"></span>
             </div>
             <div>
                 <strong>Arguments (JSON):</strong>
                 <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
             </div>
         `;
+        // Async lookup USD value from cross-table search
+        fetch('/lookup/usd-value/' + encodeURIComponent(extrinsicId))
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById('extrinsicUsdPlaceholder');
+                if (el && data && data.usd_value && data.usd_value > 0) {
+                    el.innerHTML = `<br><strong>${lang.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:700;">$${Number(data.usd_value).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>`;
+                }
+            })
+            .catch(() => {});
     } else {
         content.innerHTML = `
             <div style="text-align:center; padding:20px;">
                 <p><strong>Extrinsic ID:</strong> ${esc(extrinsicId)}</p>
-                <p style="color:#6B7280; font-size:12px;">${TRANSLATIONS[currentLang]?.no_data || 'No data.'}</p>
+                <p style="color:#6B7280; font-size:12px;">${lang.no_data || 'No data.'}</p>
             </div>
         `;
     }
@@ -5865,3 +5879,81 @@ document.addEventListener('touchend', function (e) {
         if (symbol) showChart(symbol);
     }
 }, { passive: false });
+
+// --- GLOBAL SEARCH ---
+function toggleGlobalSearch() {
+    const bar = document.getElementById('globalSearchBar');
+    const input = document.getElementById('globalSearchInput');
+    if (!bar) return;
+    if (bar.style.display === 'none') {
+        bar.style.display = 'block';
+        const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+        if (input) {
+            input.placeholder = lang.search_placeholder || 'Search wallet, tx hash, block, extrinsic ID...';
+            setTimeout(() => input.focus(), 100);
+        }
+    } else {
+        bar.style.display = 'none';
+        if (input) input.value = '';
+        const status = document.getElementById('globalSearchStatus');
+        if (status) status.textContent = '';
+    }
+}
+
+// Listen for Enter key on search input
+document.addEventListener('keydown', function(e) {
+    const input = document.getElementById('globalSearchInput');
+    if (!input) return;
+    // ESC to close search
+    if (e.key === 'Escape' && document.getElementById('globalSearchBar')?.style.display !== 'none') {
+        toggleGlobalSearch();
+        return;
+    }
+    if (e.key === 'Enter' && document.activeElement === input) {
+        e.preventDefault();
+        executeGlobalSearch(input.value.trim());
+    }
+});
+
+async function executeGlobalSearch(query) {
+    if (!query || query.length < 3) return;
+    const status = document.getElementById('globalSearchStatus');
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+    if (status) status.innerHTML = '<span style="color:var(--text-secondary);">...</span>';
+
+    try {
+        const res = await fetch('/search?q=' + encodeURIComponent(query));
+        const result = await res.json();
+
+        if (result.type === 'wallet') {
+            if (status) status.textContent = '';
+            toggleGlobalSearch();
+            openWalletDetails(result.data.address);
+        } else if (result.type === 'block') {
+            if (status) status.textContent = '';
+            toggleGlobalSearch();
+            openBlockModal(String(result.data.block));
+        } else if (result.type === 'extrinsic') {
+            if (status) status.textContent = '';
+            toggleGlobalSearch();
+            // Load the extrinsic data so detail modal can show it
+            const extRes = await fetch('/history/global/extrinsics?page=1&limit=1&block=' + result.data.block);
+            const extJson = await extRes.json();
+            if (extJson.data && extJson.data.length > 0) {
+                _extrinsicsPageData = extJson.data;
+            }
+            openExtrinsicDetail(result.data.extrinsic_id);
+        } else if (result.type === 'hash_not_found') {
+            // Try opening as TX modal directly
+            if (status) status.textContent = '';
+            toggleGlobalSearch();
+            openTxModal(query, '', '');
+        } else {
+            if (status) status.innerHTML = '<span style="color:#EF4444;">' + esc(lang.no_data || 'No data') + '</span>';
+            setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+        }
+    } catch (e) {
+        if (status) status.innerHTML = '<span style="color:#EF4444;">Error</span>';
+        setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+    }
+}
