@@ -81,7 +81,7 @@ const TRANSLATIONS = {
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Todos los Pallets", signer: "Firmante", result: "Resultado", extrinsic_details: "Detalles del Extrinsic",
         tab_governance: "Gobernanza", gov_council: "Consejo", gov_elections: "Elecciones", gov_motions: "Mociones", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_council_members: "Miembros del Consejo", gov_elected: "Miembros Electos", gov_candidates: "Candidatos", gov_runners_up: "Suplentes (Runners-up)", gov_deposit: "Deposito (XOR)", gov_council_motions: "Mociones del Consejo", gov_tech_motions: "Mociones del Comite Tecnico", gov_referendums: "Referendums Activos", gov_proposals: "Propuestas Publicas", gov_tech_members: "Miembros del Comite Tecnico", gov_no_motions: "No hay mociones activas", gov_no_referendums: "No hay referendums activos", gov_no_proposals: "No hay propuestas activas", gov_next_election: "Proxima Eleccion", gov_term_duration: "Duracion del Mandato", gov_seats: "Asientos", gov_rounds: "Rondas Completadas", gov_threshold: "Umbral", gov_aye: "A favor", gov_nay: "En contra", gov_turnout: "Participacion", gov_ends_block: "Finaliza bloque", gov_time_left: "Tiempo restante",
         tab_burns: "Quemado", burn_total_burned: "Total XOR Quemado (Tarifas de Red)", burn_supply_history: "Historial de Supply", burn_top_holders: "Top Holders", burn_current_supply: "Supply Actual", burn_rate_24h: "Quemado 24h", burn_rate_7d: "Quemado 7d", burn_rate_30d: "Quemado 30d", burn_rate_all: "Total Quemado",
-        burn_xor_supply: "XOR en Circulación", burn_xor_supply_sub: "paquetes XOR (empaquetado)", burn_xor_unpacked: "Supply XOR Desempaquetado", burn_xor_price: "Precio / Paquete", burn_xor_price_sub: "paquete", burn_xor_factor: "Factor Empaquetado", burn_xor_factor_sub: "auto-detectado on-chain", burn_xor_pack_eq: "1 paquete =", burn_xor_original: "XOR originales", burn_no_change: "Sin cambios detectados", burn_supply_decreased: "Supply disminuyó", burn_xor_hero: "paquetes XOR en circulación", burn_pkg: "paq.",
+        burn_xor_supply: "XOR en Circulación", burn_xor_supply_sub: "paquetes XOR (empaquetado)", burn_xor_unpacked: "Supply XOR Desempaquetado", burn_xor_price: "Precio / Paquete", burn_xor_price_sub: "paquete", burn_xor_factor: "Factor Empaquetado", burn_xor_factor_sub: "auto-detectado on-chain", burn_xor_pack_eq: "1 paquete =", burn_xor_original: "XOR originales", burn_no_change: "Sin cambios detectados", burn_supply_decreased: "Supply disminuyó", burn_xor_hero: "paquetes XOR en circulación", burn_pkg: "paq.", hide_low_balances: "Ocultar saldos bajos",
         burn_loading: "Cargando...", burn_loading_holders: "Cargando holders...", burn_no_holders: "No hay datos de holders", burn_error_supply: "Error al cargar datos de supply", burn_error_holders: "Error al cargar holders", burn_collecting_data: "Recopilando datos... Primer snapshot en ~15s", burn_loading_flow: "Cargando flujo de fees...", burn_supply_label: "Supply", burn_page: "Página", burn_xor_fees: "TARIFAS XOR", burn_furnace: "HORNO", burn_xor_burn: "Quema XOR", burn_val_burn: "Quema VAL", burn_kusd_buy: "Compra KUSD", burn_tbcd_buy: "Compra TBCD", burn_referrer: "Referido", burn_xor_mcap: "Market Cap XOR",
         usd_value_at_tx: "Valor USD (al momento de TX)",
         search_method: "Buscar método...",
@@ -96,7 +96,7 @@ const TRANSLATIONS = {
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "All Pallets", signer: "Signer", result: "Result", extrinsic_details: "Extrinsic Details",
         tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_council_members: "Council Members", gov_elected: "Elected Members", gov_candidates: "Candidates", gov_runners_up: "Runners-up", gov_deposit: "Deposit (XOR)", gov_council_motions: "Council Motions", gov_tech_motions: "Technical Committee Motions", gov_referendums: "Active Referendums", gov_proposals: "Public Proposals", gov_tech_members: "Technical Committee Members", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_next_election: "Next Election", gov_term_duration: "Term Duration", gov_seats: "Seats", gov_rounds: "Rounds Completed", gov_threshold: "Threshold", gov_aye: "Aye", gov_nay: "Nay", gov_turnout: "Turnout", gov_ends_block: "Ends at block", gov_time_left: "Time left",
         tab_burns: "Burn Tracker", burn_total_burned: "Total XOR Burned (Network Fees)", burn_supply_history: "Supply History", burn_top_holders: "Top Holders", burn_current_supply: "Current Supply", burn_rate_24h: "Burned 24h", burn_rate_7d: "Burned 7d", burn_rate_30d: "Burned 30d", burn_rate_all: "Total Burned",
-        burn_xor_supply: "XOR in Circulation", burn_xor_supply_sub: "XOR packages (packaged)", burn_xor_unpacked: "Unpacked XOR Supply", burn_xor_price: "Price / Package", burn_xor_price_sub: "package", burn_xor_factor: "Packaging Factor", burn_xor_factor_sub: "auto-detected on-chain", burn_xor_pack_eq: "1 package =", burn_xor_original: "original XOR", burn_no_change: "No change detected", burn_supply_decreased: "Supply decreased", burn_xor_hero: "XOR packages in circulation", burn_pkg: "pkg.",
+        burn_xor_supply: "XOR in Circulation", burn_xor_supply_sub: "XOR packages (packaged)", burn_xor_unpacked: "Unpacked XOR Supply", burn_xor_price: "Price / Package", burn_xor_price_sub: "package", burn_xor_factor: "Packaging Factor", burn_xor_factor_sub: "auto-detected on-chain", burn_xor_pack_eq: "1 package =", burn_xor_original: "original XOR", burn_no_change: "No change detected", burn_supply_decreased: "Supply decreased", burn_xor_hero: "XOR packages in circulation", burn_pkg: "pkg.", hide_low_balances: "Hide low balances",
         burn_loading: "Loading...", burn_loading_holders: "Loading holders...", burn_no_holders: "No holder data available", burn_error_supply: "Error loading supply data", burn_error_holders: "Error loading holders", burn_collecting_data: "Collecting data... First snapshot in ~15s", burn_loading_flow: "Loading fee flow...", burn_supply_label: "Supply", burn_page: "Page", burn_xor_fees: "XOR FEES", burn_furnace: "FURNACE", burn_xor_burn: "XOR Burn", burn_val_burn: "VAL Burn", burn_kusd_buy: "KUSD Buy", burn_tbcd_buy: "TBCD Buy", burn_referrer: "Referrer", burn_xor_mcap: "XOR Market Cap",
         usd_value_at_tx: "USD Value (at TX time)",
         search_method: "Search method...",
@@ -956,6 +956,7 @@ var holdingsPage = 1;
 var HOLDINGS_PER_PAGE = 10;
 var portfolioCurrency = localStorage.getItem('sora_portfolio_currency') || 'USD';
 var currencyRates = { USD: 1, EUR: 1, XOR: 1 }; // Will be updated on load
+var hideLowBalances = localStorage.getItem('sora_hide_low_balances') === 'true';
 
 async function loadBalanceTab() {
     const allAddresses = myWallets.map(w => w.address);
@@ -1133,10 +1134,23 @@ function refreshPortfolioDisplay() {
 }
 
 // --- PORTFOLIO OVERVIEW ---
+function toggleHideLowBalances() {
+    hideLowBalances = !hideLowBalances;
+    localStorage.setItem('sora_hide_low_balances', hideLowBalances);
+    renderPortfolioOverview();
+}
+
+function filterLowBalances(tokens) {
+    if (!hideLowBalances) return tokens;
+    return tokens.filter(t => t.usdValue > 0.05);
+}
+
 function renderPortfolioOverview() {
     if (!cachedBalanceData) return;
-    renderDonutChart(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
-    renderHoldingsTable(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
+    const filtered = filterLowBalances(cachedBalanceData.unifiedTokens);
+    const filteredTotal = filtered.reduce((s, t) => s + t.usdValue, 0);
+    renderDonutChart(filtered, filteredTotal);
+    renderHoldingsTable(filtered, filteredTotal);
     loadLpSummaryLazy();
 }
 
@@ -1273,8 +1287,15 @@ function renderHoldingsTable(tokens, total) {
 
     const arrow = (col) => currentHoldingsSort.col === col ? (currentHoldingsSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
     const valLabel = portfolioCurrency === 'XOR' ? 'Value (XOR)' : 'Value';
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
-    let html = `<table class="holdings-table"><thead><tr>
+    let html = `<div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:8px; gap:8px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px; color:var(--text-secondary);">
+            <input type="checkbox" ${hideLowBalances ? 'checked' : ''} onchange="toggleHideLowBalances()" style="cursor:pointer; accent-color:var(--primary-color);">
+            ${esc(lang.hide_low_balances || 'Hide low balances')} (&le;$0.05)
+        </label>
+    </div>`;
+    html += `<table class="holdings-table"><thead><tr>
         <th onclick="sortHoldingsTable('symbol')">Token${arrow('symbol')}</th>
         <th onclick="sortHoldingsTable('amount')">Amount${arrow('amount')}</th>
         <th>Price</th>
