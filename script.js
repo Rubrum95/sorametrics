@@ -1031,6 +1031,7 @@ async function loadBalanceTab() {
     // Reset LP/staking extras (will be updated when loadLpSummaryLazy completes)
     cachedLpTotal = 0;
     cachedStakingTotal = 0;
+    cachedLpStakingData = null; // Force re-fetch on next loadLpSummaryLazy
     document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(grandTotal);
     renderCurrentBalanceSubTab();
 }
@@ -1112,6 +1113,8 @@ async function loadCurrencyRates() {
 
 var cachedLpTotal = 0;
 var cachedStakingTotal = 0;
+var cachedLpStakingData = null; // Cached aggregated LP/Staking data to avoid refetching on re-render
+var lpStakingFetching = false;  // Guard against concurrent fetches
 
 function getFullNetWorth() {
     if (!cachedBalanceData) return 0;
@@ -1157,9 +1160,9 @@ function toggleHideBalances() {
     localStorage.setItem('sora_hide_balances', hideBalances);
     updateHideBalancesIcon();
     renderCurrentBalanceSubTab();
-    // Also update net worth display
+    // Also update net worth display (use full net worth including LP/Staking)
     if (cachedBalanceData) {
-        document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(cachedBalanceData.grandTotal);
+        document.getElementById('totalNetWorth').innerHTML = formatPortfolioPrice(getFullNetWorth());
     }
 }
 
@@ -1368,14 +1371,114 @@ function sortHoldingsTable(col) {
     if (cachedBalanceData) renderHoldingsTable(cachedBalanceData.unifiedTokens, cachedBalanceData.grandTotal);
 }
 
+// Render LP & Staking section from cached data (no network calls)
+function renderLpSummaryFromCache() {
+    const container = document.getElementById('lpSummaryContent');
+    if (!container || !cachedLpStakingData) return;
+    const { pools, lpTotal, stakingStaked, stakingUnbonding, stakingTotal, stakingResults, hasLP, hasStaking } = cachedLpStakingData;
+
+    if (!hasLP && !hasStaking) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No LP or staking positions</p>';
+        updateNetWorthWithExtras(0, 0);
+        return;
+    }
+
+    let html = '';
+
+    // LP Section
+    if (hasLP) {
+        html += `<div style="margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="font-size:16px;">💧</span>
+                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Liquidity Pools</span>
+                <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(lpTotal)}</span>
+            </div>
+            <div class="lp-summary-grid">`;
+        pools.forEach(p => {
+            html += `<div class="lp-summary-item">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; position:relative; width:44px;">
+                        <img src="${getProxyUrl(p.base.logo)}" style="width:28px;height:28px;border-radius:50%;z-index:2;border:2px solid var(--bg-card);" onerror="this.style.display='none'">
+                        <img src="${getProxyUrl(p.target.logo)}" style="width:28px;height:28px;border-radius:50%;position:absolute;left:18px;z-index:1;" onerror="this.src='${LOCAL_PLACEHOLDER}'">
+                    </div>
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">${esc(p.base.symbol)}-${esc(p.target.symbol)}</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">${(p.share * 100).toFixed(4)}% share</div>
+                    </div>
+                </div>
+                <div style="font-weight:700;color:#10B981;">${formatPortfolioPrice(p.value)}</div>
+            </div>`;
+        });
+        html += '</div></div>';
+    }
+
+    // Staking Section
+    if (hasStaking) {
+        html += `<div style="${hasLP ? 'border-top:1px solid var(--border-color); padding-top:16px;' : ''}">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="font-size:16px;">🔒</span>
+                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Native Staking (XOR)</span>
+                <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(stakingTotal)}</span>
+            </div>
+            <div class="lp-summary-grid">`;
+        if (stakingStaked > 0) {
+            html += `<div class="lp-summary-item">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">Staked</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">${portfolioAmount(stakingStaked)} XOR</div>
+                    </div>
+                </div>
+                <div style="font-weight:700;color:#10B981;">${formatPortfolioPrice(stakingTotal - (stakingUnbonding > 0 ? stakingResults.reduce((s, r) => s + (r.unbondingUsd || 0), 0) : 0))}</div>
+            </div>`;
+        }
+        if (stakingUnbonding > 0) {
+            html += `<div class="lp-summary-item">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;opacity:0.5;">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;">Unbonding</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">${portfolioAmount(stakingUnbonding)} XOR</div>
+                    </div>
+                </div>
+                <div style="font-weight:700;color:#F59E0B;">${formatPortfolioPrice(stakingResults.reduce((s, r) => s + (r.unbondingUsd || 0), 0))}</div>
+            </div>`;
+        }
+        html += '</div></div>';
+    }
+
+    // Total LP + Staking combined
+    const combinedTotal = lpTotal + stakingTotal;
+    html = `<div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:15px; font-weight:700; color:var(--text-primary);">Total LP & Staking</span>
+        <span style="font-size:18px; font-weight:800; color:#10B981;">${formatPortfolioPrice(combinedTotal)}</span>
+    </div>` + html;
+
+    container.innerHTML = html;
+    updateNetWorthWithExtras(lpTotal, stakingTotal);
+}
+
 async function loadLpSummaryLazy() {
     const container = document.getElementById('lpSummaryContent');
     if (!container || !cachedBalanceData) return;
+
+    // If we already have cached data, just re-render from cache (instant, no fetch)
+    if (cachedLpStakingData) {
+        renderLpSummaryFromCache();
+        return;
+    }
+
+    // Guard against concurrent fetches (e.g. rapid tab switches)
+    if (lpStakingFetching) return;
+    lpStakingFetching = true;
+
     container.innerHTML = '<div style="text-align:center; padding:15px; color:var(--text-secondary);">Cargando LP & Staking...</div>';
 
     const myW = cachedBalanceData.myW;
     if (myW.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No wallets</p>';
+        lpStakingFetching = false;
         return;
     }
 
@@ -1427,92 +1530,16 @@ async function loadLpSummaryLazy() {
         const hasLP = pools.length > 0;
         const hasStaking = stakingStaked > 0 || stakingUnbonding > 0;
 
-        if (!hasLP && !hasStaking) {
-            container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No LP or staking positions</p>';
-            // Update net worth (add 0 for LP+staking)
-            updateNetWorthWithExtras(0, 0);
-            return;
-        }
+        // Cache the aggregated data for instant re-renders
+        cachedLpStakingData = { pools, lpTotal, stakingStaked, stakingUnbonding, stakingTotal, stakingResults, hasLP, hasStaking };
 
-        let html = '';
-
-        // LP Section
-        if (hasLP) {
-            html += `<div style="margin-bottom:16px;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                    <span style="font-size:16px;">💧</span>
-                    <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Liquidity Pools</span>
-                    <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(lpTotal)}</span>
-                </div>
-                <div class="lp-summary-grid">`;
-            pools.forEach(p => {
-                html += `<div class="lp-summary-item">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div style="display:flex; position:relative; width:44px;">
-                            <img src="${getProxyUrl(p.base.logo)}" style="width:28px;height:28px;border-radius:50%;z-index:2;border:2px solid var(--bg-card);" onerror="this.style.display='none'">
-                            <img src="${getProxyUrl(p.target.logo)}" style="width:28px;height:28px;border-radius:50%;position:absolute;left:18px;z-index:1;" onerror="this.src='${LOCAL_PLACEHOLDER}'">
-                        </div>
-                        <div>
-                            <div style="font-weight:600;font-size:14px;">${esc(p.base.symbol)}-${esc(p.target.symbol)}</div>
-                            <div style="font-size:11px;color:var(--text-secondary);">${(p.share * 100).toFixed(4)}% share</div>
-                        </div>
-                    </div>
-                    <div style="font-weight:700;color:#10B981;">${formatPortfolioPrice(p.value)}</div>
-                </div>`;
-            });
-            html += '</div></div>';
-        }
-
-        // Staking Section
-        if (hasStaking) {
-            html += `<div style="${hasLP ? 'border-top:1px solid var(--border-color); padding-top:16px;' : ''}">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                    <span style="font-size:16px;">🔒</span>
-                    <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Native Staking (XOR)</span>
-                    <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(stakingTotal)}</span>
-                </div>
-                <div class="lp-summary-grid">`;
-            if (stakingStaked > 0) {
-                html += `<div class="lp-summary-item">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;">
-                        <div>
-                            <div style="font-weight:600;font-size:14px;">Staked</div>
-                            <div style="font-size:11px;color:var(--text-secondary);">${formatAmount(stakingStaked)} XOR</div>
-                        </div>
-                    </div>
-                    <div style="font-weight:700;color:#10B981;">${formatPortfolioPrice(stakingTotal - (stakingUnbonding > 0 ? stakingResults.reduce((s, r) => s + (r.unbondingUsd || 0), 0) : 0))}</div>
-                </div>`;
-            }
-            if (stakingUnbonding > 0) {
-                html += `<div class="lp-summary-item">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;opacity:0.5;">
-                        <div>
-                            <div style="font-weight:600;font-size:14px;">Unbonding</div>
-                            <div style="font-size:11px;color:var(--text-secondary);">${formatAmount(stakingUnbonding)} XOR</div>
-                        </div>
-                    </div>
-                    <div style="font-weight:700;color:#F59E0B;">${formatPortfolioPrice(stakingResults.reduce((s, r) => s + (r.unbondingUsd || 0), 0))}</div>
-                </div>`;
-            }
-            html += '</div></div>';
-        }
-
-        // Total LP + Staking combined
-        const combinedTotal = lpTotal + stakingTotal;
-        html = `<div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:15px; font-weight:700; color:var(--text-primary);">Total LP & Staking</span>
-            <span style="font-size:18px; font-weight:800; color:#10B981;">${formatPortfolioPrice(combinedTotal)}</span>
-        </div>` + html;
-
-        container.innerHTML = html;
-
-        // Update net worth to include LP + staking
-        updateNetWorthWithExtras(lpTotal, stakingTotal);
+        // Render from cache
+        renderLpSummaryFromCache();
     } catch (e) {
         container.innerHTML = '<p style="color:#EF4444; text-align:center;">Error loading LP & Staking data</p>';
         console.error('LP/Staking summary error:', e);
+    } finally {
+        lpStakingFetching = false;
     }
 }
 
@@ -2001,7 +2028,7 @@ async function loadPools() {
                     </div>
                 </td>
                 <td>
-                    <button class="secondary-btn" onclick="openPoolDetails('${esc(p.base.assetId)}', '${esc(p.target.assetId)}', 'providers', '${esc(baseSymbol)}', '${esc(targetSymbol)}', '${esc(baseLogo)}', '${esc(targetLogo)}')">
+                    <button class="secondary-btn" onclick="openPoolDetails('${p.base.assetId}', '${p.target.assetId}', 'providers', '${baseSymbol}', '${targetSymbol}', '${baseLogo.replace(/'/g, "\\'")}', '${targetLogo.replace(/'/g, "\\'")}')">
                         Providers
                     </button>
                 </td>
@@ -5735,6 +5762,20 @@ async function loadStablecoinMonitor() {
 // --- GLOBAL LIQUIDITY ACTIVITY ---
 let liquidityPage = 1;
 let liquidityTotalPages = 1;
+
+function updatePagination(prefix, currentPage, totalPages, total) {
+    const pageText = TRANSLATIONS[currentLang] ? TRANSLATIONS[currentLang].page_x_of_y : "Page {current} of {total}";
+    const ind = document.getElementById(prefix + 'PageIndicator');
+    if (ind) ind.innerText = pageText.replace('{current}', currentPage).replace('{total}', totalPages);
+    // Button IDs: btnLiqFirst, btnLiqPrev, btnLiqNext (short prefix in HTML)
+    const shortPrefix = prefix === 'liquidity' ? 'Liq' : prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    const btnFirst = document.getElementById('btn' + shortPrefix + 'First');
+    const btnPrev = document.getElementById('btn' + shortPrefix + 'Prev');
+    const btnNext = document.getElementById('btn' + shortPrefix + 'Next');
+    if (btnFirst) btnFirst.disabled = (currentPage <= 1);
+    if (btnPrev) btnPrev.disabled = (currentPage <= 1);
+    if (btnNext) btnNext.disabled = (currentPage >= totalPages);
+}
 
 async function loadGlobalLiquidity(reset = false) {
     if (reset) liquidityPage = 1;

@@ -292,6 +292,13 @@ let poolsCache = { data: null, timestamp: 0 };
 let providersCache = { data: null, timestamp: 0 };
 let activityCache = { data: null, timestamp: 0 };
 
+// LP & Staking caches to avoid scanning 432 pools on every request
+let poolPropertiesCache = { data: null, timestamp: 0 }; // Global pool properties (same for all wallets)
+const POOL_PROPS_TTL = 5 * 60 * 1000; // 5 min
+let liquidityCache = {}; // Per-address LP results: { address: { data, timestamp } }
+let stakingCache = {};   // Per-address staking results: { address: { data, timestamp } }
+const LP_STAKING_TTL = 3 * 60 * 1000; // 3 min per-address cache
+
 const SWAPS_TTL = 24 * 1000;    // 24s
 const TRANSFERS_TTL = 60 * 1000; // 60s
 const TOKENS_TTL = 30 * 1000;   // 30s
@@ -1012,10 +1019,15 @@ app.get('/pools', rateLimit(20, 60000), async (req, res) => {
                 }
             }
 
+            // Sort by TVL (USD value) so meaningful pools appear first
             pools.sort((a, b) => {
-                const aRes = parseFloat(String(a.reserves.base || '0').replace(/,/g, ''));
-                const bRes = parseFloat(String(b.reserves.base || '0').replace(/,/g, ''));
-                return bRes - aRes;
+                const rawBaseA = parseFloat(String(a.reserves.base || '0').replace(/,/g, '')) / Math.pow(10, a.base.decimals);
+                const rawTargetA = parseFloat(String(a.reserves.target || '0').replace(/,/g, '')) / Math.pow(10, a.target.decimals);
+                const tvlA = (rawBaseA * (a.basePrice || 0)) + (rawTargetA * (a.targetPrice || 0));
+                const rawBaseB = parseFloat(String(b.reserves.base || '0').replace(/,/g, '')) / Math.pow(10, b.base.decimals);
+                const rawTargetB = parseFloat(String(b.reserves.target || '0').replace(/,/g, '')) / Math.pow(10, b.target.decimals);
+                const tvlB = (rawBaseB * (b.basePrice || 0)) + (rawTargetB * (b.targetPrice || 0));
+                return tvlB - tvlA;
             });
 
             poolsCache = { data: pools, timestamp: now };
@@ -1312,10 +1324,26 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(15, 60000), async (req, 
 app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API not ready' });
     const address = req.params.address;
+
+    // Per-address cache check (3 min TTL)
+    const cached = liquidityCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
+
     try {
         console.log(`Liquidity Check Start: ${address}`);
-        const allProps = await withTimeout(api.query.poolXYK.properties.entries(), 30000);
-        console.log(`Total pools to scan: ${allProps.length}`);
+
+        // Global pool properties cache (same for all wallets, 5 min TTL)
+        let allProps;
+        if (poolPropertiesCache.data && Date.now() - poolPropertiesCache.timestamp < POOL_PROPS_TTL) {
+            allProps = poolPropertiesCache.data;
+            console.log(`Pool properties from cache: ${allProps.length}`);
+        } else {
+            allProps = await withTimeout(api.query.poolXYK.properties.entries(), 30000);
+            poolPropertiesCache = { data: allProps, timestamp: Date.now() };
+            console.log(`Total pools to scan (fresh): ${allProps.length}`);
+        }
 
         // OPTIMIZATION: Use larger chunks + multi query
         const CHUNK_SIZE = 100;
@@ -1408,8 +1436,11 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
             }));
         }
 
-        console.log(`Liquidity Scan Finished. Found ${poolsData.length} records.`);
-        res.json(poolsData.sort((a, b) => b.value - a.value));
+        const result = poolsData.sort((a, b) => b.value - a.value);
+        console.log(`Liquidity Scan Finished. Found ${result.length} records. (cached for ${LP_STAKING_TTL / 1000}s)`);
+        // Cache per-address result
+        liquidityCache[address] = { data: result, timestamp: Date.now() };
+        res.json(result);
     } catch (e) {
         console.error("Error fetching wallet liquidity:", e);
         res.status(500).json({ error: 'Internal server error' });
@@ -1420,6 +1451,13 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
 app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0 });
     const address = req.params.address;
+
+    // Per-address cache check (3 min TTL)
+    const cached = stakingCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
+
     try {
         // Check if address is a stash (bonded to a controller)
         const bonded = await withTimeout(api.query.staking.bonded(address));
@@ -1462,7 +1500,7 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
         const stakedNum = active.toNumber();
         const unbondingNum = unbonding.toNumber();
 
-        res.json({
+        const result = {
             staked: stakedNum,
             unbonding: unbondingNum,
             rewards: 0, // Phase 2: calculate pending rewards
@@ -1470,7 +1508,10 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
             stakedUsd: stakedNum * xorPrice,
             unbondingUsd: unbondingNum * xorPrice,
             validators
-        });
+        };
+        // Cache per-address result
+        stakingCache[address] = { data: result, timestamp: Date.now() };
+        res.json(result);
     } catch (e) {
         console.error("Error fetching staking info:", e.message);
         res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0, validators: [] });
