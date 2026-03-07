@@ -389,6 +389,23 @@ async function getTokenTotalSupply(symbol) {
     }
 }
 
+// On-chain total issuance query — always uses chain, never MOF API.
+// Used for supply snapshots to stay consistent with backfiller/supply-filler.
+async function getOnChainTotalIssuance(symbol) {
+    const token = BURN_TOKENS[symbol];
+    if (!token || !api) return null;
+    try {
+        const issuance = (symbol === 'XOR')
+            ? await withTimeout(api.query.balances.totalIssuance())
+            : await withTimeout(api.query.tokens.totalIssuance({ code: token.assetId }));
+        const raw = issuance.toString().replace(/,/g, '');
+        return new BigNumber(raw).div(new BigNumber(10).pow(token.decimals)).toNumber();
+    } catch (e) {
+        console.error(`On-chain issuance query error for ${symbol}:`, e.message);
+        return null;
+    }
+}
+
 // --- XOR MARKET DATA (CoinGecko + Etherscan for Ethereum supply) ---
 // XOR has undergone 6 denomination events (cumulative factor ~1e38).
 // On-chain pool price ($5) × MOF supply (1e18) gives absurd market cap.
@@ -2194,11 +2211,13 @@ async function startApp() {
     updateKeyPrices();
 
     // Supply snapshot job - every 30 minutes (Burn Tracker)
+    // Uses on-chain totalIssuance (NOT MOF API) to stay consistent with backfiller/supply-filler.
+    // MOF returns circulating supply, on-chain returns total issuance — mixing them causes fake burns.
     async function takeSupplySnapshots() {
-        console.log('📸 Taking supply snapshots...');
+        console.log('📸 Taking supply snapshots (on-chain)...');
         for (const sym of Object.keys(BURN_TOKENS)) {
             try {
-                const supply = await getTokenTotalSupply(sym);
+                const supply = await getOnChainTotalIssuance(sym);
                 if (supply !== null && supply > 0) {
                     insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
                     console.log(`  ✅ ${sym}: ${supply.toLocaleString()}`);
