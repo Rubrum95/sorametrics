@@ -2895,14 +2895,15 @@ async function loadBurnTracker() {
         const heroSub = document.getElementById('burnHeroSubtitle');
         const heroDenomFactor = statsRes?.denomFactor || '1';
         if (heroVal && burnedAll) {
-            heroVal.textContent = formatBurnNumber(Math.abs(burnedAll)) + ' XOR';
+            // Show unpacked (original) XOR as primary value
+            const unpackedStr = formatUnpacked(Math.abs(burnedAll), heroDenomFactor);
+            heroVal.textContent = (unpackedStr || formatBurnNumber(Math.abs(burnedAll))) + ' XOR';
             heroVal.style.animation = 'counterTick 0.4s ease';
         }
         if (heroSub && burnedAll) {
-            // Use real USD from fees table (not burned * current price, which mixes denominations)
             const usdValue = burnedAllUsd > 0 ? burnedAllUsd : Math.abs(burnedAll) * price;
-            const unpackedStr = formatUnpacked(Math.abs(burnedAll), heroDenomFactor);
-            heroSub.textContent = '$' + formatBurnNumber(usdValue) + (unpackedStr ? ' · ' + unpackedStr + ' real XOR' : '');
+            // Show packed amount + USD separately (no '·' that looks like multiplication)
+            heroSub.textContent = formatBurnNumber(Math.abs(burnedAll)) + ' paquetes · $' + formatBurnNumber(usdValue);
         }
     } catch (e) { console.error('Burn hero load error:', e); }
 }
@@ -2958,7 +2959,13 @@ async function loadBurnSupply(tab) {
         const supplyEl = document.getElementById('burnSupply-' + tab);
         if (supplyEl) {
             if (tab === 'xor') {
-                supplyEl.textContent = formatExponent(supply) + ' ' + (lang.burn_xor_hero || 'XOR packages in circulation');
+                // Show unpacked supply as primary hero text
+                const xorDenom = supplyRes?.xorMarket?.denominationFactor || '1';
+                const xorDenomExp = xorDenom.length - 1;
+                const sExp = supply > 0 ? Math.floor(Math.log10(supply)) : 0;
+                const sMant = supply > 0 ? supply / Math.pow(10, sExp) : 0;
+                const unpackedSupplyStr = xorDenomExp > 0 ? formatLargeExponent(sMant, sExp + xorDenomExp) : formatExponent(supply);
+                supplyEl.textContent = unpackedSupplyStr + ' XOR ' + (lang.burn_xor_original || 'original XOR');
             } else {
                 supplyEl.textContent = (lang.burn_supply_label || 'Supply') + ': ' + formatBurnNumber(supply) + ' ' + cfg.symbol;
             }
@@ -3007,13 +3014,13 @@ async function loadBurnSupply(tab) {
                 </div>
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_rate_30d || 'Burned 30d')}</div>
-                    <div class="burn-stat-value" style="color:${cfg.color}">${burned30d > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burned30d))}</div>
-                    <div class="burn-stat-sub">${burned30d > 0 ? (formatUnpacked(Math.abs(burned30d), statsRes.denomFactor) ? '\u2248' + formatUnpacked(Math.abs(burned30d), statsRes.denomFactor) + ' real XOR' : esc(lang.burn_supply_decreased || 'Supply decreased')) : esc(lang.burn_no_change || 'No change detected')}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burned30d > 0 ? '-' : ''}${formatUnpacked(Math.abs(burned30d), statsRes.denomFactor) || formatBurnNumber(Math.abs(burned30d))}</div>
+                    <div class="burn-stat-sub">${burned30d > 0 ? '-' + formatBurnNumber(Math.abs(burned30d)) + ' paq.' : esc(lang.burn_no_change || 'No change detected')}</div>
                 </div>
                 <div class="burn-stat-card">
                     <div class="burn-stat-label">${esc(lang.burn_rate_all || 'Total Burned')}</div>
-                    <div class="burn-stat-value" style="color:${cfg.color}">${burnedAll > 0 ? '-' : ''}${formatBurnNumber(Math.abs(burnedAll))}</div>
-                    <div class="burn-stat-sub">${burnedAllUsd > 0 ? '$' + formatBurnNumber(burnedAllUsd) + (formatUnpacked(Math.abs(burnedAll), statsRes.denomFactor) ? ' · \u2248' + formatUnpacked(Math.abs(burnedAll), statsRes.denomFactor) + ' real' : '') : (burnedAll > 0 ? esc(lang.burn_supply_decreased || 'Supply decreased') : esc(lang.burn_no_change || 'No change detected'))}</div>
+                    <div class="burn-stat-value" style="color:${cfg.color}">${burnedAll > 0 ? '-' : ''}${formatUnpacked(Math.abs(burnedAll), statsRes.denomFactor) || formatBurnNumber(Math.abs(burnedAll))}</div>
+                    <div class="burn-stat-sub">${burnedAll > 0 ? '-' + formatBurnNumber(Math.abs(burnedAll)) + ' paq. · $' + formatBurnNumber(burnedAllUsd) : esc(lang.burn_no_change || 'No change detected')}</div>
                 </div>
             `;
         } else {
@@ -3337,10 +3344,11 @@ function renderBurnFlowSvg(container, data) {
     }
     const denomExp = (data.denomFactor || '1').length - 1;
     const feesUnpacked = denomExp > 0 && fees > 0 ? formatUnpacked(fees, data.denomFactor) : null;
-    svg += `<text x="55" y="248" text-anchor="middle" fill="${sub}" font-size="9" font-weight="600">${formatBurnNumber(fees)} XOR</text>
+    // Show unpacked XOR as primary, packed as secondary
+    svg += `<text x="55" y="248" text-anchor="middle" fill="${sub}" font-size="9" font-weight="600">${feesUnpacked || formatBurnNumber(fees)} XOR</text>
         <text x="55" y="259" text-anchor="middle" fill="${sub}" font-size="8">24h fees</text>`;
     if (feesUnpacked) {
-        svg += `<text x="55" y="270" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.6">\u2248${feesUnpacked} real</text>`;
+        svg += `<text x="55" y="270" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.6">${formatBurnNumber(fees)} paq.</text>`;
     }
     svg += `</g>`;
 
@@ -3366,8 +3374,9 @@ function renderBurnFlowSvg(container, data) {
         svg += animPath(`M 265 210 Q ${330} ${(210+o.y)/2} ${s1x} ${o.y}`, o.color, 1.8);
         svg += generateFlowDots(265, 210, s1x, o.y, o.color, 2, 2.5 + i*0.3);
         svg += tokenCircle(s1x, o.y, 20, o.color, o.key, o.letter);
+        const s1Unpacked = denomExp > 0 && o.amt > 0 ? formatUnpacked(o.amt, data.denomFactor) : null;
         svg += `<text x="${s1x}" y="${o.y + 29}" text-anchor="middle" fill="${o.color}" font-size="9" font-weight="700">${o.pct}</text>`;
-        svg += `<text x="${s1x}" y="${o.y + 39}" text-anchor="middle" fill="${sub}" font-size="7.5">${formatBurnNumber(o.amt)} XOR</text>`;
+        svg += `<text x="${s1x}" y="${o.y + 39}" text-anchor="middle" fill="${sub}" font-size="7.5">${s1Unpacked || formatBurnNumber(o.amt)}</text>`;
         svg += `<text x="${s1x}" y="${o.y + 49}" text-anchor="middle" fill="${sub}" font-size="6.5" opacity="0.7">${o.note}</text>`;
     });
 
