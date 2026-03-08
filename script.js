@@ -4503,6 +4503,19 @@ function copyToClipboard(text) {
     else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Dirección copiada: ' + text); }
 }
 
+function toggleHashReveal(el) {
+    const cell = el.closest('td');
+    const short = cell.querySelector('.hash-cell');
+    const full = cell.querySelector('.hash-full');
+    if (full.style.display === 'none') {
+        short.style.display = 'none';
+        full.style.display = 'inline';
+    } else {
+        short.style.display = 'inline';
+        full.style.display = 'none';
+    }
+}
+
 async function loadGlobalTransfers(reset = false) {
     if (reset) transferPage = 1;
     const tbody = document.getElementById('transferTable');
@@ -4842,7 +4855,16 @@ async function loadGlobalExtrinsics(reset = false) {
                 <td style="font-family:monospace; font-size:12px;">
                     <a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;" style="color:#9B1B30;">#${esc(String(d.block))}</a>
                 </td>
-                <td style="font-family:monospace; font-size:12px;">${esc(d.extrinsic_id)}</td>
+                <td style="font-family:monospace; font-size:11px; line-height:1.4;">
+                    <span class="hash-cell" onclick="toggleHashReveal(this)" title="Click to reveal full hash" style="cursor:pointer; color:#9B1B30;">
+                        ${d.hash ? esc(d.hash.slice(0, 8)) + '\u2026' + esc(d.hash.slice(-6)) : esc(d.extrinsic_id)}
+                    </span>
+                    <span class="hash-full" style="display:none; word-break:break-all; font-size:10px;">
+                        ${esc(d.hash || d.extrinsic_id)}
+                        <span onclick="event.stopPropagation(); copyToClipboard('${esc(d.hash || d.extrinsic_id)}')" style="cursor:pointer; margin-left:4px;" title="Copy">&#128203;</span>
+                    </span>
+                    <br><span style="color:#6B7280; font-size:9px;">${esc(d.extrinsic_id)}</span>
+                </td>
                 <td><span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span></td>
                 <td style="font-size:11px;">
                     ${d.signer === 'System'
@@ -5406,12 +5428,13 @@ function openPoolTab(tab) {
     }
 }
 
+var _providersData = [];
+var _providersPage = 1;
+var _providersPerPage = 50;
+
 async function loadPoolProviders(base, target) {
     const tbody = document.getElementById('poolProvidersTable');
     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
-
-    // Set headers if possible (optional, or rely on static HTML if updated)
-    // Actually static HTML in openPoolDetails needs to change, or we inject here
 
     try {
         const res = await fetch(`/pool/providers?base=${encodeURIComponent(base)}&target=${encodeURIComponent(target)}`);
@@ -5419,33 +5442,60 @@ async function loadPoolProviders(base, target) {
             const text = await res.text();
             throw new Error(`Server Error ${res.status}: ${text.substring(0, 50)}...`);
         }
-        const data = await res.json();
+        _providersData = await res.json();
+        _providersPage = 1;
 
-        if (!data || data.length === 0) {
+        if (!_providersData || _providersData.length === 0) {
             tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;">${TRANSLATIONS[currentLang].no_providers_found}</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = '';
-        data.forEach((p, i) => {
-            // Use formatAddress for correct alias display
-            const walletDisplay = formatAddress(p.address);
-            tbody.innerHTML += `
-                <tr>
-                    <td>#${i + 1}</td>
-                    <td>
-                        <span class="clickable-address" onclick="openWalletDetails('${esc(p.address)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
-                            ${walletDisplay}
-                        </span>
-                    </td>
-                    <td style="text-align:right;">${p.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${TRANSLATIONS[currentLang].shares}</td>
-                </tr>
-            `;
-        });
-        scheduleIdentityFetch();
+        renderProvidersPage();
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:red;">${esc(e.message)}</td></tr>`;
     }
+}
+
+function renderProvidersPage() {
+    const tbody = document.getElementById('poolProvidersTable');
+    const totalPages = Math.ceil(_providersData.length / _providersPerPage);
+    const start = (_providersPage - 1) * _providersPerPage;
+    const end = Math.min(start + _providersPerPage, _providersData.length);
+    const pageData = _providersData.slice(start, end);
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+
+    let html = '';
+    pageData.forEach((p, i) => {
+        const walletDisplay = formatAddress(p.address);
+        html += `<tr>
+            <td>#${start + i + 1}</td>
+            <td>
+                <span class="clickable-address" onclick="openWalletDetails('${esc(p.address)}')" style="font-family:monospace; color:var(--text-primary); font-weight:bold; cursor:pointer;">
+                    ${walletDisplay}
+                </span>
+            </td>
+            <td style="text-align:right;">${p.balance.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${lang.shares || 'shares'}</td>
+        </tr>`;
+    });
+
+    // Pagination row
+    html += `<tr><td colspan="3" style="text-align:center; padding:12px;">
+        <span style="color:var(--text-secondary); font-size:12px; margin-right:10px;">${_providersData.length} providers</span>
+        <button class="btn-holders" onclick="changeProvidersPage(-1)" ${_providersPage <= 1 ? 'disabled' : ''}>⬅</button>
+        <span style="font-size:13px; color:#6B7280; margin:0 10px;">${_providersPage} / ${totalPages}</span>
+        <button class="btn-holders" onclick="changeProvidersPage(1)" ${_providersPage >= totalPages ? 'disabled' : ''}>➡</button>
+    </td></tr>`;
+
+    tbody.innerHTML = html;
+    scheduleIdentityFetch();
+}
+
+function changeProvidersPage(delta) {
+    const totalPages = Math.ceil(_providersData.length / _providersPerPage);
+    _providersPage += delta;
+    if (_providersPage < 1) _providersPage = 1;
+    if (_providersPage > totalPages) _providersPage = totalPages;
+    renderProvidersPage();
 }
 
 async function loadPoolActivity(base, target) {
@@ -6205,8 +6255,8 @@ async function executeGlobalSearch(query) {
         } else if (result.type === 'extrinsic') {
             if (status) status.textContent = '';
             toggleGlobalSearch();
-            // Load the extrinsic data so detail modal can show it
-            const extRes = await fetch('/history/global/extrinsics?page=1&limit=1&block=' + result.data.block);
+            // Load all extrinsics from that block so detail modal can find the right one
+            const extRes = await fetch('/history/global/extrinsics?page=1&limit=50&block=' + result.data.block);
             const extJson = await extRes.json();
             if (extJson.data && extJson.data.length > 0) {
                 _extrinsicsPageData = extJson.data;

@@ -1756,10 +1756,13 @@ function globalSearch(query) {
     // Extrinsic ID pattern: number-number (e.g., 25135395-1)
     if (/^\d+-\d+$/.test(query)) {
         try {
+            const parts = query.split('-');
+            const blockNum = parseInt(parts[0]);
+            const extIdx = parseInt(parts[1]);
             const sql = historyHasTable('extrinsics')
-                ? `SELECT extrinsic_id, section, method, block FROM (SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? UNION ALL SELECT extrinsic_id, section, method, block FROM history.extrinsics WHERE extrinsic_id = ?) LIMIT 1`
-                : `SELECT extrinsic_id, section, method, block FROM main.extrinsics WHERE extrinsic_id = ? LIMIT 1`;
-            const params = historyHasTable('extrinsics') ? [query, query] : [query];
+                ? `SELECT block || '-' || extrinsic_index AS extrinsic_id, section, method, block FROM (SELECT block, extrinsic_index, section, method FROM main.extrinsics WHERE block = ? AND extrinsic_index = ? UNION ALL SELECT block, extrinsic_index, section, method FROM history.extrinsics WHERE block = ? AND extrinsic_index = ?) LIMIT 1`
+                : `SELECT block || '-' || extrinsic_index AS extrinsic_id, section, method, block FROM main.extrinsics WHERE block = ? AND extrinsic_index = ? LIMIT 1`;
+            const params = historyHasTable('extrinsics') ? [blockNum, extIdx, blockNum, extIdx] : [blockNum, extIdx];
             const row = db.prepare(sql).get(...params);
             if (row) return { type: 'extrinsic', data: row };
         } catch (e) { /* continue */ }
@@ -1778,8 +1781,8 @@ function globalSearch(query) {
         // Search in extrinsics table
         try {
             const sql = historyHasTable('extrinsics')
-                ? `SELECT extrinsic_id, section, method, block, signer FROM (SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? UNION ALL SELECT extrinsic_id, section, method, block, signer FROM history.extrinsics WHERE hash = ?) LIMIT 1`
-                : `SELECT extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? LIMIT 1`;
+                ? `SELECT block || '-' || extrinsic_index AS extrinsic_id, section, method, block, signer FROM (SELECT block, extrinsic_index, section, method, signer FROM main.extrinsics WHERE hash = ? UNION ALL SELECT block, extrinsic_index, section, method, signer FROM history.extrinsics WHERE hash = ?) LIMIT 1`
+                : `SELECT block || '-' || extrinsic_index AS extrinsic_id, section, method, block, signer FROM main.extrinsics WHERE hash = ? LIMIT 1`;
             const params = historyHasTable('extrinsics') ? [query, query] : [query];
             const row = db.prepare(sql).get(...params);
             if (row) return { type: 'extrinsic', data: row };
