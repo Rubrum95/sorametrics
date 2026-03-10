@@ -25,6 +25,7 @@
     <script
         src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         /* THEME VARIABLES */
         :root {
@@ -3415,11 +3416,14 @@
             <div id="holderModal" class="modal">
                 <div class="modal-content">
                     <span class="close-modal" onclick="closeModal()">&times;</span>
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
-                        <h2 id="modalTitle" style="margin:0;" data-i18n="holders">Holders</h2>
-                        <span id="totalHoldersBadge"
-                            style="background:#EEF2FF; padding:4px 10px; border-radius:12px; font-size:12px;">0
-                            cuentas</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <h2 id="modalTitle" style="margin:0;" data-i18n="holders">Holders</h2>
+                            <span id="totalHoldersBadge"
+                                style="background:#EEF2FF; padding:4px 10px; border-radius:12px; font-size:12px;">0
+                                cuentas</span>
+                        </div>
+                        <div id="holderModalActions" style="display:flex; gap:6px;"></div>
                     </div>
                     <div
                         style="height: 400px; overflow-y: auto; border: 1px solid #E5E7EB; border-radius: 12px; padding:0 10px;">
@@ -3548,6 +3552,7 @@
                                 style="margin-left:5px;">
                                 ⛶
                             </button>
+                            <div id="chartModalActions" style="display:flex; gap:4px; margin-left:5px;"></div>
                         </div>
                         <span class="close-modal"
                             onclick="document.getElementById('chartModal').style.display='none'">&times;</span>
@@ -3565,6 +3570,7 @@
                             <span id="poolDetailsSub"
                                 style="font-family:monospace; color:var(--text-secondary); font-size:12px;"></span>
                         </div>
+                        <div id="poolModalActions" style="display:flex; gap:6px; margin-right:10px;"></div>
                         <span class="close-modal" onclick="closePoolDetailsModal()"
                             style="position:absolute; right:0; top:0; font-size:40px; line-height:0.8;">&times;</span>
                     </div>
@@ -3613,6 +3619,7 @@
                             <span id="detailsAddr"
                                 style="font-family:monospace; color:#6B7280; font-size:12px; word-break:break-all;"></span>
                         </div>
+                        <div id="walletModalActions" style="display:flex; gap:6px; margin-right:10px;"></div>
                         <span class="close-modal" onclick="closeDetailsModal()"
                             style="position:absolute; right:0; top:0; font-size:40px; line-height:0.8;">&times;</span>
                     </div>
@@ -3717,8 +3724,11 @@
             <div id="blockModal" class="modal">
                 <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
                     <span class="close-modal"
-                        onclick="document.getElementById('blockModal').style.display='none'">&times;</span>
-                    <h2 style="margin-top:0;">Block Details #<span id="blockModalNumber"></span></h2>
+                        onclick="closeBlockModal()">&times;</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <h2 style="margin:0;">Block Details #<span id="blockModalNumber"></span></h2>
+                        <div id="blockModalActions" style="display:flex; gap:6px;"></div>
+                    </div>
                     <div id="blockModalContent">Loading...</div>
                 </div>
             </div>
@@ -3726,8 +3736,11 @@
             <!-- Extrinsic Details Modal -->
             <div id="extrinsicDetailModal" class="modal">
                 <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow-y: auto;">
-                    <span class="close-modal" onclick="document.getElementById('extrinsicDetailModal').style.display='none'">&times;</span>
-                    <h2 style="margin-top:0;" data-i18n="extrinsic_details">Extrinsic Details</h2>
+                    <span class="close-modal" onclick="closeExtrinsicModal()">&times;</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <h2 style="margin:0;" data-i18n="extrinsic_details">Extrinsic Details</h2>
+                        <div id="extrinsicModalActions" style="display:flex; gap:6px;"></div>
+                    </div>
                     <div id="extrinsicDetailContent" style="word-break: break-all;">Loading...</div>
                 </div>
             </div>
@@ -3736,8 +3749,11 @@
             <div id="txModal" class="modal">
                 <div class="modal-content" style="max-width: 600px;">
                     <span class="close-modal"
-                        onclick="document.getElementById('txModal').style.display='none'">&times;</span>
-                    <h2 style="margin-top:0;">Transaction Details</h2>
+                        onclick="closeTxModal()">&times;</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <h2 style="margin:0;">Transaction Details</h2>
+                        <div id="txModalActions" style="display:flex; gap:6px;"></div>
+                    </div>
                     <div id="txModalContent" style="word-break: break-all;">Loading...</div>
                 </div>
             </div>
@@ -3772,7 +3788,7 @@
         </div>
 
 
-        <script src="script.js?v=v11"></script>
+        <script src="script.js?v=v15"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {

@@ -36,10 +36,10 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://googletagmanager.com"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://avatars.githubusercontent.com"],
-            connectSrc: ["'self'", "wss:", "ws:"],
+            imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://avatars.githubusercontent.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
+            connectSrc: ["'self'", "wss:", "ws:", "https://www.google-analytics.com", "https://analytics.google.com", "https://www.googletagmanager.com"],
             fontSrc: ["'self'"],
             scriptSrcAttr: ["'unsafe-inline'"],
         }
@@ -736,6 +736,9 @@ async function getXorPriceInDai() {
     }
 }
 
+// Minimum 0.1 XOR in pool reserves to consider price reliable
+const MIN_XOR_RESERVES = new BigNumber('1e17');
+
 async function getTokenPriceInXor(assetId, tokenDecimals) {
     try {
         const reserves = await withTimeout(api.query.poolXYK.reserves(XOR_ID, assetId));
@@ -746,6 +749,7 @@ async function getTokenPriceInXor(assetId, tokenDecimals) {
         const tokenRes = new BigNumber(reserves[1].toString());
 
         if (tokenRes.isZero()) return 0;
+        if (xorRes.lt(MIN_XOR_RESERVES)) return 0; // Low liquidity — unreliable price
 
         // Spot Price = XOR_Reserves / Token_Reserves (normalized)
         const xorNormal = xorRes.div('1e18');
@@ -2926,6 +2930,19 @@ async function startApp() {
         })();
 
         // --- ORDER BOOK EVENT DETECTION ---
+        // Helper: parse FixedU128/Balance from SORA order book events
+        // toJSON() returns {"inner":"0xHEX","isDivisible":true} — extract hex, convert to decimal, divide by 10^18
+        function parseOrderBookValue(val) {
+            if (!val) return '';
+            if (typeof val === 'string') return val.replace(/,/g, '');
+            if (typeof val === 'number') return String(val);
+            if (typeof val === 'object' && val.inner) {
+                try { return new BigNumber(val.inner).div('1e18').toFixed(6); } catch(e) {}
+            }
+            const s = String(val);
+            if (/^[\d,.]+$/.test(s)) return s.replace(/,/g, '');
+            return '';
+        }
         const orderBookEvents = allEvents.filter(({ event }) =>
             event.section === 'orderBook'
         );
@@ -2954,8 +2971,8 @@ async function startApp() {
                         wallet = d[2].toString();
                         const sideJson = dJson[3];
                         side = sideJson === 'Buy' ? 'buy' : 'sell';
-                        price = d[4].toString();
-                        amount = d[5].toString();
+                        price = parseOrderBookValue(dJson[4]);
+                        amount = parseOrderBookValue(dJson[5]);
                     } else if (m === 'LimitOrderCanceled') {
                         eventType = 'canceled';
                         orderId = d[1].toString();
@@ -2966,8 +2983,8 @@ async function startApp() {
                         wallet = d[2].toString();
                         const sideJson = dJson[3];
                         side = sideJson === 'Buy' ? 'buy' : 'sell';
-                        price = d[4].toString();
-                        amount = d[5].toString();
+                        price = parseOrderBookValue(dJson[4]);
+                        amount = parseOrderBookValue(dJson[5]);
                     } else if (m === 'LimitOrderFilled') {
                         eventType = 'filled';
                         orderId = d[1].toString();
@@ -2977,8 +2994,8 @@ async function startApp() {
                         wallet = d[1].toString();
                         const sideJson = dJson[2];
                         side = sideJson === 'Buy' ? 'buy' : 'sell';
-                        amount = d[3].toString();
-                        price = d[4].toString();
+                        amount = parseOrderBookValue(dJson[3]);
+                        price = parseOrderBookValue(dJson[4]);
                     } else {
                         continue; // skip unknown events
                     }

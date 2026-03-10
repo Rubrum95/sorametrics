@@ -292,6 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     initNavigation();
+    handleExtrinsicDeepLink();
 });
 
 // --- SWAP DROPDOWN LOGIC (NUEVO) ---
@@ -920,14 +921,13 @@ socket.on('orderbook-batch', (batch) => {
         const walletShort = formatAddress(d.wallet);
         const sideColor = d.side === 'buy' ? '#10B981' : (d.side === 'sell' ? '#EF4444' : '#6B7280');
         const sideLabel = d.side ? d.side.toUpperCase() : '-';
-        const pair = (d.base_asset && d.quote_asset) ? `${d.base_asset}/${d.quote_asset}` : '-';
 
         const row = document.createElement('tr');
         row.innerHTML = `
             <td style="color:#6B7280; font-size:11px;">${d.time || '-'}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
             <td>${getEventTypeBadge(d.event_type)}</td>
-            <td style="font-size:12px; font-weight:600;">${esc(pair)}</td>
+            <td>${renderPairCell(d.base_asset, d.quote_asset)}</td>
             <td style="color:${sideColor}; font-weight:700; font-size:11px;">${sideLabel}</td>
             <td style="font-size:11px; font-family:monospace;">${d.price ? formatAmount(d.price) : '-'}</td>
             <td style="font-size:11px; font-family:monospace;">${d.amount ? formatAmount(d.amount) : '-'}</td>
@@ -1902,11 +1902,25 @@ function changeTokenPage(d) {
     if (tokenPage + d > 0 && tokenPage + d <= tokenTotalPages) { tokenPage += d; loadTokens(); }
 }
 
+var _currentHolderSymbol = null;
+
+function screenshotHolderModal() {
+    screenshotModal('#holderModal', 'holders-' + (_currentHolderSymbol || 'token'));
+}
+
 function viewHolders(symbol, assetId) {
     currentAssetId = assetId;
     currentPage = 1;
+    _currentHolderSymbol = symbol;
     document.getElementById('holderModal').style.display = 'flex';
     document.getElementById('modalTitle').innerText = `${TRANSLATIONS[currentLang].holders} de ${symbol}`;
+
+    // Inject screenshot button (no share link for holders)
+    const holderActions = document.getElementById('holderModalActions');
+    if (holderActions) {
+        holderActions.innerHTML = renderActionButtons(null, 'screenshotHolderModal()');
+    }
+
     loadHoldersPage();
 }
 
@@ -2048,6 +2062,14 @@ let currentDetailsAddr = null;
 let wSwapPage = 1;
 let wTransferPage = 1;
 
+function shareWalletLink() {
+    shareModalLink('#wallet=' + currentDetailsAddr);
+}
+
+function screenshotWalletModal() {
+    screenshotModal('#walletDetailsModal', 'wallet-' + (currentDetailsAddr || 'detail').slice(0, 8));
+}
+
 async function openWalletDetails(address) {
     currentDetailsAddr = address;
     wSwapPage = 1;
@@ -2063,6 +2085,13 @@ async function openWalletDetails(address) {
     }
     document.getElementById('detailsTitle').innerHTML = titleHtml;
     document.getElementById('detailsAddr').innerText = address;
+
+    // Inject action buttons
+    const walletActions = document.getElementById('walletModalActions');
+    if (walletActions) {
+        walletActions.innerHTML = renderActionButtons('shareWalletLink()', 'screenshotWalletModal()');
+    }
+
     openWTab('assets');
     loadWalletAssets();
     loadWalletHistory();
@@ -2100,6 +2129,9 @@ function editWalletAlias(address) {
 function closeDetailsModal() {
     document.getElementById('walletDetailsModal').style.display = 'none';
     document.body.style.overflow = '';
+    if (window.location.hash.startsWith('#wallet=')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
     // Clear unified addresses when closing
     unifiedWalletAddresses = [];
 }
@@ -4687,6 +4719,37 @@ function changeBridgePage(delta) {
 // --- ORDER BOOK ---
 let orderbookPage = 1;
 let orderbookTotalPages = 1;
+const _symbolLogoCache = {};
+let _symbolLogoLoaded = false;
+
+async function ensureSymbolLogos() {
+    if (_symbolLogoLoaded) return;
+    _symbolLogoLoaded = true;
+    try {
+        const pages = await Promise.all([1,2,3].map(p => fetch('/tokens?page=' + p + '&limit=100').then(r => r.ok ? r.json() : null).catch(() => null)));
+        for (const data of pages) {
+            if (!data) continue;
+            const tokens = data.data || data.tokens || data;
+            if (!Array.isArray(tokens)) continue;
+            for (const t of tokens) {
+                if (t.symbol && t.logo) _symbolLogoCache[t.symbol.toUpperCase()] = getProxyUrl(t.logo);
+            }
+        }
+    } catch (e) { console.error('Symbol logo fetch error:', e.message); }
+}
+
+function renderPairCell(base, quote) {
+    const bLogo = _symbolLogoCache[base?.toUpperCase()] || LOCAL_PLACEHOLDER;
+    const qLogo = _symbolLogoCache[quote?.toUpperCase()] || LOCAL_PLACEHOLDER;
+    const pair = (base && quote) ? `${esc(base)}/${esc(quote)}` : '-';
+    return `<div style="display:flex; align-items:center; gap:6px;">
+        <div style="position:relative; width:38px; height:22px; flex-shrink:0;">
+            <img src="${bLogo}" style="width:22px;height:22px;border-radius:50%;position:absolute;left:0;z-index:2;border:1.5px solid var(--bg-card);object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
+            <img src="${qLogo}" style="width:22px;height:22px;border-radius:50%;position:absolute;left:14px;z-index:1;object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
+        </div>
+        <span style="font-weight:600; font-size:12px;">${pair}</span>
+    </div>`;
+}
 
 function getEventTypeBadge(type) {
     const colors = {
@@ -4715,7 +4778,7 @@ async function loadGlobalOrderBook(reset = false) {
         if (typeFilter) url += `&type=${typeFilter}`;
         if (timestamp) url += `&timestamp=${timestamp}`;
 
-        const res = await fetch(url);
+        const [, res] = await Promise.all([ensureSymbolLogos(), fetch(url)]);
         const json = await res.json();
         const data = json.data;
         orderbookTotalPages = json.totalPages || 1;
@@ -4736,14 +4799,13 @@ async function loadGlobalOrderBook(reset = false) {
             const walletShort = formatAddress(d.wallet);
             const sideColor = d.side === 'buy' ? '#10B981' : (d.side === 'sell' ? '#EF4444' : '#6B7280');
             const sideLabel = d.side ? d.side.toUpperCase() : '-';
-            const pair = (d.base_asset && d.quote_asset) ? `${d.base_asset}/${d.quote_asset}` : '-';
 
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td style="color:#6B7280; font-size:11px;">${d.time || '-'}</td>
                 <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
                 <td>${getEventTypeBadge(d.event_type)}</td>
-                <td style="font-size:12px; font-weight:600;">${esc(pair)}</td>
+                <td>${renderPairCell(d.base_asset, d.quote_asset)}</td>
                 <td style="color:${sideColor}; font-weight:700; font-size:11px;">${sideLabel}</td>
                 <td style="font-size:11px; font-family:monospace;">${d.price ? formatAmount(d.price) : '-'}</td>
                 <td style="font-size:11px; font-family:monospace;">${d.amount ? formatAmount(d.amount) : '-'}</td>
@@ -4776,8 +4838,10 @@ function changeOrderbookPage(delta) {
 
 // --- EXTRINSICS ---
 let _extrinsicsPageData = [];
+let _deepLinkActive = false;
 
 async function loadGlobalExtrinsics(reset = false) {
+    if (_deepLinkActive) return;
     if (reset) extrinsicPage = 1;
     const tbody = document.getElementById('extrinsicTable');
     if (!tbody) return;
@@ -4897,14 +4961,28 @@ function changeExtrinsicPage(delta) {
     loadGlobalExtrinsics();
 }
 
+var _currentExtrinsicId = null;
+var _currentExtrinsicHash = null;
+
 function openExtrinsicDetail(extrinsicId) {
+    _currentExtrinsicId = extrinsicId;
     const modal = document.getElementById('extrinsicDetailModal');
     const content = document.getElementById('extrinsicDetailContent');
     modal.style.display = 'flex';
 
+    // Inject Share + Screenshot action buttons
+    const actionsDiv = document.getElementById('extrinsicModalActions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = renderActionButtons(
+            `shareExtrinsicLink('${esc(extrinsicId)}')`,
+            `screenshotExtrinsicModal()`
+        );
+    }
+
     const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
     const match = _extrinsicsPageData.find(d => d.extrinsic_id === extrinsicId);
     if (match) {
+        _currentExtrinsicHash = match.hash || null;
         let argsFormatted = '{}';
         try {
             argsFormatted = JSON.stringify(JSON.parse(match.args_json), null, 2);
@@ -4948,10 +5026,239 @@ function openExtrinsicDetail(extrinsicId) {
     }
 }
 
+function closeExtrinsicModal() {
+    document.getElementById('extrinsicDetailModal').style.display = 'none';
+    if (window.location.hash.startsWith('#extrinsic=') || window.location.hash.startsWith('#tx=')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+}
+
+// ========== GENERIC MODAL SHARE + SCREENSHOT ==========
+
+function showModalToast(msg) {
+    const existing = document.getElementById('modalToast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'modalToast';
+    toast.textContent = msg;
+    toast.style.cssText = 'position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#10B981; color:#fff; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; z-index:9999; box-shadow:0 4px 12px rgba(0,0,0,0.15); transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2000);
+}
+
+function fallbackCopyText(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showModalToast('Link copied!');
+}
+
+function shareModalLink(fragment) {
+    const url = window.location.origin + window.location.pathname + fragment;
+    history.replaceState(null, '', fragment);
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+            showModalToast('Link copied!');
+        }).catch(() => { fallbackCopyText(url); });
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function screenshotModal(modalSelector, filename) {
+    const modalContent = document.querySelector(modalSelector + ' .modal-content');
+    if (!modalContent || typeof html2canvas === 'undefined') {
+        showModalToast('Screenshot not available');
+        return;
+    }
+    // Hide action buttons and close button for clean screenshot
+    const actionBtns = modalContent.querySelectorAll('.modal-action-btns');
+    const closeBtn = modalContent.querySelector('.close-modal');
+    actionBtns.forEach(el => el.style.display = 'none');
+    if (closeBtn) closeBtn.style.display = 'none';
+
+    html2canvas(modalContent, {
+        backgroundColor: getComputedStyle(modalContent).backgroundColor,
+        scale: 2,
+        logging: false,
+        useCORS: true
+    }).then(canvas => {
+        actionBtns.forEach(el => el.style.display = 'flex');
+        if (closeBtn) closeBtn.style.display = '';
+        const link = document.createElement('a');
+        link.download = `${filename.replace(/[^a-zA-Z0-9_-]/g, '')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showModalToast('Screenshot downloaded!');
+    }).catch(err => {
+        actionBtns.forEach(el => el.style.display = 'flex');
+        if (closeBtn) closeBtn.style.display = '';
+        console.error('Screenshot error:', err);
+        showModalToast('Screenshot failed');
+    });
+}
+
+function renderActionButtons(shareFn, screenshotFn) {
+    const shareBtn = shareFn ? `
+        <button class="btn-ghost modal-action-btns" onclick="${shareFn}" style="font-size:11px; padding:4px 8px;" title="Share link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Share
+        </button>` : '';
+    const ssBtn = screenshotFn ? `
+        <button class="btn-ghost modal-action-btns" onclick="${screenshotFn}" style="font-size:11px; padding:4px 8px;" title="Download screenshot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Screenshot
+        </button>` : '';
+    return shareBtn + ssBtn;
+}
+
+// Legacy wrapper for extrinsics (used in openExtrinsicDetail)
+function shareExtrinsicLink(extrinsicId) {
+    const hash = _currentExtrinsicHash;
+    const fragment = hash ? '#tx=' + hash : '#extrinsic=' + extrinsicId;
+    shareModalLink(fragment);
+}
+
+function screenshotExtrinsicModal() {
+    screenshotModal('#extrinsicDetailModal', 'extrinsic-' + (_currentExtrinsicId || 'detail'));
+}
+
+async function handleDeepLink() {
+    const h = window.location.hash;
+    if (!h || h.length < 3) return;
+
+    // === #tx=0xHASH — Open extrinsic detail by tx hash ===
+    if (h.startsWith('#tx=')) {
+        const txHash = decodeURIComponent(h.substring('#tx='.length));
+        if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) return;
+        try {
+            const searchRes = await fetch('/search?q=' + encodeURIComponent(txHash));
+            const searchData = await searchRes.json();
+            if (searchData.type !== 'extrinsic' || !searchData.data) return;
+            const extrinsicId = searchData.data.extrinsic_id;
+            const block = searchData.data.block;
+            _deepLinkActive = true;
+            openTab('extrinsics');
+            const res = await fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(block));
+            const json = await res.json();
+            if (json.data && json.data.length > 0) _extrinsicsPageData = json.data;
+            openExtrinsicDetail(extrinsicId);
+        } catch (e) { console.error('Deep link error:', e); }
+        finally { _deepLinkActive = false; }
+        return;
+    }
+
+    // === #extrinsic=ID — Legacy extrinsic deep link ===
+    if (h.startsWith('#extrinsic=')) {
+        const extrinsicId = decodeURIComponent(h.substring('#extrinsic='.length));
+        if (!/^\d+-\d+$/.test(extrinsicId)) return;
+        const block = extrinsicId.split('-')[0];
+        try {
+            _deepLinkActive = true;
+            openTab('extrinsics');
+            const res = await fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(block));
+            const json = await res.json();
+            if (json.data && json.data.length > 0) _extrinsicsPageData = json.data;
+            openExtrinsicDetail(extrinsicId);
+        } catch (e) { console.error('Deep link error:', e); }
+        finally { _deepLinkActive = false; }
+        return;
+    }
+
+    // === #block=NUMBER — Open block details modal ===
+    if (h.startsWith('#block=')) {
+        const blockNum = decodeURIComponent(h.substring('#block='.length));
+        if (!/^\d+$/.test(blockNum)) return;
+        openTab('extrinsics');
+        openBlockModal(blockNum);
+        return;
+    }
+
+    // === #wallet=ADDRESS — Open wallet details modal ===
+    if (h.startsWith('#wallet=')) {
+        const address = decodeURIComponent(h.substring('#wallet='.length));
+        if (!address || address.length < 10) return;
+        openWalletDetails(address);
+        return;
+    }
+
+    // === #pool=BASE-TARGET — Open pool details modal ===
+    if (h.startsWith('#pool=')) {
+        const poolPair = decodeURIComponent(h.substring('#pool='.length));
+        const sepIdx = poolPair.indexOf('-');
+        if (sepIdx < 1) return;
+        const baseSym = poolPair.substring(0, sepIdx);
+        const targetSym = poolPair.substring(sepIdx + 1);
+        if (!baseSym || !targetSym) return;
+        // We need assetIds — try to find them from the pools data
+        try {
+            const res = await fetch('/pools?page=1&limit=100');
+            const json = await res.json();
+            const pools = json.data || json.pools || json;
+            if (Array.isArray(pools)) {
+                const match = pools.find(p =>
+                    (p.baseSymbol || '').toUpperCase() === baseSym.toUpperCase() &&
+                    (p.targetSymbol || '').toUpperCase() === targetSym.toUpperCase()
+                );
+                if (match) {
+                    openTab('pools');
+                    openPoolDetails(
+                        match.baseAssetId || match.base,
+                        match.targetAssetId || match.target,
+                        'providers',
+                        match.baseSymbol || baseSym,
+                        match.targetSymbol || targetSym,
+                        match.baseLogo ? getProxyUrl(match.baseLogo) : LOCAL_PLACEHOLDER,
+                        match.targetLogo ? getProxyUrl(match.targetLogo) : LOCAL_PLACEHOLDER
+                    );
+                }
+            }
+        } catch (e) { console.error('Pool deep link error:', e); }
+        return;
+    }
+}
+
+// Legacy alias
+function handleExtrinsicDeepLink() { return handleDeepLink(); }
+
+window.addEventListener('hashchange', () => { handleDeepLink(); });
+
+var _currentBlockNumber = null;
+
+function closeBlockModal() {
+    document.getElementById('blockModal').style.display = 'none';
+    if (window.location.hash.startsWith('#block=')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    _currentBlockNumber = null;
+}
+
+function shareBlockLink() {
+    shareModalLink('#block=' + _currentBlockNumber);
+}
+
+function screenshotBlockModal() {
+    screenshotModal('#blockModal', 'block-' + (_currentBlockNumber || 'detail'));
+}
+
 function openBlockModal(block) {
+    _currentBlockNumber = block;
     document.getElementById('blockModal').style.display = 'flex';
     document.getElementById('blockModalNumber').innerText = block;
     const contentEl = document.getElementById('blockModalContent');
+
+    // Inject action buttons
+    const actionsDiv = document.getElementById('blockModalActions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = renderActionButtons(
+            'shareBlockLink()',
+            'screenshotBlockModal()'
+        );
+    }
     contentEl.innerHTML = `
         <div style="text-align:center; padding:20px;">
             <p style="font-size:18px;">Block Height: <b>#${esc(String(block))}</b></p>
@@ -5001,6 +5308,27 @@ function openBlockModal(block) {
         });
 }
 
+var _currentTxHash = null;
+var _currentTxExtrinsicId = null;
+
+function closeTxModal() {
+    document.getElementById('txModal').style.display = 'none';
+    if (window.location.hash.startsWith('#tx=')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    _currentTxHash = null;
+    _currentTxExtrinsicId = null;
+}
+
+function shareTxLink() {
+    const fragment = _currentTxHash ? '#tx=' + _currentTxHash : '#extrinsic=' + (_currentTxExtrinsicId || '');
+    shareModalLink(fragment);
+}
+
+function screenshotTxModal() {
+    screenshotModal('#txModal', 'tx-' + (_currentTxExtrinsicId || 'detail'));
+}
+
 function openTxModal(hash, extrinsic_id, usdValue) {
     document.getElementById('txModal').style.display = 'flex';
     const contentEl = document.getElementById('txModalContent');
@@ -5008,6 +5336,18 @@ function openTxModal(hash, extrinsic_id, usdValue) {
     const isEthereum = extrinsic_id === 'ETH';
     const hasHash = hash && hash !== 'N/A' && hash !== '';
     const hasExtrinsicId = extrinsic_id && extrinsic_id !== 'N/A' && extrinsic_id !== '' && extrinsic_id !== 'ETH';
+
+    _currentTxHash = hasHash ? hash : null;
+    _currentTxExtrinsicId = hasExtrinsicId ? extrinsic_id : null;
+
+    // Inject action buttons
+    const actionsDiv = document.getElementById('txModalActions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = renderActionButtons(
+            (hasHash || hasExtrinsicId) ? 'shareTxLink()' : null,
+            'screenshotTxModal()'
+        );
+    }
 
     // Ethereum bridges: keep simple view
     if (isEthereum) {
@@ -5372,6 +5712,14 @@ window.currentPoolTarget = null;
 window.currentBaseSym = '';
 window.currentTargetSym = '';
 
+function sharePoolLink() {
+    shareModalLink('#pool=' + window.currentBaseSym + '-' + window.currentTargetSym);
+}
+
+function screenshotPoolModal() {
+    screenshotModal('#poolDetailsModal', 'pool-' + (window.currentBaseSym || '') + '-' + (window.currentTargetSym || ''));
+}
+
 function openPoolDetails(base, target, initialTab, baseSym, targetSym, baseLogo, targetLogo) {
     window.currentPoolBase = base;
     window.currentPoolTarget = target;
@@ -5379,6 +5727,12 @@ function openPoolDetails(base, target, initialTab, baseSym, targetSym, baseLogo,
     window.currentTargetSym = targetSym;
 
     document.getElementById('poolDetailsModal').style.display = 'flex';
+
+    // Inject action buttons
+    const poolActions = document.getElementById('poolModalActions');
+    if (poolActions) {
+        poolActions.innerHTML = renderActionButtons('sharePoolLink()', 'screenshotPoolModal()');
+    }
 
     // Header with Logos
     const hHtml = `
@@ -5413,6 +5767,9 @@ function openPoolDetails(base, target, initialTab, baseSym, targetSym, baseLogo,
 function closePoolDetailsModal() {
     document.getElementById('poolDetailsModal').style.display = 'none';
     document.body.style.overflow = '';
+    if (window.location.hash.startsWith('#pool=')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
 }
 
 function openPoolTab(tab) {
@@ -5932,18 +6289,26 @@ function closeChartModal() {
 // Make global for inline HTML calls
 window.showChart = showChart;
 
+function screenshotChartModal() {
+    screenshotModal('#chartModal', 'chart-' + (window.currentChartSymbol || 'token'));
+}
+
 function showChart(symbol, resolution = 60) {
     if (typeof LightweightCharts === 'undefined') {
         alert('Error: La librería de gráficos no se ha cargado. Por favor, comprueba tu conexión a internet o recarga la página.');
         return;
     }
-    // DEBUG: Remove after fixing
-    // alert('Debug: showChart calling for ' + symbol); 
 
     window.currentChartSymbol = symbol;
     document.getElementById('chartModal').style.display = 'flex';
     document.body.style.overflow = 'hidden'; // Lock Body Scroll
     document.getElementById('chartTitle').innerText = symbol + " / USD";
+
+    // Inject screenshot button (no share link for charts)
+    const chartActions = document.getElementById('chartModalActions');
+    if (chartActions) {
+        chartActions.innerHTML = renderActionButtons(null, 'screenshotChartModal()');
+    }
 
     // Prevent background touchmove
     document.getElementById('chartModal').ontouchmove = (e) => {

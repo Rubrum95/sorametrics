@@ -425,6 +425,22 @@ function orderBookDedupKey(r) {
     return `${r.block}-${r.event_type}-${r.order_id || r.wallet}`;
 }
 
+function parseStoredOrderBookValue(val) {
+    if (!val) return '';
+    // Already a clean number
+    if (/^[\d.]+$/.test(val)) return val;
+    // Fix corrupted JSON (missing comma between fields)
+    try {
+        const fixed = val.replace(/""/, '","');
+        const parsed = JSON.parse(fixed);
+        if (parsed && parsed.inner) {
+            const BigNumber = require('bignumber.js');
+            return new BigNumber(parsed.inner).div('1e18').toFixed(6);
+        }
+    } catch(e) {}
+    return val.replace(/,/g, '');
+}
+
 function mapOrderBook(rows) {
     return rows.map(r => ({
         time: formatTimestamp(r.timestamp) || r.formatted_time,
@@ -435,8 +451,8 @@ function mapOrderBook(rows) {
         base_asset: r.base_asset,
         quote_asset: r.quote_asset,
         side: r.side,
-        price: r.price,
-        amount: r.amount,
+        price: parseStoredOrderBookValue(r.price),
+        amount: parseStoredOrderBookValue(r.amount),
         usd_value: r.usd_value ? r.usd_value.toFixed(2) : '0.00',
         hash: r.hash,
         extrinsic_id: r.extrinsic_id
