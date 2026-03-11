@@ -809,6 +809,19 @@ socket.on('new-block-stats', (stats) => {
     if (document.getElementById('burns')?.style.display === 'block') {
         triggerBurnFlowAnimation();
     }
+    // Update block info bar
+    if (stats.block) {
+        const el = document.getElementById('bestBlockNum');
+        if (el) el.textContent = '#' + Number(stats.block).toLocaleString();
+    }
+    if (stats.finalized) {
+        const el = document.getElementById('finalizedBlockNum');
+        if (el) el.textContent = '#' + Number(stats.finalized).toLocaleString();
+    }
+    if (stats.avgTime) {
+        const el = document.getElementById('avgBlockTime');
+        if (el) el.textContent = stats.avgTime + 's';
+    }
 });
 
 let lastSwapUpdate = 0;
@@ -1806,7 +1819,7 @@ async function loadTokens() {
 
     // UX Improvement: Non-destructive loading
     if (tbody.children.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
     } else {
         tbody.style.opacity = '0.5';
         tbody.style.pointerEvents = 'none'; // Prevent clicks while loading
@@ -1827,7 +1840,7 @@ async function loadTokens() {
             if (favorites.length === 0) {
                 tbody.style.opacity = '1';
                 tbody.style.pointerEvents = 'auto';
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${TRANSLATIONS[currentLang].no_favorites_yet}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${TRANSLATIONS[currentLang].no_favorites_yet}</td></tr>`;
                 document.getElementById('tokenPageIndicator').innerText = '';
                 document.getElementById('btnTokenPrev').disabled = true;
                 document.getElementById('btnTokenNext').disabled = true;
@@ -1845,7 +1858,7 @@ async function loadTokens() {
         tokenTotalPages = json.totalPages;
 
         if (tokenTotalPages === 0 && showFavoritesOnly) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">${TRANSLATIONS[currentLang].no_data}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${TRANSLATIONS[currentLang].no_data}</td></tr>`;
         } else {
             const ind = document.getElementById('tokenPageIndicator');
             if (ind) ind.innerText = TRANSLATIONS[currentLang].page_x_of_y.replace('{current}', tokenPage).replace('{total}', tokenTotalPages);
@@ -1873,7 +1886,7 @@ async function loadTokens() {
 
             html += `<tr>
     <td style="cursor:pointer; font-size:18px;" onclick="toggleFavorite('${esc(t.symbol)}')"><span style="color:${starColor}">★</span></td>
-    <td><div class="asset-row"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div><b>${esc(t.symbol)}</b><br><span style="font-size:10px; color:#999;">${esc(t.name)}</span></div></div></td>
+    <td><div class="asset-row"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div><b>${esc(t.symbol)}</b><br><span style="font-size:10px; color:#999;">${esc(t.name)}</span>${t.assetId ? `<br><span onclick="copyToClipboard('${esc(t.assetId)}')" title="${esc(t.assetId)}" style="font-size:9px; color:#8B5CF6; cursor:pointer; opacity:0.8; transition:opacity .2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">📋 ${t.assetId.substring(0, 6)}...${t.assetId.substring(t.assetId.length - 4)}</span>` : ''}</div></div></td>
     <td>${priceStr}</td>
     <td style="color:${changeColor}; font-weight:500;">${changeText}</td>
     <td style="text-align: center;">
@@ -4863,7 +4876,7 @@ async function loadGlobalExtrinsics(reset = false) {
     if (reset) extrinsicPage = 1;
     const tbody = document.getElementById('extrinsicTable');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</td></tr>`;
 
     // Load section filter options once
     if (!extrinsicSectionsLoaded) {
@@ -4922,7 +4935,7 @@ async function loadGlobalExtrinsics(reset = false) {
 
         tbody.innerHTML = '';
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:#9CA3AF;">${TRANSLATIONS[currentLang]?.no_data || 'No data'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:#9CA3AF;">${TRANSLATIONS[currentLang]?.no_data || 'No data'}</td></tr>`;
             return;
         }
 
@@ -4965,7 +4978,7 @@ async function loadGlobalExtrinsics(reset = false) {
         scheduleIdentityFetch();
     } catch (e) {
         console.error('Error loading extrinsics:', e);
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:red;">Error</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px; color:red;">Error</td></tr>`;
     }
 }
 
@@ -6207,7 +6220,7 @@ async function loadGlobalLiquidity(reset = false) {
     const tbody = document.getElementById('liquidityTable');
     if (!tbody) return;
 
-    if (reset) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
+    if (reset) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
 
     // Date Filter
     let timestampQuery = '';
@@ -6227,7 +6240,7 @@ async function loadGlobalLiquidity(reset = false) {
         updatePagination('liquidity', liquidityPage, liquidityTotalPages, total);
 
         if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">${TRANSLATIONS[currentLang].no_data}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">${TRANSLATIONS[currentLang].no_data}</td></tr>`;
             return;
         }
 
@@ -6278,7 +6291,7 @@ async function loadGlobalLiquidity(reset = false) {
         });
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">${TRANSLATIONS[currentLang].error_loading}</td></tr>`;
     }
 }
 

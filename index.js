@@ -2455,9 +2455,22 @@ async function startApp() {
         lastBatchTime = now;
     }, BATCH_INTERVAL_MS);
 
+    // --- Block info tracking for frontend indicator ---
+    let _lastBlockTimestamp = null;
+    const _blockTimes = []; // rolling window of last 10 block intervals
+    const BLOCK_TIMES_WINDOW = 10;
+
     api.rpc.chain.subscribeNewHeads(async (header) => {
         const blockNumber = header.number.toNumber();
         const blockHash = await api.rpc.chain.getBlockHash(blockNumber);
+
+        // Track avg block time
+        const now = Date.now();
+        if (_lastBlockTimestamp) {
+            _blockTimes.push(now - _lastBlockTimestamp);
+            if (_blockTimes.length > BLOCK_TIMES_WINDOW) _blockTimes.shift();
+        }
+        _lastBlockTimestamp = now;
 
         // Fetch both Block (for extrinsics) and Events
         const [signedBlock, allEvents] = await Promise.all([
@@ -3142,8 +3155,17 @@ async function startApp() {
             }
         }
 
-        // Emit trigger for frontend to re-fetch stats with current filter
-        io.emit('new-block-stats', { block: blockNumber });
+        // Emit block info for frontend indicator
+        let finalizedNum = null;
+        try {
+            const fHash = await api.rpc.chain.getFinalizedHead();
+            const fHeader = await api.rpc.chain.getHeader(fHash);
+            finalizedNum = fHeader.number.toNumber();
+        } catch (e) { /* ignore */ }
+        const avgBlockTime = _blockTimes.length > 0
+            ? (_blockTimes.reduce((a, b) => a + b, 0) / _blockTimes.length / 1000).toFixed(3)
+            : null;
+        io.emit('new-block-stats', { block: blockNumber, finalized: finalizedNum, avgTime: avgBlockTime });
 
 
         // Process transfers with on-demand pricing
