@@ -764,18 +764,14 @@ async function getPriceInDai(assetId, decimals) {
     try {
         // CHECK CACHE FIRST - evitar queries innecesarias
         const cacheKey = `${assetId}_${decimals}`;
-        if (getPriceInDai.cache && getPriceInDai.cache[cacheKey] && (Date.now() - getPriceInDai.cacheTime < 60000)) {
-            return getPriceInDai.cache[cacheKey];
+        if (!getPriceInDai.cache) getPriceInDai.cache = {};
+        const cached = getPriceInDai.cache[cacheKey];
+        if (cached && (Date.now() - cached.ts < 60000)) {
+            return cached.price;
         }
-        
+
         if (assetId === DAI_ID) return 1;
         if (!api) return 0;
-        
-        // Init cache if not exists
-        if (!getPriceInDai.cache) {
-            getPriceInDai.cache = {};
-            getPriceInDai.cacheTime = 0;
-        }
 
         // --- SPECIAL CASE: XST ---
         // The XOR-XST pool is deprecated or unbalanced. Use XST-XSTUSD pool instead.
@@ -801,9 +797,7 @@ async function getPriceInDai(assetId, decimals) {
                     const priceInXstUsd = baseNormal.div(targetNormal).toNumber();
                     
                     const finalPrice = priceInXstUsd * xstusdPrice;
-                    getPriceInDai.cache[cacheKey] = finalPrice;
-                    getPriceInDai.cacheTime = Date.now();
-                    
+                    getPriceInDai.cache[cacheKey] = { price: finalPrice, ts: Date.now() };
                     return finalPrice;
                 }
             }
@@ -813,8 +807,7 @@ async function getPriceInDai(assetId, decimals) {
         // 1. Get XOR Price in DAI (Anchor)
         const xorPrice = await getXorPriceInDai();
         if (assetId === XOR_ID) {
-            getPriceInDai.cache[cacheKey] = xorPrice;
-            getPriceInDai.cacheTime = Date.now();
+            getPriceInDai.cache[cacheKey] = { price: xorPrice, ts: Date.now() };
             return xorPrice;
         }
         if (xorPrice === 0) return 0;
@@ -822,11 +815,7 @@ async function getPriceInDai(assetId, decimals) {
         // 2. Get Token Price relative to XOR
         const tokenPriceInXor = await getTokenPriceInXor(assetId, decimals);
         const finalPrice = tokenPriceInXor * xorPrice;
-        
-        // SAVE TO CACHE
-        getPriceInDai.cache[cacheKey] = finalPrice;
-        getPriceInDai.cacheTime = Date.now();
-        
+        getPriceInDai.cache[cacheKey] = { price: finalPrice, ts: Date.now() };
         return finalPrice;
 
     } catch (e) {
@@ -838,6 +827,8 @@ async function getPriceInDai(assetId, decimals) {
 
 async function updateKeyPrices() {
     if (!api) return;
+    // Clear internal cache so all tokens get fresh on-chain prices
+    getPriceInDai.cache = {};
     const POPULAR = ['XOR', 'VAL', 'PSWAP', 'ETH', 'DAI', 'TBCD', 'KUSD', 'DEO', 'KEN', 'KGOLD', 'KXOR', 'VXOR', 'XSTUSD', 'XST', 'KARMA', 'CERES'];
     for (const sym of POPULAR) {
         const asset = ASSETS.find(a => a.symbol === sym);
@@ -939,12 +930,10 @@ app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
     const start = (page - 1) * limit;
     const paginated = (limit === 0) ? filtered : filtered.slice(start, start + limit);
 
-    // Optimized: Only fetch prices if we need full data
+    // Fetch/refresh prices for paginated tokens (getPriceInDai has 60s per-key cache)
     if (!onlySparklines) {
         await Promise.all(paginated.map(async (asset) => {
-            if (!tokenPrices[asset.symbol]) {
-                tokenPrices[asset.symbol] = await getPriceInDai(asset.assetId, asset.decimals);
-            }
+            tokenPrices[asset.symbol] = await getPriceInDai(asset.assetId, asset.decimals);
         }));
     }
 
