@@ -2384,7 +2384,9 @@
             opacity: 1;
             transform: translateY(0) scale(1);
             pointer-events: all;
+            cursor: grab;
         }
+        .music-player-panel.visible:active { cursor: grabbing; }
         .music-player-panel > * { position: relative; z-index: 2; }
 
         /* Star particles (generated via JS) */
@@ -4260,7 +4262,7 @@
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v17"></script>
+        <script src="script.js?v=v18"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {

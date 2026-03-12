@@ -7020,6 +7020,121 @@ let musicHideTimeout = null;
 const MUSIC_WAVEFORM_BARS = 40;
 let musicWaveformHeights = []; // pseudo-random heights per track
 
+// ── Drag-to-move ────────────────────────────────────────────────
+(function initMusicDrag() {
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    const DRAG_THRESHOLD = 4; // px before we consider it a drag
+    let didDrag = false;
+
+    function getPanel() { return document.getElementById('musicPlayerPanel'); }
+
+    function restorePosition() {
+        const saved = localStorage.getItem('musicPlayerPos');
+        if (!saved) return;
+        try {
+            const { x, y } = JSON.parse(saved);
+            const panel = getPanel();
+            if (!panel) return;
+            // Validate position is still within viewport
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const clampedX = Math.max(0, Math.min(x, vw - 80));
+            const clampedY = Math.max(0, Math.min(y, vh - 40));
+            panel.style.left = clampedX + 'px';
+            panel.style.top = clampedY + 'px';
+            panel.style.bottom = 'auto';
+            panel.style.right = 'auto';
+        } catch (_) {}
+    }
+
+    function onPointerDown(e) {
+        const panel = getPanel();
+        if (!panel || !panel.classList.contains('visible')) return;
+        // Only drag from the panel itself or the top-row (not buttons/inputs)
+        const tag = e.target.tagName.toLowerCase();
+        if (tag === 'button' || tag === 'input' || tag === 'svg' || tag === 'path' ||
+            tag === 'polygon' || tag === 'rect' || tag === 'line' || tag === 'circle') return;
+        if (e.target.closest('button') || e.target.closest('input') ||
+            e.target.closest('.music-waveform') || e.target.closest('.music-playlist')) return;
+
+        isDragging = true;
+        didDrag = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = panel.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+        panel.style.cursor = 'grabbing';
+        panel.style.userSelect = 'none';
+        e.preventDefault();
+    }
+
+    function onPointerMove(e) {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!didDrag && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        didDrag = true;
+        const panel = getPanel();
+        if (!panel) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const pw = panel.offsetWidth, ph = panel.offsetHeight;
+        let newLeft = Math.max(0, Math.min(startLeft + dx, vw - pw));
+        let newTop = Math.max(0, Math.min(startTop + dy, vh - ph));
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+        panel.style.bottom = 'auto';
+        panel.style.right = 'auto';
+        // Keep panel open while dragging
+        clearTimeout(musicHideTimeout);
+    }
+
+    function onPointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        const panel = getPanel();
+        if (panel) {
+            panel.style.cursor = '';
+            panel.style.userSelect = '';
+            if (didDrag) {
+                const rect = panel.getBoundingClientRect();
+                localStorage.setItem('musicPlayerPos', JSON.stringify({ x: rect.left, y: rect.top }));
+                startMusicHideTimer();
+            }
+        }
+    }
+
+    document.addEventListener('pointerdown', function(e) {
+        const panel = getPanel();
+        if (panel && panel.contains(e.target)) onPointerDown(e);
+    });
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+
+    // Restore saved position when panel first appears
+    const observer = new MutationObserver(function() {
+        const panel = getPanel();
+        if (panel && panel.classList.contains('visible')) restorePosition();
+    });
+    const waitForPanel = setInterval(function() {
+        const panel = getPanel();
+        if (panel) {
+            clearInterval(waitForPanel);
+            observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+        }
+    }, 200);
+
+    // Re-clamp on window resize
+    window.addEventListener('resize', function() {
+        const panel = getPanel();
+        if (!panel || panel.style.bottom !== 'auto') return;
+        const rect = panel.getBoundingClientRect();
+        const vw = window.innerWidth, vh = window.innerHeight;
+        panel.style.left = Math.max(0, Math.min(rect.left, vw - 80)) + 'px';
+        panel.style.top = Math.max(0, Math.min(rect.top, vh - 40)) + 'px';
+    });
+})();
+
 // Generate pseudo-random waveform heights for visual effect
 function generateMusicWaveform() {
     musicWaveformHeights = [];
