@@ -80,6 +80,7 @@ const TRANSLATIONS = {
         providers: "Proveedores", activity: "Actividad", rank: "Rango", wallet: "Billetera", liquidity_shares: "Cuota de Liquidez", pool_details: "Detalles del Pool", no_providers_found: "No se encontraron proveedores", no_activity_found: "No se encontró actividad", shares: "Cuota",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Todos los Pallets", signer: "Firmante", result: "Resultado", extrinsic_details: "Detalles del Extrinsic",
         tab_governance: "Gobernanza", gov_council: "Consejo", gov_elections: "Elecciones", gov_motions: "Mociones", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_council_members: "Miembros del Consejo", gov_elected: "Miembros Electos", gov_candidates: "Candidatos", gov_runners_up: "Suplentes (Runners-up)", gov_deposit: "Deposito (XOR)", gov_council_motions: "Mociones del Consejo", gov_tech_motions: "Mociones del Comite Tecnico", gov_referendums: "Referendums Activos", gov_proposals: "Propuestas Publicas", gov_tech_members: "Miembros del Comite Tecnico", gov_no_motions: "No hay mociones activas", gov_no_referendums: "No hay referendums activos", gov_no_proposals: "No hay propuestas activas", gov_next_election: "Proxima Eleccion", gov_term_duration: "Duracion del Mandato", gov_seats: "Asientos", gov_rounds: "Rondas Completadas", gov_threshold: "Umbral", gov_aye: "A favor", gov_nay: "En contra", gov_turnout: "Participacion", gov_ends_block: "Finaliza bloque", gov_time_left: "Tiempo restante",
+        tab_staking: "Staking", stk_network_title: "Estado de la Red", stk_era: "Era", stk_epoch: "Época", stk_best_block: "Mejor Bloque", stk_finalized: "Finalizado", stk_validators: "Validadores", stk_xor_staked: "XOR en Staking", stk_era_desc: "Periodo de validación. Al final se reparten recompensas.", stk_epoch_desc: "Subdivisión de la era. Cada época rota el set de validadores.", stk_best_desc: "Último bloque producido por la red.", stk_final_desc: "Último bloque confirmado irreversiblemente.", stk_val_desc: "Nodos que aseguran la red y confirman bloques.", stk_staked_desc: "XOR bloqueado para asegurar la red.", stk_epoch_of: "épocas = 1 era", stk_per_block: "por bloque", stk_blocks_behind: "bloques detrás", stk_of_supply: "del supply total", stk_recent_blocks: "Bloques Recientes", stk_live: "en vivo", stk_block: "Bloque", stk_hash: "Hash", stk_validator: "Validador", stk_time: "Tiempo", stk_txs: "Txs", stk_waiting_blocks: "Esperando bloques...", stk_epoch_x_of_y: "Época",
         tab_burns: "Quemado", burn_total_burned: "Total XOR Quemado (Tarifas de Red)", burn_supply_history: "Historial de Supply", burn_top_holders: "Top Holders", burn_current_supply: "Supply Actual", burn_rate_24h: "Quemado 24h", burn_rate_7d: "Quemado 7d", burn_rate_30d: "Quemado 30d", burn_rate_all: "Total Quemado",
         burn_xor_supply: "XOR en Circulación", burn_xor_supply_sub: "paquetes XOR (empaquetado)", burn_xor_unpacked: "Supply XOR Desempaquetado", burn_xor_price: "Precio / Paquete", burn_xor_price_sub: "paquete", burn_xor_factor: "Factor Empaquetado", burn_xor_factor_sub: "auto-detectado on-chain", burn_xor_pack_eq: "1 paquete =", burn_xor_original: "XOR originales", burn_no_change: "Sin cambios detectados", burn_supply_decreased: "Supply disminuyó", burn_xor_hero: "paquetes XOR en circulación", burn_pkg: "paq.", hide_low_balances: "Ocultar saldos bajos",
         burn_loading: "Cargando...", burn_loading_holders: "Cargando holders...", burn_no_holders: "No hay datos de holders", burn_error_supply: "Error al cargar datos de supply", burn_error_holders: "Error al cargar holders", burn_collecting_data: "Recopilando datos... Primer snapshot en ~15s", burn_loading_flow: "Cargando flujo de fees...", burn_supply_label: "Supply", burn_page: "Página", burn_xor_fees: "TARIFAS XOR", burn_furnace: "HORNO", burn_xor_burn: "Quema XOR", burn_val_burn: "Quema VAL", burn_kusd_buy: "Compra KUSD", burn_tbcd_buy: "Compra TBCD", burn_referrer: "Referido", burn_xor_mcap: "Market Cap XOR",
@@ -95,6 +96,7 @@ const TRANSLATIONS = {
         providers: "Providers", activity: "Activity", rank: "Rank", wallet: "Wallet", liquidity_shares: "Liquidity Shares", pool_details: "Pool Details", no_providers_found: "No providers found", no_activity_found: "No activity found", shares: "Shares",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "All Pallets", signer: "Signer", result: "Result", extrinsic_details: "Extrinsic Details",
         tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_council_members: "Council Members", gov_elected: "Elected Members", gov_candidates: "Candidates", gov_runners_up: "Runners-up", gov_deposit: "Deposit (XOR)", gov_council_motions: "Council Motions", gov_tech_motions: "Technical Committee Motions", gov_referendums: "Active Referendums", gov_proposals: "Public Proposals", gov_tech_members: "Technical Committee Members", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_next_election: "Next Election", gov_term_duration: "Term Duration", gov_seats: "Seats", gov_rounds: "Rounds Completed", gov_threshold: "Threshold", gov_aye: "Aye", gov_nay: "Nay", gov_turnout: "Turnout", gov_ends_block: "Ends at block", gov_time_left: "Time left",
+        tab_staking: "Staking", stk_network_title: "Network Status", stk_era: "Era", stk_epoch: "Epoch", stk_best_block: "Best Block", stk_finalized: "Finalized", stk_validators: "Validators", stk_xor_staked: "XOR Staked", stk_era_desc: "Validation period. Rewards are distributed at the end.", stk_epoch_desc: "Era subdivision. Each epoch rotates the validator set.", stk_best_desc: "Latest block produced by the network.", stk_final_desc: "Last block confirmed irreversibly.", stk_val_desc: "Nodes that secure the network and confirm blocks.", stk_staked_desc: "XOR locked to secure the network.", stk_epoch_of: "epochs = 1 era", stk_per_block: "per block", stk_blocks_behind: "blocks behind", stk_of_supply: "of total supply", stk_recent_blocks: "Recent Blocks", stk_live: "live", stk_block: "Block", stk_hash: "Hash", stk_validator: "Validator", stk_time: "Time", stk_txs: "Txs", stk_waiting_blocks: "Waiting for blocks...", stk_epoch_x_of_y: "Epoch",
         tab_burns: "Burn Tracker", burn_total_burned: "Total XOR Burned (Network Fees)", burn_supply_history: "Supply History", burn_top_holders: "Top Holders", burn_current_supply: "Current Supply", burn_rate_24h: "Burned 24h", burn_rate_7d: "Burned 7d", burn_rate_30d: "Burned 30d", burn_rate_all: "Total Burned",
         burn_xor_supply: "XOR in Circulation", burn_xor_supply_sub: "XOR packages (packaged)", burn_xor_unpacked: "Unpacked XOR Supply", burn_xor_price: "Price / Package", burn_xor_price_sub: "package", burn_xor_factor: "Packaging Factor", burn_xor_factor_sub: "auto-detected on-chain", burn_xor_pack_eq: "1 package =", burn_xor_original: "original XOR", burn_no_change: "No change detected", burn_supply_decreased: "Supply decreased", burn_xor_hero: "XOR packages in circulation", burn_pkg: "pkg.", hide_low_balances: "Hide low balances",
         burn_loading: "Loading...", burn_loading_holders: "Loading holders...", burn_no_holders: "No holder data available", burn_error_supply: "Error loading supply data", burn_error_holders: "Error loading holders", burn_collecting_data: "Collecting data... First snapshot in ~15s", burn_loading_flow: "Loading fee flow...", burn_supply_label: "Supply", burn_page: "Page", burn_xor_fees: "XOR FEES", burn_furnace: "FURNACE", burn_xor_burn: "XOR Burn", burn_val_burn: "VAL Burn", burn_kusd_buy: "KUSD Buy", burn_tbcd_buy: "TBCD Buy", burn_referrer: "Referrer", burn_xor_mcap: "XOR Market Cap",
@@ -276,6 +278,7 @@ function changeLanguage(lang) {
     if (document.getElementById('liquidity')) { if (document.getElementById('liquidity').classList.contains('active')) { loadPools(); loadGlobalLiquidity(); } }
     if (document.getElementById('transfers')) { if (document.getElementById('transfers').classList.contains('active')) loadGlobalTransfers(); }
     if (document.getElementById('swaps')) { if (document.getElementById('swaps').classList.contains('active')) loadGlobalSwaps(); }
+    if (document.getElementById('staking')) { if (document.getElementById('staking').classList.contains('active')) loadStaking(); }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -700,6 +703,7 @@ function openTab(name) {
     if (name === 'orderbook') loadGlobalOrderBook();
     if (name === 'governance') loadGovernance();
     if (name === 'extrinsics') loadGlobalExtrinsics();
+    if (name === 'staking') loadStaking();
     if (name === 'section-intelligence') loadSoraIntelligence();
     if (name === 'burns') loadBurnTracker();
 }
@@ -2588,6 +2592,263 @@ function formatXorAmount(val) {
     return n.toFixed(4);
 }
 
+// === STAKING SECTION ===
+let stakingValidatorsData = [];
+let stakingValidatorsSort = { col: 'totalStake', dir: 'desc' };
+let stakingValidatorsPage = 1;
+const STAKING_VALIDATORS_PER_PAGE = 25;
+
+function loadStaking() {
+    openStakingTab('validators');
+}
+
+function openStakingTab(tab) {
+    document.querySelectorAll('.staking-content').forEach(v => v.style.display = 'none');
+    document.querySelectorAll('#stakingSubTabs .tab-btn').forEach(b => b.classList.remove('active'));
+    const view = document.getElementById(`stakingview-${tab}`);
+    if (view) view.style.display = 'block';
+    const btn = document.getElementById(`stakingtab-${tab}`);
+    if (btn) btn.classList.add('active');
+    if (tab === 'validators') loadStakingValidators();
+    if (tab === 'network') loadStakingNetwork();
+}
+
+async function loadStakingValidators() {
+    const tbody = document.getElementById('validatorsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</td></tr>`;
+    try {
+        const res = await fetch('/staking/validators');
+        const data = await res.json();
+        if (data.error) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">${esc(data.error)}</td></tr>`;
+            return;
+        }
+        stakingValidatorsData = data.validators || [];
+        const countEl = document.getElementById('validatorCount');
+        if (countEl) countEl.textContent = `${stakingValidatorsData.length} validators (Era #${data.era})`;
+        renderValidatorsTable();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:red;">Error: ${esc(e.message)}</td></tr>`;
+    }
+}
+
+function renderValidatorsTable() {
+    const tbody = document.getElementById('validatorsTableBody');
+    if (!tbody) return;
+    const searchInput = document.getElementById('validatorSearchInput');
+    const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    let filtered = stakingValidatorsData;
+    if (query) {
+        filtered = filtered.filter(v =>
+            (v.identity && v.identity.toLowerCase().includes(query)) ||
+            v.address.toLowerCase().includes(query)
+        );
+    }
+    const { col, dir } = stakingValidatorsSort;
+    filtered.sort((a, b) => {
+        let aVal, bVal;
+        if (col === 'name') {
+            aVal = (a.identity || a.address).toLowerCase();
+            bVal = (b.identity || b.address).toLowerCase();
+            return dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        if (col === 'rank') { aVal = a.totalStake; bVal = b.totalStake; }
+        else { aVal = a[col] || 0; bVal = b[col] || 0; }
+        return dir === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+    const totalPages = Math.ceil(filtered.length / STAKING_VALIDATORS_PER_PAGE);
+    if (stakingValidatorsPage > totalPages) stakingValidatorsPage = totalPages || 1;
+    const start = (stakingValidatorsPage - 1) * STAKING_VALIDATORS_PER_PAGE;
+    const pageItems = filtered.slice(start, start + STAKING_VALIDATORS_PER_PAGE);
+
+    tbody.innerHTML = '';
+    if (pageItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">${TRANSLATIONS[currentLang]?.no_data || 'No data'}</td></tr>`;
+        return;
+    }
+    pageItems.forEach((v, i) => {
+        const rank = start + i + 1;
+        const displayName = v.identity || shortAddr(v.address);
+        const initials = v.identity ? v.identity.substring(0, 2).toUpperCase() : v.address.substring(2, 4).toUpperCase();
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="validator-rank">${rank}</td>
+            <td><div class="validator-name-cell">
+                <div class="validator-avatar">${esc(initials)}</div>
+                <div>
+                    <div style="font-weight:600;">${esc(displayName)}</div>
+                    <div style="font-size:10px; color:var(--text-secondary); cursor:pointer;" onclick="copyToClipboard('${esc(v.address)}')" title="${esc(v.address)}">${shortAddr(v.address)} 📋</div>
+                </div>
+            </div></td>
+            <td>${v.commission}%</td>
+            <td style="font-weight:600;">${formatXorAmount(v.totalStake)} XOR</td>
+            <td>${formatXorAmount(v.ownStake)} XOR</td>
+            <td>${formatXorAmount(v.otherStake)} XOR</td>
+            <td>${v.nominatorsCount}</td>`;
+        tbody.appendChild(row);
+    });
+
+    const pagDiv = document.getElementById('validatorsPagination');
+    if (pagDiv) {
+        if (totalPages <= 1) { pagDiv.innerHTML = ''; }
+        else {
+            pagDiv.innerHTML = `
+                <button class="pg-btn" onclick="changeValidatorsPage(-1)" ${stakingValidatorsPage <= 1 ? 'disabled' : ''}>‹ Prev</button>
+                <span class="pg-info">${stakingValidatorsPage} / ${totalPages}</span>
+                <button class="pg-btn" onclick="changeValidatorsPage(1)" ${stakingValidatorsPage >= totalPages ? 'disabled' : ''}>Next ›</button>`;
+        }
+    }
+}
+
+function sortValidatorsTable(col) {
+    if (stakingValidatorsSort.col === col) {
+        stakingValidatorsSort.dir = stakingValidatorsSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        stakingValidatorsSort.col = col;
+        stakingValidatorsSort.dir = 'desc';
+    }
+    stakingValidatorsPage = 1;
+    renderValidatorsTable();
+}
+
+function changeValidatorsPage(delta) {
+    stakingValidatorsPage += delta;
+    renderValidatorsTable();
+}
+
+function filterValidatorsTable() {
+    stakingValidatorsPage = 1;
+    renderValidatorsTable();
+}
+
+async function loadStakingNetwork() {
+    const grid = document.getElementById('stakingNetworkGrid');
+    if (!grid) return;
+    grid.innerHTML = '<div class="staking-stat-card"><div class="staking-stat-label">' + (TRANSLATIONS[currentLang]?.loading || 'Loading...') + '</div></div>';
+    try {
+        const res = await fetch('/staking/network');
+        const d = await res.json();
+        if (d.error) {
+            grid.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-secondary);">${esc(d.error)}</div>`;
+            return;
+        }
+        const T = TRANSLATIONS[currentLang] || {};
+        const epochNum = d.sessionIndex;
+        const epochsPerEra = d.sessionsPerEra;
+        // Update section title
+        const titleEl = document.querySelector('#stakingview-network > h4');
+        if (titleEl) titleEl.innerHTML = `🛡️ ${T.stk_network_title || 'Network Status'}`;
+        grid.innerHTML = `
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">🛡️ ${T.stk_era || 'Era'}</div>
+                <div class="staking-stat-value">#${d.activeEra}</div>
+                <div class="staking-progress-bar"><div class="staking-progress-fill" style="width:${d.eraProgress}%;"></div></div>
+                <div class="staking-stat-sub">${d.eraProgress}% — ${T.stk_epoch_x_of_y || 'Epoch'} ${d.sessionProgress} / ${epochsPerEra}</div>
+                <div class="staking-stat-desc">${T.stk_era_desc || 'Validation period. Rewards are distributed at the end.'}</div>
+            </div>
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">⏳ ${T.stk_epoch || 'Epoch'}</div>
+                <div class="staking-stat-value">#${epochNum.toLocaleString()}</div>
+                <div class="staking-stat-sub">${epochsPerEra} ${T.stk_epoch_of || 'epochs = 1 era'}</div>
+                <div class="staking-stat-desc">${T.stk_epoch_desc || 'Era subdivision. Each epoch rotates the validator set.'}</div>
+            </div>
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">🟢 ${T.stk_best_block || 'Best Block'}</div>
+                <div class="staking-stat-value">#${d.bestBlock.toLocaleString()}</div>
+                <div class="staking-stat-sub">~${d.avgBlockTime}s ${T.stk_per_block || 'per block'}</div>
+                <div class="staking-stat-desc">${T.stk_best_desc || 'Latest block produced by the network.'}</div>
+            </div>
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">🟣 ${T.stk_finalized || 'Finalized'}</div>
+                <div class="staking-stat-value">#${d.finalizedBlock.toLocaleString()}</div>
+                <div class="staking-stat-sub">${d.bestBlock - d.finalizedBlock} ${T.stk_blocks_behind || 'blocks behind'}</div>
+                <div class="staking-stat-desc">${T.stk_final_desc || 'Last block confirmed irreversibly.'}</div>
+            </div>
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">👥 ${T.stk_validators || 'Validators'}</div>
+                <div class="staking-stat-value">${d.validatorCount}</div>
+                <div class="staking-stat-desc">${T.stk_val_desc || 'Nodes that secure the network and confirm blocks.'}</div>
+            </div>
+            <div class="staking-stat-card">
+                <div class="staking-stat-label">🔒 ${T.stk_xor_staked || 'XOR Staked'}</div>
+                <div class="staking-stat-value">${d.totalStaked ? formatXorAmount(d.totalStaked) : '--'} XOR</div>
+                <div class="staking-stat-sub">${d.stakingRatio ? d.stakingRatio + '% ' + (T.stk_of_supply || 'of total supply') : ''}</div>
+                <div class="staking-stat-desc">${T.stk_staked_desc || 'XOR locked to secure the network.'}</div>
+            </div>`;
+        // Update recent blocks header
+        const rbTitle = document.querySelector('#stakingview-network > h4:last-of-type');
+        if (rbTitle) rbTitle.innerHTML = `📦 ${T.stk_recent_blocks || 'Recent Blocks'} <span style="width:8px; height:8px; border-radius:50%; background:#10B981; display:inline-block; animation:pulse 2s infinite;"></span> <span style="font-size:11px; font-weight:400; color:var(--text-secondary);">${T.stk_live || 'live'}</span>`;
+        const rbHeader = document.querySelector('.recent-blocks-header');
+        if (rbHeader) rbHeader.innerHTML = `<span>${T.stk_block || 'Block'}</span><span>${T.stk_hash || 'Hash'}</span><span>${T.stk_validator || 'Validator'}</span><span>${T.stk_time || 'Time'}</span><span>${T.stk_txs || 'Txs'}</span>`;
+
+        // Load recent blocks
+        loadRecentBlocks();
+    } catch (e) {
+        grid.innerHTML = `<div style="text-align:center; padding:20px; color:red;">Error: ${esc(e.message)}</div>`;
+    }
+}
+
+let _recentBlocksInterval = null;
+async function loadRecentBlocks() {
+    const container = document.getElementById('recentBlocksList');
+    if (!container) return;
+    container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-secondary);">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</div>`;
+    try {
+        const res = await fetch('/staking/recent-blocks');
+        const data = await res.json();
+        if (data.error) {
+            container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-secondary);">${esc(data.error)}</div>`;
+            return;
+        }
+        renderRecentBlocks(data.blocks || []);
+
+        // Auto-refresh every 6s
+        if (_recentBlocksInterval) clearInterval(_recentBlocksInterval);
+        _recentBlocksInterval = setInterval(async () => {
+            if (!document.getElementById('stakingview-network') || document.getElementById('stakingview-network').style.display === 'none') {
+                clearInterval(_recentBlocksInterval);
+                _recentBlocksInterval = null;
+                return;
+            }
+            try {
+                const r = await fetch('/staking/recent-blocks');
+                const d = await r.json();
+                if (!d.error && d.blocks) renderRecentBlocks(d.blocks);
+            } catch (e) { /* ignore */ }
+        }, 6000);
+    } catch (e) {
+        container.innerHTML = `<div style="text-align:center; padding:15px; color:red;">Error: ${esc(e.message)}</div>`;
+    }
+}
+
+function renderRecentBlocks(blocks) {
+    const container = document.getElementById('recentBlocksList');
+    if (!container) return;
+    const T = TRANSLATIONS[currentLang] || {};
+    if (blocks.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-secondary);">${T.stk_waiting_blocks || 'Waiting for blocks...'}</div>`;
+        return;
+    }
+    let html = '';
+    blocks.forEach((b, i) => {
+        const initials = b.validatorName ? b.validatorName.substring(0, 2).toUpperCase() : (b.validator ? b.validator.substring(2, 4).toUpperCase() : '??');
+        const name = b.validatorName || shortAddr(b.validator || '');
+        const ago = b.age != null ? (b.age < 60 ? b.age + 's ago' : Math.floor(b.age / 60) + 'm ago') : '';
+        html += `<div class="recent-block-row${i === 0 ? ' latest' : ''}">
+            <div class="recent-block-num">#${b.number.toLocaleString()}</div>
+            <div class="recent-block-hash" title="${esc(b.hash)}" onclick="copyToClipboard('${esc(b.hash)}')" style="cursor:pointer;">${b.hash ? b.hash.substring(0, 10) + '...' : ''}</div>
+            <div class="recent-block-validator">
+                <div class="validator-avatar" style="width:24px; height:24px; min-width:24px; font-size:9px;">${esc(initials)}</div>
+                <span>${esc(name)}</span>
+            </div>
+            <div class="recent-block-age">${ago}</div>
+            <div class="recent-block-txs">${b.extrinsics} txs</div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
 function memberInitials(identity, addr) {
     if (identity) return identity.substring(0, 2);
     if (addr) return addr.substring(2, 4);
@@ -3836,6 +4097,7 @@ const allSections = [
     { id: 'governance', name: 'Governance', icon: '🏛️', translateKey: 'tab_governance' },
     { id: 'extrinsics', name: 'Extrinsics', icon: '🔬', translateKey: 'tab_extrinsics' },
     { id: 'liquidity', name: 'Liquidez', icon: '🌊', translateKey: 'tab_liquidity' },
+    { id: 'staking', name: 'Staking', icon: '🛡️', translateKey: 'tab_staking' },
     { id: 'section-intelligence', name: 'Estadísticas de Red', icon: '🧠', translateKey: 'network_stats_btn' },
     { id: 'burns', name: 'Burn Tracker', icon: '🔥', translateKey: 'tab_burns' }
 ];

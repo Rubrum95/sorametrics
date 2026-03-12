@@ -302,6 +302,12 @@ const LP_STAKING_TTL = 3 * 60 * 1000; // 3 min per-address cache
 const SWAPS_TTL = 24 * 1000;    // 24s
 const TRANSFERS_TTL = 60 * 1000; // 60s
 const TOKENS_TTL = 30 * 1000;   // 30s
+
+// Global staking section caches
+let validatorsGlobalCache = { data: null, ts: 0 };
+const VALIDATORS_TTL = 2 * 60 * 1000; // 2 min (validators change per-era only)
+let networkStakingCache = { data: null, ts: 0 };
+const NETWORK_STAKING_TTL = 30 * 1000; // 30s
 const POOLS_TTL = 60 * 1000;    // 60s
 const PROVIDERS_TTL = 90 * 1000; // 90s
 const ACTIVITY_TTL = 90 * 1000;  // 90s
@@ -2478,6 +2484,33 @@ async function startApp() {
             api.query.system.events.at(blockHash)
         ]);
 
+        // Push to recent blocks buffer for staking section
+        try {
+            let blockAuthor = null;
+            try {
+                const derivedH = await api.derive.chain.getHeader(blockHash);
+                blockAuthor = derivedH.author ? derivedH.author.toString() : null;
+            } catch (e) { /* ignore */ }
+            let authorName = null;
+            if (blockAuthor) {
+                const ids = await attachIdentities([blockAuthor]);
+                authorName = ids[blockAuthor] || null;
+            }
+            recentBlocksBuffer.unshift({
+                number: blockNumber,
+                hash: blockHash.toHex(),
+                validator: blockAuthor,
+                validatorName: authorName,
+                extrinsics: signedBlock.block.extrinsics.length,
+                age: 0,
+                timestamp: Date.now()
+            });
+            if (recentBlocksBuffer.length > RECENT_BLOCKS_MAX) recentBlocksBuffer.pop();
+            // Update ages
+            const nowMs = Date.now();
+            recentBlocksBuffer.forEach(b => { if (b.timestamp) b.age = Math.floor((nowMs - b.timestamp) / 1000); });
+        } catch (e) { /* ignore recent blocks push error */ }
+
         // DEBUG: Ver qué tipos de eventos llegan
         const eventSections = [...new Set(allEvents.map(r => `${r.event.section}.${r.event.method}`))];
         if (allEvents.length > 1) {
@@ -3592,6 +3625,190 @@ app.get("/governance/votes/:address", validateAddress, rateLimit(15, 60000), asy
         const voting = await withTimeout(api.query.democracy.votingOf(address));
         res.json({ address, voting: voting ? voting.toJSON() : null });
     } catch (e) { res.json({ error: e.message }); }
+});
+
+// ==================== STAKING SECTION ====================
+
+app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        const now = Date.now();
+        if (validatorsGlobalCache.data && now - validatorsGlobalCache.ts < VALIDATORS_TTL) {
+            return res.json(validatorsGlobalCache.data);
+        }
+
+        const activeEraOpt = await withTimeout(api.query.staking.activeEra(), 10000);
+        const activeEra = activeEraOpt.unwrap();
+        const eraIndex = activeEra.index.toNumber();
+
+        const sessionValidators = await withTimeout(api.query.session.validators(), 10000);
+        const validatorAddresses = sessionValidators.toJSON();
+
+        const prefs = await withTimeout(api.query.staking.validators.multi(validatorAddresses), 15000);
+
+        const eraStakerKeys = validatorAddresses.map(addr => [eraIndex, addr]);
+        const exposures = await withTimeout(api.query.staking.erasStakers.multi(eraStakerKeys), 45000);
+
+        const identities = await attachIdentities(validatorAddresses);
+
+        const xorPrice = tokenPrices['XOR'] || 0;
+        const validators = validatorAddresses.map((addr, i) => {
+            const pref = prefs[i].toJSON();
+            const exposure = exposures[i].toJSON();
+
+            const commissionPerbill = pref.commission || 0;
+            const commissionPercent = (commissionPerbill / 1_000_000_000 * 100).toFixed(2);
+
+            const totalStakeRaw = exposure.total || '0';
+            const ownStakeRaw = exposure.own || '0';
+            const othersCount = exposure.others ? exposure.others.length : 0;
+
+            const totalStake = new BigNumber(String(totalStakeRaw).replace(/,/g, '')).div('1e18');
+            const ownStake = new BigNumber(String(ownStakeRaw).replace(/,/g, '')).div('1e18');
+            const otherStake = totalStake.minus(ownStake);
+
+            return {
+                address: addr,
+                identity: identities[addr] || null,
+                commission: parseFloat(commissionPercent),
+                totalStake: totalStake.toNumber(),
+                ownStake: ownStake.toNumber(),
+                otherStake: otherStake.toNumber(),
+                nominatorsCount: othersCount,
+                isBlocked: !!pref.blocked
+            };
+        });
+
+        const result = { era: eraIndex, validatorCount: validators.length, validators, xorPrice };
+        validatorsGlobalCache = { data: result, ts: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error("Error /staking/validators:", e.message);
+        res.json({ error: e.message });
+    }
+});
+
+app.get("/staking/network", rateLimit(15, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        const now = Date.now();
+        if (networkStakingCache.data && now - networkStakingCache.ts < NETWORK_STAKING_TTL) {
+            return res.json(networkStakingCache.data);
+        }
+
+        const [activeEraOpt, currentEraOpt, sessionIndex, bestHeader, finalizedHash] = await Promise.all([
+            withTimeout(api.query.staking.activeEra()),
+            withTimeout(api.query.staking.currentEra()),
+            withTimeout(api.query.session.currentIndex()),
+            withTimeout(api.rpc.chain.getHeader()),
+            withTimeout(api.rpc.chain.getFinalizedHead()),
+        ]);
+
+        const activeEra = activeEraOpt.unwrap();
+        const eraIndex = activeEra.index.toNumber();
+        const eraStart = activeEra.start.isSome ? activeEra.start.unwrap().toNumber() : null;
+        const currentEra = currentEraOpt.isSome ? currentEraOpt.unwrap().toNumber() : eraIndex;
+        const currentSession = sessionIndex.toNumber();
+        const bestBlock = bestHeader.number.toNumber();
+
+        const finalizedHeader = await withTimeout(api.rpc.chain.getHeader(finalizedHash));
+        const finalizedBlock = finalizedHeader.number.toNumber();
+
+        const sessionsPerEra = api.consts.staking.sessionsPerEra ? api.consts.staking.sessionsPerEra.toNumber() : 6;
+        const expectedBlockTime = api.consts.babe.expectedBlockTime ? api.consts.babe.expectedBlockTime.toNumber() : 6000;
+
+        let sessionProgress = 0;
+        let eraProgress = 0;
+        try {
+            const eraSessionStart = await withTimeout(api.query.staking.erasStartSessionIndex(eraIndex));
+            const eraStartSession = eraSessionStart.isSome ? eraSessionStart.unwrap().toNumber() : 0;
+            sessionProgress = currentSession - eraStartSession;
+            eraProgress = parseFloat((sessionProgress / sessionsPerEra * 100).toFixed(1));
+        } catch (e) { /* ignore */ }
+
+        let totalIssuance = null, totalStaked = null;
+        try {
+            const [issuanceRaw, erasTotalStakeRaw] = await Promise.all([
+                withTimeout(api.query.balances.totalIssuance()),
+                withTimeout(api.query.staking.erasTotalStake(eraIndex))
+            ]);
+            totalIssuance = new BigNumber(issuanceRaw.toString()).div('1e18').toNumber();
+            totalStaked = new BigNumber(erasTotalStakeRaw.toString()).div('1e18').toNumber();
+        } catch (e) { /* ignore */ }
+
+        let validatorCount = 0;
+        try {
+            const vals = await withTimeout(api.query.session.validators());
+            validatorCount = vals.length;
+        } catch (e) { /* ignore */ }
+
+        const result = {
+            activeEra: eraIndex, currentEra, eraStart,
+            sessionIndex: currentSession, sessionsPerEra, sessionProgress, eraProgress,
+            expectedBlockTime, bestBlock, finalizedBlock,
+            totalIssuance, totalStaked,
+            stakingRatio: totalIssuance && totalStaked ? ((totalStaked / totalIssuance) * 100).toFixed(2) : null,
+            validatorCount, avgBlockTime: expectedBlockTime / 1000
+        };
+
+        networkStakingCache = { data: result, ts: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error("Error /staking/network:", e.message);
+        res.json({ error: e.message });
+    }
+});
+
+// Recent blocks ring buffer — populated by subscribeNewHeads, served via API
+const recentBlocksBuffer = [];
+const RECENT_BLOCKS_MAX = 20;
+let _sessionValidatorsCache = null;
+
+app.get("/staking/recent-blocks", rateLimit(30, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        if (recentBlocksBuffer.length > 0) {
+            return res.json({ blocks: recentBlocksBuffer });
+        }
+        // Cold start: fetch last 15 blocks
+        if (!_sessionValidatorsCache) {
+            _sessionValidatorsCache = (await withTimeout(api.query.session.validators())).toJSON();
+        }
+        const header = await withTimeout(api.rpc.chain.getHeader());
+        const best = header.number.toNumber();
+        const blocks = [];
+        const now = Date.now();
+        for (let i = 0; i < 15; i++) {
+            try {
+                const num = best - i;
+                const hash = await api.rpc.chain.getBlockHash(num);
+                const [blk, derivedHeader] = await Promise.all([
+                    api.rpc.chain.getBlock(hash),
+                    api.derive.chain.getHeader(hash)
+                ]);
+                const author = derivedHeader.author ? derivedHeader.author.toString() : null;
+                blocks.push({
+                    number: num,
+                    hash: hash.toHex(),
+                    validator: author,
+                    validatorName: null,
+                    extrinsics: blk.block.extrinsics.length,
+                    age: i * 6
+                });
+            } catch (e) { /* skip */ }
+        }
+        // Resolve identities for validators
+        const addrs = [...new Set(blocks.map(b => b.validator).filter(Boolean))];
+        if (addrs.length > 0) {
+            const ids = await attachIdentities(addrs);
+            blocks.forEach(b => { if (b.validator && ids[b.validator]) b.validatorName = ids[b.validator]; });
+        }
+        blocks.forEach(b => recentBlocksBuffer.push(b));
+        res.json({ blocks });
+    } catch (e) {
+        console.error("Error /staking/recent-blocks:", e.message);
+        res.json({ error: e.message });
+    }
 });
 
 startApp();

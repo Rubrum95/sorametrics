@@ -274,6 +274,50 @@
             .burn-holder-amount { display:none; }
         }
 
+        /* ============ STAKING SECTION ============ */
+        .staking-content { min-height: 200px; }
+        .staking-network-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; margin-bottom:20px; }
+        .staking-stat-card { padding:16px; border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card); text-align:center; transition:transform 0.2s, box-shadow 0.2s; }
+        .staking-stat-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+        .staking-stat-label { font-size:11px; text-transform:uppercase; color:var(--text-secondary); font-weight:600; margin-bottom:6px; }
+        .staking-stat-value { font-size:22px; font-weight:800; color:var(--text-primary); }
+        .staking-stat-sub { font-size:12px; color:var(--text-secondary); margin-top:4px; }
+        .staking-progress-bar { height:8px; border-radius:4px; background:var(--border-color); overflow:hidden; margin-top:8px; }
+        .staking-progress-fill { height:100%; border-radius:4px; background:linear-gradient(90deg, #9B1B30, #C8A0B8); transition:width 0.5s ease; }
+        .validators-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .validators-table th { text-align:left; padding:10px 8px; font-size:11px; text-transform:uppercase; color:var(--text-secondary); font-weight:600; border-bottom:2px solid var(--border-color); cursor:pointer; user-select:none; white-space:nowrap; }
+        .validators-table th:hover { color:var(--text-primary); }
+        .validators-table td { padding:10px 8px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+        .validators-table tr:hover { background:rgba(155,27,48,0.05); }
+        .validator-name-cell { display:flex; align-items:center; gap:8px; }
+        .validator-rank { font-size:11px; color:var(--text-secondary); min-width:24px; text-align:center; }
+        .validator-avatar { width:32px; height:32px; min-width:32px; border-radius:50%; background:linear-gradient(135deg, #9B1B30, #7B5B90); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:12px; text-transform:uppercase; }
+        @media (max-width: 768px) {
+            .staking-network-grid { grid-template-columns:repeat(2, 1fr); }
+            .validators-table { font-size:11px; }
+            .validators-table th, .validators-table td { padding:6px 4px; }
+        }
+        @media (max-width: 480px) { .staking-network-grid { grid-template-columns:1fr; } }
+
+        .staking-stat-desc { font-size:10px; color:var(--text-secondary); margin-top:6px; opacity:0.7; font-style:italic; }
+        .recent-blocks-header { display:grid; grid-template-columns:100px 120px 1fr 70px 50px; gap:8px; padding:8px 12px; font-size:11px; text-transform:uppercase; color:var(--text-secondary); font-weight:600; border-bottom:2px solid var(--border-color); }
+        .recent-block-row { display:grid; grid-template-columns:100px 120px 1fr 70px 50px; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border-color); align-items:center; font-size:13px; transition:background 0.2s; }
+        .recent-block-row:hover { background:rgba(155,27,48,0.05); }
+        .recent-block-row.latest { background:rgba(16,185,129,0.06); }
+        .recent-block-num { font-weight:700; color:var(--text-primary); }
+        .recent-block-hash { font-family:monospace; font-size:11px; color:#8B5CF6; cursor:pointer; transition:opacity 0.2s; }
+        .recent-block-hash:hover { opacity:0.7; }
+        .recent-block-validator { display:flex; align-items:center; gap:6px; font-weight:500; }
+        .recent-block-age { font-size:12px; color:var(--text-secondary); }
+        .recent-block-txs { font-size:12px; color:var(--text-secondary); text-align:center; }
+        @media (max-width: 768px) {
+            .recent-blocks-header { display:none; }
+            .recent-block-row { grid-template-columns:1fr 1fr; grid-template-rows:auto auto; gap:4px; padding:8px; }
+            .recent-block-hash { display:none; }
+            .recent-block-age { text-align:right; }
+            .recent-block-txs { text-align:right; }
+        }
+
         /* Spacing between timeframe selector and stats cards */
         .header-stats {
             margin-top: 15px;
@@ -2457,15 +2501,7 @@
 
             <!-- Header Actions -->
             <div style="display:flex; gap:10px; align-items:center;">
-                <!-- Global Search Toggle -->
-                <button class="btn-icon-only" onclick="toggleGlobalSearch()" title="Search" id="globalSearchBtn"
-                    style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary); cursor:pointer;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                </button>
+                <!-- Global Search Toggle (removed from navbar) -->
                 <!-- Theme Toggle -->
                 <button class="btn-icon-only" onclick="toggleTheme()" title="Cambiar Tema" id="themeToggleBtn"
                     style="background:var(--bg-card); border:1px solid var(--border-color); padding:8px; border-radius:8px; color:var(--text-secondary);">
@@ -3187,6 +3223,72 @@
                     <div class="burn-stats-grid" id="burnStats-kusd"><div style="text-align:center;padding:10px;color:var(--text-secondary);">Loading...</div></div>
                     <div class="burn-chart-container"><div class="burn-chart-header"><div class="burn-chart-title" data-i18n="burn_supply_history">Supply History</div><div class="burn-tf-btns" id="burnTfBtns-kusd"><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','4h')">4H</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1d')">1D</button><button class="burn-tf-btn active" onclick="setBurnTimeframe('kusd','7d')">7D</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1m')">1M</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','1y')">1Y</button><button class="burn-tf-btn" onclick="setBurnTimeframe('kusd','all')">ALL</button></div></div><div class="burn-chart-wrap"><canvas id="burnChart-kusd"></canvas></div></div>
                     <div class="burn-holders-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><div style="font-size:16px;font-weight:700;" data-i18n="burn_top_holders">Top Holders</div><span id="burnHoldersBadge-kusd" style="font-size:12px;color:var(--text-secondary);"></span></div><div id="burnHoldersList-kusd"></div><div style="display:flex;justify-content:space-between;margin-top:15px;" id="burnHoldersPag-kusd"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: STAKING -->
+        <div id="staking" class="tab-content" style="display:none; animation: fadeIn 0.3s;">
+            <div class="card">
+                <div class="tabs modal-tabs" id="stakingSubTabs" style="justify-content:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border-color); flex-wrap:wrap; gap:4px;">
+                    <button class="tab-btn active" onclick="openStakingTab('validators')" id="stakingtab-validators">Validators</button>
+                    <button class="tab-btn" onclick="openStakingTab('network')" id="stakingtab-network">Network Info</button>
+                </div>
+
+                <!-- VALIDATORS SUB-TAB -->
+                <div id="stakingview-validators" class="staking-content">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                        <h4 style="margin:0; font-size:16px;" data-i18n="staking_active_validators">Active Validators</h4>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input type="text" id="validatorSearchInput" oninput="filterValidatorsTable()"
+                                placeholder="Search validator..."
+                                style="padding:6px 10px; border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary); background:var(--bg-card); font-family:inherit; font-size:13px; width:180px;">
+                            <span id="validatorCount" style="font-size:12px; color:var(--text-secondary);"></span>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="validators-table">
+                            <thead>
+                                <tr>
+                                    <th onclick="sortValidatorsTable('rank')">#</th>
+                                    <th onclick="sortValidatorsTable('name')">Validator</th>
+                                    <th onclick="sortValidatorsTable('commission')">Comm.</th>
+                                    <th onclick="sortValidatorsTable('totalStake')">Total Stake</th>
+                                    <th onclick="sortValidatorsTable('ownStake')">Own Stake</th>
+                                    <th onclick="sortValidatorsTable('otherStake')">Other Stake</th>
+                                    <th onclick="sortValidatorsTable('nominatorsCount')">Nom.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="validatorsTableBody">
+                                <tr><td colspan="7" style="text-align:center; padding:20px;" data-i18n="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;" id="validatorsPagination"></div>
+                </div>
+
+                <!-- NETWORK INFO SUB-TAB -->
+                <div id="stakingview-network" class="staking-content" style="display:none;">
+                    <h4 style="margin:0 0 16px 0; font-size:16px;" data-i18n="stk_network_title">🛡️ Network Status</h4>
+                    <div class="staking-network-grid" id="stakingNetworkGrid">
+                        <div class="staking-stat-card"><div class="staking-stat-label" data-i18n="loading">Loading...</div></div>
+                    </div>
+
+                    <h4 style="margin:24px 0 12px 0; font-size:16px; display:flex; align-items:center; gap:8px;">
+                        📦 <span data-i18n="stk_recent_blocks">Recent Blocks</span>
+                        <span style="width:8px; height:8px; border-radius:50%; background:#10B981; display:inline-block; animation:pulse 2s infinite;"></span>
+                        <span style="font-size:11px; font-weight:400; color:var(--text-secondary);" data-i18n="stk_live">live</span>
+                    </h4>
+                    <div class="recent-blocks-header">
+                        <span data-i18n="stk_block">Block</span>
+                        <span data-i18n="stk_hash">Hash</span>
+                        <span data-i18n="stk_validator">Validator</span>
+                        <span data-i18n="stk_time">Time</span>
+                        <span data-i18n="stk_txs">Txs</span>
+                    </div>
+                    <div id="recentBlocksList" style="max-height:400px; overflow-y:auto;">
+                        <div style="text-align:center; padding:15px; color:var(--text-secondary);" data-i18n="loading">Loading...</div>
+                    </div>
                 </div>
             </div>
         </div>
