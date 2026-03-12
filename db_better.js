@@ -272,6 +272,7 @@ function createTables() {
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_section ON extrinsics(section)`,
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_signer ON extrinsics(signer)`,
         `CREATE INDEX IF NOT EXISTS idx_extrinsics_section_timestamp ON extrinsics(section, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS idx_extrinsics_section_method ON extrinsics(section, method)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_timestamp ON order_book_events(timestamp)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_wallet ON order_book_events(wallet)`,
         `CREATE INDEX IF NOT EXISTS idx_orderbook_event_type ON order_book_events(event_type)`,
@@ -314,6 +315,7 @@ function createHistoryIndices() {
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section ON extrinsics(section)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_signer ON extrinsics(signer)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section_timestamp ON extrinsics(section, timestamp)`,
+        `CREATE INDEX IF NOT EXISTS history.idx_h_extrinsics_section_method ON extrinsics(section, method)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_timestamp ON order_book_events(timestamp)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_wallet ON order_book_events(wallet)`,
         `CREATE INDEX IF NOT EXISTS history.idx_h_orderbook_event_type ON order_book_events(event_type)`,
@@ -588,9 +590,46 @@ function insertOrderBookEvent(e) {
 
 // --- EXTRINSICS READ ---
 
+// Cached unfiltered extrinsic count (expensive full-scan query)
+let _extrinsicCountCache = 0;
+let _extrinsicCountCacheTime = 0;
+const EXTRINSIC_COUNT_CACHE_TTL = 30 * 1000; // 30 seconds
+
+function _getExtrinsicBaseCount() {
+    const now = Date.now();
+    if (_extrinsicCountCache > 0 && (now - _extrinsicCountCacheTime) < EXTRINSIC_COUNT_CACHE_TTL) {
+        return _extrinsicCountCache;
+    }
+    // Optimized: COUNT(*) is fast (index-only), then subtract the small timestamp.set fraction
+    // This avoids full-scan with NOT condition across 660K+ rows
+    let total;
+    if (historyHasTable('extrinsics')) {
+        total = db.prepare(`
+            SELECT (
+                (SELECT COUNT(*) FROM main.extrinsics) -
+                (SELECT COUNT(*) FROM main.extrinsics WHERE section = 'timestamp' AND method = 'set') +
+                (SELECT COUNT(*) FROM history.extrinsics) -
+                (SELECT COUNT(*) FROM history.extrinsics WHERE section = 'timestamp' AND method = 'set')
+            ) as total
+        `).get()?.total || 0;
+    } else {
+        total = db.prepare(`
+            SELECT (
+                (SELECT COUNT(*) FROM main.extrinsics) -
+                (SELECT COUNT(*) FROM main.extrinsics WHERE section = 'timestamp' AND method = 'set')
+            ) as total
+        `).get()?.total || 0;
+    }
+    _extrinsicCountCache = total;
+    _extrinsicCountCacheTime = now;
+    return total;
+}
+
 function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = null, block = null, success = null, method = null) {
     const offset = (page - 1) * limit;
     const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg`;
+
+    const hasFilters = !!(section || method || timestamp || block || (success !== null && success !== undefined));
 
     let conditions = [];
     let params = [];
@@ -624,14 +663,23 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     let total, rows;
 
     if (historyHasTable('extrinsics')) {
-        const countSql = `SELECT (SELECT COUNT(*) FROM main.extrinsics${where}) + (SELECT COUNT(*) FROM history.extrinsics${where}) as total`;
-        total = db.prepare(countSql).get(...params, ...params)?.total || 0;
+        // Use cached count for unfiltered queries (most common case)
+        if (!hasFilters) {
+            total = _getExtrinsicBaseCount();
+        } else {
+            const countSql = `SELECT (SELECT COUNT(*) FROM main.extrinsics${where}) + (SELECT COUNT(*) FROM history.extrinsics${where}) as total`;
+            total = db.prepare(countSql).get(...params, ...params)?.total || 0;
+        }
 
         const dataSql = `SELECT ${cols} FROM main.extrinsics${where} UNION ALL SELECT ${cols} FROM history.extrinsics${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
         rows = db.prepare(dataSql).all(...params, ...params, limit, offset);
     } else {
-        const countSql = `SELECT COUNT(*) as total FROM main.extrinsics${where}`;
-        total = db.prepare(countSql).get(...params)?.total || 0;
+        if (!hasFilters) {
+            total = _getExtrinsicBaseCount();
+        } else {
+            const countSql = `SELECT COUNT(*) as total FROM main.extrinsics${where}`;
+            total = db.prepare(countSql).get(...params)?.total || 0;
+        }
 
         const dataSql = `SELECT ${cols} FROM main.extrinsics${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
         rows = db.prepare(dataSql).all(...params, limit, offset);
@@ -642,7 +690,16 @@ function getLatestExtrinsics(page = 1, limit = 25, section = null, timestamp = n
     return { data: mapExtrinsics(unique), total, page, totalPages };
 }
 
+// Cached sections list (changes rarely)
+let _extrinsicSectionsCache = null;
+let _extrinsicSectionsCacheTime = 0;
+const SECTIONS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 function getExtrinsicSections() {
+    const now = Date.now();
+    if (_extrinsicSectionsCache && (now - _extrinsicSectionsCacheTime) < SECTIONS_CACHE_TTL) {
+        return _extrinsicSectionsCache;
+    }
     try {
         let sections;
         if (historyHasTable('extrinsics')) {
@@ -654,9 +711,11 @@ function getExtrinsicSections() {
                 `SELECT DISTINCT section FROM main.extrinsics ORDER BY section ASC`
             ).all();
         }
-        return sections.map(r => r.section).filter(s => s && s !== 'timestamp');
+        _extrinsicSectionsCache = sections.map(r => r.section).filter(s => s && s !== 'timestamp');
+        _extrinsicSectionsCacheTime = now;
+        return _extrinsicSectionsCache;
     } catch (e) {
-        return [];
+        return _extrinsicSectionsCache || [];
     }
 }
 

@@ -4,3 +4,7 @@ node_modules/
 *.db-wal
 *.db-shm
 backfill_state.json
+
+# Music player assets (deployed separately via SCP)
+music/*.mp3
+music/*.wav
