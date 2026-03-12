@@ -2329,158 +2329,251 @@
             0%, 100% { box-shadow: 0 0 8px rgba(155, 27, 48, 0.3); }
             50% { box-shadow: 0 0 18px rgba(155, 27, 48, 0.6); }
         }
+
+        /* Cosmic panel */
         .music-player-panel {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
-            width: 340px;
-            background: rgba(15, 15, 15, 0.88);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(155, 27, 48, 0.3);
-            border-radius: 16px;
-            padding: 20px;
+            bottom: 24px;
+            left: 24px;
+            width: 420px;
+            background: radial-gradient(ellipse at 30% 80%, rgba(90, 20, 60, 0.55) 0%, rgba(20, 8, 30, 0.92) 50%, rgba(10, 5, 18, 0.97) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(155, 27, 48, 0.25);
+            border-radius: 18px;
+            padding: 20px 22px 16px;
             z-index: 1000;
             opacity: 0;
             transform: translateY(20px) scale(0.95);
             pointer-events: none;
             transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 80px rgba(155, 27, 48, 0.08);
+            box-shadow:
+                0 8px 40px rgba(0, 0, 0, 0.6),
+                0 0 60px rgba(155, 27, 48, 0.1),
+                inset 0 -20px 60px rgba(155, 27, 48, 0.06);
             color: #e0e0e0;
+            overflow: hidden;
         }
+        /* Nebula glow layer */
         .music-player-panel::before {
             content: '';
             position: absolute;
             inset: 0;
-            border-radius: 16px;
-            padding: 1px;
-            background: linear-gradient(135deg, rgba(155, 27, 48, 0.4), rgba(123, 45, 91, 0.2), transparent);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
+            border-radius: 18px;
+            background:
+                radial-gradient(circle at 20% 90%, rgba(180, 40, 80, 0.18) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(100, 30, 120, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 50% 100%, rgba(200, 60, 100, 0.15) 0%, transparent 35%);
             pointer-events: none;
+            z-index: 0;
+        }
+        /* Bottom neon glow line */
+        .music-player-panel::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(200, 60, 120, 0.6), rgba(155, 27, 48, 0.8), rgba(200, 60, 120, 0.6), transparent);
+            border-radius: 2px;
+            box-shadow: 0 0 12px rgba(200, 60, 120, 0.4), 0 0 30px rgba(155, 27, 48, 0.2);
+            z-index: 1;
         }
         .music-player-panel.visible {
             opacity: 1;
             transform: translateY(0) scale(1);
             pointer-events: all;
         }
-        .music-now-playing {
+        .music-player-panel > * { position: relative; z-index: 2; }
+
+        /* Star particles (generated via JS) */
+        .music-star {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            z-index: 1;
+            animation: musicStarTwinkle 3s ease-in-out infinite;
+        }
+        @keyframes musicStarTwinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Top row: play button + track info + nav controls */
+        .music-top-row {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 14px;
         }
-        .music-album-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
+        .music-play-btn {
+            width: 56px;
+            height: 56px;
+            min-width: 56px;
+            border-radius: 50%;
             background: linear-gradient(135deg, #9B1B30, #7B2D5B);
+            border: none;
+            color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 20px rgba(155, 27, 48, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
         }
-        .music-track-info {
-            overflow: hidden;
-            flex: 1;
+        .music-play-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 28px rgba(155, 27, 48, 0.5), 0 4px 16px rgba(0, 0, 0, 0.4);
         }
+        .music-play-btn svg { margin-left: 2px; }
+        .music-play-btn.paused svg { margin-left: 0; }
+
+        .music-info-block { flex: 1; overflow: hidden; }
         .music-track-title {
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 700;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             color: #fff;
+            letter-spacing: 0.02em;
         }
         .music-track-artist {
-            font-size: 11px;
-            color: #888;
-            margin-top: 2px;
+            font-size: 12px;
+            color: rgba(200, 160, 184, 0.7);
+            margin-top: 3px;
+            letter-spacing: 0.03em;
         }
-        .music-volume-wrap {
+
+        /* Nav buttons (prev/next) in top row */
+        .music-nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .music-nav-controls button {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.45);
+            cursor: pointer;
+            padding: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            border-radius: 8px;
+        }
+        .music-nav-controls button:hover {
+            color: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.06);
+        }
+
+        /* Waveform visualizer */
+        .music-waveform-wrap {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .music-waveform-time {
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            font-variant-numeric: tabular-nums;
+            min-width: 32px;
+            padding-bottom: 2px;
+        }
+        .music-waveform-time.end { text-align: right; }
+        .music-waveform {
+            flex: 1;
+            height: 36px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        .music-waveform-bar {
+            flex: 1;
+            min-width: 2px;
+            border-radius: 2px 2px 0 0;
+            background: rgba(255, 255, 255, 0.12);
+            transition: background 0.15s ease;
+            position: relative;
+        }
+        .music-waveform-bar.played {
+            background: linear-gradient(to top, #9B1B30, #c44070);
+            box-shadow: 0 0 6px rgba(200, 60, 100, 0.3);
+        }
+        .music-waveform-bar.played::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(255, 180, 200, 0.5);
+            border-radius: 2px;
+        }
+
+        /* Volume control (minimal) */
+        .music-volume-row {
             display: flex;
             align-items: center;
             gap: 6px;
-            flex-shrink: 0;
+            justify-content: flex-end;
+            margin-top: 4px;
         }
-        .music-volume-wrap svg { opacity: 0.5; }
-        .music-volume-wrap input[type="range"] {
+        .music-volume-row svg { opacity: 0.35; flex-shrink: 0; }
+        .music-volume-row input[type="range"] {
             width: 60px;
-            height: 4px;
+            height: 3px;
             -webkit-appearance: none;
             appearance: none;
-            background: rgba(155, 27, 48, 0.3);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 2px;
             outline: none;
             cursor: pointer;
         }
-        .music-volume-wrap input[type="range"]::-webkit-slider-thumb {
+        .music-volume-row input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: #9B1B30;
+            background: rgba(200, 60, 100, 0.8);
             cursor: pointer;
+            box-shadow: 0 0 6px rgba(200, 60, 100, 0.4);
         }
-        .music-progress-wrap {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            font-size: 10px;
-            color: #666;
-        }
-        .music-progress-bar {
-            flex: 1;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-        .music-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #9B1B30, #7B2D5B);
-            border-radius: 2px;
-            width: 0%;
-            transition: width 0.3s linear;
-        }
-        .music-controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 16px;
-            margin-bottom: 14px;
-        }
-        .music-controls button {
+
+        /* Playlist (hidden by default, toggle via button) */
+        .music-playlist-toggle {
             background: none;
             border: none;
-            color: #ccc;
+            color: rgba(255,255,255,0.35);
             cursor: pointer;
             padding: 4px;
             transition: all 0.2s;
             display: flex;
             align-items: center;
+            border-radius: 6px;
+            margin-left: 8px;
         }
-        .music-controls button:hover { color: #fff; transform: scale(1.15); }
-        .music-controls .music-play-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #9B1B30, #7B2D5B);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .music-controls .music-play-btn:hover { transform: scale(1.1); box-shadow: 0 0 16px rgba(155, 27, 48, 0.4); }
+        .music-playlist-toggle:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.06); }
+        .music-playlist-toggle.active { color: #9B1B30; }
         .music-playlist {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+            margin-top: 0;
+        }
+        .music-playlist.expanded {
             max-height: 140px;
             overflow-y: auto;
             border-top: 1px solid rgba(255, 255, 255, 0.06);
-            padding-top: 10px;
+            padding-top: 8px;
+            margin-top: 8px;
         }
         .music-playlist::-webkit-scrollbar { width: 4px; }
         .music-playlist::-webkit-scrollbar-track { background: transparent; }
@@ -2490,20 +2583,21 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            color: #888;
+            color: rgba(255,255,255,0.4);
             transition: all 0.2s;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .music-playlist-item:hover { background: rgba(155, 27, 48, 0.15); color: #ccc; }
-        .music-playlist-item.active { color: #9B1B30; font-weight: 600; }
+        .music-playlist-item:hover { background: rgba(155, 27, 48, 0.15); color: rgba(255,255,255,0.7); }
+        .music-playlist-item.active { color: #c44070; font-weight: 600; }
+
         @media (max-width: 768px) {
             .music-player-panel {
-                left: 15px;
-                right: 15px;
+                left: 12px;
+                right: 12px;
                 width: auto;
-                bottom: 20px;
+                bottom: 16px;
             }
         }
 
@@ -4129,45 +4223,44 @@
 
         <!-- MUSIC PLAYER PANEL -->
         <div class="music-player-panel" id="musicPlayerPanel">
-            <div class="music-now-playing">
-                <div class="music-album-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5">
-                        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="#fff" opacity="0.3"/>
-                        <circle cx="18" cy="16" r="3" fill="#fff" opacity="0.3"/>
-                    </svg>
-                </div>
-                <div class="music-track-info">
-                    <div class="music-track-title" id="musicTrackTitle">No tracks loaded</div>
-                    <div class="music-track-artist" id="musicTrackArtist">SoraMetrics Radio</div>
-                </div>
-                <div class="music-volume-wrap">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    <input type="range" id="musicVolume" min="0" max="100" value="50" oninput="setMusicVolume(this.value)">
-                </div>
-            </div>
-            <div class="music-progress-wrap">
-                <span id="musicCurrentTime">0:00</span>
-                <div class="music-progress-bar" id="musicProgressBar" onclick="seekMusic(event)">
-                    <div class="music-progress-fill" id="musicProgressFill"></div>
-                </div>
-                <span id="musicDuration">0:00</span>
-            </div>
-            <div class="music-controls">
-                <button onclick="prevMusicTrack()" title="Previous">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                </button>
+            <!-- Top row: play + info + nav -->
+            <div class="music-top-row">
                 <button class="music-play-btn" onclick="toggleMusicPlay()" id="musicPlayBtn" title="Play">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="musicPlayIcon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" id="musicPlayIcon"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                 </button>
-                <button onclick="nextMusicTrack()" title="Next">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                </button>
+                <div class="music-info-block">
+                    <div class="music-track-title" id="musicTrackTitle">No tracks loaded</div>
+                    <div class="music-track-artist" id="musicTrackArtist">Ambient Network Music</div>
+                </div>
+                <div class="music-nav-controls">
+                    <button onclick="prevMusicTrack()" title="Previous">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button onclick="nextMusicTrack()" title="Next">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                    <button class="music-playlist-toggle" onclick="toggleMusicPlaylist()" title="Playlist">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    </button>
+                </div>
             </div>
+            <!-- Waveform visualizer row -->
+            <div class="music-waveform-wrap">
+                <span class="music-waveform-time" id="musicCurrentTime">0:00</span>
+                <div class="music-waveform" id="musicWaveform" onclick="seekMusicWaveform(event)"></div>
+                <span class="music-waveform-time end" id="musicDuration">0:00</span>
+            </div>
+            <!-- Volume + extras -->
+            <div class="music-volume-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <input type="range" id="musicVolume" min="0" max="100" value="50" oninput="setMusicVolume(this.value)">
+            </div>
+            <!-- Collapsible playlist -->
             <div class="music-playlist" id="musicPlaylist"></div>
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v16"></script>
+        <script src="script.js?v=v17"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {

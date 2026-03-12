@@ -7017,6 +7017,63 @@ let MUSIC_PLAYLIST = [];
 let musicCurrentTrack = 0;
 let musicIsPlaying = false;
 let musicHideTimeout = null;
+const MUSIC_WAVEFORM_BARS = 40;
+let musicWaveformHeights = []; // pseudo-random heights per track
+
+// Generate pseudo-random waveform heights for visual effect
+function generateMusicWaveform() {
+    musicWaveformHeights = [];
+    for (let i = 0; i < MUSIC_WAVEFORM_BARS; i++) {
+        // Create natural-looking wave pattern: higher in middle, varied
+        const center = MUSIC_WAVEFORM_BARS / 2;
+        const dist = Math.abs(i - center) / center;
+        const base = 0.3 + (1 - dist * 0.5) * 0.7;
+        const rand = 0.4 + Math.random() * 0.6;
+        musicWaveformHeights.push(Math.min(1, base * rand));
+    }
+}
+
+function renderMusicWaveformBars() {
+    const container = document.getElementById('musicWaveform');
+    if (!container) return;
+    if (musicWaveformHeights.length === 0) generateMusicWaveform();
+    container.innerHTML = musicWaveformHeights.map((h, i) =>
+        `<div class="music-waveform-bar" data-idx="${i}" style="height:${Math.round(h * 100)}%"></div>`
+    ).join('');
+}
+
+function updateMusicWaveformProgress() {
+    const audio = document.getElementById('musicAudio');
+    const container = document.getElementById('musicWaveform');
+    if (!audio || !container || !audio.duration) return;
+    const pct = audio.currentTime / audio.duration;
+    const bars = container.querySelectorAll('.music-waveform-bar');
+    const playedIdx = Math.floor(pct * bars.length);
+    bars.forEach((bar, i) => {
+        if (i <= playedIdx) bar.classList.add('played');
+        else bar.classList.remove('played');
+    });
+}
+
+// Star particles for cosmic background
+function initMusicStars() {
+    const panel = document.getElementById('musicPlayerPanel');
+    if (!panel) return;
+    // Remove old stars
+    panel.querySelectorAll('.music-star').forEach(s => s.remove());
+    for (let i = 0; i < 20; i++) {
+        const star = document.createElement('div');
+        star.className = 'music-star';
+        const size = 1 + Math.random() * 2;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = (Math.random() * 3) + 's';
+        star.style.animationDuration = (2 + Math.random() * 3) + 's';
+        panel.appendChild(star);
+    }
+}
 
 // Load playlist from backend
 async function loadMusicPlaylist() {
@@ -7031,6 +7088,8 @@ async function loadMusicPlaylist() {
         }
         if (MUSIC_PLAYLIST.length > 0) {
             updateMusicTrackInfo();
+            generateMusicWaveform();
+            renderMusicWaveformBars();
         }
         // Restore volume
         const savedVol = localStorage.getItem('musicVolume');
@@ -7040,6 +7099,8 @@ async function loadMusicPlaylist() {
             const slider = document.getElementById('musicVolume');
             if (slider) slider.value = savedVol;
         }
+        // Init cosmic stars
+        initMusicStars();
     } catch (e) {
         console.warn('Could not load music playlist:', e);
     }
@@ -7055,6 +7116,14 @@ function renderMusicPlaylist() {
     container.innerHTML = MUSIC_PLAYLIST.map((t, i) =>
         `<div class="music-playlist-item ${i === musicCurrentTrack ? 'active' : ''}" onclick="playMusicTrack(${i})" title="${esc(t.title)}">${esc(t.title)}</div>`
     ).join('');
+}
+
+function toggleMusicPlaylist() {
+    const pl = document.getElementById('musicPlaylist');
+    const btn = document.querySelector('.music-playlist-toggle');
+    if (!pl) return;
+    pl.classList.toggle('expanded');
+    if (btn) btn.classList.toggle('active', pl.classList.contains('expanded'));
 }
 
 function updateMusicTrackInfo() {
@@ -7108,6 +7177,8 @@ function playMusicTrack(index) {
     musicIsPlaying = true;
     updateMusicPlayBtn();
     updateMusicTrackInfo();
+    generateMusicWaveform();
+    renderMusicWaveformBars();
 }
 
 function toggleMusicPlay() {
@@ -7129,15 +7200,20 @@ function toggleMusicPlay() {
 
 function updateMusicPlayBtn() {
     const btn = document.getElementById('musicToggleBtn');
+    const playBtn = document.getElementById('musicPlayBtn');
     const icon = document.getElementById('musicPlayIcon');
     if (btn) {
         if (musicIsPlaying) btn.classList.add('playing');
         else btn.classList.remove('playing');
     }
+    if (playBtn) {
+        if (musicIsPlaying) playBtn.classList.add('paused');
+        else playBtn.classList.remove('paused');
+    }
     if (icon) {
         icon.innerHTML = musicIsPlaying
             ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
-            : '<polygon points="5 3 19 12 5 21 5 3"/>';
+            : '<polygon points="6 3 20 12 6 21 6 3"/>';
     }
 }
 
@@ -7159,13 +7235,14 @@ function setMusicVolume(val) {
     localStorage.setItem('musicVolume', val);
 }
 
-function seekMusic(e) {
-    const bar = document.getElementById('musicProgressBar');
+function seekMusicWaveform(e) {
+    const wf = document.getElementById('musicWaveform');
     const audio = document.getElementById('musicAudio');
-    if (!bar || !audio || !audio.duration) return;
-    const rect = bar.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
+    if (!wf || !audio || !audio.duration) return;
+    const rect = wf.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = pct * audio.duration;
+    updateMusicWaveformProgress();
 }
 
 function formatMusicTime(s) {
@@ -7180,10 +7257,9 @@ function formatMusicTime(s) {
     const audio = document.getElementById('musicAudio');
     if (!audio) return;
     audio.addEventListener('timeupdate', () => {
-        const fill = document.getElementById('musicProgressFill');
         const cur = document.getElementById('musicCurrentTime');
-        if (fill && audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
         if (cur) cur.textContent = formatMusicTime(audio.currentTime);
+        updateMusicWaveformProgress();
     });
     audio.addEventListener('loadedmetadata', () => {
         const dur = document.getElementById('musicDuration');
