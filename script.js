@@ -87,7 +87,25 @@ const TRANSLATIONS = {
         usd_value_at_tx: "Valor USD (al momento de TX)",
         search_method: "Buscar método...",
         search_placeholder: "Buscar wallet, tx hash, bloque, extrinsic ID...",
-        max_sections_alert: "Máximo 5 secciones permitidas. Desactiva una primero."
+        max_sections_alert: "Máximo 5 secciones permitidas. Desactiva una primero.",
+        block: "Bloque", menu_instruction: "Visibles (Máx 5)", backup_title: "Copia de Seguridad", backup_desc: "Guarda tus billeteras y favoritos en un archivo seguro o restaura una copia anterior.", btn_download_backup: "Descargar Copia", btn_restore_backup: "Restaurar Copia", staking_active_validators: "Validadores Activos",
+        ob_type: "Tipo", ob_pair: "Par", ob_side: "Lado", ob_price: "Precio", ob_amount: "Cantidad", ob_wallet: "Wallet",
+        ext_block: "Bloque", ext_hash: "Hash", ext_pallet: "Pallet::Call",
+        copy_tooltip: "Copiar", copied_msg: "Copiado: ", edit_alias: "Editar Alias", delete_tooltip: "Eliminar",
+        view_detail: "Ver Detalle (Swaps, Transfers...)", loading_lp_staking: "Cargando LP & Staking...",
+        fill_all_fields: "Por favor completa todos los campos", bulk_import_result: "Proceso completado.\nAñadidas: {added}\nErrores/Duplicados: {errors}", new_name_prompt: "Nuevo nombre para esta wallet:",
+        invalid_file: "Archivo inválido.", restore_confirm: "¿Restaurar backup?\nSe reemplazarán tus carteras y favoritos actuales.", restored_ok: "¡Restaurado correctamente!", error_reading: "Error al leer archivo: ",
+        chart_error: "Error: La librería de gráficos no se ha cargado.",
+        no_holdings: "No se encontraron activos", token_col: "Token", amount_col: "Cantidad", price_col: "Precio", value_col: "Valor",
+        lp_pools: "Pools de Liquidez", native_staking: "Staking Nativo (XOR)", staked: "En Staking", unbonding: "Desbloqueando", total_lp_staking: "Total LP & Staking", no_lp_staking: "Sin posiciones de LP o staking",
+        wallet_staking_loading: "Cargando info de staking...", wallet_staking_empty: "Sin posiciones de staking para esta wallet", staked_xor: "XOR en Staking", active_status: "Activo", unbonding_xor: "XOR Desbloqueando", unlocking: "Desbloqueando", total_staking_value: "Valor Total Staking", nominating_validators: "Nominando {count} validador(es)",
+        link_copied: "¡Link copiado!", screenshot_na: "Screenshot no disponible", screenshot_ok: "¡Screenshot descargado!", screenshot_fail: "Error en screenshot", share: "Compartir", screenshot: "Screenshot",
+        ext_detail_id: "ID de Extrinsic:", ext_detail_hash: "Hash:", ext_detail_block: "Bloque:", ext_detail_pallet: "Pallet:", ext_detail_success: "Success", ext_detail_failed: "Failed", ext_detail_args: "Argumentos (JSON):",
+        block_height: "Altura del Bloque:", block_extrinsics: "extrinsic(s)",
+        unified_portfolio: "Portafolio Unificado",
+        error_loading_container: "Error cargando datos.",
+        chart_title: "Gráfico", holders_col: "Holders", chart_col: "Gráfico",
+        view_tx_details: "Ver detalles de transacción"
     },
     en: {
         tab_balance: "Balance", tab_swaps: "Swaps", tab_transfers: "Transfers", tab_tokens: "Tokens", tab_liquidity: "Liquidity", tab_bridges: "Bridges", total_net_worth: "Total Net Worth", header_my_wallets: "💼 My Wallets", btn_add_wallet: "+ Add Wallet", header_watch_wallets: "👀 Watched Wallets", live_transfers: "💸 Live Transfers", time: "Time", from: "From", amount: "Amount", to: "To", waiting_activity: "Waiting for activity...", previous: "Previous", next: "Next", page: "Page", liquidity_pools: "🌊 Liquidity (Pools)", all: "All", total_pools: "Total Pools:", pair: "Pair", reserves: "Reserves", action: "Action", loading_pools: "Loading pools...", live_swaps: "⚡ Live Swaps", all_tokens: "All Tokens", search_token: "Search token...", input: "Input", output: "Output", account: "Account", refresh: "Refresh", favorites: "⭐ Favorites", search_token_name_symbol_id: "Search by name, symbol or ID...", asset: "Asset", price: "Price", loading: "Loading...", holders: "Holders", rank: "Rank", wallet: "Wallet", balance: "Balance", add_wallet: "Add Wallet", sora_address: "SORA Address", name_alias: "Name (Alias)", example_savings: "Ex: Savings", type: "Type", my_wallet_total: "My Wallet (Adds to total)", watched_wallet_tracking: "Watched (Tracking)", save_wallet: "Save Wallet", wallet: "Wallet", assets: "Assets", swaps: "Swaps", transfers: "Transfers", other: "Other", no_wallets_saved: "You have no wallets saved.", not_watching_wallets: "You are not watching any wallets.", no_favorites_yet: "You have no favorites yet.", no_data: "No data.", no_swaps_found: "No swaps found.", no_assets_found: "No assets found.", no_recent_swaps: "No recent swaps.", no_recent_transfers: "No recent transfers.", error_loading_data: "Error loading data", error_loading_pools: "Error loading pools", error_loading: "Error loading", page_x_of_y: "Page {current} of {total}", filter: "Filter:", all_tokens_star: "🌟 All", received: "⬇ RECEIVED", sent: "⬆ SENT", accounts: "accounts", chart: "Chart", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend (Fees)",
@@ -103,7 +121,25 @@ const TRANSLATIONS = {
         usd_value_at_tx: "USD Value (at TX time)",
         search_method: "Search method...",
         search_placeholder: "Search wallet, tx hash, block, extrinsic ID...",
-        max_sections_alert: "Maximum 5 sections allowed. Disable one first."
+        max_sections_alert: "Maximum 5 sections allowed. Disable one first.",
+        block: "Block", menu_instruction: "Visible (Max 5)", backup_title: "Backup", backup_desc: "Save your wallets and favorites to a secure file or restore a previous backup.", btn_download_backup: "Download Backup", btn_restore_backup: "Restore Backup", staking_active_validators: "Active Validators",
+        ob_type: "Type", ob_pair: "Pair", ob_side: "Side", ob_price: "Price", ob_amount: "Amount", ob_wallet: "Wallet",
+        ext_block: "Block", ext_hash: "Hash", ext_pallet: "Pallet::Call",
+        copy_tooltip: "Copy", copied_msg: "Copied: ", edit_alias: "Edit Alias", delete_tooltip: "Delete",
+        view_detail: "View Detail (Swaps, Transfers...)", loading_lp_staking: "Loading LP & Staking...",
+        fill_all_fields: "Please fill in all fields", bulk_import_result: "Process completed.\nAdded: {added}\nErrors/Duplicates: {errors}", new_name_prompt: "New name for this wallet:",
+        invalid_file: "Invalid file.", restore_confirm: "Restore backup?\nYour current wallets and favorites will be replaced.", restored_ok: "Restored successfully!", error_reading: "Error reading file: ",
+        chart_error: "Error: Chart library not loaded.",
+        no_holdings: "No holdings found", token_col: "Token", amount_col: "Amount", price_col: "Price", value_col: "Value",
+        lp_pools: "Liquidity Pools", native_staking: "Native Staking (XOR)", staked: "Staked", unbonding: "Unbonding", total_lp_staking: "Total LP & Staking", no_lp_staking: "No LP or staking positions",
+        wallet_staking_loading: "Loading staking info...", wallet_staking_empty: "No staking positions for this wallet", staked_xor: "Staked XOR", active_status: "Active", unbonding_xor: "Unbonding XOR", unlocking: "Unlocking", total_staking_value: "Total Staking Value", nominating_validators: "Nominating {count} validator(s)",
+        link_copied: "Link copied!", screenshot_na: "Screenshot not available", screenshot_ok: "Screenshot downloaded!", screenshot_fail: "Screenshot failed", share: "Share", screenshot: "Screenshot",
+        ext_detail_id: "Extrinsic ID:", ext_detail_hash: "Hash:", ext_detail_block: "Block:", ext_detail_pallet: "Pallet:", ext_detail_success: "Success", ext_detail_failed: "Failed", ext_detail_args: "Arguments (JSON):",
+        block_height: "Block Height:", block_extrinsics: "extrinsic(s)",
+        unified_portfolio: "Unified Portfolio",
+        error_loading_container: "Error loading data.",
+        chart_title: "Chart", holders_col: "Holders", chart_col: "Chart",
+        view_tx_details: "View transaction details"
     },
     jp: {
         tab_balance: "残高", tab_swaps: "スワップ", tab_transfers: "転送", tab_tokens: "トークン", tab_liquidity: "流動性", tab_bridges: "ブリッジ", total_net_worth: "総資産", header_my_wallets: "💼 マイウォレット", btn_add_wallet: "+ ウォレット追加", header_watch_wallets: "👀 監視ウォレット", live_transfers: "💸 ライブ転送", time: "時間", from: "送信元", amount: "金額", to: "送信先", waiting_activity: "アクティビティ待機中...", previous: "前へ", next: "次へ", page: "ページ", liquidity_pools: "🌊 流動性 (プール)", all: "すべて", total_pools: "プール総数:", pair: "ペア", reserves: "準備金", action: "アクション", loading_pools: "プールを読み込み中...", live_swaps: "⚡ ライブスワップ", all_tokens: "すべてのトークン", search_token: "トークン検索...", input: "入力", output: "出力", account: "アカウント", refresh: "更新", favorites: "⭐ お気に入り", search_token_name_symbol_id: "名前、シンボル、IDで検索...", asset: "資産", price: "価格", loading: "読み込み中...", holders: "ホルダー", rank: "ランク", wallet: "ウォレット", balance: "残高", add_wallet: "ウォレット追加", sora_address: "SORAアドレス", name_alias: "名前 (エイリアス)", example_savings: "例: 貯金", type: "タイプ", my_wallet_total: "マイウォレット (合計に加算)", watched_wallet_tracking: "監視 (追跡のみ)", save_wallet: "ウォレット保存", wallet: "ウォレット", assets: "資産", swaps: "スワップ", transfers: "転送", other: "その他", no_wallets_saved: "保存されたウォレットはありません。", not_watching_wallets: "監視中のウォレットはありません。", no_favorites_yet: "お気に入りはまだありません。", no_data: "データなし。", no_swaps_found: "スワップが見つかりません。", no_assets_found: "資産が見つかりません。", no_recent_swaps: "最近のスワップはありません。", no_recent_transfers: "最近の転送はありません。", error_loading_data: "データの読み込みエラー", error_loading_pools: "プールの読み込みエラー", error_loading: "読み込みエラー", page_x_of_y: "ページ {current} / {total}", filter: "フィルター:", all_tokens_star: "🌟 すべて", received: "⬇ 受信", sent: "⬆ 送信", accounts: "アカウント", chart: "チャート", fees_pie_title: "種類別のXOR焼却", fees_line_title: "活動傾向 (手数料)",
@@ -273,12 +309,21 @@ function changeLanguage(lang) {
         loadNetworkFees();
     }
 
-    if (document.getElementById('balance')) { if (document.getElementById('balance').classList.contains('active')) loadBalanceTab(); }
-    if (document.getElementById('tokens')) { if (document.getElementById('tokens').classList.contains('active')) loadTokens(); }
-    if (document.getElementById('liquidity')) { if (document.getElementById('liquidity').classList.contains('active')) { loadPools(); loadGlobalLiquidity(); } }
-    if (document.getElementById('transfers')) { if (document.getElementById('transfers').classList.contains('active')) loadGlobalTransfers(); }
-    if (document.getElementById('swaps')) { if (document.getElementById('swaps').classList.contains('active')) loadGlobalSwaps(); }
-    if (document.getElementById('staking')) { if (document.getElementById('staking').classList.contains('active')) loadStaking(); }
+    // Re-render active section to apply translated strings
+    const activeSection = document.querySelector('.tab-content.active');
+    if (activeSection) {
+        const id = activeSection.id;
+        if (id === 'balance') loadBalanceTab();
+        else if (id === 'tokens') loadTokens();
+        else if (id === 'liquidity') { loadPools(); loadGlobalLiquidity(); }
+        else if (id === 'transfers') loadGlobalTransfers();
+        else if (id === 'swaps') loadGlobalSwaps();
+        else if (id === 'staking') loadStaking();
+        else if (id === 'bridges' && typeof loadBridges === 'function') loadBridges();
+        else if (id === 'extrinsics' && typeof loadExtrinsics === 'function') loadExtrinsics();
+        else if (id === 'orderbook' && typeof loadOrderBook === 'function') loadOrderBook();
+        else if (id === 'burns' && typeof loadBurnTracker === 'function') loadBurnTracker();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -341,7 +386,7 @@ async function updateSwapTokenList(query) {
     if (q === _swapLastQuery && listDiv.children.length > 0) return;
     _swapLastQuery = q;
 
-    listDiv.innerHTML = '<div style="padding:10px;">Cargando...</div>';
+    listDiv.innerHTML = `<div style="padding:10px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</div>`;
     try {
         const url = q
             ? `/tokens?search=${encodeURIComponent(q)}&limit=50`
@@ -874,7 +919,7 @@ socket.on('swaps-batch', (batch) => {
 </td>
 <td style="font-size:11px;">
 <span onclick="openWalletDetails('${esc(d.wallet)}')" class="${nameClass}">${short}</span>
-<span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+<span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span>
 </td>
 <td>
     <button class="btn-ghost" onclick="openTxModal('${esc(d.hash)}', '${esc(d.extrinsic_id)}', '${esc(d.in?.usd || '')}')" style="font-size:11px; padding:2px 6px;">🔍 Ver</button>
@@ -1332,7 +1377,7 @@ function renderHoldingsTable(tokens, total) {
     const wrapper = document.getElementById('holdingsTableWrapper');
     if (!wrapper) return;
     if (!tokens || tokens.length === 0) {
-        wrapper.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:20px;">No holdings found</p>';
+        wrapper.innerHTML = `<p style="text-align:center; color:var(--text-secondary); padding:20px;">${TRANSLATIONS[currentLang]?.no_holdings || 'No holdings found'}</p>`;
         return;
     }
 
@@ -1362,9 +1407,9 @@ function renderHoldingsTable(tokens, total) {
         </label>
     </div>`;
     html += `<table class="holdings-table"><thead><tr>
-        <th onclick="sortHoldingsTable('symbol')">Token${arrow('symbol')}</th>
-        <th onclick="sortHoldingsTable('amount')">Amount${arrow('amount')}</th>
-        <th>Price</th>
+        <th onclick="sortHoldingsTable('symbol')">${lang.token_col || 'Token'}${arrow('symbol')}</th>
+        <th onclick="sortHoldingsTable('amount')">${lang.amount_col || 'Amount'}${arrow('amount')}</th>
+        <th>${lang.price_col || 'Price'}</th>
         <th onclick="sortHoldingsTable('value')">${valLabel}${arrow('value')}</th>
         <th>%</th>
     </tr></thead><tbody>`;
@@ -1385,9 +1430,9 @@ function renderHoldingsTable(tokens, total) {
     // Pagination controls
     if (totalPages > 1) {
         html += `<div class="holdings-pagination">
-            <button class="pg-btn" onclick="changeHoldingsPage(-1)" ${holdingsPage <= 1 ? 'disabled' : ''}>‹ Prev</button>
+            <button class="pg-btn" onclick="changeHoldingsPage(-1)" ${holdingsPage <= 1 ? 'disabled' : ''}>‹ ${lang.previous || 'Prev'}</button>
             <span class="pg-info">${holdingsPage} / ${totalPages} <span style="color:var(--text-secondary); font-size:11px;">(${sorted.length} tokens)</span></span>
-            <button class="pg-btn" onclick="changeHoldingsPage(1)" ${holdingsPage >= totalPages ? 'disabled' : ''}>Next ›</button>
+            <button class="pg-btn" onclick="changeHoldingsPage(1)" ${holdingsPage >= totalPages ? 'disabled' : ''}>${lang.next || 'Next'} ›</button>
         </div>`;
     }
 
@@ -1413,7 +1458,7 @@ function renderLpSummaryFromCache() {
     const { pools, lpTotal, stakingStaked, stakingUnbonding, stakingTotal, stakingResults, hasLP, hasStaking } = cachedLpStakingData;
 
     if (!hasLP && !hasStaking) {
-        container.innerHTML = '<p style="text-align:center; color:var(--text-secondary); padding:15px;">No LP or staking positions</p>';
+        container.innerHTML = `<p style="text-align:center; color:var(--text-secondary); padding:15px;">${TRANSLATIONS[currentLang]?.no_lp_staking || 'No LP or staking positions'}</p>`;
         updateNetWorthWithExtras(0, 0);
         return;
     }
@@ -1425,7 +1470,7 @@ function renderLpSummaryFromCache() {
         html += `<div style="margin-bottom:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span style="font-size:16px;">💧</span>
-                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Liquidity Pools</span>
+                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">${TRANSLATIONS[currentLang]?.lp_pools || 'Liquidity Pools'}</span>
                 <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(lpTotal)}</span>
             </div>
             <div class="lp-summary-grid">`;
@@ -1452,7 +1497,7 @@ function renderLpSummaryFromCache() {
         html += `<div style="${hasLP ? 'border-top:1px solid var(--border-color); padding-top:16px;' : ''}">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span style="font-size:16px;">🔒</span>
-                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">Native Staking (XOR)</span>
+                <span style="font-size:14px; font-weight:700; color:var(--text-primary);">${TRANSLATIONS[currentLang]?.native_staking || 'Native Staking (XOR)'}</span>
                 <span style="font-size:14px; font-weight:700; color:#10B981; margin-left:auto;">${formatPortfolioPrice(stakingTotal)}</span>
             </div>
             <div class="lp-summary-grid">`;
@@ -1461,7 +1506,7 @@ function renderLpSummaryFromCache() {
                 <div style="display:flex; align-items:center; gap:10px;">
                     <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;">
                     <div>
-                        <div style="font-weight:600;font-size:14px;">Staked</div>
+                        <div style="font-weight:600;font-size:14px;">${TRANSLATIONS[currentLang]?.staked || 'Staked'}</div>
                         <div style="font-size:11px;color:var(--text-secondary);">${portfolioAmount(stakingStaked)} XOR</div>
                     </div>
                 </div>
@@ -1473,7 +1518,7 @@ function renderLpSummaryFromCache() {
                 <div style="display:flex; align-items:center; gap:10px;">
                     <img src="${XOR_LOGO_SVG}" style="width:28px;height:28px;border-radius:50%;opacity:0.5;">
                     <div>
-                        <div style="font-weight:600;font-size:14px;">Unbonding</div>
+                        <div style="font-weight:600;font-size:14px;">${TRANSLATIONS[currentLang]?.unbonding || 'Unbonding'}</div>
                         <div style="font-size:11px;color:var(--text-secondary);">${portfolioAmount(stakingUnbonding)} XOR</div>
                     </div>
                 </div>
@@ -1486,7 +1531,7 @@ function renderLpSummaryFromCache() {
     // Total LP + Staking combined
     const combinedTotal = lpTotal + stakingTotal;
     html = `<div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:15px; font-weight:700; color:var(--text-primary);">Total LP & Staking</span>
+        <span style="font-size:15px; font-weight:700; color:var(--text-primary);">${TRANSLATIONS[currentLang]?.total_lp_staking || 'Total LP & Staking'}</span>
         <span style="font-size:18px; font-weight:800; color:#10B981;">${formatPortfolioPrice(combinedTotal)}</span>
     </div>` + html;
 
@@ -1508,7 +1553,7 @@ async function loadLpSummaryLazy() {
     if (lpStakingFetching) return;
     lpStakingFetching = true;
 
-    container.innerHTML = '<div style="text-align:center; padding:15px; color:var(--text-secondary);">Cargando LP & Staking...</div>';
+    container.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-secondary);">${TRANSLATIONS[currentLang]?.loading_lp_staking || 'Loading LP & Staking...'}</div>`;
 
     const myW = cachedBalanceData.myW;
     if (myW.length === 0) {
@@ -1639,7 +1684,7 @@ function createExpandableWalletCard(wallet, data) {
 
     // Add a "View Details" button at the bottom of tokens
     tokensHtml += `<div style="padding:12px 16px; text-align:center;">
-        <button class="btn-primary" style="font-size:12px; padding:6px 16px;" onclick="event.stopPropagation(); openWalletDetails('${esc(addr)}')">Ver Detalle (Swaps, Transfers...)</button>
+        <button class="btn-primary" style="font-size:12px; padding:6px 16px;" onclick="event.stopPropagation(); openWalletDetails('${esc(addr)}')">${TRANSLATIONS[currentLang]?.view_detail || 'View Detail (Swaps, Transfers...)'}</button>
     </div>`;
 
     return `<div class="wallet-expand-card" id="wcard-${cardId}">
@@ -1655,7 +1700,7 @@ function createExpandableWalletCard(wallet, data) {
                 <span style="font-size:18px;font-weight:700;color:#10B981;">${formatPortfolioPrice(d.totalUsd)}</span>
                 <span style="font-size:12px;color:var(--text-secondary);">${hideBalances ? '** tokens' : d.tokens.length + ' tokens'}</span>
                 <span class="wallet-expand-arrow">▼</span>
-                <button style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:14px;padding:4px;" onclick="event.stopPropagation();deleteWallet('${esc(addr)}')" title="Eliminar">🗑️</button>
+                <button style="border:none;background:none;color:#EF4444;cursor:pointer;font-size:14px;padding:4px;" onclick="event.stopPropagation();deleteWallet('${esc(addr)}')" title="${TRANSLATIONS[currentLang]?.delete_tooltip || 'Delete'}">🗑️</button>
             </div>
         </div>
         <div class="wallet-expand-body">${tokensHtml}</div>
@@ -1735,7 +1780,7 @@ function submitAddWallet() {
         const name = document.getElementById('newWalletName').value.trim();
 
         if (!addr || !name) {
-            alert('Por favor completa todos los campos');
+            alert(TRANSLATIONS[currentLang]?.fill_all_fields || 'Please fill in all fields');
             return;
         }
 
@@ -1788,7 +1833,7 @@ function submitAddWallet() {
                 if (document.getElementById('balance').classList.contains('active')) loadBalanceTab();
             }
 
-            alert(`Proceso completado.\nAñadidas: ${addedCount}\nErrores/Duplicados: ${errorCount}`);
+            alert((TRANSLATIONS[currentLang]?.bulk_import_result || 'Process completed.\nAdded: {added}\nErrors/Duplicates: {errors}').replace('{added}', addedCount).replace('{errors}', errorCount));
             closeAddWalletModal();
             fileInput.value = ''; // Reset file input
         };
@@ -2116,7 +2161,7 @@ async function openWalletDetails(address) {
 
     let titleHtml = esc(name);
     if (isSaved) {
-        titleHtml += ` <button onclick="editWalletAlias('${esc(address)}')" title="Editar Alias" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
+        titleHtml += ` <button onclick="editWalletAlias('${esc(address)}')" title="${TRANSLATIONS[currentLang]?.edit_alias || 'Edit Alias'}" style="background:none; border:none; cursor:pointer; font-size:16px; margin-left:8px;">✏️</button>`;
     }
     document.getElementById('detailsTitle').innerHTML = titleHtml;
     document.getElementById('detailsAddr').innerText = address;
@@ -2145,7 +2190,7 @@ async function openWalletDetails(address) {
 
 function editWalletAlias(address) {
     const currentName = walletAliases[address];
-    const newName = prompt("Nuevo nombre para esta wallet:", currentName);
+    const newName = prompt(TRANSLATIONS[currentLang]?.new_name_prompt || "New name for this wallet:", currentName);
 
     if (newName && newName.trim() !== "") {
         // Update in memory
@@ -2184,7 +2229,7 @@ function openUnifiedDetails() {
     document.getElementById('walletDetailsModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    document.getElementById('detailsTitle').innerHTML = "Portafolio Unificado";
+    document.getElementById('detailsTitle').innerHTML = TRANSLATIONS[currentLang]?.unified_portfolio || "Unified Portfolio";
     document.getElementById('detailsAddr').innerText = `${unifiedWalletAddresses.length} Wallets`;
 
     // Show ALL tabs (not hiding them anymore)
@@ -2224,7 +2269,8 @@ function openWTab(tab) {
 async function loadWalletStaking() {
     const container = document.getElementById('wStakingContent');
     if (!container || !currentDetailsAddr) return;
-    container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-secondary);">Loading staking info...</div>';
+    const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary);">${t.wallet_staking_loading || 'Loading staking info...'}</div>`;
 
     try {
         const res = await fetch(`/wallet/staking/${currentDetailsAddr}`);
@@ -2233,7 +2279,7 @@ async function loadWalletStaking() {
         if (!data || (data.staked === 0 && data.unbonding === 0)) {
             container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-secondary);">
                 <div style="font-size:32px; margin-bottom:12px;">🔒</div>
-                <div style="font-size:14px;">No staking positions for this wallet</div>
+                <div style="font-size:14px;">${t.wallet_staking_empty || 'No staking positions for this wallet'}</div>
             </div>`;
             return;
         }
@@ -2249,13 +2295,13 @@ async function loadWalletStaking() {
                 <div style="display:flex; align-items:center; gap:12px;">
                     <img src="${XOR_LOGO_SVG}" style="width:36px;height:36px;border-radius:50%;">
                     <div>
-                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">Staked XOR</div>
+                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${t.staked_xor || 'Staked XOR'}</div>
                         <div style="font-size:13px; color:var(--text-secondary);">${formatAmount(data.staked)} XOR</div>
                     </div>
                 </div>
                 <div style="text-align:right;">
                     <div style="font-weight:700; font-size:16px; color:#10B981;">${formatPortfolioPrice(data.stakedUsd || data.staked * xorPrice)}</div>
-                    <div style="font-size:11px; color:var(--text-secondary);">Active</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">${t.active_status || 'Active'}</div>
                 </div>
             </div>`;
         }
@@ -2266,27 +2312,27 @@ async function loadWalletStaking() {
                 <div style="display:flex; align-items:center; gap:12px;">
                     <img src="${XOR_LOGO_SVG}" style="width:36px;height:36px;border-radius:50%;opacity:0.5;">
                     <div>
-                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">Unbonding XOR</div>
+                        <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${t.unbonding_xor || 'Unbonding XOR'}</div>
                         <div style="font-size:13px; color:var(--text-secondary);">${formatAmount(data.unbonding)} XOR</div>
                     </div>
                 </div>
                 <div style="text-align:right;">
                     <div style="font-weight:700; font-size:16px; color:#F59E0B;">${formatPortfolioPrice(data.unbondingUsd || data.unbonding * xorPrice)}</div>
-                    <div style="font-size:11px; color:var(--text-secondary);">Unlocking</div>
+                    <div style="font-size:11px; color:var(--text-secondary);">${t.unlocking || 'Unlocking'}</div>
                 </div>
             </div>`;
         }
 
         // Total
         html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-top:1px solid var(--border-color); margin-top:4px;">
-            <span style="font-weight:700; color:var(--text-primary);">Total Staking Value</span>
+            <span style="font-weight:700; color:var(--text-primary);">${t.total_staking_value || 'Total Staking Value'}</span>
             <span style="font-weight:800; font-size:18px; color:#10B981;">${formatPortfolioPrice(data.usdValue)}</span>
         </div>`;
 
         // Validators
         if (data.validators && data.validators.length > 0) {
             html += `<div style="padding:8px 0;">
-                <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Nominating ${data.validators.length} validator(s)</div>`;
+                <div style="font-weight:600; font-size:13px; color:var(--text-secondary); margin-bottom:8px;">${(t.nominating_validators || 'Nominating {count} validator(s)').replace('{count}', data.validators.length)}</div>`;
             data.validators.forEach(v => {
                 const short = v.substring(0, 8) + '...' + v.substring(v.length - 6);
                 html += `<div id="val-${v.substring(0,8)}" style="display:flex; align-items:center; gap:8px; padding:4px 0; cursor:pointer; border-bottom:1px solid var(--border-color);" onclick="openWalletDetails('${esc(v)}')">
@@ -2535,7 +2581,7 @@ async function loadWalletTransfers() {
             const otherShort = formatAddress(other);
             const isSavedOther = walletAliases[other];
             const otherClass = isSavedOther ? 'wallet-saved' : 'wallet-unsaved';
-            tBody.innerHTML += `<tr><td style="color:#6B7280; font-size:11px;">${t.time}</td><td style="font-size:12px;">${type}</td><td style="font-size:11px;"><span onclick="openWalletDetails('${other}')" class="${otherClass}">${otherShort}</span><span onclick="copyToClipboard('${other}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(t.amount)} ${t.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${t.usdValue}</span></div></div></td></tr>`;
+            tBody.innerHTML += `<tr><td style="color:#6B7280; font-size:11px;">${t.time}</td><td style="font-size:12px;">${type}</td><td style="font-size:11px;"><span onclick="openWalletDetails('${other}')" class="${otherClass}">${otherShort}</span><span onclick="copyToClipboard('${other}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(t.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(t.amount)} ${t.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${t.usdValue}</span></div></div></td></tr>`;
         });
     } catch (e) {
         console.error('Error loading transfers:', e);
@@ -2694,9 +2740,9 @@ function renderValidatorsTable() {
         if (totalPages <= 1) { pagDiv.innerHTML = ''; }
         else {
             pagDiv.innerHTML = `
-                <button class="pg-btn" onclick="changeValidatorsPage(-1)" ${stakingValidatorsPage <= 1 ? 'disabled' : ''}>‹ Prev</button>
+                <button class="pg-btn" onclick="changeValidatorsPage(-1)" ${stakingValidatorsPage <= 1 ? 'disabled' : ''}>‹ ${TRANSLATIONS[currentLang]?.previous || 'Prev'}</button>
                 <span class="pg-info">${stakingValidatorsPage} / ${totalPages}</span>
-                <button class="pg-btn" onclick="changeValidatorsPage(1)" ${stakingValidatorsPage >= totalPages ? 'disabled' : ''}>Next ›</button>`;
+                <button class="pg-btn" onclick="changeValidatorsPage(1)" ${stakingValidatorsPage >= totalPages ? 'disabled' : ''}>${TRANSLATIONS[currentLang]?.next || 'Next'} ›</button>`;
         }
     }
 }
@@ -4090,15 +4136,15 @@ function createBurnEmber(container) {
 const allSections = [
     { id: 'balance', name: 'Balance', icon: '💰', translateKey: 'tab_balance' },
     { id: 'swaps', name: 'Swaps', icon: '🔄', translateKey: 'tab_swaps' },
-    { id: 'transfers', name: 'Transferencias', icon: '💸', translateKey: 'tab_transfers' },
+    { id: 'transfers', name: 'Transfers', icon: '💸', translateKey: 'tab_transfers' },
     { id: 'tokens', name: 'Tokens', icon: '💎', translateKey: 'tab_tokens' },
-    { id: 'bridges', name: 'Puentes', icon: '🌉', translateKey: 'tab_bridges' },
+    { id: 'bridges', name: 'Bridges', icon: '🌉', translateKey: 'tab_bridges' },
     { id: 'orderbook', name: 'Order Book', icon: '📋', translateKey: 'tab_orderbook' },
     { id: 'governance', name: 'Governance', icon: '🏛️', translateKey: 'tab_governance' },
     { id: 'extrinsics', name: 'Extrinsics', icon: '🔬', translateKey: 'tab_extrinsics' },
-    { id: 'liquidity', name: 'Liquidez', icon: '🌊', translateKey: 'tab_liquidity' },
+    { id: 'liquidity', name: 'Liquidity', icon: '🌊', translateKey: 'tab_liquidity' },
     { id: 'staking', name: 'Staking', icon: '🛡️', translateKey: 'tab_staking' },
-    { id: 'section-intelligence', name: 'Estadísticas de Red', icon: '🧠', translateKey: 'network_stats_btn' },
+    { id: 'section-intelligence', name: 'Network Stats', icon: '🧠', translateKey: 'network_stats_btn' },
     { id: 'burns', name: 'Burn Tracker', icon: '🔥', translateKey: 'tab_burns' }
 ];
 
@@ -4536,7 +4582,7 @@ async function loadAccumulation() {
 
     } catch (e) {
         console.error(e);
-        container.innerHTML = `<div style="color:#ef4444; padding:20px;">Error cargando datos.</div>`;
+        container.innerHTML = `<div style="color:#ef4444; padding:20px;">${TRANSLATIONS[currentLang]?.error_loading_container || 'Error loading data.'}</div>`;
     }
 }
 
@@ -4564,7 +4610,7 @@ function renderWhales() {
         const icon = isWhale ? '🐋' : (w.total_bought_usd > 10000 ? '🦈' : '🐟');
 
         // Make alias clickable
-        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="Ver detalles">${aliasContent}</span>`;
+        const aliasHtml = `<span onclick="openWalletDetails('${esc(w.wallet)}')" style="cursor:pointer; border-bottom:1px dotted #999;" title="${TRANSLATIONS[currentLang]?.view || 'More Info'}">${aliasContent}</span>`;
 
         html += `
         <div class="whale-row">
@@ -4803,7 +4849,7 @@ async function loadGlobalSwaps(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
-            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
+            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.in.usd || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
             </td>`;
@@ -4824,8 +4870,9 @@ function changeSwapPage(delta) {
 }
 
 function copyToClipboard(text) {
-    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { alert('Dirección copiada: ' + text); }); }
-    else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Dirección copiada: ' + text); }
+    const msg = (TRANSLATIONS[currentLang]?.copied_msg || 'Copied: ') + text;
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => { alert(msg); }); }
+    else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert(msg); }
 }
 
 function toggleHashReveal(el) {
@@ -4876,7 +4923,7 @@ async function loadGlobalTransfers(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
-            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span></td>
+            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usdValue || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
             </td>`;
@@ -4953,7 +5000,7 @@ async function loadGlobalBridges(reset = false) {
 
                     if (isIncoming && isNullAddress) {
                         // Unknown origin - show Bridge Contract (clickable to view tx details)
-                        return `<a href="#" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usd_value || ''}'); return false;" style="color:#627EEA; text-decoration:none; font-weight:500;" title="Ver detalles de transacción">🌉 ${TRANSLATIONS[currentLang].bridge_contract || 'Bridge Contract'} 🔗</a>`;
+                        return `<a href="#" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usd_value || ''}'); return false;" style="color:#627EEA; text-decoration:none; font-weight:500;" title="${TRANSLATIONS[currentLang]?.view_tx_details || 'View transaction details'}">🌉 ${TRANSLATIONS[currentLang].bridge_contract || 'Bridge Contract'} 🔗</a>`;
                     } else if (isEthAddress) {
                         // Real ETH address - link to Etherscan
                         return `<a href="https://etherscan.io/address/${d.sender}" target="_blank" style="color:#627EEA; text-decoration:none;" title="${d.sender}">${senderShort} 🔗</a>`;
@@ -4962,7 +5009,7 @@ async function loadGlobalBridges(reset = false) {
                         return `<span onclick="openWalletDetails('${esc(d.sender)}')" class="wallet-unsaved">${senderShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${esc(d.sender)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.sender)}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span>
                 </td>
                 <td style="font-size:11px;">
                     ${(() => {
@@ -4975,7 +5022,7 @@ async function loadGlobalBridges(reset = false) {
                         return `<span onclick="openWalletDetails('${esc(d.recipient)}')" class="wallet-unsaved">${recipientShort}</span>`;
                     }
                 })()}
-                    <span onclick="copyToClipboard('${esc(d.recipient)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.recipient)}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span>
                 </td>
                 <td>
                     <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
@@ -5104,7 +5151,7 @@ async function loadGlobalOrderBook(reset = false) {
                 <td style="font-size:11px; font-family:monospace;">${d.amount ? formatAmount(d.amount) : '-'}</td>
                 <td style="font-size:11px;">
                     <span onclick="openWalletDetails('${esc(d.wallet)}')" class="wallet-unsaved">${walletShort}</span>
-                    <span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="Copiar">📋</span>
+                    <span onclick="copyToClipboard('${esc(d.wallet)}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span>
                 </td>
                 <td>
                     <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
@@ -5789,15 +5836,15 @@ function importBackup(input) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-            if (!data.wallets && !data.favorites) { alert('Archivo inválido.'); return; }
-            if (confirm('¿Restaurar backup?\nSe reemplazarán tus carteras y favoritos actuales.')) {
+            if (!data.wallets && !data.favorites) { alert(TRANSLATIONS[currentLang]?.invalid_file || 'Invalid file.'); return; }
+            if (confirm(TRANSLATIONS[currentLang]?.restore_confirm || 'Restore backup?\nYour current wallets and favorites will be replaced.')) {
                 if (data.wallets) localStorage.setItem('sora_wallets', data.wallets);
                 if (data.favorites) localStorage.setItem('sora_favorites', data.favorites);
                 if (data.lang) localStorage.setItem('sora_lang', data.lang);
-                alert('¡Restaurado correctamente!');
+                alert(TRANSLATIONS[currentLang]?.restored_ok || 'Restored successfully!');
                 location.reload();
             }
-        } catch (err) { alert('Error al leer archivo: ' + err.message); }
+        } catch (err) { alert((TRANSLATIONS[currentLang]?.error_reading || 'Error reading file: ') + err.message); }
     };
     reader.readAsText(file);
     input.value = '';
@@ -6588,7 +6635,7 @@ function screenshotChartModal() {
 
 function showChart(symbol, resolution = 60) {
     if (typeof LightweightCharts === 'undefined') {
-        alert('Error: La librería de gráficos no se ha cargado. Por favor, comprueba tu conexión a internet o recarga la página.');
+        alert(TRANSLATIONS[currentLang]?.chart_error || 'Error: Chart library not loaded.');
         return;
     }
 

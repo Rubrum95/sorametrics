@@ -2650,7 +2650,7 @@
                             <th data-i18n="time" style="width:11%">Hora</th>
                             <th data-i18n="block" style="width:9%">Bloque</th>
                             <th data-i18n="network" style="width:9%">Red</th>
-                            <th style="width:8%">Dirección</th>
+                            <th data-i18n="direction" style="width:8%">Dirección</th>
                             <th data-i18n="from" style="width:14%">De</th>
                             <th data-i18n="to" style="width:14%">Para</th>
                             <th data-i18n="amount" style="width:25%">Cantidad</th>
@@ -2705,12 +2705,12 @@
                             <tr>
                                 <th data-i18n="time" style="width:12%">Hora</th>
                                 <th data-i18n="block" style="width:7%">Bloque</th>
-                                <th style="width:9%">Type</th>
-                                <th style="width:12%">Pair</th>
-                                <th style="width:6%">Side</th>
-                                <th style="width:12%">Price</th>
-                                <th style="width:12%">Amount</th>
-                                <th style="width:18%">Wallet</th>
+                                <th data-i18n="ob_type" style="width:9%">Tipo</th>
+                                <th data-i18n="ob_pair" style="width:12%">Par</th>
+                                <th data-i18n="ob_side" style="width:6%">Lado</th>
+                                <th data-i18n="ob_price" style="width:12%">Precio</th>
+                                <th data-i18n="ob_amount" style="width:12%">Cantidad</th>
+                                <th data-i18n="ob_wallet" style="width:18%">Wallet</th>
                                 <th data-i18n="action" style="width:12%">Action</th>
                             </tr>
                         </thead>
@@ -2805,9 +2805,9 @@
                         <thead>
                             <tr>
                                 <th data-i18n="time" style="width:14%">Hora</th>
-                                <th style="width:10%">Block</th>
-                                <th style="width:14%">Hash</th>
-                                <th style="width:20%">Pallet::Call</th>
+                                <th data-i18n="ext_block" style="width:10%">Bloque</th>
+                                <th data-i18n="ext_hash" style="width:14%">Hash</th>
+                                <th data-i18n="ext_pallet" style="width:20%">Pallet::Call</th>
                                 <th data-i18n="signer" style="width:18%">Firmante</th>
                                 <th data-i18n="result" style="width:14%">Resultado</th>
                                 <th data-i18n="action" style="width:12%">Acción</th>
@@ -3121,8 +3121,8 @@
                             </select>
                         </th>
                         <!-- Sparkline Header REMOVED -->
-                        <th style="width: 120px; text-align:center;">Holders</th>
-                        <th style="width: 120px; text-align:center;">Gráfico</th>
+                        <th data-i18n="holders_col" style="width: 120px; text-align:center;">Holders</th>
+                        <th data-i18n="chart_col" style="width: 120px; text-align:center;">Gráfico</th>
                     </tr>
                 </thead>
                 <tbody id="tokenTable">
@@ -3637,7 +3637,7 @@
             <div id="chartModal" class="modal">
                 <div class="modal-content" style="width: 800px; max-width: 95%;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h2 id="chartTitle" style="margin:0;">Gráfico</h2>
+                        <h2 id="chartTitle" data-i18n="chart_title" style="margin:0;">Gráfico</h2>
                         <div style="display:flex; gap:5px; align-items:center;">
                             <!-- Indicators Menu -->
                             <div class="dropdown" style="position:relative; display:inline-block;">
