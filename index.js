@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const https = require('https');
@@ -66,10 +67,28 @@ app.use(express.json({ limit: '1mb' }));
 const path = require('path');
 const ALLOWED_STATIC = new Set(['/', '/index.html', '/script.js', '/sw.js', '/manifest.json', '/favicon.svg', '/header-banner.jpg']);
 app.use((req, res, next) => {
-    if (req.method === 'GET' && ALLOWED_STATIC.has(req.path)) {
+    if (req.method === 'GET' && (ALLOWED_STATIC.has(req.path) || (req.path.startsWith('/music/') && !req.path.includes('..')))) {
         return express.static(__dirname)(req, res, next);
     }
     next();
+});
+
+// --- MUSIC PLAYLIST ENDPOINT ---
+app.get('/music/list', (req, res) => {
+    const musicDir = path.join(__dirname, 'music');
+    try {
+        const files = fs.readdirSync(musicDir)
+            .filter(f => f.toLowerCase().endsWith('.mp3'))
+            .sort();
+        const playlist = files.map(f => ({
+            title: f.replace(/\.mp3$/i, '').replace(/_/g, ' ').trim(),
+            artist: 'SoraMetrics Radio',
+            src: '/music/' + encodeURIComponent(f)
+        }));
+        res.json(playlist);
+    } catch (e) {
+        res.json([]);
+    }
 });
 
 // --- RATE LIMITER simple (sin dependencias) ---

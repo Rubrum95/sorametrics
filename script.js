@@ -7008,3 +7008,189 @@ async function executeGlobalSearch(query) {
         setTimeout(() => { if (status) status.textContent = ''; }, 2000);
     }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// MUSIC PLAYER
+// ══════════════════════════════════════════════════════════════════
+
+let MUSIC_PLAYLIST = [];
+let musicCurrentTrack = 0;
+let musicIsPlaying = false;
+let musicHideTimeout = null;
+
+// Load playlist from backend
+async function loadMusicPlaylist() {
+    try {
+        const res = await fetch('/music/list');
+        MUSIC_PLAYLIST = await res.json();
+        renderMusicPlaylist();
+        // Restore last track
+        const savedTrack = parseInt(localStorage.getItem('musicTrack') || '0');
+        if (savedTrack >= 0 && savedTrack < MUSIC_PLAYLIST.length) {
+            musicCurrentTrack = savedTrack;
+        }
+        if (MUSIC_PLAYLIST.length > 0) {
+            updateMusicTrackInfo();
+        }
+        // Restore volume
+        const savedVol = localStorage.getItem('musicVolume');
+        if (savedVol !== null) {
+            const audio = document.getElementById('musicAudio');
+            if (audio) audio.volume = parseInt(savedVol) / 100;
+            const slider = document.getElementById('musicVolume');
+            if (slider) slider.value = savedVol;
+        }
+    } catch (e) {
+        console.warn('Could not load music playlist:', e);
+    }
+}
+
+function renderMusicPlaylist() {
+    const container = document.getElementById('musicPlaylist');
+    if (!container) return;
+    if (MUSIC_PLAYLIST.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#666;font-size:12px;padding:10px;">No tracks available</div>';
+        return;
+    }
+    container.innerHTML = MUSIC_PLAYLIST.map((t, i) =>
+        `<div class="music-playlist-item ${i === musicCurrentTrack ? 'active' : ''}" onclick="playMusicTrack(${i})" title="${esc(t.title)}">${esc(t.title)}</div>`
+    ).join('');
+}
+
+function updateMusicTrackInfo() {
+    if (MUSIC_PLAYLIST.length === 0) return;
+    const track = MUSIC_PLAYLIST[musicCurrentTrack];
+    const titleEl = document.getElementById('musicTrackTitle');
+    const artistEl = document.getElementById('musicTrackArtist');
+    if (titleEl) titleEl.textContent = track.title;
+    if (artistEl) artistEl.textContent = track.artist;
+    renderMusicPlaylist();
+    localStorage.setItem('musicTrack', musicCurrentTrack);
+}
+
+function toggleMusicPlayer() {
+    const panel = document.getElementById('musicPlayerPanel');
+    if (!panel) return;
+    const isVisible = panel.classList.contains('visible');
+    if (isVisible) {
+        panel.classList.remove('visible');
+        clearTimeout(musicHideTimeout);
+    } else {
+        panel.classList.add('visible');
+        startMusicHideTimer();
+    }
+}
+
+function startMusicHideTimer() {
+    clearTimeout(musicHideTimeout);
+    musicHideTimeout = setTimeout(() => {
+        const panel = document.getElementById('musicPlayerPanel');
+        if (panel) panel.classList.remove('visible');
+    }, 5000);
+}
+
+// Keep panel open on hover
+(function() {
+    const panel = document.getElementById('musicPlayerPanel');
+    if (panel) {
+        panel.addEventListener('mouseenter', () => clearTimeout(musicHideTimeout));
+        panel.addEventListener('mouseleave', () => { if (panel.classList.contains('visible')) startMusicHideTimer(); });
+    }
+})();
+
+function playMusicTrack(index) {
+    if (MUSIC_PLAYLIST.length === 0) return;
+    musicCurrentTrack = index;
+    const audio = document.getElementById('musicAudio');
+    if (!audio) return;
+    audio.src = MUSIC_PLAYLIST[musicCurrentTrack].src;
+    audio.play().catch(() => {});
+    musicIsPlaying = true;
+    updateMusicPlayBtn();
+    updateMusicTrackInfo();
+}
+
+function toggleMusicPlay() {
+    if (MUSIC_PLAYLIST.length === 0) return;
+    const audio = document.getElementById('musicAudio');
+    if (!audio) return;
+    if (musicIsPlaying) {
+        audio.pause();
+        musicIsPlaying = false;
+    } else {
+        if (!audio.src || audio.src === window.location.href) {
+            audio.src = MUSIC_PLAYLIST[musicCurrentTrack].src;
+        }
+        audio.play().catch(() => {});
+        musicIsPlaying = true;
+    }
+    updateMusicPlayBtn();
+}
+
+function updateMusicPlayBtn() {
+    const btn = document.getElementById('musicToggleBtn');
+    const icon = document.getElementById('musicPlayIcon');
+    if (btn) {
+        if (musicIsPlaying) btn.classList.add('playing');
+        else btn.classList.remove('playing');
+    }
+    if (icon) {
+        icon.innerHTML = musicIsPlaying
+            ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+            : '<polygon points="5 3 19 12 5 21 5 3"/>';
+    }
+}
+
+function prevMusicTrack() {
+    if (MUSIC_PLAYLIST.length === 0) return;
+    musicCurrentTrack = (musicCurrentTrack - 1 + MUSIC_PLAYLIST.length) % MUSIC_PLAYLIST.length;
+    playMusicTrack(musicCurrentTrack);
+}
+
+function nextMusicTrack() {
+    if (MUSIC_PLAYLIST.length === 0) return;
+    musicCurrentTrack = (musicCurrentTrack + 1) % MUSIC_PLAYLIST.length;
+    playMusicTrack(musicCurrentTrack);
+}
+
+function setMusicVolume(val) {
+    const audio = document.getElementById('musicAudio');
+    if (audio) audio.volume = val / 100;
+    localStorage.setItem('musicVolume', val);
+}
+
+function seekMusic(e) {
+    const bar = document.getElementById('musicProgressBar');
+    const audio = document.getElementById('musicAudio');
+    if (!bar || !audio || !audio.duration) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = pct * audio.duration;
+}
+
+function formatMusicTime(s) {
+    if (isNaN(s)) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+// Audio event listeners
+(function() {
+    const audio = document.getElementById('musicAudio');
+    if (!audio) return;
+    audio.addEventListener('timeupdate', () => {
+        const fill = document.getElementById('musicProgressFill');
+        const cur = document.getElementById('musicCurrentTime');
+        if (fill && audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+        if (cur) cur.textContent = formatMusicTime(audio.currentTime);
+    });
+    audio.addEventListener('loadedmetadata', () => {
+        const dur = document.getElementById('musicDuration');
+        if (dur) dur.textContent = formatMusicTime(audio.duration);
+    });
+    audio.addEventListener('ended', () => nextMusicTrack());
+})();
+
+// Init music on page load
+loadMusicPlaylist();
