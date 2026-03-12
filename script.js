@@ -5206,11 +5206,9 @@ async function loadGlobalExtrinsics(reset = false) {
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang]?.loading || 'Loading...'}</td></tr>`;
 
-    // Load section filter options once
+    // Load section filter options in background (non-blocking)
     if (!extrinsicSectionsLoaded) {
-        try {
-            const sectRes = await fetch('/history/extrinsic-sections');
-            const sections = await sectRes.json();
+        fetch('/history/extrinsic-sections').then(r => r.json()).then(sections => {
             const select = document.getElementById('extrinsicSectionFilter');
             if (select && Array.isArray(sections)) {
                 const current = select.value;
@@ -5224,7 +5222,7 @@ async function loadGlobalExtrinsics(reset = false) {
                 if (current) select.value = current;
                 extrinsicSectionsLoaded = true;
             }
-        } catch (e) { console.error('Error loading sections:', e); }
+        }).catch(e => console.error('Error loading sections:', e));
         // Set method filter placeholder in current language
         const methodEl = document.getElementById('extrinsicMethodFilter');
         if (methodEl) methodEl.placeholder = TRANSLATIONS[currentLang]?.search_method || 'Search method...';
