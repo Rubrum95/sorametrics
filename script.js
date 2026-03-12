@@ -2721,15 +2721,16 @@ function renderValidatorsTable() {
         const rank = start + i + 1;
         const displayName = v.identity || shortAddr(v.address);
         const initials = v.identity ? v.identity.substring(0, 2).toUpperCase() : v.address.substring(2, 4).toUpperCase();
-        // Payout display
+        // Payout display (erasSincePayout is now in actual days, not eras)
         let payoutHtml = '<span style="color:var(--text-secondary);">—</span>';
         if (v.erasSincePayout !== null && v.erasSincePayout !== undefined) {
-            if (v.erasSincePayout <= 1) {
+            const days = v.erasSincePayout;
+            if (days < 1) {
                 payoutHtml = `<span style="color:#10B981; font-weight:600;">${lang.stk_payout_recent || 'recently'}</span>`;
             } else {
-                const days = v.erasSincePayout; // ~1 era ≈ 1 day in SORA
-                const label = days === 1 ? (lang.stk_payout_day || '1 day') : `${days} ${lang.stk_payout_days || 'days'}`;
-                const color = days <= 3 ? '#10B981' : days <= 7 ? '#F59E0B' : '#EF4444';
+                const roundedDays = Math.round(days);
+                const label = roundedDays === 1 ? (lang.stk_payout_day || '1 day') : `${roundedDays} ${lang.stk_payout_days || 'days'}`;
+                const color = roundedDays <= 3 ? '#10B981' : roundedDays <= 7 ? '#F59E0B' : '#EF4444';
                 payoutHtml = `<span style="color:${color}; font-weight:600;">${label}</span>`;
             }
         }

@@ -3641,6 +3641,16 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
         const activeEra = activeEraOpt.unwrap();
         const eraIndex = activeEra.index.toNumber();
 
+        // Calculate era duration in ms for accurate payout time display
+        // SORA: 6 sessions/era × 600 blocks/session × 6s/block = 21600s = 6h per era
+        let eraDurationMs = 6 * 60 * 60 * 1000; // default 6 hours
+        try {
+            const sessionsPerEra = api.consts.staking.sessionsPerEra.toNumber();
+            const epochDuration = api.consts.babe.epochDuration.toNumber();
+            const blockTime = api.consts.babe.expectedBlockTime.toNumber();
+            eraDurationMs = sessionsPerEra * epochDuration * blockTime;
+        } catch (e) { /* use default */ }
+
         const sessionValidators = await withTimeout(api.query.session.validators(), 10000);
         const validatorAddresses = sessionValidators.toJSON();
 
@@ -3663,7 +3673,10 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
                     const claimed = l.claimedRewards || l.legacyClaimedRewards || [];
                     if (claimed.length > 0) {
                         const lastPayoutEra = Math.max(...claimed);
-                        payoutMap[validatorAddresses[i]] = eraIndex - lastPayoutEra;
+                        const erasSince = eraIndex - lastPayoutEra;
+                        // Convert eras to actual days using era duration
+                        const daysSincePayout = (erasSince * eraDurationMs) / (24 * 60 * 60 * 1000);
+                        payoutMap[validatorAddresses[i]] = Math.round(daysSincePayout * 10) / 10; // 1 decimal
                     }
                 }
             });
