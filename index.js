@@ -66,7 +66,7 @@ app.use(express.json({ limit: '1mb' }));
 const path = require('path');
 const ALLOWED_STATIC = new Set(['/', '/index.html', '/script.js', '/sw.js', '/manifest.json', '/favicon.svg', '/header-banner.jpg']);
 app.use((req, res, next) => {
-    if (req.method === 'GET' && ALLOWED_STATIC.has(req.path)) {
+    if (req.method === 'GET' && (ALLOWED_STATIC.has(req.path) || req.path.startsWith('/music/'))) {
         return express.static(__dirname)(req, res, next);
     }
     next();
