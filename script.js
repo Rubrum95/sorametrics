@@ -105,7 +105,8 @@ const TRANSLATIONS = {
         unified_portfolio: "Portafolio Unificado",
         error_loading_container: "Error cargando datos.",
         chart_title: "Gráfico", holders_col: "Holders", chart_col: "Gráfico",
-        view_tx_details: "Ver detalles de transacción"
+        view_tx_details: "Ver detalles de transacción",
+        stk_payout: "Payout", stk_payout_recent: "reciente", stk_payout_day: "1 día", stk_payout_days: "días"
     },
     en: {
         tab_balance: "Balance", tab_swaps: "Swaps", tab_transfers: "Transfers", tab_tokens: "Tokens", tab_liquidity: "Liquidity", tab_bridges: "Bridges", total_net_worth: "Total Net Worth", header_my_wallets: "💼 My Wallets", btn_add_wallet: "+ Add Wallet", header_watch_wallets: "👀 Watched Wallets", live_transfers: "💸 Live Transfers", time: "Time", from: "From", amount: "Amount", to: "To", waiting_activity: "Waiting for activity...", previous: "Previous", next: "Next", page: "Page", liquidity_pools: "🌊 Liquidity (Pools)", all: "All", total_pools: "Total Pools:", pair: "Pair", reserves: "Reserves", action: "Action", loading_pools: "Loading pools...", live_swaps: "⚡ Live Swaps", all_tokens: "All Tokens", search_token: "Search token...", input: "Input", output: "Output", account: "Account", refresh: "Refresh", favorites: "⭐ Favorites", search_token_name_symbol_id: "Search by name, symbol or ID...", asset: "Asset", price: "Price", loading: "Loading...", holders: "Holders", rank: "Rank", wallet: "Wallet", balance: "Balance", add_wallet: "Add Wallet", sora_address: "SORA Address", name_alias: "Name (Alias)", example_savings: "Ex: Savings", type: "Type", my_wallet_total: "My Wallet (Adds to total)", watched_wallet_tracking: "Watched (Tracking)", save_wallet: "Save Wallet", wallet: "Wallet", assets: "Assets", swaps: "Swaps", transfers: "Transfers", other: "Other", no_wallets_saved: "You have no wallets saved.", not_watching_wallets: "You are not watching any wallets.", no_favorites_yet: "You have no favorites yet.", no_data: "No data.", no_swaps_found: "No swaps found.", no_assets_found: "No assets found.", no_recent_swaps: "No recent swaps.", no_recent_transfers: "No recent transfers.", error_loading_data: "Error loading data", error_loading_pools: "Error loading pools", error_loading: "Error loading", page_x_of_y: "Page {current} of {total}", filter: "Filter:", all_tokens_star: "🌟 All", received: "⬇ RECEIVED", sent: "⬆ SENT", accounts: "accounts", chart: "Chart", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend (Fees)",
@@ -139,7 +140,8 @@ const TRANSLATIONS = {
         unified_portfolio: "Unified Portfolio",
         error_loading_container: "Error loading data.",
         chart_title: "Chart", holders_col: "Holders", chart_col: "Chart",
-        view_tx_details: "View transaction details"
+        view_tx_details: "View transaction details",
+        stk_payout: "Payout", stk_payout_recent: "recently", stk_payout_day: "1 day", stk_payout_days: "days"
     },
     jp: {
         tab_balance: "残高", tab_swaps: "スワップ", tab_transfers: "転送", tab_tokens: "トークン", tab_liquidity: "流動性", tab_bridges: "ブリッジ", total_net_worth: "総資産", header_my_wallets: "💼 マイウォレット", btn_add_wallet: "+ ウォレット追加", header_watch_wallets: "👀 監視ウォレット", live_transfers: "💸 ライブ転送", time: "時間", from: "送信元", amount: "金額", to: "送信先", waiting_activity: "アクティビティ待機中...", previous: "前へ", next: "次へ", page: "ページ", liquidity_pools: "🌊 流動性 (プール)", all: "すべて", total_pools: "プール総数:", pair: "ペア", reserves: "準備金", action: "アクション", loading_pools: "プールを読み込み中...", live_swaps: "⚡ ライブスワップ", all_tokens: "すべてのトークン", search_token: "トークン検索...", input: "入力", output: "出力", account: "アカウント", refresh: "更新", favorites: "⭐ お気に入り", search_token_name_symbol_id: "名前、シンボル、IDで検索...", asset: "資産", price: "価格", loading: "読み込み中...", holders: "ホルダー", rank: "ランク", wallet: "ウォレット", balance: "残高", add_wallet: "ウォレット追加", sora_address: "SORAアドレス", name_alias: "名前 (エイリアス)", example_savings: "例: 貯金", type: "タイプ", my_wallet_total: "マイウォレット (合計に加算)", watched_wallet_tracking: "監視 (追跡のみ)", save_wallet: "ウォレット保存", wallet: "ウォレット", assets: "資産", swaps: "スワップ", transfers: "転送", other: "その他", no_wallets_saved: "保存されたウォレットはありません。", not_watching_wallets: "監視中のウォレットはありません。", no_favorites_yet: "お気に入りはまだありません。", no_data: "データなし。", no_swaps_found: "スワップが見つかりません。", no_assets_found: "資産が見つかりません。", no_recent_swaps: "最近のスワップはありません。", no_recent_transfers: "最近の転送はありません。", error_loading_data: "データの読み込みエラー", error_loading_pools: "プールの読み込みエラー", error_loading: "読み込みエラー", page_x_of_y: "ページ {current} / {total}", filter: "フィルター:", all_tokens_star: "🌟 すべて", received: "⬇ 受信", sent: "⬆ 送信", accounts: "アカウント", chart: "チャート", fees_pie_title: "種類別のXOR焼却", fees_line_title: "活動傾向 (手数料)",
@@ -722,7 +724,7 @@ function openTab(name) {
     localStorage.setItem('sorametrics_current_tab', name);
 
     // Show search bar permanently on data-heavy tabs
-    const searchTabs = ['extrinsics', 'swaps', 'transfers', 'bridges', 'orderbook', 'liquidity', 'governance', 'balance'];
+    const searchTabs = ['extrinsics', 'swaps', 'transfers', 'bridges', 'orderbook', 'liquidity', 'governance', 'balance', 'staking'];
     const bar = document.getElementById('globalSearchBar');
     if (bar) {
         if (searchTabs.includes(name)) {
@@ -2700,6 +2702,7 @@ function renderValidatorsTable() {
             return dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
         if (col === 'rank') { aVal = a.totalStake; bVal = b.totalStake; }
+        else if (col === 'erasSincePayout') { aVal = a.erasSincePayout ?? 9999; bVal = b.erasSincePayout ?? 9999; }
         else { aVal = a[col] || 0; bVal = b[col] || 0; }
         return dir === 'asc' ? aVal - bVal : bVal - aVal;
     });
@@ -2708,30 +2711,46 @@ function renderValidatorsTable() {
     const start = (stakingValidatorsPage - 1) * STAKING_VALIDATORS_PER_PAGE;
     const pageItems = filtered.slice(start, start + STAKING_VALIDATORS_PER_PAGE);
 
+    const lang = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
     tbody.innerHTML = '';
     if (pageItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-secondary);">${TRANSLATIONS[currentLang]?.no_data || 'No data'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-secondary);">${lang.no_data || 'No data'}</td></tr>`;
         return;
     }
     pageItems.forEach((v, i) => {
         const rank = start + i + 1;
         const displayName = v.identity || shortAddr(v.address);
         const initials = v.identity ? v.identity.substring(0, 2).toUpperCase() : v.address.substring(2, 4).toUpperCase();
+        // Payout display
+        let payoutHtml = '<span style="color:var(--text-secondary);">—</span>';
+        if (v.erasSincePayout !== null && v.erasSincePayout !== undefined) {
+            if (v.erasSincePayout <= 1) {
+                payoutHtml = `<span style="color:#10B981; font-weight:600;">${lang.stk_payout_recent || 'recently'}</span>`;
+            } else {
+                const days = v.erasSincePayout; // ~1 era ≈ 1 day in SORA
+                const label = days === 1 ? (lang.stk_payout_day || '1 day') : `${days} ${lang.stk_payout_days || 'days'}`;
+                const color = days <= 3 ? '#10B981' : days <= 7 ? '#F59E0B' : '#EF4444';
+                payoutHtml = `<span style="color:${color}; font-weight:600;">${label}</span>`;
+            }
+        }
         const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => openWalletDetails(v.address));
         row.innerHTML = `
             <td class="validator-rank">${rank}</td>
             <td><div class="validator-name-cell">
                 <div class="validator-avatar">${esc(initials)}</div>
                 <div>
-                    <div style="font-weight:600;">${esc(displayName)}</div>
-                    <div style="font-size:10px; color:var(--text-secondary); cursor:pointer;" onclick="copyToClipboard('${esc(v.address)}')" title="${esc(v.address)}">${shortAddr(v.address)} 📋</div>
+                    <div style="font-weight:600; color:var(--primary-color);">${esc(displayName)}</div>
+                    <div style="font-size:10px; color:var(--text-secondary); cursor:pointer;" onclick="event.stopPropagation(); copyToClipboard('${esc(v.address)}')" title="${esc(v.address)}">${shortAddr(v.address)} 📋</div>
                 </div>
             </div></td>
             <td>${v.commission}%</td>
             <td style="font-weight:600;">${formatXorAmount(v.totalStake)} XOR</td>
             <td>${formatXorAmount(v.ownStake)} XOR</td>
             <td>${formatXorAmount(v.otherStake)} XOR</td>
-            <td>${v.nominatorsCount}</td>`;
+            <td>${v.nominatorsCount}</td>
+            <td>${payoutHtml}</td>`;
         tbody.appendChild(row);
     });
 
@@ -6911,7 +6930,7 @@ function toggleGlobalSearch() {
     if (!bar) return;
 
     // On tabs where search bar is always visible, just focus the input
-    const searchTabs = ['extrinsics', 'swaps', 'transfers', 'bridges', 'orderbook', 'liquidity', 'governance', 'balance'];
+    const searchTabs = ['extrinsics', 'swaps', 'transfers', 'bridges', 'orderbook', 'liquidity', 'governance', 'balance', 'staking'];
     const currentTab = localStorage.getItem('sorametrics_current_tab') || 'balance';
     if (searchTabs.includes(currentTab) && bar.style.display !== 'none') {
         if (input) setTimeout(() => input.focus(), 100);

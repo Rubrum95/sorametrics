@@ -3651,6 +3651,24 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
 
         const identities = await attachIdentities(validatorAddresses);
 
+        // Payout info: query bonded controllers then ledgers for claimedRewards
+        let payoutMap = {};
+        try {
+            const bonded = await withTimeout(api.query.staking.bonded.multi(validatorAddresses), 15000);
+            const controllerAddrs = bonded.map((b, i) => b.isSome ? b.unwrap().toString() : validatorAddresses[i]);
+            const ledgers = await withTimeout(api.query.staking.ledger.multi(controllerAddrs), 15000);
+            ledgers.forEach((ledger, i) => {
+                if (ledger.isSome) {
+                    const l = ledger.unwrap().toJSON();
+                    const claimed = l.claimedRewards || l.legacyClaimedRewards || [];
+                    if (claimed.length > 0) {
+                        const lastPayoutEra = Math.max(...claimed);
+                        payoutMap[validatorAddresses[i]] = eraIndex - lastPayoutEra;
+                    }
+                }
+            });
+        } catch (e) { console.warn("Payout query failed (non-critical):", e.message); }
+
         const xorPrice = tokenPrices['XOR'] || 0;
         const validators = validatorAddresses.map((addr, i) => {
             const pref = prefs[i].toJSON();
@@ -3667,6 +3685,8 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
             const ownStake = new BigNumber(String(ownStakeRaw).replace(/,/g, '')).div('1e18');
             const otherStake = totalStake.minus(ownStake);
 
+            const erasSincePayout = payoutMap[addr] !== undefined ? payoutMap[addr] : null;
+
             return {
                 address: addr,
                 identity: identities[addr] || null,
@@ -3675,7 +3695,8 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
                 ownStake: ownStake.toNumber(),
                 otherStake: otherStake.toNumber(),
                 nominatorsCount: othersCount,
-                isBlocked: !!pref.blocked
+                isBlocked: !!pref.blocked,
+                erasSincePayout
             };
         });
 
