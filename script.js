@@ -860,18 +860,13 @@ socket.on('new-block-stats', (stats) => {
     if (document.getElementById('burns')?.style.display === 'block') {
         triggerBurnFlowAnimation();
     }
-    // Update block info bar
-    if (stats.block) {
-        const el = document.getElementById('bestBlockNum');
-        if (el) el.textContent = '#' + Number(stats.block).toLocaleString();
-    }
+    // Update block info bar (single finalized block)
     if (stats.finalized) {
         const el = document.getElementById('finalizedBlockNum');
         if (el) el.textContent = '#' + Number(stats.finalized).toLocaleString();
-    }
-    if (stats.avgTime) {
-        const el = document.getElementById('avgBlockTime');
-        if (el) el.textContent = stats.avgTime + 's';
+    } else if (stats.block) {
+        const el = document.getElementById('finalizedBlockNum');
+        if (el) el.textContent = '#' + Number(stats.block).toLocaleString();
     }
 });
 
@@ -1262,7 +1257,10 @@ function renderPortfolioOverview() {
     if (!cachedBalanceData) return;
     const filtered = filterLowBalances(cachedBalanceData.unifiedTokens);
     const filteredTotal = filtered.reduce((s, t) => s + t.usdValue, 0);
-    renderDonutChart(filtered, filteredTotal);
+    // Defer chart render to ensure canvas is laid out (fixes blank chart on first load)
+    requestAnimationFrame(() => {
+        renderDonutChart(filtered, filteredTotal);
+    });
     renderHoldingsTable(filtered, filteredTotal);
     loadLpSummaryLazy();
 }

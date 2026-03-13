@@ -2877,19 +2877,9 @@
                 <button class="btn-primary" onclick="openAddWalletModal()" data-i18n="btn_add_wallet">+ Añadir</button>
 
                 <!-- Block Info Indicator -->
-                <div id="blockInfoBar" style="display:flex; align-items:center; gap:12px; margin-left:8px; font-size:11px; color:var(--text-secondary); white-space:nowrap;">
-                    <span style="display:flex; align-items:center; gap:4px;" title="Best Block">
-                        <span style="width:7px; height:7px; border-radius:50%; background:#10B981; display:inline-block; animation:pulse 2s infinite;"></span>
-                        <span style="font-weight:600; color:var(--text-primary);" id="bestBlockNum">--</span>
-                    </span>
-                    <span style="display:flex; align-items:center; gap:4px;" title="Finalized Block">
-                        <span style="width:7px; height:7px; border-radius:50%; background:#8B5CF6; display:inline-block;"></span>
-                        <span style="font-weight:600; color:var(--text-primary);" id="finalizedBlockNum">--</span>
-                    </span>
-                    <span style="display:flex; align-items:center; gap:4px;" title="Avg Block Time">
-                        <span style="font-size:10px;">⏱</span>
-                        <span style="font-weight:600; color:var(--text-primary);" id="avgBlockTime">--</span>
-                    </span>
+                <div id="blockInfoBar" style="display:flex; align-items:center; gap:6px; margin-left:8px; font-size:11px; color:var(--text-secondary); white-space:nowrap;">
+                    <span style="width:7px; height:7px; border-radius:50%; background:#10B981; display:inline-block; animation:pulse 2s infinite;"></span>
+                    <span style="font-weight:600; color:var(--text-primary);" id="finalizedBlockNum">--</span>
                 </div>
             </div>
         </div>
@@ -4262,7 +4252,7 @@
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v18"></script>
+        <script src="script.js?v=v19"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
