@@ -4369,7 +4369,7 @@ function renderSidebar() {
         const subtleBg = 'background: var(--bg-hover, rgba(0,0,0,0.02));';
         item.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px; color:var(--text-primary, #1f2937); padding:10px 12px; border-radius:10px; transition: all 0.15s ease; cursor:pointer; flex:1; margin-right:8px; ${activeBorder} ${subtleBg}">
-                <span class="sidebar-icon" style="width:20px; height:20px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition: transform 0.15s ease;">${SECTION_SVGS[sec.id] || sec.icon}</span>
+                <span class="sidebar-icon" data-section="${sec.id}" style="width:20px; height:20px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition: transform 0.15s ease;">${SECTION_SVGS[sec.id] || sec.icon}</span>
                 <span style="font-size:14px; font-weight:600; letter-spacing:0.2px; flex:1;">${sectionName}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45; flex-shrink:0;"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </div>

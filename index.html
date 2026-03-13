@@ -571,7 +571,76 @@
             font-weight: 600;
             color: #6B7280;
             transition: all 0.25s ease;
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
         }
+
+        .tab-btn .tab-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            line-height: 0;
+        }
+        .tab-btn .tab-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .sidebar-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* === SVG ICON ANIMATIONS === */
+        @keyframes iconFlameFlicker {
+            0%, 100% { transform: scaleY(1) scaleX(1); }
+            25% { transform: scaleY(1.06) scaleX(0.96); }
+            50% { transform: scaleY(0.94) scaleX(1.04); }
+            75% { transform: scaleY(1.04) scaleX(0.97); }
+        }
+        @keyframes iconSwapRotate {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+        }
+        @keyframes iconWaveMove {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-1.5px); }
+        }
+        @keyframes iconArrowSlide {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(2px); }
+        }
+        @keyframes iconCoinSpin {
+            0%, 100% { transform: scaleX(1); }
+            50% { transform: scaleX(0.75); }
+        }
+        @keyframes iconPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes iconBridgeFlow {
+            0%, 100% { stroke-dashoffset: 0; }
+            50% { stroke-dashoffset: 8; }
+        }
+
+        /* Apply animations to sidebar icons (larger, more visible) */
+        .sidebar-icon[data-section="burns"] svg { animation: iconFlameFlicker 1.8s ease-in-out infinite; transform-origin: bottom center; }
+        .sidebar-icon[data-section="swaps"] svg { animation: iconSwapRotate 4s ease-in-out infinite; transform-origin: center; }
+        .sidebar-icon[data-section="liquidity"] svg { animation: iconWaveMove 2.5s ease-in-out infinite; }
+        .sidebar-icon[data-section="transfers"] svg { animation: iconArrowSlide 2.5s ease-in-out infinite; }
+        .sidebar-icon[data-section="tokens"] svg { animation: iconCoinSpin 3.5s ease-in-out infinite; }
+
+        /* Apply animations to tab icons too */
+        #tab-burns .tab-icon svg { animation: iconFlameFlicker 1.8s ease-in-out infinite; transform-origin: bottom center; }
+        #tab-swaps .tab-icon svg { animation: iconSwapRotate 4s ease-in-out infinite; transform-origin: center; }
+        #tab-liquidity .tab-icon svg { animation: iconWaveMove 2.5s ease-in-out infinite; }
+        #tab-transfers .tab-icon svg { animation: iconArrowSlide 2.5s ease-in-out infinite; }
+        #tab-tokens .tab-icon svg { animation: iconCoinSpin 3.5s ease-in-out infinite; }
 
         .tab-btn.active {
             background: var(--gradient-brand) !important;
@@ -1670,83 +1739,18 @@
                 transform: translateY(-2px);
             }
 
-            /* ICONOS PARA BOTTOM BAR */
-            #tab-balance::before {
-                content: "💼";
-                font-size: 20px;
-                display: block;
+            /* ICONOS SVG PARA BOTTOM BAR — inline via JS, styled here */
+            .main-tabs .tab-btn .tab-icon {
+                width: 22px !important;
+                height: 22px !important;
                 margin-bottom: 2px;
             }
-
-            #tab-swaps::before {
-                content: "⚡";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
+            .main-tabs .tab-btn .tab-icon svg {
+                width: 22px !important;
+                height: 22px !important;
             }
-
-            #tab-transfers::before {
-                content: "💸";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-tokens::before {
-                content: "💎";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-extrinsics::before {
-                content: "🔬";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-liquidity::before {
-                content: "🌊";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-bridges::before {
-                content: "🌉";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-orderbook::before {
-                content: "📋";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-governance::before {
-                content: "🏛️";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-section-intelligence::before {
-                content: "🧠";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
-
-            #tab-burns::before {
-                content: "🔥";
-                font-size: 20px;
-                display: block;
-                margin-bottom: 2px;
-            }
+            .main-tabs .tab-btn:not(.active) { color: white !important; opacity: 0.7; }
+            .main-tabs .tab-btn.active { color: #9B1B30 !important; opacity: 1; }
 
             /* Ocultar texto de botones en pantallas muy pequeñas si es necesario,
                 pero para 320px+ cabe bien Icono + Texto pequeño */
@@ -4257,7 +4261,7 @@
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v20"></script>
+        <script src="script.js?v=v22"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
