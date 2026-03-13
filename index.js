@@ -6,7 +6,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
 // ... (imports)
 
 
@@ -27,6 +27,34 @@ function withTimeout(promise, ms = 5000) {
     return Promise.race([promise, timeoutPromise]).finally(() => {
         clearTimeout(timeoutId);
     });
+}
+
+// Serialize extrinsic events to condensed JSON for storage
+function serializeEvents(extrinsicEvents, maxSize = 8192) {
+    try {
+        const events = [];
+        for (const record of extrinsicEvents) {
+            try {
+                const { event } = record;
+                // Skip system success/failed — already tracked via success field
+                if (event.section === 'system' && (event.method === 'ExtrinsicSuccess' || event.method === 'ExtrinsicFailed')) continue;
+                events.push({
+                    s: event.section,
+                    m: event.method,
+                    d: event.data ? event.data.toHuman() : null
+                });
+            } catch (e) { /* skip malformed event */ }
+        }
+        if (events.length === 0) return '[]';
+        const json = JSON.stringify(events);
+        if (json.length <= maxSize) return json;
+        // Fallback: strip data to fit
+        const slim = events.map(e => ({ s: e.s, m: e.m }));
+        const slimJson = JSON.stringify(slim);
+        return slimJson.length <= maxSize ? slimJson : null;
+    } catch (e) {
+        return null;
+    }
 }
 
 const app = express();
@@ -1878,6 +1906,23 @@ app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), (
     }
 });
 
+// --- EXTRINSIC DETAIL ENDPOINT (single record with events) ---
+app.get('/history/extrinsic/:block/:index', rateLimit(30, 60000), (req, res) => {
+    const block = parseInt(req.params.block);
+    const index = parseInt(req.params.index);
+    if (isNaN(block) || isNaN(index) || block < 0 || index < 0) {
+        return res.status(400).json({ error: 'Invalid block or index' });
+    }
+    try {
+        const result = getExtrinsicDetail(block, index);
+        if (!result) return res.status(404).json({ error: 'Not found' });
+        res.json(result);
+    } catch (e) {
+        console.error('Error /history/extrinsic/:block/:index:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // --- IDENTITY RESOLUTION ENDPOINT ---
 app.post('/api/identities', rateLimit(30, 60000), async (req, res) => {
     try {
@@ -3133,7 +3178,8 @@ async function startApp() {
                     hash: ex.hash.toHex(), section, method,
                     signer: typeof signer === 'string' ? signer : 'System',
                     success: isSuccess, args_json: argsJson,
-                    error_msg: errorMsg
+                    error_msg: errorMsg,
+                    events_json: serializeEvents(extrinsicEvents)
                 };
                 insertExtrinsic(exData);
                 pendingExtrinsicsBatch.push({

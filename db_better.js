@@ -37,6 +37,7 @@ function initDB() {
             // Performance pragmas
             db.pragma('journal_mode = WAL');
             db.pragma('synchronous = NORMAL');
+            db.pragma('busy_timeout = 5000');    // Wait up to 5s if locked by another process
             db.pragma('cache_size = -64000');    // 64MB
             db.pragma('temp_store = MEMORY');
             db.pragma('mmap_size = 268435456');  // 256MB
@@ -66,6 +67,8 @@ function initDB() {
 
                     // Add error_msg column to history extrinsics if missing
                     try { db.exec(`ALTER TABLE history.extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
+                    // Add events_json column to history extrinsics if missing
+                    try { db.exec(`ALTER TABLE history.extrinsics ADD COLUMN events_json TEXT DEFAULT NULL`); } catch (e) { /* already exists */ }
                     // Add denom_factor column to history fees if missing
                     try { db.exec(`ALTER TABLE history.fees ADD COLUMN denom_factor TEXT DEFAULT '1'`); } catch (e) { /* already exists */ }
                 } catch (e) {
@@ -200,6 +203,8 @@ function createTables() {
 
     // Add error_msg column if it doesn't exist yet
     try { db.exec(`ALTER TABLE extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
+    // Add events_json column if it doesn't exist yet
+    try { db.exec(`ALTER TABLE extrinsics ADD COLUMN events_json TEXT DEFAULT NULL`); } catch (e) { /* already exists */ }
 
     db.exec(`CREATE TABLE IF NOT EXISTS identity_cache (
         address TEXT PRIMARY KEY,
@@ -537,14 +542,15 @@ function insertExtrinsic(e) {
     try {
         if (!insertStmts.extrinsic) {
             insertStmts.extrinsic = db.prepare(
-                `INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                `INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg, events_json)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             );
         }
         insertStmts.extrinsic.run(
             e.timestamp || Date.now(), e.formatted_time || '', e.block || 0, e.extrinsic_index || 0,
             e.hash || '', e.section || '', e.method || '',
-            e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}', e.error_msg || ''
+            e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}', e.error_msg || '',
+            e.events_json || null
         );
     } catch (err) {
         console.error('Error insertExtrinsic:', err.message);
@@ -749,6 +755,39 @@ function getExtrinsicsByAddress(address, page = 1, limit = 25) {
     const unique = dedup(rows, extrinsicDedupKey);
     const totalPages = Math.ceil(total / limit);
     return { data: mapExtrinsics(unique), total, page, totalPages };
+}
+
+// --- EXTRINSIC DETAIL (single record with events_json) ---
+
+function getExtrinsicDetail(block, extrinsicIndex) {
+    const cols = `id, timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg, events_json`;
+
+    let row = db.prepare(
+        `SELECT ${cols} FROM main.extrinsics WHERE block = ? AND extrinsic_index = ? LIMIT 1`
+    ).get(block, extrinsicIndex);
+
+    if (!row && historyHasTable('extrinsics')) {
+        row = db.prepare(
+            `SELECT ${cols} FROM history.extrinsics WHERE block = ? AND extrinsic_index = ? LIMIT 1`
+        ).get(block, extrinsicIndex);
+    }
+
+    if (!row) return null;
+
+    return {
+        time: formatTimestamp(row.timestamp) || row.formatted_time,
+        block: row.block,
+        extrinsic_index: row.extrinsic_index,
+        extrinsic_id: `${row.block}-${row.extrinsic_index}`,
+        hash: row.hash,
+        section: row.section,
+        method: row.method,
+        signer: row.signer,
+        success: row.success,
+        args_json: row.args_json,
+        error_msg: row.error_msg || '',
+        events_json: row.events_json || null
+    };
 }
 
 // --- IDENTITY CACHE ---
@@ -1932,6 +1971,7 @@ module.exports = {
     getLatestExtrinsics,
     getExtrinsicSections,
     getExtrinsicsByAddress,
+    getExtrinsicDetail,
     insertOrderBookEvent,
     getLatestOrderBookEvents,
     getOrderBookByAddress,

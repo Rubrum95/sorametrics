@@ -4151,6 +4151,24 @@ function createBurnEmber(container) {
 
 // --- CUSTOMIZABLE NAVIGATION LOGIC ---
 
+// Custom SVG icons for each section (use currentColor for automatic color inheritance)
+const SECTION_SVGS = {
+    balance: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="28" height="22" rx="3"/><path d="M4 16 L32 16" stroke-width="1.5" opacity="0.5"/><rect x="24" y="20" width="8" height="6" rx="2" stroke-width="1.5"/><circle cx="28" cy="23" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="8" r="3" stroke-width="1.5"/><circle cx="18" cy="6" r="3" stroke-width="1.5" opacity="0.6"/></svg>',
+    swaps: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M28 12 A10 10 0 0 1 28 28"/><path d="M12 28 A10 10 0 0 1 12 12"/><polyline points="25,28 28,28 28,25"/><polyline points="15,12 12,12 12,15"/><circle cx="20" cy="20" r="2" fill="currentColor" stroke="none"/></svg>',
+    transfers: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="20" r="4" opacity="0.5"/><circle cx="32" cy="20" r="4" opacity="0.5"/><line x1="13" y1="20" x2="26" y2="20" stroke-width="2.5"/><polyline points="23,16 27,20 23,24" stroke-width="2.5"/></svg>',
+    tokens: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="20" cy="20" r="12"/><circle cx="20" cy="20" r="8" stroke-width="1" stroke-dasharray="3 3"/><text x="20" y="24" text-anchor="middle" fill="currentColor" font-size="14" font-weight="600" stroke="none" font-family="serif">天</text></svg>',
+    bridges: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="16" width="8" height="8" rx="2" opacity="0.6"/><rect x="28" y="16" width="8" height="8" rx="2" opacity="0.6"/><path d="M12 20 Q20 6 28 20" stroke-width="2"/></svg>',
+    orderbook: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6 L6 32 Q6 34 8 34 L32 34 Q34 34 34 32 L34 8 Q34 6 32 6 Z" opacity="0.3"/><rect x="10" y="12" width="8" height="3" rx="1" fill="currentColor" opacity="0.8" stroke="none"/><rect x="10" y="18" width="12" height="3" rx="1" fill="currentColor" opacity="0.5" stroke="none"/><rect x="10" y="24" width="6" height="3" rx="1" fill="currentColor" opacity="0.3" stroke="none"/><line x1="22" y1="10" x2="22" y2="28" stroke-dasharray="2 2" opacity="0.3"/></svg>',
+    governance: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 L20 6 L32 16" opacity="0.4"/><line x1="12" y1="16" x2="12" y2="30"/><line x1="20" y1="16" x2="20" y2="30"/><line x1="28" y1="16" x2="28" y2="30"/><line x1="6" y1="30" x2="34" y2="30" stroke-width="2.5"/><line x1="8" y1="16" x2="32" y2="16" stroke-width="2"/></svg>',
+    extrinsics: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 L26 4 L32 10 L32 36 L10 36 Z" opacity="0.3"/><path d="M26 4 L26 10 L32 10"/><line x1="15" y1="16" x2="27" y2="16" stroke-width="1.5" opacity="0.4"/><line x1="15" y1="21" x2="24" y2="21" stroke-width="1.5" opacity="0.4"/><line x1="15" y1="26" x2="21" y2="26" stroke-width="1.5" opacity="0.3"/><circle cx="28" cy="30" r="5" opacity="0.8"/><polyline points="25.5,30 27.5,32 30.5,28" stroke-width="2"/></svg>',
+    liquidity: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 24 Q14 21 20 24 Q26 27 32 24" stroke-width="2"/><path d="M8 24 Q8 34 20 34 Q32 34 32 24" opacity="0.3" fill="currentColor"/><path d="M10 28 Q16 25 20 28 Q24 31 30 28" stroke-width="1.2" opacity="0.5"/></svg>',
+    staking: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 L34 14 L34 26 L20 36 L6 26 L6 14 Z" opacity="0.3"/><path d="M20 4 L34 14 L34 26 L20 36 L6 26 L6 14 Z"/><polyline points="16,20 19,23 25,16" stroke-width="2.5"/></svg>',
+    'section-intelligence': '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="20" cy="20" r="13" opacity="0.3"/><circle cx="20" cy="14" r="3"/><circle cx="12" cy="24" r="3"/><circle cx="28" cy="24" r="3"/><line x1="18" y1="16.5" x2="13.5" y2="21.5"/><line x1="22" y1="16.5" x2="26.5" y2="21.5"/><line x1="15" y1="24" x2="25" y2="24" stroke-dasharray="2 2" opacity="0.4"/></svg>',
+    burns: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4 Q28 14 28 22 Q28 32 20 34 Q12 32 12 22 Q12 14 20 4Z" stroke-width="2"/><path d="M20 14 Q24 20 24 24 Q24 30 20 31 Q16 30 16 24 Q16 20 20 14Z" fill="currentColor" opacity="0.2" stroke-width="1.5"/></svg>',
+    music: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="28" r="4" opacity="0.4" fill="currentColor"/><line x1="17" y1="28" x2="17" y2="10"/><circle cx="23" cy="26" r="3.5" opacity="0.3" fill="currentColor"/><line x1="26.5" y1="26" x2="26.5" y2="12"/><line x1="17" y1="12" x2="26.5" y2="14" stroke-width="2.5"/></svg>',
+    holders: '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="28" cy="13" r="4" opacity="0.4"/><path d="M20 30 Q20 23 28 23 Q36 23 36 30" opacity="0.4"/><circle cx="15" cy="13" r="5"/><path d="M5 33 Q5 23 15 23 Q25 23 25 33"/></svg>'
+};
+
 const allSections = [
     { id: 'balance', name: 'Balance', icon: '💰', translateKey: 'tab_balance' },
     { id: 'swaps', name: 'Swaps', icon: '🔄', translateKey: 'tab_swaps' },
@@ -4322,7 +4340,9 @@ function renderTabs() {
             btnText = TRANSLATIONS[currentLang][sec.translateKey];
         }
 
-        btn.innerText = btnText;
+        // SVG icon + text (icon inherits color via currentColor)
+        const svgStr = SECTION_SVGS[id] || '';
+        btn.innerHTML = (svgStr ? '<span class="tab-icon">' + svgStr + '</span>' : '') + '<span>' + btnText + '</span>';
         btn.onclick = () => openTab(id);
         container.appendChild(btn);
     });
@@ -4349,7 +4369,7 @@ function renderSidebar() {
         const subtleBg = 'background: var(--bg-hover, rgba(0,0,0,0.02));';
         item.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px; color:var(--text-primary, #1f2937); padding:10px 12px; border-radius:10px; transition: all 0.15s ease; cursor:pointer; flex:1; margin-right:8px; ${activeBorder} ${subtleBg}">
-                <span style="font-size:18px; transition: transform 0.15s ease;">${sec.icon}</span>
+                <span class="sidebar-icon" style="width:20px; height:20px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition: transform 0.15s ease;">${SECTION_SVGS[sec.id] || sec.icon}</span>
                 <span style="font-size:14px; font-weight:600; letter-spacing:0.2px; flex:1;">${sectionName}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45; flex-shrink:0;"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </div>
@@ -5870,64 +5890,116 @@ function openTxModal(hash, extrinsic_id, usdValue) {
     // If no extrinsic_id, nothing more to fetch
     if (!hasExtrinsicId) return;
 
-    // Extract block number from extrinsic_id format "BLOCK-INDEX"
-    const block = extrinsic_id.split('-')[0];
-    if (!block) return;
+    // Extract block and index from extrinsic_id format "BLOCK-INDEX"
+    const [blockNum, exIndex] = extrinsic_id.split('-');
+    if (!blockNum) return;
 
-    fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(block))
-        .then(r => r.json())
-        .then(res => {
-            const exts = res.data || [];
-            const match = exts.find(d => d.extrinsic_id === extrinsic_id);
+    // Helper: render the modal content from a match object
+    function renderExtrinsicModal(match) {
+        let argsFormatted = '{}';
+        try {
+            argsFormatted = JSON.stringify(JSON.parse(match.args_json), null, 2);
+        } catch (e) {
+            argsFormatted = match.args_json || '{}';
+        }
 
-            if (match) {
-                let argsFormatted = '{}';
-                try {
-                    argsFormatted = JSON.stringify(JSON.parse(match.args_json), null, 2);
-                } catch (e) {
-                    argsFormatted = match.args_json || '{}';
+        // Render events section
+        let eventsHtml = '';
+        if (match.events_json) {
+            try {
+                const events = JSON.parse(match.events_json);
+                if (events.length > 0) {
+                    eventsHtml = `
+                        <div style="margin-top:12px;">
+                            <strong>${TRANSLATIONS[currentLang]?.events || 'Events'} (${events.length}):</strong>
+                            <div style="background:var(--bg-body); border-radius:8px; border:1px solid var(--border-color); max-height:300px; overflow-y:auto; margin-top:6px;">
+                                ${events.map(ev => {
+                                    let dataHtml = '';
+                                    if (ev.d) {
+                                        try {
+                                            dataHtml = `<pre style="margin:4px 0 0; font-size:11px; color:#9CA3AF; white-space:pre-wrap; word-break:break-all;">${esc(typeof ev.d === 'string' ? ev.d : JSON.stringify(ev.d, null, 2))}</pre>`;
+                                        } catch (e) {}
+                                    }
+                                    return `<div style="padding:8px 12px; border-bottom:1px solid var(--border-color); font-size:12px;">
+                                        <span class="pallet-badge" style="font-size:11px;">${esc(ev.s || '')}::${esc(ev.m || '')}</span>
+                                        ${dataHtml}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
                 }
-                contentEl.innerHTML = `
-                    <div style="padding:10px;">
-                        <div style="margin-bottom:12px; line-height:2;">
-                            <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
-                            <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : esc(match.hash)}</span><br>
-                            <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#9B1B30;">#${esc(String(match.block))}</a><br>
-                            <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
-                            <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
-                            <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
-                            ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
-                            <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
-                            ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
-                        </div>
-                        <div>
-                            <strong>Arguments (JSON):</strong>
-                            <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
-                        </div>
-                    </div>`;
+            } catch (e) { /* malformed events_json */ }
+        } else {
+            eventsHtml = `
+                <div style="margin-top:12px;">
+                    <strong>${TRANSLATIONS[currentLang]?.events || 'Events'}:</strong>
+                    <p style="color:#6B7280; font-size:12px; margin-top:4px;">${TRANSLATIONS[currentLang]?.events_not_available || 'Event data not yet available for this extrinsic.'}</p>
+                </div>`;
+        }
+
+        contentEl.innerHTML = `
+            <div style="padding:10px;">
+                <div style="margin-bottom:12px; line-height:2;">
+                    <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                    <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : esc(match.hash)}</span><br>
+                    <strong>Block:</strong> <a href="#" onclick="openBlockModal('${esc(String(match.block))}'); return false;" style="color:#9B1B30;">#${esc(String(match.block))}</a><br>
+                    <strong>Pallet:</strong> <span class="pallet-badge">${esc(match.section)}::${esc(match.method)}</span><br>
+                    <strong>${TRANSLATIONS[currentLang]?.signer || 'Signer'}:</strong> ${esc(match.signer)}<br>
+                    <strong>${TRANSLATIONS[currentLang]?.result || 'Result'}:</strong> ${match.success ? '<span class="result-success">Success</span>' : '<span class="result-failed">Failed</span>'}<br>
+                    ${match.error_msg ? `<strong>Error:</strong> <span style="color:#EF4444;">${esc(match.error_msg)}</span><br>` : ''}
+                    <strong>${TRANSLATIONS[currentLang]?.time || 'Time'}:</strong> ${esc(match.time)}
+                    ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
+                </div>
+                <div>
+                    <strong>Arguments (JSON):</strong>
+                    <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
+                </div>
+                ${eventsHtml}
+            </div>`;
+    }
+
+    // Try new detail endpoint first, fallback to old listing endpoint
+    fetch(`/history/extrinsic/${encodeURIComponent(blockNum)}/${encodeURIComponent(exIndex)}`)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(match => {
+            if (match && !match.error) {
+                renderExtrinsicModal(match);
             } else {
-                // No match found in block data
-                contentEl.innerHTML = `
-                    <div style="padding:10px;">
-                        <div style="margin-bottom:12px; line-height:2;">
-                            <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
-                            <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
-                            ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
-                        </div>
-                        <p style="color:#6B7280; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.no_data || 'No detailed data available for this extrinsic.'}</p>
-                    </div>`;
+                throw new Error('not found');
             }
         })
         .catch(() => {
-            contentEl.innerHTML = `
-                <div style="padding:10px;">
-                    <div style="margin-bottom:12px; line-height:2;">
-                        <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
-                        <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
-                        ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
-                    </div>
-                    <p style="color:#EF4444; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.error_loading || 'Error loading extrinsic details.'}</p>
-                </div>`;
+            // Fallback: old endpoint (for backwards compatibility during deploy)
+            fetch('/history/global/extrinsics?page=1&limit=50&block=' + encodeURIComponent(blockNum))
+                .then(r => r.json())
+                .then(res => {
+                    const exts = res.data || [];
+                    const match = exts.find(d => d.extrinsic_id === extrinsic_id);
+                    if (match) {
+                        renderExtrinsicModal(match);
+                    } else {
+                        contentEl.innerHTML = `
+                            <div style="padding:10px;">
+                                <div style="margin-bottom:12px; line-height:2;">
+                                    <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                                    <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                                    ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
+                                </div>
+                                <p style="color:#6B7280; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.no_data || 'No detailed data available for this extrinsic.'}</p>
+                            </div>`;
+                    }
+                })
+                .catch(() => {
+                    contentEl.innerHTML = `
+                        <div style="padding:10px;">
+                            <div style="margin-bottom:12px; line-height:2;">
+                                <strong>Extrinsic ID:</strong> ${esc(extrinsic_id)}<br>
+                                <strong>Hash:</strong> <span style="font-family:monospace; font-size:11px; word-break:break-all;">${hasHash ? esc(hash) : 'N/A'}</span>
+                                ${usdValue ? `<br><strong>${TRANSLATIONS[currentLang]?.usd_value_at_tx || 'USD Value (at TX time)'}:</strong> <span style="color:#10B981; font-weight:600;">$${esc(String(usdValue))}</span>` : ''}
+                            </div>
+                            <p style="color:#EF4444; font-size:12px; text-align:center;">${TRANSLATIONS[currentLang]?.error_loading || 'Error loading extrinsic details.'}</p>
+                        </div>`;
+                });
         });
 }
 

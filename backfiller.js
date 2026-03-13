@@ -48,6 +48,32 @@ const DAI_ID = '0x02000600000000000000000000000000000000000000000000000000000000
 const XSTUS_ID = '0x0200080000000000000000000000000000000000000000000000000000000000';
 const XST_ID = '0x0200090000000000000000000000000000000000000000000000000000000000';
 
+// Serialize extrinsic events to condensed JSON for storage
+function serializeEvents(extrinsicEvents, maxSize = 8192) {
+    try {
+        const events = [];
+        for (const record of extrinsicEvents) {
+            try {
+                const { event } = record;
+                if (event.section === 'system' && (event.method === 'ExtrinsicSuccess' || event.method === 'ExtrinsicFailed')) continue;
+                events.push({
+                    s: event.section,
+                    m: event.method,
+                    d: event.data ? event.data.toHuman() : null
+                });
+            } catch (e) { /* skip malformed event */ }
+        }
+        if (events.length === 0) return '[]';
+        const json = JSON.stringify(events);
+        if (json.length <= maxSize) return json;
+        const slim = events.map(e => ({ s: e.s, m: e.m }));
+        const slimJson = JSON.stringify(slim);
+        return slimJson.length <= maxSize ? slimJson : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 // --- DATABASE FUNCTIONS ---
 function initDB() {
     db = new Database(DB_PATH);
@@ -171,6 +197,10 @@ function initDB() {
         args_json TEXT
     )`);
 
+    // Add missing columns if they don't exist
+    try { db.exec(`ALTER TABLE extrinsics ADD COLUMN error_msg TEXT DEFAULT ''`); } catch (e) { /* already exists */ }
+    try { db.exec(`ALTER TABLE extrinsics ADD COLUMN events_json TEXT DEFAULT NULL`); } catch (e) { /* already exists */ }
+
     // Indices
     db.exec(`
         CREATE INDEX IF NOT EXISTS idx_swaps_timestamp ON swaps(timestamp);
@@ -227,8 +257,8 @@ function initDB() {
     stmts.insertFee = db.prepare(`INSERT INTO fees (timestamp, block, type, amount, usd_value, denom_factor)
         VALUES (?, ?, ?, ?, ?, ?)`);
 
-    stmts.insertExtrinsic = db.prepare(`INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    stmts.insertExtrinsic = db.prepare(`INSERT INTO extrinsics (timestamp, formatted_time, block, extrinsic_index, hash, section, method, signer, success, args_json, error_msg, events_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
     stmts.insertOrderBook = db.prepare(`INSERT INTO order_book_events (timestamp, formatted_time, block, event_type, wallet, order_id, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -266,7 +296,8 @@ function insertExtrinsicRecord(e) {
     stmts.insertExtrinsic.run(
         e.timestamp, e.formatted_time, e.block, e.extrinsic_index,
         e.hash || '', e.section || '', e.method || '',
-        e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}'
+        e.signer || 'System', e.success ? 1 : 0, e.args_json || '{}',
+        e.error_msg || '', e.events_json || null
     );
     stats.extrinsics++;
 }
@@ -949,7 +980,8 @@ async function processBlock(blockNumber) {
                     signer: typeof signer === 'string' ? signer : 'System',
                     success: isSuccess,
                     args_json: argsJson,
-                    error_msg: errorMsg
+                    error_msg: errorMsg,
+                    events_json: serializeEvents(extrinsicEvents)
                 });
             } catch (e) { /* skip malformed extrinsic */ }
         }
