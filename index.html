@@ -583,6 +583,11 @@
             background: rgba(155,27,48,0.08);
             color: var(--primary-color);
         }
+        .tab-drag-placeholder {
+            border: 2px dashed rgba(155, 27, 48, 0.4);
+            border-radius: 10px;
+            background: rgba(155, 27, 48, 0.05);
+        }
 
         .tab-btn-small {
             background: transparent;
@@ -4252,7 +4257,7 @@
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v19"></script>
+        <script src="script.js?v=v20"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {

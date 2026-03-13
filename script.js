@@ -4167,7 +4167,7 @@ const allSections = [
 ];
 
 // Default actives
-const defaultActives = ['balance', 'swaps', 'transfers', 'tokens', 'liquidity'];
+const defaultActives = ['extrinsics', 'balance', 'swaps', 'transfers', 'liquidity'];
 let activeSectionIds = JSON.parse(localStorage.getItem('sorametrics_active_tabs')) || defaultActives;
 // Enforce max 5 sections (in case localStorage has stale data from before the limit)
 if (activeSectionIds.length > 5) {
@@ -4178,14 +4178,129 @@ if (activeSectionIds.length > 5) {
 function initNavigation() {
     renderTabs();
     renderSidebar();
+    initTabDragReorder();
 
     // Restore last tab
-    const lastTab = localStorage.getItem('sorametrics_current_tab') || 'balance';
+    const lastTab = localStorage.getItem('sorametrics_current_tab') || 'extrinsics';
     if (activeSectionIds.includes(lastTab)) {
         openTab(lastTab);
     } else if (activeSectionIds.length > 0) {
         openTab(activeSectionIds[0]);
     }
+}
+
+// ── Drag-to-reorder tabs ────────────────────────────────────────
+function initTabDragReorder() {
+    const container = document.getElementById('dynamicTabsContainer');
+    if (!container || container._dragInitialized) return;
+    container._dragInitialized = true;
+
+    let dragEl = null;
+    let placeholder = null;
+    let startX = 0;
+    let offsetX = 0;
+    let dragRect = null;
+    const DRAG_THRESHOLD = 5;
+    let hasMoved = false;
+
+    container.addEventListener('pointerdown', function(e) {
+        const btn = e.target.closest('.tab-btn');
+        if (!btn || !container.contains(btn)) return;
+        startX = e.clientX;
+        dragEl = btn;
+        dragRect = btn.getBoundingClientRect();
+        offsetX = e.clientX - dragRect.left;
+        hasMoved = false;
+        e.preventDefault();
+    });
+
+    document.addEventListener('pointermove', function(e) {
+        if (!dragEl) return;
+        const dx = e.clientX - startX;
+        if (!hasMoved && Math.abs(dx) < DRAG_THRESHOLD) return;
+
+        if (!hasMoved) {
+            hasMoved = true;
+            // Create placeholder
+            placeholder = document.createElement('div');
+            placeholder.className = 'tab-drag-placeholder';
+            placeholder.style.width = dragRect.width + 'px';
+            placeholder.style.height = dragRect.height + 'px';
+            placeholder.style.flexShrink = '0';
+            placeholder.style.display = 'inline-block';
+            dragEl.parentNode.insertBefore(placeholder, dragEl);
+
+            // Float the dragged tab
+            dragEl.style.position = 'fixed';
+            dragEl.style.zIndex = '9999';
+            dragEl.style.width = dragRect.width + 'px';
+            dragEl.style.top = dragRect.top + 'px';
+            dragEl.style.left = dragRect.left + 'px';
+            dragEl.style.pointerEvents = 'none';
+            dragEl.style.opacity = '0.92';
+            dragEl.style.transform = 'scale(1.08)';
+            dragEl.style.boxShadow = '0 4px 18px rgba(155,27,48,0.25)';
+            dragEl.style.transition = 'none';
+            dragEl.style.touchAction = 'none';
+        }
+
+        // Move floating tab with cursor
+        dragEl.style.left = (e.clientX - offsetX) + 'px';
+
+        // Determine insertion point
+        const siblings = Array.from(container.querySelectorAll('.tab-btn')).filter(b => b !== dragEl);
+        let inserted = false;
+        for (const sib of siblings) {
+            const r = sib.getBoundingClientRect();
+            if (e.clientX < r.left + r.width / 2) {
+                container.insertBefore(placeholder, sib);
+                inserted = true;
+                break;
+            }
+        }
+        if (!inserted) {
+            // After all siblings — but before the floating dragEl
+            const lastSib = siblings[siblings.length - 1];
+            if (lastSib && lastSib.nextSibling) {
+                container.insertBefore(placeholder, lastSib.nextSibling);
+            } else {
+                container.appendChild(placeholder);
+            }
+        }
+    });
+
+    document.addEventListener('pointerup', function() {
+        if (!dragEl) return;
+
+        if (hasMoved && placeholder) {
+            // Reset styles
+            dragEl.style.position = '';
+            dragEl.style.zIndex = '';
+            dragEl.style.width = '';
+            dragEl.style.top = '';
+            dragEl.style.left = '';
+            dragEl.style.pointerEvents = '';
+            dragEl.style.opacity = '';
+            dragEl.style.transform = '';
+            dragEl.style.boxShadow = '';
+            dragEl.style.transition = '';
+            dragEl.style.touchAction = '';
+
+            // Insert tab where placeholder was
+            placeholder.parentNode.insertBefore(dragEl, placeholder);
+            placeholder.remove();
+
+            // Read new order from DOM
+            const newOrder = Array.from(container.querySelectorAll('.tab-btn'))
+                .map(btn => btn.id.replace('tab-', ''));
+            activeSectionIds = newOrder;
+            localStorage.setItem('sorametrics_active_tabs', JSON.stringify(activeSectionIds));
+        }
+
+        dragEl = null;
+        placeholder = null;
+        hasMoved = false;
+    });
 }
 
 function renderTabs() {
@@ -4229,11 +4344,14 @@ function renderSidebar() {
             sectionName = TRANSLATIONS[currentLang][sec.translateKey];
         }
 
-        // Checkbox creation
+        // Build sidebar item with chevron for clickability
+        const activeBorder = isActive ? 'border-left: 3px solid #9B1B30; padding-left: 9px;' : '';
+        const subtleBg = 'background: var(--bg-hover, rgba(0,0,0,0.02));';
         item.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px; color:var(--text-primary, #1f2937); padding:10px 12px; border-radius:10px; transition: all 0.15s ease; cursor:pointer; flex:1; margin-right:8px;">
+            <div style="display:flex; align-items:center; gap:10px; color:var(--text-primary, #1f2937); padding:10px 12px; border-radius:10px; transition: all 0.15s ease; cursor:pointer; flex:1; margin-right:8px; ${activeBorder} ${subtleBg}">
                 <span style="font-size:18px; transition: transform 0.15s ease;">${sec.icon}</span>
-                <span style="font-size:14px; font-weight:600; letter-spacing:0.2px;">${sectionName}</span>
+                <span style="font-size:14px; font-weight:600; letter-spacing:0.2px; flex:1;">${sectionName}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary, #6B7280)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.45; flex-shrink:0;"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </div>
             <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
                 <input type="checkbox" ${isActive ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
@@ -4244,6 +4362,7 @@ function renderSidebar() {
         // Click on name → open that tab directly (without toggling favorite)
         const nameDiv = item.querySelector('div');
         const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+        const defaultBg = 'var(--bg-hover, rgba(0,0,0,0.02))';
         nameDiv.addEventListener('mouseenter', () => {
             nameDiv.style.background = isDark() ? 'rgba(208, 2, 27, 0.3)' : 'rgba(208, 2, 27, 0.12)';
             nameDiv.style.boxShadow = isDark() ? 'inset 0 0 0 1.5px rgba(208, 2, 27, 0.6)' : 'inset 0 0 0 1.5px rgba(208, 2, 27, 0.3)';
@@ -4251,7 +4370,7 @@ function renderSidebar() {
             nameDiv.querySelector('span').style.transform = 'scale(1.3)';
         });
         nameDiv.addEventListener('mouseleave', () => {
-            nameDiv.style.background = 'transparent';
+            nameDiv.style.background = defaultBg;
             nameDiv.style.boxShadow = 'none';
             nameDiv.style.transform = 'translateX(0)';
             nameDiv.querySelector('span').style.transform = 'scale(1)';
@@ -4263,6 +4382,15 @@ function renderSidebar() {
         nameDiv.addEventListener('mouseup', () => {
             nameDiv.style.transform = 'translateX(4px)';
         });
+        // Touch feedback for mobile
+        nameDiv.addEventListener('touchstart', () => {
+            nameDiv.style.background = isDark() ? 'rgba(208, 2, 27, 0.3)' : 'rgba(208, 2, 27, 0.12)';
+            nameDiv.style.transform = 'scale(0.97)';
+        }, { passive: true });
+        nameDiv.addEventListener('touchend', () => {
+            nameDiv.style.background = defaultBg;
+            nameDiv.style.transform = '';
+        }, { passive: true });
         nameDiv.addEventListener('click', () => {
             toggleMenu();
             openTab(sec.id);
