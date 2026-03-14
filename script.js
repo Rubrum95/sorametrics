@@ -4196,8 +4196,6 @@ if (activeSectionIds.length > 5) {
 function initNavigation() {
     renderTabs();
     renderSidebar();
-    initTabDragReorder();
-
     // Restore last tab
     const lastTab = localStorage.getItem('sorametrics_current_tab') || 'extrinsics';
     if (activeSectionIds.includes(lastTab)) {
@@ -4205,120 +4203,6 @@ function initNavigation() {
     } else if (activeSectionIds.length > 0) {
         openTab(activeSectionIds[0]);
     }
-}
-
-// ── Drag-to-reorder tabs ────────────────────────────────────────
-function initTabDragReorder() {
-    const container = document.getElementById('dynamicTabsContainer');
-    if (!container || container._dragInitialized) return;
-    container._dragInitialized = true;
-
-    let dragEl = null;
-    let placeholder = null;
-    let startX = 0;
-    let offsetX = 0;
-    let dragRect = null;
-    const DRAG_THRESHOLD = 5;
-    let hasMoved = false;
-
-    container.addEventListener('pointerdown', function(e) {
-        const btn = e.target.closest('.tab-btn');
-        if (!btn || !container.contains(btn)) return;
-        startX = e.clientX;
-        dragEl = btn;
-        dragRect = btn.getBoundingClientRect();
-        offsetX = e.clientX - dragRect.left;
-        hasMoved = false;
-        e.preventDefault();
-    });
-
-    document.addEventListener('pointermove', function(e) {
-        if (!dragEl) return;
-        const dx = e.clientX - startX;
-        if (!hasMoved && Math.abs(dx) < DRAG_THRESHOLD) return;
-
-        if (!hasMoved) {
-            hasMoved = true;
-            // Create placeholder
-            placeholder = document.createElement('div');
-            placeholder.className = 'tab-drag-placeholder';
-            placeholder.style.width = dragRect.width + 'px';
-            placeholder.style.height = dragRect.height + 'px';
-            placeholder.style.flexShrink = '0';
-            placeholder.style.display = 'inline-block';
-            dragEl.parentNode.insertBefore(placeholder, dragEl);
-
-            // Float the dragged tab
-            dragEl.style.position = 'fixed';
-            dragEl.style.zIndex = '9999';
-            dragEl.style.width = dragRect.width + 'px';
-            dragEl.style.top = dragRect.top + 'px';
-            dragEl.style.left = dragRect.left + 'px';
-            dragEl.style.pointerEvents = 'none';
-            dragEl.style.opacity = '0.92';
-            dragEl.style.transform = 'scale(1.08)';
-            dragEl.style.boxShadow = '0 4px 18px rgba(155,27,48,0.25)';
-            dragEl.style.transition = 'none';
-            dragEl.style.touchAction = 'none';
-        }
-
-        // Move floating tab with cursor
-        dragEl.style.left = (e.clientX - offsetX) + 'px';
-
-        // Determine insertion point
-        const siblings = Array.from(container.querySelectorAll('.tab-btn')).filter(b => b !== dragEl);
-        let inserted = false;
-        for (const sib of siblings) {
-            const r = sib.getBoundingClientRect();
-            if (e.clientX < r.left + r.width / 2) {
-                container.insertBefore(placeholder, sib);
-                inserted = true;
-                break;
-            }
-        }
-        if (!inserted) {
-            // After all siblings — but before the floating dragEl
-            const lastSib = siblings[siblings.length - 1];
-            if (lastSib && lastSib.nextSibling) {
-                container.insertBefore(placeholder, lastSib.nextSibling);
-            } else {
-                container.appendChild(placeholder);
-            }
-        }
-    });
-
-    document.addEventListener('pointerup', function() {
-        if (!dragEl) return;
-
-        if (hasMoved && placeholder) {
-            // Reset styles
-            dragEl.style.position = '';
-            dragEl.style.zIndex = '';
-            dragEl.style.width = '';
-            dragEl.style.top = '';
-            dragEl.style.left = '';
-            dragEl.style.pointerEvents = '';
-            dragEl.style.opacity = '';
-            dragEl.style.transform = '';
-            dragEl.style.boxShadow = '';
-            dragEl.style.transition = '';
-            dragEl.style.touchAction = '';
-
-            // Insert tab where placeholder was
-            placeholder.parentNode.insertBefore(dragEl, placeholder);
-            placeholder.remove();
-
-            // Read new order from DOM
-            const newOrder = Array.from(container.querySelectorAll('.tab-btn'))
-                .map(btn => btn.id.replace('tab-', ''));
-            activeSectionIds = newOrder;
-            localStorage.setItem('sorametrics_active_tabs', JSON.stringify(activeSectionIds));
-        }
-
-        dragEl = null;
-        placeholder = null;
-        hasMoved = false;
-    });
 }
 
 function renderTabs() {
@@ -5509,6 +5393,12 @@ function openExtrinsicDetail(extrinsicId) {
                 <strong>Arguments (JSON):</strong>
                 <pre style="background:var(--bg-body); padding:12px; border-radius:8px; overflow-x:auto; font-size:11px; max-height:300px; border:1px solid var(--border-color);">${esc(argsFormatted)}</pre>
             </div>
+            <div id="extrinsicEventsPlaceholder" style="margin-top:12px;">
+                <div style="text-align:center; padding:10px; color:#6B7280;">
+                    <div style="display:inline-block; width:16px; height:16px; border:2px solid #9B1B30; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+                    <span style="font-size:12px; margin-left:6px;">${lang.loading_events || 'Loading events...'}</span>
+                </div>
+            </div>
         `;
         // Async lookup USD value from cross-table search
         fetch('/lookup/usd-value/' + encodeURIComponent(extrinsicId))
@@ -5520,6 +5410,45 @@ function openExtrinsicDetail(extrinsicId) {
                 }
             })
             .catch(() => {});
+        // Async fetch events from detail endpoint
+        const [blk, idx] = extrinsicId.split('-');
+        if (blk && idx) {
+            fetch(`/history/extrinsic/${encodeURIComponent(blk)}/${encodeURIComponent(idx)}`)
+                .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                .then(detail => {
+                    const evEl = document.getElementById('extrinsicEventsPlaceholder');
+                    if (!evEl) return;
+                    if (detail && detail.events_json) {
+                        try {
+                            const events = JSON.parse(detail.events_json);
+                            if (events.length > 0) {
+                                evEl.innerHTML = `
+                                    <strong>${lang.events || 'Events'} (${events.length}):</strong>
+                                    <div style="background:var(--bg-body); border-radius:8px; border:1px solid var(--border-color); max-height:300px; overflow-y:auto; margin-top:6px;">
+                                        ${events.map(ev => {
+                                            let dataHtml = '';
+                                            if (ev.d) {
+                                                try { dataHtml = `<pre style="margin:4px 0 0; font-size:11px; color:#9CA3AF; white-space:pre-wrap; word-break:break-all;">${esc(typeof ev.d === 'string' ? ev.d : JSON.stringify(ev.d, null, 2))}</pre>`; } catch(e) {}
+                                            }
+                                            return `<div style="padding:8px 12px; border-bottom:1px solid var(--border-color); font-size:12px;">
+                                                <span class="pallet-badge" style="font-size:11px;">${esc(ev.s || '')}::${esc(ev.m || '')}</span>
+                                                ${dataHtml}
+                                            </div>`;
+                                        }).join('')}
+                                    </div>`;
+                            } else {
+                                evEl.innerHTML = `<strong>${lang.events || 'Events'}:</strong><p style="color:#6B7280; font-size:12px; margin-top:4px;">No events for this extrinsic.</p>`;
+                            }
+                        } catch(e) { evEl.innerHTML = ''; }
+                    } else {
+                        evEl.innerHTML = `<strong>${lang.events || 'Events'}:</strong><p style="color:#6B7280; font-size:12px; margin-top:4px;">${lang.events_not_available || 'Event data not yet available for this extrinsic.'}</p>`;
+                    }
+                })
+                .catch(() => {
+                    const evEl = document.getElementById('extrinsicEventsPlaceholder');
+                    if (evEl) evEl.innerHTML = `<strong>${lang.events || 'Events'}:</strong><p style="color:#6B7280; font-size:12px; margin-top:4px;">${lang.events_not_available || 'Event data not yet available for this extrinsic.'}</p>`;
+                });
+        }
     } else {
         content.innerHTML = `
             <div style="text-align:center; padding:20px;">
