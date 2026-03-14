@@ -1,6 +1,6 @@
 # SoraMetrics
 
-Production-grade analytics dashboard for the [SORA Network](https://sora.org). Indexes on-chain data in real time, serves it through a REST + WebSocket API, and renders it in a responsive single-page frontend.
+Production-grade analytics dashboard for the [SORA Network](https://sora.org). Indexes on-chain data via [sora-subsquid](https://github.com/sora-xor/sora-subsquid), serves it through a REST + WebSocket API, and renders it in a responsive single-page frontend.
 
 **Live:** [sorametrics.org](https://www.sorametrics.org)
 
@@ -9,26 +9,66 @@ Production-grade analytics dashboard for the [SORA Network](https://sora.org). I
 ## Architecture
 
 ```
-Browser (SPA)            Server                    Blockchain
-┌──────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│ index.html   │◄──►│ index.js         │◄──►│ SORA Substrate Node │
-│ script.js    │ WS │ Express + Socket │ WS │ wss://ws.mof.sora   │
-│ sw.js (PWA)  │    │ .IO              │    └─────────────────────┘
-└──────────────┘    │                  │
-                    │ db_better.js     │    ┌─────────────────────┐
-                    │ SQLite (WAL)     │    │ backfiller.js       │
-                    │  ├ database_30d  │◄───│ backfiller_orderbook│
-                    │  └ database      │    │ (PM2 processes)     │
-                    └──────────────────┘    └─────────────────────┘
+                    SORA Blockchain
+                    (25M+ blocks)
+                         |
+          +--------------+--------------+
+          |                             |
+     Real-time                   Historical data
+          |                             |
+     index.js                    SQD Network
+     (WebSocket)               (pre-indexed data lake)
+          |                             |
+          |                      sora-subsquid
+          |                    (TypeScript processor)
+          |                             |
+          |                      PostgreSQL 14
+          |                        (Docker)
+          |                             |
+          |                    pg_to_sqlite.js
+          |                   (export every 10 min)
+          |                             |
+          +-------------+---------------+
+                        |
+                   SQLite x 2
+              sorametrics_live.db    <-- real-time data
+              sorametrics_history.db <-- full history
+                        |
+                 Express + Socket.IO
+                    (index.js)
+                        |
+                  sorametrics.org
 ```
 
 | Layer | File(s) | Role |
 |-------|---------|------|
-| **Frontend** | `index.html`, `script.js`, `sw.js` | SPA with Chart.js, LightweightCharts, Socket.IO client, html2canvas. PWA-capable. |
-| **API Server** | `index.js` | Express 5 REST API (52 endpoints) + Socket.IO real-time feed. |
-| **Database** | `db_better.js` | `better-sqlite3` with dual-DB strategy: 30-day rolling (`database_30d.db`) + full history (`database.db`). WAL mode, prepared statement cache, 256 MB mmap. |
-| **Indexers** | `backfiller.js`, `backfiller_orderbook.js` | Historical block processors. Batch-insert with transactions, resume via `backfill_state.json`. |
-| **Blockchain** | `blockchain.js`, `config.js` | `@polkadot/api` + `@sora-substrate/api` connection layer with auto-reconnect. |
+| **Frontend** | `index.html`, `script.js`, `sw.js` | SPA with Chart.js, LightweightCharts, Socket.IO client. PWA-capable. |
+| **API Server** | `index.js` | Express REST API (52 endpoints) + Socket.IO real-time feed. |
+| **Database** | `db_better.js` | `better-sqlite3` with dual-DB strategy: live (`database_30d.db`) + full history (`database.db`). WAL mode, prepared statements, 256 MB mmap. |
+| **Indexer** | `sora-subsquid` | Official SORA indexer (Subsquid SDK). Processes all blocks from SQD Network into PostgreSQL. |
+| **Export** | `export/pg_to_sqlite.js` | Transforms PostgreSQL data to SoraMetrics SQLite format. Runs every 10 minutes via PM2 cron. |
+| **Blockchain** | `blockchain.js`, `config.js` | `@polkadot/api` + `@sora-substrate/api` connection with auto-reconnect. |
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| Runtime | Node.js 20 |
+| HTTP Server | Express 5 |
+| Real-time | Socket.IO 4 |
+| App Database | SQLite via `better-sqlite3` (2 databases, WAL mode) |
+| Indexer Database | PostgreSQL 14 (Docker) |
+| Indexer | sora-subsquid (TypeScript, Subsquid SDK, SQD Network) |
+| Blockchain SDK | `@polkadot/api`, `@sora-substrate/api` |
+| Security | Helmet, CORS, rate limiting, input validation, XSS escaping |
+| Compression | gzip (`compression`) |
+| Process Manager | PM2 |
+| Container | Docker (PostgreSQL) |
+| Charts | LightweightCharts, Chart.js |
+| Screenshots | html2canvas |
+| Server | Linux VPS (Contabo) |
 
 ---
 
@@ -57,24 +97,59 @@ Browser (SPA)            Server                    Blockchain
 - **Candlestick charts** (LightweightCharts) with SMA/EMA overlays, 5m to 1D timeframes.
 - **PWA** with Service Worker caching and offline support.
 - **Multi-language** (EN/ES) with `data-i18n` attribute system.
-- **Dark theme** with CSS custom properties.
+- **Dark/Light theme** with CSS custom properties.
 
 ---
 
-## Tech Stack
+## Database Architecture
 
-| Category | Technology |
-|----------|-----------|
-| Runtime | Node.js |
-| HTTP | Express 5 |
-| Real-time | Socket.IO 4 |
-| Database | SQLite via `better-sqlite3` |
-| Blockchain | `@polkadot/api`, `@sora-substrate/api` |
-| Security | Helmet, CORS, rate limiting, input validation, XSS escaping |
-| Compression | gzip (`compression`) |
-| Process Manager | PM2 |
-| Charts | LightweightCharts, Chart.js |
-| Screenshots | html2canvas |
+SoraMetrics uses a **dual SQLite + PostgreSQL** architecture:
+
+### SQLite (Application)
+
+| Database | Purpose | Written by |
+|----------|---------|------------|
+| `database_30d.db` | Live data — real-time events from WebSocket | `index.js` (Express server) |
+| `database.db` | Full history — complete blockchain data | `pg_to_sqlite.js` (export script) |
+
+Both databases are queried together via `ATTACH DATABASE`. The `dedup()` function in `db_better.js` handles overlap between live and historical data.
+
+#### SQLite Tables
+
+| Table | Key Columns | Purpose |
+|-------|-------------|---------|
+| `transfers` | block, from_address, to_address, amount, symbol, time | Transfer events |
+| `swaps` | block, caller, input/output symbol/amount, time | DEX swap events |
+| `bridges` | block, caller, symbol, amount, direction, network, time | Bridge events |
+| `fees` | block, caller, fee_amount, type, time | Transaction fees |
+| `extrinsics` | block, extrinsic_id, hash, section, method, signer, success, time | All extrinsics |
+| `liquidity` | block, caller, base/target assets, type, time | LP add/remove |
+| `orderbook` | block, caller, event_type, base/target, price, amount, time | Order book events |
+| `identities` | address, display, legal, web, twitter, updated_at | Cached on-chain identities |
+| `supply_snapshots` | symbol, total_supply, block, timestamp | Periodic supply records |
+
+#### SQLite Performance Tuning
+
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA cache_size = -64000;    -- 64 MB
+PRAGMA mmap_size = 268435456;  -- 256 MB
+PRAGMA temp_store = MEMORY;
+```
+
+### PostgreSQL (Indexer)
+
+PostgreSQL 14 runs in Docker (`sora_subsquid_db`, port 23798, localhost only) and stores the raw indexed data from sora-subsquid. Key tables:
+
+| Table | Purpose |
+|-------|---------|
+| `history_element` | All blockchain calls and events with parsed data |
+| `asset_snapshot` | Hourly/daily OHLC prices, supply, burn/mint per asset |
+| `staking_era`, `staking_validator`, `staking_reward` | Staking data |
+| `vault`, `vault_event` | Kensetsu/CDP data |
+| `referrer_reward` | Referral rewards |
+| `order_book`, `order_book_order` | Order book state |
 
 ---
 
@@ -83,6 +158,7 @@ Browser (SPA)            Server                    Blockchain
 ### Prerequisites
 
 - Node.js >= 18
+- Docker (for PostgreSQL)
 - npm
 
 ### Installation
@@ -91,38 +167,48 @@ Browser (SPA)            Server                    Blockchain
 git clone https://github.com/Rubrum95/sorametrics.git
 cd sorametrics
 npm install
+cd export && npm install && cd ..
 ```
 
 ### Configuration
-
-Copy and edit the config file:
-
-```bash
-cp config.js config.local.js
-```
 
 Key variables in `config.js`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WS_ENDPOINT` | `wss://ws.mof.sora.org` | SORA node WebSocket |
-| `WS_ENDPOINT_BACKFILL` | `wss://mof2.sora.org` | Separate node for historical indexing |
 | `PORT` | `3000` | HTTP server port |
 | `CORS_ORIGINS` | `''` | Comma-separated allowed origins |
+
+For the indexer, copy and edit the environment file:
+
+```bash
+cp subsquid-config/.env.example subsquid-config/.env
+```
 
 ### Running
 
 ```bash
-# Development
-npm start
+# 1. Start PostgreSQL
+cd sora-subsquid && docker compose -f docker-compose.prod.yml up -d
 
-# Production (PM2)
-pm2 start ecosystem.config.js
+# 2. Start the indexer (sora-subsquid)
+pm2 start lib/processor.js --name sora-subsquid-processor
+
+# 3. Start the app
+pm2 start index.js --name sorametrics
+
+# 4. Start periodic export (every 10 minutes)
+pm2 start export/pg_to_sqlite.js --name sorametrics-export --cron "*/10 * * * *"
 ```
 
-This starts two processes:
-- `sorametrics` — API server on port 3000
-- `sorametrics-backfiller` — Historical block indexer
+### PM2 Processes
+
+| Process | Script | Role |
+|---------|--------|------|
+| `sorametrics` | `index.js` | API server + WebSocket |
+| `sora-subsquid-processor` | `lib/processor.js` | Blockchain indexer |
+| `sorametrics-export` | `export/pg_to_sqlite.js` | PG to SQLite export (every 10 min) |
 
 ---
 
@@ -204,66 +290,6 @@ This starts two processes:
 
 ---
 
-## Database Schema
-
-Dual-database strategy with SQLite:
-
-- **`database_30d.db`** — Rolling 30-day window (fast queries for live dashboard)
-- **`database.db`** — Full historical archive (attached as `hist`)
-
-### Tables
-
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| `transfers` | block, from_address, to_address, amount, symbol, time | Transfer events |
-| `swaps` | block, caller, input/output symbol/amount, time | DEX swap events |
-| `bridges` | block, caller, symbol, amount, direction, network, time | Bridge events |
-| `fees` | block, caller, fee_amount, type, time | Transaction fees |
-| `extrinsics` | block, extrinsic_id, hash, section, method, signer, success, time | All extrinsics |
-| `liquidity` | block, caller, base/target assets, type, time | LP add/remove |
-| `orderbook` | block, caller, event_type, base/target, price, amount, time | Order book events |
-| `identities` | address, display, legal, web, twitter, updated_at | Cached on-chain identities |
-| `supply_snapshots` | symbol, total_supply, block, timestamp | Periodic supply records |
-| `burn_stats` | symbol, period, burned, block_start, block_end | Aggregated burn data |
-
-### Performance Tuning
-
-```sql
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-PRAGMA cache_size = -64000;    -- 64 MB
-PRAGMA mmap_size = 268435456;  -- 256 MB
-PRAGMA temp_store = MEMORY;
-```
-
----
-
-## Deployment
-
-The app runs on a VPS with PM2:
-
-```bash
-# Deploy files
-scp index.js script.js index.html sw.js user@server:/app/
-
-# Restart
-ssh user@server "pm2 restart sorametrics"
-```
-
-### PM2 Ecosystem
-
-```javascript
-// ecosystem.config.js
-{
-  apps: [
-    { name: 'sorametrics',            script: 'index.js',      max_memory_restart: '512M' },
-    { name: 'sorametrics-backfiller', script: 'backfiller.js',  max_memory_restart: '1G'   }
-  ]
-}
-```
-
----
-
 ## Project Structure
 
 ```
@@ -273,14 +299,19 @@ sorametrics/
 ├── script.js                 # Client-side JavaScript
 ├── sw.js                     # Service Worker (PWA cache)
 ├── db_better.js              # Database layer (better-sqlite3)
-├── backfiller.js             # Historical block indexer
-├── backfiller_orderbook.js   # Order book event indexer
 ├── blockchain.js             # Polkadot/SORA API connection
 ├── config.js                 # Environment configuration
-├── ecosystem.config.js       # PM2 process definitions
 ├── package.json              # Dependencies
 ├── manifest.json             # PWA manifest
-└── favicon.svg               # App icon
+├── favicon.svg               # App icon
+│
+├── export/
+│   ├── pg_to_sqlite.js       # PostgreSQL -> SQLite transformer
+│   └── package.json          # Export dependencies
+│
+└── subsquid-config/
+    ├── docker-compose.prod.yml  # PostgreSQL Docker config
+    └── .env.example             # Environment template
 ```
 
 ---
