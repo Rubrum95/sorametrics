@@ -1935,6 +1935,338 @@ function getSwapVolumeUsd(startTime) {
     }
 }
 
+// --- WALLET INFO (aggregate stats) ---
+function getWalletInfo(address) {
+    try {
+        const hasHistEx = historyHasTable('extrinsics');
+        const hasHistSw = historyHasTable('swaps');
+        const hasHistTr = historyHasTable('transfers');
+        const hasHistBr = historyHasTable('bridges');
+        const hasHistLP = historyHasTable('liquidity_events');
+
+        // Q1: Extrinsic stats (age, days active, tx count, success rate)
+        let exStats;
+        if (hasHistEx) {
+            exStats = getStmt('wInfo_exStats', `
+                SELECT MIN(timestamp) as first_tx, MAX(timestamp) as last_tx,
+                  COUNT(*) as tx_count,
+                  SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                  COUNT(DISTINCT CAST(timestamp / 86400000 AS INTEGER)) as days_active
+                FROM (
+                  SELECT timestamp, success FROM main.extrinsics WHERE signer = ?
+                  UNION ALL
+                  SELECT timestamp, success FROM history.extrinsics WHERE signer = ?
+                )
+            `).get(address, address);
+        } else {
+            exStats = getStmt('wInfo_exStats_m', `
+                SELECT MIN(timestamp) as first_tx, MAX(timestamp) as last_tx,
+                  COUNT(*) as tx_count,
+                  SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+                  COUNT(DISTINCT CAST(timestamp / 86400000 AS INTEGER)) as days_active
+                FROM main.extrinsics WHERE signer = ?
+            `).get(address);
+        }
+
+        // Q2: Module breakdown (top 10)
+        let modules;
+        if (hasHistEx) {
+            modules = getStmt('wInfo_modules', `
+                SELECT section, COUNT(*) as count FROM (
+                  SELECT section FROM main.extrinsics WHERE signer = ?
+                  UNION ALL
+                  SELECT section FROM history.extrinsics WHERE signer = ?
+                ) GROUP BY section ORDER BY count DESC LIMIT 10
+            `).all(address, address);
+        } else {
+            modules = getStmt('wInfo_modules_m', `
+                SELECT section, COUNT(*) as count
+                FROM main.extrinsics WHERE signer = ?
+                GROUP BY section ORDER BY count DESC LIMIT 10
+            `).all(address);
+        }
+
+        // Q3: Governance participation
+        const govSections = ['democracy', 'council', 'electionsPhragmen', 'technicalCommittee'];
+        const govPlaceholders = govSections.map(() => '?').join(',');
+        let govCount;
+        if (hasHistEx) {
+            govCount = db.prepare(`
+                SELECT COUNT(*) as count FROM (
+                  SELECT 1 FROM main.extrinsics WHERE signer = ? AND section IN (${govPlaceholders})
+                  UNION ALL
+                  SELECT 1 FROM history.extrinsics WHERE signer = ? AND section IN (${govPlaceholders})
+                )
+            `).get(address, ...govSections, address, ...govSections)?.count || 0;
+        } else {
+            govCount = db.prepare(`
+                SELECT COUNT(*) as count FROM main.extrinsics WHERE signer = ? AND section IN (${govPlaceholders})
+            `).get(address, ...govSections)?.count || 0;
+        }
+
+        // Q4: Swap stats + top tokens
+        let swapStats, topTokens;
+        if (hasHistSw) {
+            swapStats = getStmt('wInfo_swapStats', `
+                SELECT COUNT(*) as swap_count,
+                  AVG(COALESCE(in_usd, 0)) as avg_usd,
+                  MAX(COALESCE(in_usd, 0)) as max_usd,
+                  SUM(COALESCE(in_usd, 0)) as total_volume
+                FROM (
+                  SELECT in_usd FROM main.swaps WHERE wallet = ?
+                  UNION ALL
+                  SELECT in_usd FROM history.swaps WHERE wallet = ?
+                )
+            `).get(address, address);
+            topTokens = getStmt('wInfo_topTokens', `
+                SELECT symbol, SUM(usd) as total_usd, COUNT(*) as trades FROM (
+                  SELECT in_symbol as symbol, COALESCE(in_usd, 0) as usd FROM main.swaps WHERE wallet = ?
+                  UNION ALL
+                  SELECT out_symbol as symbol, COALESCE(out_usd, 0) as usd FROM main.swaps WHERE wallet = ?
+                  UNION ALL
+                  SELECT in_symbol as symbol, COALESCE(in_usd, 0) as usd FROM history.swaps WHERE wallet = ?
+                  UNION ALL
+                  SELECT out_symbol as symbol, COALESCE(out_usd, 0) as usd FROM history.swaps WHERE wallet = ?
+                ) GROUP BY symbol ORDER BY total_usd DESC LIMIT 10
+            `).all(address, address, address, address);
+        } else {
+            swapStats = getStmt('wInfo_swapStats_m', `
+                SELECT COUNT(*) as swap_count,
+                  AVG(COALESCE(in_usd, 0)) as avg_usd,
+                  MAX(COALESCE(in_usd, 0)) as max_usd,
+                  SUM(COALESCE(in_usd, 0)) as total_volume
+                FROM main.swaps WHERE wallet = ?
+            `).get(address);
+            topTokens = getStmt('wInfo_topTokens_m', `
+                SELECT symbol, SUM(usd) as total_usd, COUNT(*) as trades FROM (
+                  SELECT in_symbol as symbol, COALESCE(in_usd, 0) as usd FROM main.swaps WHERE wallet = ?
+                  UNION ALL
+                  SELECT out_symbol as symbol, COALESCE(out_usd, 0) as usd FROM main.swaps WHERE wallet = ?
+                ) GROUP BY symbol ORDER BY total_usd DESC LIMIT 10
+            `).all(address, address);
+        }
+
+        // Unique tokens (derived from topTokens query — all symbols, not just top 10)
+        let uniqueTokens;
+        if (hasHistSw) {
+            uniqueTokens = getStmt('wInfo_uniqueTokens', `
+                SELECT COUNT(DISTINCT symbol) as count FROM (
+                  SELECT in_symbol as symbol FROM main.swaps WHERE wallet = ?
+                  UNION ALL SELECT out_symbol FROM main.swaps WHERE wallet = ?
+                  UNION ALL SELECT in_symbol FROM history.swaps WHERE wallet = ?
+                  UNION ALL SELECT out_symbol FROM history.swaps WHERE wallet = ?
+                )
+            `).get(address, address, address, address)?.count || 0;
+        } else {
+            uniqueTokens = getStmt('wInfo_uniqueTokens_m', `
+                SELECT COUNT(DISTINCT symbol) as count FROM (
+                  SELECT in_symbol as symbol FROM main.swaps WHERE wallet = ?
+                  UNION ALL SELECT out_symbol FROM main.swaps WHERE wallet = ?
+                )
+            `).get(address, address)?.count || 0;
+        }
+
+        // Q5: Top 10 contacts
+        let topContacts;
+        if (hasHistTr) {
+            topContacts = getStmt('wInfo_contacts', `
+                SELECT counterparty, COUNT(*) as tx_count, SUM(COALESCE(usd_value, 0)) as total_usd FROM (
+                  SELECT to_addr as counterparty, usd_value FROM main.transfers WHERE from_addr = ?
+                  UNION ALL
+                  SELECT from_addr as counterparty, usd_value FROM main.transfers WHERE to_addr = ?
+                  UNION ALL
+                  SELECT to_addr as counterparty, usd_value FROM history.transfers WHERE from_addr = ?
+                  UNION ALL
+                  SELECT from_addr as counterparty, usd_value FROM history.transfers WHERE to_addr = ?
+                ) GROUP BY counterparty ORDER BY tx_count DESC LIMIT 10
+            `).all(address, address, address, address);
+        } else {
+            topContacts = getStmt('wInfo_contacts_m', `
+                SELECT counterparty, COUNT(*) as tx_count, SUM(COALESCE(usd_value, 0)) as total_usd FROM (
+                  SELECT to_addr as counterparty, usd_value FROM main.transfers WHERE from_addr = ?
+                  UNION ALL
+                  SELECT from_addr as counterparty, usd_value FROM main.transfers WHERE to_addr = ?
+                ) GROUP BY counterparty ORDER BY tx_count DESC LIMIT 10
+            `).all(address, address);
+        }
+
+        // Q6: Transfers in vs out
+        let transfersOut, transfersIn;
+        if (hasHistTr) {
+            transfersOut = getStmt('wInfo_trOut', `
+                SELECT COUNT(*) as count, SUM(COALESCE(usd_value, 0)) as usd FROM (
+                  SELECT usd_value FROM main.transfers WHERE from_addr = ?
+                  UNION ALL
+                  SELECT usd_value FROM history.transfers WHERE from_addr = ?
+                )
+            `).get(address, address);
+            transfersIn = getStmt('wInfo_trIn', `
+                SELECT COUNT(*) as count, SUM(COALESCE(usd_value, 0)) as usd FROM (
+                  SELECT usd_value FROM main.transfers WHERE to_addr = ?
+                  UNION ALL
+                  SELECT usd_value FROM history.transfers WHERE to_addr = ?
+                )
+            `).get(address, address);
+        } else {
+            transfersOut = getStmt('wInfo_trOut_m', `
+                SELECT COUNT(*) as count, SUM(COALESCE(usd_value, 0)) as usd FROM main.transfers WHERE from_addr = ?
+            `).get(address);
+            transfersIn = getStmt('wInfo_trIn_m', `
+                SELECT COUNT(*) as count, SUM(COALESCE(usd_value, 0)) as usd FROM main.transfers WHERE to_addr = ?
+            `).get(address);
+        }
+
+        // Q7: LP summary
+        let lpStats;
+        if (hasHistLP) {
+            lpStats = getStmt('wInfo_lp', `
+                SELECT
+                  SUM(CASE WHEN type = 'deposit' THEN 1 ELSE 0 END) as deposits,
+                  SUM(CASE WHEN type = 'withdraw' THEN 1 ELSE 0 END) as withdrawals,
+                  SUM(CASE WHEN type = 'deposit' THEN COALESCE(usd_value, 0) ELSE 0 END) as deposited_usd,
+                  SUM(CASE WHEN type = 'withdraw' THEN COALESCE(usd_value, 0) ELSE 0 END) as withdrawn_usd,
+                  COUNT(DISTINCT pool_base || '-' || pool_target) as unique_pools
+                FROM (
+                  SELECT type, usd_value, pool_base, pool_target FROM main.liquidity_events WHERE wallet = ?
+                  UNION ALL
+                  SELECT type, usd_value, pool_base, pool_target FROM history.liquidity_events WHERE wallet = ?
+                )
+            `).get(address, address);
+        } else {
+            lpStats = getStmt('wInfo_lp_m', `
+                SELECT
+                  SUM(CASE WHEN type = 'deposit' THEN 1 ELSE 0 END) as deposits,
+                  SUM(CASE WHEN type = 'withdraw' THEN 1 ELSE 0 END) as withdrawals,
+                  SUM(CASE WHEN type = 'deposit' THEN COALESCE(usd_value, 0) ELSE 0 END) as deposited_usd,
+                  SUM(CASE WHEN type = 'withdraw' THEN COALESCE(usd_value, 0) ELSE 0 END) as withdrawn_usd,
+                  COUNT(DISTINCT pool_base || '-' || pool_target) as unique_pools
+                FROM main.liquidity_events WHERE wallet = ?
+            `).get(address);
+        }
+
+        // Q8: Bridge summary
+        let bridgeStats;
+        if (hasHistBr) {
+            bridgeStats = getStmt('wInfo_bridge', `
+                SELECT
+                  SUM(CASE WHEN direction = 'Incoming' THEN 1 ELSE 0 END) as incoming_count,
+                  SUM(CASE WHEN direction = 'Outgoing' THEN 1 ELSE 0 END) as outgoing_count,
+                  SUM(CASE WHEN direction = 'Incoming' THEN COALESCE(usd_value, 0) ELSE 0 END) as incoming_usd,
+                  SUM(CASE WHEN direction = 'Outgoing' THEN COALESCE(usd_value, 0) ELSE 0 END) as outgoing_usd,
+                  COUNT(DISTINCT network) as unique_networks
+                FROM (
+                  SELECT direction, usd_value, network FROM main.bridges WHERE sender = ? OR recipient = ?
+                  UNION ALL
+                  SELECT direction, usd_value, network FROM history.bridges WHERE sender = ? OR recipient = ?
+                )
+            `).get(address, address, address, address);
+        } else {
+            bridgeStats = getStmt('wInfo_bridge_m', `
+                SELECT
+                  SUM(CASE WHEN direction = 'Incoming' THEN 1 ELSE 0 END) as incoming_count,
+                  SUM(CASE WHEN direction = 'Outgoing' THEN 1 ELSE 0 END) as outgoing_count,
+                  SUM(CASE WHEN direction = 'Incoming' THEN COALESCE(usd_value, 0) ELSE 0 END) as incoming_usd,
+                  SUM(CASE WHEN direction = 'Outgoing' THEN COALESCE(usd_value, 0) ELSE 0 END) as outgoing_usd,
+                  COUNT(DISTINCT network) as unique_networks
+                FROM main.bridges WHERE sender = ? OR recipient = ?
+            `).get(address, address);
+        }
+
+        return {
+            firstTx: exStats?.first_tx || null,
+            lastTx: exStats?.last_tx || null,
+            txCount: exStats?.tx_count || 0,
+            successCount: exStats?.success_count || 0,
+            daysActive: exStats?.days_active || 0,
+            modules: modules || [],
+            governanceTx: govCount,
+            swapCount: swapStats?.swap_count || 0,
+            swapAvgUsd: swapStats?.avg_usd || 0,
+            swapMaxUsd: swapStats?.max_usd || 0,
+            swapTotalVolume: swapStats?.total_volume || 0,
+            topTokens: topTokens || [],
+            uniqueTokens,
+            topContacts: topContacts || [],
+            transfersOut: { count: transfersOut?.count || 0, usd: transfersOut?.usd || 0 },
+            transfersIn: { count: transfersIn?.count || 0, usd: transfersIn?.usd || 0 },
+            lpDeposits: lpStats?.deposits || 0,
+            lpWithdrawals: lpStats?.withdrawals || 0,
+            lpDepositedUsd: lpStats?.deposited_usd || 0,
+            lpWithdrawnUsd: lpStats?.withdrawn_usd || 0,
+            lpUniquePools: lpStats?.unique_pools || 0,
+            bridgeIncoming: { count: bridgeStats?.incoming_count || 0, usd: bridgeStats?.incoming_usd || 0 },
+            bridgeOutgoing: { count: bridgeStats?.outgoing_count || 0, usd: bridgeStats?.outgoing_usd || 0 },
+            bridgeUniqueNetworks: bridgeStats?.unique_networks || 0
+        };
+    } catch (e) {
+        console.error('Error getWalletInfo:', e.message);
+        return null;
+    }
+}
+
+/** CSV Export: query multiple transaction types for given wallets + date range */
+function getExportData({ wallets, types, startTs, endTs, limit = 50000 }) {
+    const result = {};
+    const wp = wallets.map(() => '?').join(',');
+    const ts = [startTs, endTs];
+
+    const hasHistory = (table) => {
+        try { db.prepare(`SELECT 1 FROM history.${table} LIMIT 1`).get(); return true; }
+        catch { return false; }
+    };
+
+    const query = (table, cols, whereCol, doubleWallet = false) => {
+        const wParams = doubleWallet ? [...wallets, ...wallets] : wallets;
+        const wClause = doubleWallet
+            ? `(${whereCol[0]} IN (${wp}) OR ${whereCol[1]} IN (${wp}))`
+            : `${whereCol} IN (${wp})`;
+        const where = `WHERE ${wClause} AND timestamp >= ? AND timestamp <= ?`;
+        const baseParams = [...wParams, ...ts];
+
+        let sql;
+        if (hasHistory(table)) {
+            sql = `SELECT ${cols} FROM main.${table} ${where} UNION ALL SELECT ${cols} FROM history.${table} ${where} ORDER BY timestamp DESC LIMIT ?`;
+            return db.prepare(sql).all(...baseParams, ...baseParams, limit);
+        } else {
+            sql = `SELECT ${cols} FROM main.${table} ${where} ORDER BY timestamp DESC LIMIT ?`;
+            return db.prepare(sql).all(...baseParams, limit);
+        }
+    };
+
+    if (types.includes('swaps')) {
+        result.swaps = query('swaps',
+            'timestamp, block, wallet, in_symbol, in_amount, in_usd, out_symbol, out_amount, out_usd, hash, extrinsic_id',
+            'wallet');
+    }
+    if (types.includes('transfers')) {
+        result.transfers = query('transfers',
+            'timestamp, block, from_addr, to_addr, amount, symbol, usd_value, hash, extrinsic_id',
+            ['from_addr', 'to_addr'], true);
+    }
+    if (types.includes('bridges')) {
+        result.bridges = query('bridges',
+            'timestamp, block, network, direction, sender, recipient, symbol, amount, usd_value, hash, extrinsic_id',
+            ['sender', 'recipient'], true);
+    }
+    if (types.includes('liquidity')) {
+        result.liquidity = query('liquidity_events',
+            'timestamp, block, wallet, pool_base, pool_target, base_amount, target_amount, usd_value, type, hash, extrinsic_id',
+            'wallet');
+    }
+    if (types.includes('orderbook')) {
+        result.orderbook = query('order_book_events',
+            'timestamp, block, event_type, wallet, base_asset, quote_asset, side, price, amount, usd_value, hash, extrinsic_id',
+            'wallet');
+    }
+    if (types.includes('extrinsics')) {
+        result.extrinsics = query('extrinsics',
+            'timestamp, block, extrinsic_index, hash, section, method, signer, success',
+            'signer');
+    }
+
+    return result;
+}
+
 module.exports = {
     initDB,
     insertTransfer,
@@ -1986,5 +2318,7 @@ module.exports = {
     purgeSupplySnapshotsForSymbol,
     lookupExtrinsicUsdValue,
     globalSearch,
-    getSwapVolumeUsd
+    getSwapVolumeUsd,
+    getWalletInfo,
+    getExportData
 };

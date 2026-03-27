@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sorametrics-v6';
+const CACHE_NAME = 'sorametrics-v23';
 const ASSETS = [
     '/',
     '/index.html',

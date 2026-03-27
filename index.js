@@ -6,7 +6,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd } = require('./db_better');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, getBurnStatsFromChain, getSupplySnapshotDelta, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd, getWalletInfo, getExportData, updatePriceHistory } = require('./db_pg');
 // ... (imports)
 
 
@@ -71,8 +71,10 @@ app.use(helmet({
             connectSrc: ["'self'", "wss:", "ws:", "https://www.google-analytics.com", "https://analytics.google.com", "https://www.googletagmanager.com"],
             fontSrc: ["'self'"],
             scriptSrcAttr: ["'unsafe-inline'"],
+            upgradeInsecureRequests: null,
         }
-    }
+    },
+    hsts: false,
 }));
 
 // --- COMPRESSION ---
@@ -344,6 +346,7 @@ let poolPropertiesCache = { data: null, timestamp: 0 }; // Global pool propertie
 const POOL_PROPS_TTL = 5 * 60 * 1000; // 5 min
 let liquidityCache = {}; // Per-address LP results: { address: { data, timestamp } }
 let stakingCache = {};   // Per-address staking results: { address: { data, timestamp } }
+let walletInfoCache = {}; // Per-address wallet info: { address: { data, timestamp } }
 const LP_STAKING_TTL = 3 * 60 * 1000; // 3 min per-address cache
 
 const SWAPS_TTL = 24 * 1000;    // 24s
@@ -374,6 +377,16 @@ const BURN_TOKENS = {
     PSWAP: { symbol: 'PSWAP', assetId: null, decimals: 18 },
     TBCD:  { symbol: 'TBCD',  assetId: '0x02000a0000000000000000000000000000000000000000000000000000000000', decimals: 18 },
     KUSD:  { symbol: 'KUSD',  assetId: XSTUS_ID, decimals: 18 }
+};
+
+// Genesis circulating supply at SORA v2 mainnet launch (April 26, 2021).
+// Used to compute "Total Burned" = genesisSupply - currentCirculating.
+// VAL: 33.9M crowdloan + 66.1M market maker = ~100M initial distribution.
+// PSWAP: 10B total supply minted at genesis.
+// TBCD/KUSD: synthetic tokens (bonding curve / stablecoin), no fixed genesis.
+const GENESIS_SUPPLY = {
+    VAL:   { supply: 100_000_000,      timestamp: 1619395200000 }, // April 26, 2021
+    PSWAP: { supply: 10_000_000_000,   timestamp: 1619395200000 },
 };
 
 function resolveBurnTokenIds() {
@@ -410,26 +423,45 @@ async function getTokenTotalSupply(symbol) {
     try {
         let totalSupply = null;
 
-        // Primary: MOF API (returns circulating supply in human-readable units)
-        const mofSym = MOF_SYMBOL_MAP[symbol] || symbol.toLowerCase();
-        for (const baseUrl of MOF_URLS) {
+        // XOR special: MOF returns 1e18, CoinGecko returns 1e41, on-chain returns 1e36.
+        // All are in post-denomination units (6 repackaging events, factor 10^38).
+        // Only CoinGecko market cap ($785K) + DEX price ($4.98) give human-readable supply.
+        if (symbol === 'XOR') {
             try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 5000);
-                const res = await fetch(`${baseUrl}/qty/${mofSym}`, { signal: controller.signal });
-                clearTimeout(timeout);
-                if (res.ok) {
-                    const text = await res.text();
-                    const val = parseFloat(text);
-                    if (!isNaN(val) && val > 0) {
-                        totalSupply = val;
-                        break;
-                    }
+                const xorMarket = await fetchXorMarketData();
+                const dexPrice = tokenPrices['XOR'] || 0;
+                // Derive supply from market cap / price (most reliable)
+                if (xorMarket.cgMarketCap && dexPrice > 0) {
+                    totalSupply = xorMarket.cgMarketCap / dexPrice;
+                } else if (xorMarket.cgMarketCap && xorMarket.cgPrice && xorMarket.cgPrice > 0) {
+                    totalSupply = xorMarket.cgMarketCap / xorMarket.cgPrice;
                 }
-            } catch (e) { /* try next MOF mirror */ }
+            } catch (e) { /* CoinGecko unavailable */ }
         }
 
-        // Fallback: on-chain query (if all MOF mirrors are down)
+        // For non-XOR (or XOR if CoinGecko failed): use MOF API
+        if (!totalSupply) {
+            const mofSym = MOF_SYMBOL_MAP[symbol] || symbol.toLowerCase();
+            for (const baseUrl of MOF_URLS) {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+                    const res = await fetch(`${baseUrl}/qty/${mofSym}`, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (res.ok) {
+                        const text = await res.text();
+                        const val = parseFloat(text);
+                        // For XOR, MOF returns 1e18 (post-denomination) — skip if unreasonable
+                        if (!isNaN(val) && val > 0 && (symbol !== 'XOR' || val < 1e9)) {
+                            totalSupply = val;
+                            break;
+                        }
+                    }
+                } catch (e) { /* try next MOF mirror */ }
+            }
+        }
+
+        // Last resort: on-chain query
         if (!totalSupply && api && token.assetId) {
             try {
                 const issuance = (symbol === 'XOR')
@@ -450,12 +482,25 @@ async function getTokenTotalSupply(symbol) {
     }
 }
 
-// On-chain total issuance query — always uses chain, never MOF API.
-// Used for supply snapshots to stay consistent with backfiller/supply-filler.
+// On-chain total issuance query — used for supply snapshots.
+// For XOR: uses CoinGecko circulating supply (on-chain returns 1e18 post-denomination
+// which causes float64 precision issues in delta calculations).
+// For other tokens: on-chain query returns correct values.
 async function getOnChainTotalIssuance(symbol) {
     const token = BURN_TOKENS[symbol];
     if (!token || !api) return null;
     try {
+        // XOR: derive from CoinGecko market cap / DEX price (on-chain returns 1e36 planck)
+        if (symbol === 'XOR') {
+            const xorMarket = await fetchXorMarketData();
+            const dexPrice = tokenPrices['XOR'] || 0;
+            if (xorMarket.cgMarketCap && dexPrice > 0) {
+                return xorMarket.cgMarketCap / dexPrice;
+            } else if (xorMarket.cgMarketCap && xorMarket.cgPrice && xorMarket.cgPrice > 0) {
+                return xorMarket.cgMarketCap / xorMarket.cgPrice;
+            }
+            // Fall through to on-chain if CoinGecko unavailable
+        }
         const issuance = (symbol === 'XOR')
             ? await withTimeout(api.query.balances.totalIssuance())
             : await withTimeout(api.query.tokens.totalIssuance({ code: token.assetId }));
@@ -674,7 +719,7 @@ async function resolveIdentitiesBatch(addresses) {
     if (toResolve.length === 0) return;
 
     // Check DB for still-valid entries
-    const dbResults = getIdentities(toResolve);
+    const dbResults = await getIdentities(toResolve);
     const needRpc = [];
     for (const addr of toResolve) {
         const dbRow = dbResults[addr];
@@ -698,7 +743,7 @@ async function resolveIdentitiesBatch(addresses) {
                 identityMemCache.set(chunk[j], { ...parsed, ts: Date.now() });
                 dbBatch.push({ address: chunk[j], ...parsed });
             }
-            upsertIdentityBatch(dbBatch);
+            await upsertIdentityBatch(dbBatch);
         } catch (e) {
             console.error('Identity batch resolve error:', e.message);
         }
@@ -890,6 +935,9 @@ async function updateKeyPrices() {
         }
     }
     console.log('💰 Precios actualizados (' + Object.keys(tokenPrices).length + ' tokens).');
+
+    // Update price_history table for sparklines (runs incrementally, ~16 upserts)
+    updatePriceHistory(tokenPrices).catch(err => console.error('[price_history] Update error:', err.message));
 }
 
 // Get price for any token - fetches on-demand if not cached
@@ -919,7 +967,7 @@ async function getOrFetchPrice(symbol, assetId, decimals) {
 app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
     if (!api) return res.status(503).json({ error: 'Iniciando...' });
 
-    const page = Math.min(parseInt(req.query.page) || 1, 10000);
+    const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
     const search = (req.query.search || '').toLowerCase();
     const timeframe = req.query.timeframe || '24h';
@@ -1032,7 +1080,7 @@ app.get('/tokens', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/pools', rateLimit(20, 60000), async (req, res) => {
     if (!api) return res.json({ data: [], total: 0 });
-    const page = Math.min(parseInt(req.query.page) || 1, 10000);
+    const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const now = Date.now();
     const cacheKey = `pools_${page}_${limit}_${req.query.base}`;
@@ -1564,6 +1612,42 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
     }
 });
 
+// Wallet Info (aggregate stats)
+app.get('/wallet/info/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
+    const address = req.params.address;
+    const cached = walletInfoCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
+    try {
+        const info = await getWalletInfo(address);
+        if (!info) return res.json({ error: 'No data' });
+
+        // Compute Whale Score server-side
+        const volumeScore = Math.min(40, Math.round((info.swapTotalVolume / 500000) * 40));
+        const freqScore = Math.min(30, Math.round((info.txCount / 5000) * 30));
+        const diversityRaw = (info.uniqueTokens || 0) + (info.lpUniquePools || 0) + (info.bridgeUniqueNetworks || 0);
+        const divScore = Math.min(30, Math.round((diversityRaw / 30) * 30));
+        const whaleScore = volumeScore + freqScore + divScore;
+        let whaleTier = 'Shrimp';
+        if (whaleScore > 90) whaleTier = 'Megawhale';
+        else if (whaleScore > 75) whaleTier = 'Whale';
+        else if (whaleScore > 50) whaleTier = 'Dolphin';
+        else if (whaleScore > 25) whaleTier = 'Fish';
+
+        const result = {
+            ...info,
+            whaleScore, whaleTier,
+            whaleBreakdown: { volume: volumeScore, frequency: freqScore, diversity: divScore }
+        };
+        walletInfoCache[address] = { data: result, timestamp: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error('Error /wallet/info:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Identity lookup for a single address
 app.get('/identity/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     const address = req.params.address;
@@ -1722,25 +1806,32 @@ app.post('/balances', rateLimit(20, 60000), async (req, res) => {
 
 app.get('/history/global/transfers', rateLimit(30, 60000), async (req, res) => {
     const now = Date.now();
-    
-    // Check cache (60s)
-    if (transfersCache.data && now - transfersCache.timestamp < TRANSFERS_TTL) {
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+
+    // Check cache (60s) — only for default page 1 with no filters
+    if (page === 1 && limit === 25 && !req.query.filter && !req.query.timestamp
+        && transfersCache.data && now - transfersCache.timestamp < TRANSFERS_TTL) {
         return res.json(transfersCache.data);
     }
-    
-    try { 
-        const data = await getLatestTransfers(req.query.page || 1, 25, req.query.filter, req.query.timestamp);
-        transfersCache = { data, timestamp: now };
-        res.json(data); 
+
+    try {
+        const data = await getLatestTransfers(page, limit, req.query.filter, req.query.timestamp);
+        if (page === 1 && limit === 25 && !req.query.filter && !req.query.timestamp) {
+            transfersCache = { data, timestamp: now };
+        }
+        res.json(data);
     } catch (e) { res.json({ data: [], total: 0 }); }
 });
 
 const swapsCacheMap = new Map();
 app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
     const now = Date.now();
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 25, 100);
     const filter = req.query.token || req.query.filter || '';
     const ts = req.query.timestamp || '';
-    const cacheKey = `${req.query.page || 1}_${filter}_${ts}`;
+    const cacheKey = `${page}_${limit}_${filter}_${ts}`;
 
     // Check per-key cache (24s)
     const cached = swapsCacheMap.get(cacheKey);
@@ -1749,7 +1840,7 @@ app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
     }
 
     try {
-        const data = await getLatestSwaps(req.query.page || 1, 25, filter || null, req.query.timestamp || null);
+        const data = await getLatestSwaps(page, limit, filter || null, req.query.timestamp || null);
         swapsCacheMap.set(cacheKey, { data, timestamp: now });
         // Evict old entries
         if (swapsCacheMap.size > 50) {
@@ -1762,7 +1853,7 @@ app.get('/history/global/swaps', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 20, 100);
         const data = await getTransfers(req.params.address, page, limit);
         res.json(data);
@@ -1774,7 +1865,7 @@ app.get('/history/transfers/:address', validateAddress, rateLimit(30, 60000), as
 
 app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 20, 100);
         const result = await getWalletBridges(req.params.address, page, limit);
 
@@ -1797,7 +1888,7 @@ app.get('/history/bridges/:address', validateAddress, rateLimit(30, 60000), asyn
 
 app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
         const result = await getLatestBridges(page, limit, req.query.filter, req.query.timestamp);
@@ -1820,13 +1911,13 @@ app.get('/history/global/bridges', rateLimit(30, 60000), async (req, res) => {
 });
 
 // --- ORDER BOOK ENDPOINTS ---
-app.get('/history/global/orderbook', rateLimit(30, 60000), (req, res) => {
+app.get('/history/global/orderbook', rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
         const type = req.query.type || null;
         const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
-        const result = getLatestOrderBookEvents(page, limit, type, timestamp);
+        const result = await getLatestOrderBookEvents(page, limit, type, timestamp);
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/orderbook:', e);
@@ -1834,11 +1925,11 @@ app.get('/history/global/orderbook', rateLimit(30, 60000), (req, res) => {
     }
 });
 
-app.get('/history/orderbook/:address', validateAddress, rateLimit(30, 60000), (req, res) => {
+app.get('/history/orderbook/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
-        const result = getOrderBookByAddress(req.params.address, page, limit);
+        const result = await getOrderBookByAddress(req.params.address, page, limit);
         res.json(result);
     } catch (e) {
         console.error('Error /history/orderbook/:address:', e);
@@ -1847,7 +1938,7 @@ app.get('/history/orderbook/:address', validateAddress, rateLimit(30, 60000), (r
 });
 
 // --- EXTRINSICS ENDPOINTS ---
-app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
+app.get('/history/global/extrinsics', rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
@@ -1856,7 +1947,7 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
         const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
         const block = req.query.block ? parseInt(req.query.block) : null;
         const success = req.query.success !== undefined ? parseInt(req.query.success) : null;
-        const result = getLatestExtrinsics(page, limit, section, timestamp, block, success, method);
+        const result = await getLatestExtrinsics(page, limit, section, timestamp, block, success, method);
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/extrinsics:', e);
@@ -1864,20 +1955,20 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), (req, res) => {
     }
 });
 
-app.get('/history/extrinsic-sections', rateLimit(10, 60000), (req, res) => {
+app.get('/history/extrinsic-sections', rateLimit(10, 60000), async (req, res) => {
     try {
-        res.json(getExtrinsicSections());
+        res.json(await getExtrinsicSections());
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 // USD value lookup for an extrinsic (cross-table search)
-app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), (req, res) => {
+app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), async (req, res) => {
     const exId = req.params.extrinsicId;
     if (!/^\d+-\d+$/.test(exId)) return res.status(400).json({ error: 'Invalid extrinsic ID' });
     try {
-        const result = lookupExtrinsicUsdValue(exId);
+        const result = await lookupExtrinsicUsdValue(exId, tokenPrices);
         res.json(result || { usd_value: null });
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -1885,21 +1976,21 @@ app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), (req, res) => {
 });
 
 // Global search endpoint (wallet, hash, extrinsic_id, block)
-app.get('/search', rateLimit(20, 60000), (req, res) => {
+app.get('/search', rateLimit(20, 60000), async (req, res) => {
     const q = (req.query.q || '').trim();
     if (!q || q.length < 3 || q.length > 128) return res.status(400).json({ error: 'Invalid query' });
     try {
-        res.json(globalSearch(q));
+        res.json(await globalSearch(q));
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), (req, res) => {
+app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
-        const result = getExtrinsicsByAddress(req.params.address, page, limit);
+        const result = await getExtrinsicsByAddress(req.params.address, page, limit);
         res.json(result);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -1907,14 +1998,14 @@ app.get('/history/extrinsics/:address', validateAddress, rateLimit(30, 60000), (
 });
 
 // --- EXTRINSIC DETAIL ENDPOINT (single record with events) ---
-app.get('/history/extrinsic/:block/:index', rateLimit(30, 60000), (req, res) => {
+app.get('/history/extrinsic/:block/:index', rateLimit(30, 60000), async (req, res) => {
     const block = parseInt(req.params.block);
     const index = parseInt(req.params.index);
     if (isNaN(block) || isNaN(index) || block < 0 || index < 0) {
         return res.status(400).json({ error: 'Invalid block or index' });
     }
     try {
-        const result = getExtrinsicDetail(block, index);
+        const result = await getExtrinsicDetail(block, index);
         if (!result) return res.status(404).json({ error: 'Not found' });
         res.json(result);
     } catch (e) {
@@ -1963,7 +2054,7 @@ app.post('/api/identities', rateLimit(30, 60000), async (req, res) => {
 
 app.get('/history/global/liquidity', rateLimit(30, 60000), async (req, res) => {
     try {
-        const page = Math.min(parseInt(req.query.page) || 1, 10000);
+        const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
         const result = await getLiquidityEvents(page, limit, req.query.timestamp);
@@ -1997,6 +2088,286 @@ app.get('/history/swaps/:address', validateAddress, rateLimit(30, 60000), async 
     }
 });
 app.get('/chart/:symbol', validateSymbol, rateLimit(30, 60000), async (req, res) => res.json(await getCandles(req.params.symbol, req.query.res || 60)));
+
+// --- CSV EXPORT ENDPOINT ---
+
+const VALID_CSV_TYPES = ['swaps', 'transfers', 'bridges', 'liquidity', 'orderbook', 'extrinsics'];
+const VALID_CSV_FORMATS = ['sorametrics', 'koinly', 'cointracking', 'cointracker'];
+
+function csvEsc(v) {
+    if (v == null || v === '') return '';
+    const s = String(v);
+    return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function fmtDateISO(ts) { return ts ? new Date(Number(ts)).toISOString().replace('T', ' ').replace(/\.\d+Z$/, '') : ''; }
+function fmtDateUS(ts) {
+    if (!ts) return '';
+    const d = new Date(Number(ts));
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mi = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${mm}/${dd}/${d.getUTCFullYear()} ${hh}:${mi}:${ss}`;
+}
+
+// Determine transfer/bridge direction relative to selected wallets
+function getTxDirection(row, walletSet, fromCol, toCol) {
+    const fromMatch = walletSet.has(row[fromCol]);
+    const toMatch = walletSet.has(row[toCol]);
+    if (fromMatch && toMatch) return 'internal';
+    if (fromMatch) return 'out';
+    return 'in';
+}
+
+// Get the wallet address from a row for grouping
+function getRowWallet(type, row) {
+    if (type === 'swaps' || type === 'liquidity' || type === 'orderbook') return row.wallet;
+    if (type === 'transfers') return row.from_addr || row.to_addr;
+    if (type === 'bridges') return row.sender || row.recipient;
+    if (type === 'extrinsics') return row.signer;
+    return '';
+}
+
+// SoraMetrics section headers per type
+const SM_SECTIONS = {
+    swaps: { title: 'SWAPS', header: 'Date,Block,Wallet,In_Token,In_Amount,In_USD,Out_Token,Out_Amount,Out_USD,Hash,Extrinsic_ID',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, csvEsc(r.wallet), csvEsc(r.in_symbol), r.in_amount, r.in_usd || '', csvEsc(r.out_symbol), r.out_amount, r.out_usd || '', csvEsc(r.hash), csvEsc(r.extrinsic_id)].join(',') },
+    transfers: { title: 'TRANSFERS', header: 'Date,Block,From,To,Token,Amount,USD_Value,Hash,Extrinsic_ID',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, csvEsc(r.from_addr), csvEsc(r.to_addr), csvEsc(r.symbol), r.amount, r.usd_value || '', csvEsc(r.hash), csvEsc(r.extrinsic_id)].join(',') },
+    bridges: { title: 'BRIDGES', header: 'Date,Block,Network,Direction,From,To,Token,Amount,USD_Value,Hash,Extrinsic_ID',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, csvEsc(r.network), csvEsc(r.direction), csvEsc(r.sender), csvEsc(r.recipient), csvEsc(r.symbol), r.amount, r.usd_value || '', csvEsc(r.hash), csvEsc(r.extrinsic_id)].join(',') },
+    liquidity: { title: 'LIQUIDITY', header: 'Date,Block,Wallet,Pool_Base,Pool_Target,Base_Amount,Target_Amount,USD_Value,Action,Hash,Extrinsic_ID',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, csvEsc(r.wallet), csvEsc(r.pool_base), csvEsc(r.pool_target), r.base_amount, r.target_amount, r.usd_value || '', csvEsc(r.type), csvEsc(r.hash), csvEsc(r.extrinsic_id)].join(',') },
+    orderbook: { title: 'ORDER BOOK', header: 'Date,Block,Wallet,Event,Base_Asset,Quote_Asset,Side,Price,Amount,USD_Value,Hash,Extrinsic_ID',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, csvEsc(r.wallet), csvEsc(r.event_type), csvEsc(r.base_asset), csvEsc(r.quote_asset), csvEsc(r.side), r.price, r.amount, r.usd_value || '', csvEsc(r.hash), csvEsc(r.extrinsic_id)].join(',') },
+    extrinsics: { title: 'EXTRINSICS', header: 'Date,Block,Extrinsic_ID,Signer,Pallet,Method,Result,Hash',
+        row: (r) => [fmtDateISO(r.timestamp), r.block, `${r.block}-${r.extrinsic_index}`, csvEsc(r.signer), csvEsc(r.section), csvEsc(r.method), r.success ? 'Success' : 'Failed', csvEsc(r.hash)].join(',') }
+};
+
+// --- FORMAT: SoraMetrics (by wallet, detailed) ---
+function formatSorametrics(data, types, wallets, walletNames) {
+    const lines = [];
+    for (let i = 0; i < wallets.length; i++) {
+        const addr = wallets[i];
+        const name = walletNames[i] || '';
+        const label = name ? `${addr.slice(0, 8)}...${addr.slice(-6)} (${name})` : `${addr.slice(0, 8)}...${addr.slice(-6)}`;
+        lines.push(`=== WALLET: ${label} ===`);
+        const walletSet = new Set([addr]);
+        for (const type of types) {
+            const allRows = data[type] || [];
+            const sec = SM_SECTIONS[type];
+            if (!sec) continue;
+            // Filter rows belonging to this wallet
+            const rows = allRows.filter(r => {
+                if (type === 'transfers') return r.from_addr === addr || r.to_addr === addr;
+                if (type === 'bridges') return r.sender === addr || r.recipient === addr;
+                return getRowWallet(type, r) === addr;
+            });
+            if (rows.length === 0) continue;
+            lines.push(`--- ${sec.title} (${rows.length}) ---`);
+            lines.push(sec.header);
+            for (const row of rows) lines.push(sec.row(row));
+            lines.push('');
+        }
+        lines.push('');
+    }
+    return lines.join('\n');
+}
+
+// --- FORMAT: Koinly ---
+function formatKoinly(data, types, wallets) {
+    const walletSet = new Set(wallets);
+    const header = 'Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,TxHash,Description';
+    const rows = [header];
+    const kRow = (date, sentAmt, sentCur, rcvAmt, rcvCur, nwAmt, nwCur, hash, desc) =>
+        [date, sentAmt, csvEsc(sentCur), rcvAmt, csvEsc(rcvCur), '', '', nwAmt, csvEsc(nwCur), csvEsc(hash), csvEsc(desc)].join(',');
+
+    if (types.includes('swaps')) {
+        for (const r of (data.swaps || [])) {
+            rows.push(kRow(fmtDateISO(r.timestamp), r.out_amount, r.out_symbol, r.in_amount, r.in_symbol,
+                r.in_usd || '', 'USD', r.hash, `Swap ${r.out_symbol} -> ${r.in_symbol}`));
+        }
+    }
+    if (types.includes('transfers')) {
+        for (const r of (data.transfers || [])) {
+            const dir = getTxDirection(r, walletSet, 'from_addr', 'to_addr');
+            if (dir === 'out') rows.push(kRow(fmtDateISO(r.timestamp), r.amount, r.symbol, '', '', r.usd_value || '', 'USD', r.hash, 'Transfer out'));
+            else if (dir === 'in') rows.push(kRow(fmtDateISO(r.timestamp), '', '', r.amount, r.symbol, r.usd_value || '', 'USD', r.hash, 'Transfer in'));
+            else rows.push(kRow(fmtDateISO(r.timestamp), r.amount, r.symbol, '', '', r.usd_value || '', 'USD', r.hash, 'Internal transfer'));
+        }
+    }
+    if (types.includes('bridges')) {
+        for (const r of (data.bridges || [])) {
+            const dir = getTxDirection(r, walletSet, 'sender', 'recipient');
+            if (dir === 'out') rows.push(kRow(fmtDateISO(r.timestamp), r.amount, r.symbol, '', '', r.usd_value || '', 'USD', r.hash, `Bridge out (${r.network})`));
+            else if (dir === 'in') rows.push(kRow(fmtDateISO(r.timestamp), '', '', r.amount, r.symbol, r.usd_value || '', 'USD', r.hash, `Bridge in (${r.network})`));
+            else rows.push(kRow(fmtDateISO(r.timestamp), r.amount, r.symbol, '', '', r.usd_value || '', 'USD', r.hash, `Bridge internal (${r.network})`));
+        }
+    }
+    if (types.includes('liquidity')) {
+        for (const r of (data.liquidity || [])) {
+            const isAdd = (r.type || '').toLowerCase().includes('add') || (r.type || '').toLowerCase().includes('deposit');
+            const pool = `${r.pool_base}/${r.pool_target}`;
+            if (isAdd) {
+                if (r.base_amount) rows.push(kRow(fmtDateISO(r.timestamp), r.base_amount, r.pool_base, '', '', '', '', r.hash, `Provide Liquidity ${pool}`));
+                if (r.target_amount) rows.push(kRow(fmtDateISO(r.timestamp), r.target_amount, r.pool_target, '', '', '', '', r.hash, `Provide Liquidity ${pool}`));
+            } else {
+                if (r.base_amount) rows.push(kRow(fmtDateISO(r.timestamp), '', '', r.base_amount, r.pool_base, '', '', r.hash, `Remove Liquidity ${pool}`));
+                if (r.target_amount) rows.push(kRow(fmtDateISO(r.timestamp), '', '', r.target_amount, r.pool_target, '', '', r.hash, `Remove Liquidity ${pool}`));
+            }
+        }
+    }
+    if (types.includes('orderbook')) {
+        for (const r of (data.orderbook || [])) {
+            const isBuy = (r.side || '').toLowerCase() === 'buy';
+            const quoteAmount = (parseFloat(r.price) || 0) * (parseFloat(r.amount) || 0);
+            if (isBuy) rows.push(kRow(fmtDateISO(r.timestamp), quoteAmount || '', r.quote_asset, r.amount, r.base_asset, r.usd_value || '', 'USD', r.hash, `Order Book ${r.event_type}`));
+            else rows.push(kRow(fmtDateISO(r.timestamp), r.amount, r.base_asset, quoteAmount || '', r.quote_asset, r.usd_value || '', 'USD', r.hash, `Order Book ${r.event_type}`));
+        }
+    }
+    return rows.join('\n');
+}
+
+// --- FORMAT: CoinTracking ---
+function formatCoinTracking(data, types, wallets) {
+    const walletSet = new Set(wallets);
+    const header = '"Type","Buy","Cur.","Sell","Cur.","Fee","Cur.","Exchange","Group","Comment","Date","Tx-ID"';
+    const rows = [header];
+    const ctRow = (type, buyAmt, buyCur, sellAmt, sellCur, comment, date, txId) =>
+        [csvEsc(type), buyAmt, csvEsc(buyCur), sellAmt, csvEsc(sellCur), '', '', '"SORA DEX"', '', csvEsc(comment), csvEsc(date), csvEsc(txId)].join(',');
+
+    if (types.includes('swaps')) {
+        for (const r of (data.swaps || [])) {
+            rows.push(ctRow('Trade', r.in_amount, r.in_symbol, r.out_amount, r.out_symbol, `Swap on SORA`, fmtDateISO(r.timestamp), r.hash));
+        }
+    }
+    if (types.includes('transfers')) {
+        for (const r of (data.transfers || [])) {
+            const dir = getTxDirection(r, walletSet, 'from_addr', 'to_addr');
+            if (dir === 'out') rows.push(ctRow('Withdrawal', '', '', r.amount, r.symbol, 'Transfer out', fmtDateISO(r.timestamp), r.hash));
+            else if (dir === 'in') rows.push(ctRow('Deposit', r.amount, r.symbol, '', '', 'Transfer in', fmtDateISO(r.timestamp), r.hash));
+            else rows.push(ctRow('Withdrawal', '', '', r.amount, r.symbol, 'Internal transfer', fmtDateISO(r.timestamp), r.hash));
+        }
+    }
+    if (types.includes('bridges')) {
+        for (const r of (data.bridges || [])) {
+            const dir = getTxDirection(r, walletSet, 'sender', 'recipient');
+            if (dir === 'out') rows.push(ctRow('Withdrawal', '', '', r.amount, r.symbol, `Bridge to ${r.network}`, fmtDateISO(r.timestamp), r.hash));
+            else if (dir === 'in') rows.push(ctRow('Deposit', r.amount, r.symbol, '', '', `Bridge from ${r.network}`, fmtDateISO(r.timestamp), r.hash));
+            else rows.push(ctRow('Withdrawal', '', '', r.amount, r.symbol, `Bridge internal ${r.network}`, fmtDateISO(r.timestamp), r.hash));
+        }
+    }
+    if (types.includes('liquidity')) {
+        for (const r of (data.liquidity || [])) {
+            const isAdd = (r.type || '').toLowerCase().includes('add') || (r.type || '').toLowerCase().includes('deposit');
+            const pool = `${r.pool_base}/${r.pool_target}`;
+            if (isAdd) {
+                if (r.base_amount) rows.push(ctRow('Provide Liquidity', '', '', r.base_amount, r.pool_base, `Add LP ${pool}`, fmtDateISO(r.timestamp), r.hash));
+                if (r.target_amount) rows.push(ctRow('Provide Liquidity', '', '', r.target_amount, r.pool_target, `Add LP ${pool}`, fmtDateISO(r.timestamp), r.hash));
+            } else {
+                if (r.base_amount) rows.push(ctRow('Remove Liquidity', r.base_amount, r.pool_base, '', '', `Remove LP ${pool}`, fmtDateISO(r.timestamp), r.hash));
+                if (r.target_amount) rows.push(ctRow('Remove Liquidity', r.target_amount, r.pool_target, '', '', `Remove LP ${pool}`, fmtDateISO(r.timestamp), r.hash));
+            }
+        }
+    }
+    if (types.includes('orderbook')) {
+        for (const r of (data.orderbook || [])) {
+            const isBuy = (r.side || '').toLowerCase() === 'buy';
+            const quoteAmount = (parseFloat(r.price) || 0) * (parseFloat(r.amount) || 0);
+            if (isBuy) rows.push(ctRow('Trade', r.amount, r.base_asset, quoteAmount || '', r.quote_asset, `Order Book ${r.event_type}`, fmtDateISO(r.timestamp), r.hash));
+            else rows.push(ctRow('Trade', quoteAmount || '', r.quote_asset, r.amount, r.base_asset, `Order Book ${r.event_type}`, fmtDateISO(r.timestamp), r.hash));
+        }
+    }
+    return rows.join('\n');
+}
+
+// --- FORMAT: CoinTracker ---
+function formatCoinTracker(data, types, wallets) {
+    const walletSet = new Set(wallets);
+    const header = 'Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag';
+    const rows = [header];
+    const ckRow = (date, rcvAmt, rcvCur, sentAmt, sentCur, tag) =>
+        [date, rcvAmt, csvEsc(rcvCur), sentAmt, csvEsc(sentCur), '', '', csvEsc(tag)].join(',');
+
+    if (types.includes('swaps')) {
+        for (const r of (data.swaps || [])) {
+            rows.push(ckRow(fmtDateUS(r.timestamp), r.in_amount, r.in_symbol, r.out_amount, r.out_symbol, ''));
+        }
+    }
+    if (types.includes('transfers')) {
+        for (const r of (data.transfers || [])) {
+            const dir = getTxDirection(r, walletSet, 'from_addr', 'to_addr');
+            if (dir === 'out') rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.amount, r.symbol, ''));
+            else if (dir === 'in') rows.push(ckRow(fmtDateUS(r.timestamp), r.amount, r.symbol, '', '', ''));
+            else rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.amount, r.symbol, ''));
+        }
+    }
+    if (types.includes('bridges')) {
+        for (const r of (data.bridges || [])) {
+            const dir = getTxDirection(r, walletSet, 'sender', 'recipient');
+            if (dir === 'out') rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.amount, r.symbol, ''));
+            else if (dir === 'in') rows.push(ckRow(fmtDateUS(r.timestamp), r.amount, r.symbol, '', '', ''));
+            else rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.amount, r.symbol, ''));
+        }
+    }
+    if (types.includes('liquidity')) {
+        for (const r of (data.liquidity || [])) {
+            const isAdd = (r.type || '').toLowerCase().includes('add') || (r.type || '').toLowerCase().includes('deposit');
+            if (isAdd) {
+                if (r.base_amount) rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.base_amount, r.pool_base, ''));
+                if (r.target_amount) rows.push(ckRow(fmtDateUS(r.timestamp), '', '', r.target_amount, r.pool_target, ''));
+            } else {
+                if (r.base_amount) rows.push(ckRow(fmtDateUS(r.timestamp), r.base_amount, r.pool_base, '', '', ''));
+                if (r.target_amount) rows.push(ckRow(fmtDateUS(r.timestamp), r.target_amount, r.pool_target, '', '', ''));
+            }
+        }
+    }
+    if (types.includes('orderbook')) {
+        for (const r of (data.orderbook || [])) {
+            const isBuy = (r.side || '').toLowerCase() === 'buy';
+            const quoteAmount = (parseFloat(r.price) || 0) * (parseFloat(r.amount) || 0);
+            if (isBuy) rows.push(ckRow(fmtDateUS(r.timestamp), r.amount, r.base_asset, quoteAmount || '', r.quote_asset, ''));
+            else rows.push(ckRow(fmtDateUS(r.timestamp), quoteAmount || '', r.quote_asset, r.amount, r.base_asset, ''));
+        }
+    }
+    return rows.join('\n');
+}
+
+const CSV_FORMATTERS = { sorametrics: formatSorametrics, koinly: formatKoinly, cointracking: formatCoinTracking, cointracker: formatCoinTracker };
+const CSV_FILENAMES = { sorametrics: 'sorametrics_export', koinly: 'koinly_import', cointracking: 'cointracking_import', cointracker: 'cointracker_import' };
+
+app.get('/export/csv', rateLimit(10, 60000), async (req, res) => {
+    try {
+        const wallets = (req.query.wallets || '').split(',').filter(w => VALID_SS58.test(w));
+        const types = (req.query.types || '').split(',').filter(t => VALID_CSV_TYPES.includes(t));
+        const format = VALID_CSV_FORMATS.includes(req.query.format) ? req.query.format : 'sorametrics';
+        const walletNames = (req.query.walletNames || '').split(',');
+        const startTs = parseInt(req.query.start) || 0;
+        const endTs = parseInt(req.query.end) || Date.now();
+
+        if (wallets.length === 0) return res.status(400).json({ error: 'No valid wallets' });
+        if (wallets.length > 50) return res.status(400).json({ error: 'Max 50 wallets' });
+        if (types.length === 0) return res.status(400).json({ error: 'No valid types' });
+        if (startTs >= endTs) return res.status(400).json({ error: 'Invalid date range' });
+
+        // Tax formats ignore extrinsics (no financial value)
+        const effectiveTypes = format === 'sorametrics' ? types : types.filter(t => t !== 'extrinsics');
+        const data = await getExportData({ wallets, types: effectiveTypes, startTs, endTs, limit: 50000 });
+        const formatter = CSV_FORMATTERS[format];
+        const csv = formatter(data, effectiveTypes, wallets, walletNames);
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `${CSV_FILENAMES[format]}_${dateStr}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send('\uFEFF' + csv);
+    } catch (e) {
+        console.error('CSV export error:', e.message);
+        res.status(500).json({ error: 'Export failed' });
+    }
+});
 
 // --- SORA INTELLIGENCE ENDPOINTS ---
 
@@ -2191,21 +2562,9 @@ app.get('/burns/supply-history/:symbol', rateLimit(15, 60000), async (req, res) 
     const startTime = ms === 0 ? 0 : (Date.now() - ms);
 
     try {
-        const data = getSupplyHistory(symbol, startTime);
-
-        // Delta-based offset: anchor on-chain snapshots to MOF circulating supply
-        // On-chain totalIssuance includes locked/vesting tokens, MOF returns circulating.
-        // The delta between consecutive on-chain snapshots IS the real burn/mint change.
-        // We shift the entire curve so the latest point matches MOF's current supply.
-        const anchorSupply = await getTokenTotalSupply(symbol);
-        const latest = getLatestSupplySnapshot(symbol);
-        if (anchorSupply && latest && data.length > 0) {
-            const offset = anchorSupply - latest.total_supply;
-            for (let i = 0; i < data.length; i++) {
-                data[i] = { ...data[i], total_supply: data[i].total_supply + offset };
-            }
-        }
-
+        const token = BURN_TOKENS[symbol];
+        const genesis = GENESIS_SUPPLY[symbol] || null;
+        const data = await getSupplyHistory(symbol, startTime, token?.assetId, genesis);
         res.json(data);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
@@ -2220,32 +2579,61 @@ app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
 
     try {
         const stats = {};
+        const token = BURN_TOKENS[symbol];
         for (const [tf, ms] of Object.entries(timeframes)) {
             const startTime = ms === 0 ? 0 : Date.now() - ms;
-            const supplyBurn = getBurnStats(symbol, startTime);
+            let supplyBurn;
 
-            // For XOR: supply snapshot delta is unreliable at 10^18 scale (float64 precision loss).
-            // Calculate fee-based burns instead: 20% of all XOR fees are burned directly.
-            // Note: pre-redenomination XOR amounts are larger (correct for that era).
             if (symbol === 'XOR') {
-                const feeData = getFeeStats(startTime, currentDenomFactor);
+                // XOR: supply snapshot delta is unreliable at 10^18 scale (float64 precision loss).
+                // Calculate fee-based burns instead: 20% of all XOR fees are burned directly.
+                supplyBurn = await getBurnStats(symbol, startTime);
+                const feeData = await getFeeStats(startTime, currentDenomFactor);
                 let totalFees = 0;
                 let totalFeesUsd = 0;
                 feeData.forEach(r => {
-                    totalFees += r.total_xor || 0;
-                    totalFeesUsd += r.total_usd || 0;
+                    totalFees += parseFloat(r.total_xor) || 0;
+                    totalFeesUsd += parseFloat(r.total_usd) || 0;
                 });
                 const feeBurn = totalFees * 0.20;
                 const feeBurnUsd = totalFeesUsd * 0.20;
                 supplyBurn.feeBased = feeBurn;
                 supplyBurn.feeBasedUsd = feeBurnUsd;
-                // Always prefer fee-based burns for XOR across all timeframes.
-                // Supply snapshot delta is unreliable at 10^18 scale (float64 precision loss
-                // causes random positive/negative deltas that don't reflect actual burns).
                 if (feeBurn > 0) {
                     supplyBurn.totalBurned = feeBurn;
                     supplyBurn.totalBurnedUsd = feeBurnUsd;
                 }
+            } else if (token && token.assetId) {
+                // Non-XOR: compute burns from circulating supply changes.
+                // "all" timeframe: genesisSupply - currentCirculating (e.g. 100M - 56M = 44M).
+                // Short timeframes: MOF snapshot delta (first - last in period).
+                const price = tokenPrices[symbol] || 0;
+                const currentSupplyNow = await getTokenTotalSupply(symbol);
+                const genesis = GENESIS_SUPPLY[symbol];
+
+                if (tf === 'all' && genesis && currentSupplyNow) {
+                    // Total burned since genesis = initial distribution - current circulating
+                    const totalBurned = genesis.supply - currentSupplyNow;
+                    supplyBurn = {
+                        totalBurned: totalBurned,
+                        totalBurnedUsd: totalBurned * price,
+                        totalBurn: totalBurned,
+                        genesisSupply: genesis.supply,
+                    };
+                } else {
+                    // Short timeframes: delta from MOF circulating snapshots
+                    const delta = await getSupplySnapshotDelta(symbol, startTime);
+                    const burned = delta.firstSupply - delta.lastSupply; // positive = supply decreased
+                    supplyBurn = {
+                        totalBurned: burned > 0 ? burned : 0,
+                        totalBurnedUsd: (burned > 0 ? burned : 0) * price,
+                        totalBurn: burned > 0 ? burned : 0,
+                        firstSupply: delta.firstSupply,
+                        lastSupply: delta.lastSupply,
+                    };
+                }
+            } else {
+                supplyBurn = await getBurnStats(symbol, startTime);
             }
 
             stats[tf] = supplyBurn;
@@ -2260,10 +2648,10 @@ app.get('/burns/stats/:symbol', rateLimit(20, 60000), async (req, res) => {
 app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
     try {
         const startTime = Date.now() - 86400000;
-        const feeStats = getFeeStats(startTime, currentDenomFactor);
+        const feeStats = await getFeeStats(startTime, currentDenomFactor);
 
         let totalXor = 0;
-        feeStats.forEach(row => { totalXor += row.total_xor || 0; });
+        feeStats.forEach(row => { totalXor += parseFloat(row.total_xor) || 0; });
 
         // SORA fee distribution model (verified from sora2-network source)
         const flow = {
@@ -2295,7 +2683,7 @@ app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
         // BurnRate started at 10%, increases ~0.0357%/day, capped at 65% (reached ~mid-2025).
         // LP share = 1 - BurnRate = 35%. This is permanent — no mechanism to disable.
         try {
-            const swapVolumeUsd = getSwapVolumeUsd(startTime);
+            const swapVolumeUsd = await getSwapVolumeUsd(startTime);
             const estimatedFees = swapVolumeUsd * 0.003;
             flow.pswapFlow = {
                 totalSwapVolumeUsd24h: swapVolumeUsd,
@@ -2411,7 +2799,7 @@ async function startApp() {
     // Initialize denomination factor from on-chain + fix legacy fees with missing denom_factor
     await updateDenomFactor();
     if (currentDenomFactor !== '1') {
-        const fixed = fixFeeDenomFactor(currentDenomFactor);
+        const fixed = await fixFeeDenomFactor(currentDenomFactor);
         if (fixed > 0) console.log(`✅ Fixed ${fixed} fees with denom_factor=10^${currentDenomFactor.length - 1}`);
     }
     setInterval(updateDenomFactor, 3600000); // refresh every 1h
@@ -2420,16 +2808,18 @@ async function startApp() {
     updateKeyPrices();
 
     // Supply snapshot job - every 30 minutes (Burn Tracker)
-    // Uses on-chain totalIssuance (NOT MOF API) to stay consistent with backfiller/supply-filler.
-    // MOF returns circulating supply, on-chain returns total issuance — mixing them causes fake burns.
+    // Uses MOF API circulating supply so chart matches the "Supply actual" card value.
+    // Burn stats come from asset_snapshot burn/mint columns, NOT from supply deltas.
     async function takeSupplySnapshots() {
-        console.log('📸 Taking supply snapshots (on-chain)...');
+        console.log('📸 Taking supply snapshots...');
         for (const sym of Object.keys(BURN_TOKENS)) {
             try {
-                const supply = await getOnChainTotalIssuance(sym);
+                const supply = await getTokenTotalSupply(sym);
                 if (supply !== null && supply > 0) {
-                    insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
+                    await insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
                     console.log(`  ✅ ${sym}: ${supply.toLocaleString()}`);
+                } else {
+                    console.log(`  ⚠️ ${sym}: skipped snapshot (MOF API returned ${supply})`);
                 }
             } catch (e) {
                 console.error(`  ❌ ${sym} snapshot error:`, e.message);
@@ -2443,7 +2833,7 @@ async function startApp() {
 
     // Pre-load identity cache from DB
     try {
-        const cached = getAllCachedIdentities();
+        const cached = await getAllCachedIdentities();
         for (const row of cached) {
             identityMemCache.set(row.address, { display: row.display, ts: Date.now() });
         }

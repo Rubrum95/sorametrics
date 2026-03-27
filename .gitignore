@@ -8,3 +8,10 @@ backfill_state.json
 # Music player assets (deployed separately via SCP)
 music/*.mp3
 music/*.wav
+
+# Backup files
+*.bak
+*.bak-*
+
+# Backfill state files
+backfill_orderbook_state.json

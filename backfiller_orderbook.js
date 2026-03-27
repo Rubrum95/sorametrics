@@ -138,6 +138,19 @@ async function processBlock(blockNumber) {
             return true;
         }
 
+
+function parseOBVal(val) {
+    if (!val) return '';
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'string') return val.replace(/,/g, '');
+    if (typeof val === 'object' && val.inner) {
+        try {
+            const BigNumber = require('bignumber.js');
+            return new BigNumber(val.inner).div('1e18').toFixed(6);
+        } catch(e) {}
+    }
+    return String(val).replace(/,/g, '');
+}
         const pending = [];
 
         for (const { event, phase } of orderBookEvts) {
@@ -156,17 +169,17 @@ async function processBlock(blockNumber) {
 
                 if (m === 'LimitOrderPlaced') {
                     eventType = 'placed'; orderId = String(d[1] || ''); wallet = d[2] || '';
-                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = parseOBVal(d[4]); amount = parseOBVal(d[5]);
                 } else if (m === 'LimitOrderCanceled') {
                     eventType = 'canceled'; orderId = String(d[1] || ''); wallet = d[2] || '';
                 } else if (m === 'LimitOrderExecuted') {
                     eventType = 'executed'; orderId = String(d[1] || ''); wallet = d[2] || '';
-                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = d[4] || ''; amount = d[5] || '';
+                    side = d[3] === 'Buy' ? 'buy' : 'sell'; price = parseOBVal(d[4]); amount = parseOBVal(d[5]);
                 } else if (m === 'LimitOrderFilled') {
                     eventType = 'filled'; orderId = String(d[1] || ''); wallet = d[2] || '';
                 } else if (m === 'MarketOrderExecuted') {
                     eventType = 'market'; wallet = d[1] || '';
-                    side = d[2] === 'Buy' ? 'buy' : 'sell'; amount = d[3] || ''; price = d[4] || '';
+                    side = d[2] === 'Buy' ? 'buy' : 'sell'; amount = parseOBVal(d[3]); price = parseOBVal(d[4]);
                 } else { continue; }
 
                 if (typeof price === 'string') price = price.replace(/,/g, '');

@@ -106,7 +106,8 @@ const TRANSLATIONS = {
         error_loading_container: "Error cargando datos.",
         chart_title: "Gráfico", holders_col: "Holders", chart_col: "Gráfico",
         view_tx_details: "Ver detalles de transacción",
-        stk_payout: "Payout", stk_payout_recent: "reciente", stk_payout_day: "1 día", stk_payout_days: "días"
+        stk_payout: "Payout", stk_payout_recent: "reciente", stk_payout_day: "1 día", stk_payout_days: "días",
+        csv_export_btn: "Exportar CSV", csv_export_title: "Exportar Datos (CSV)", csv_select_wallets: "Seleccionar Wallets", csv_date_from: "Desde", csv_date_to: "Hasta", csv_select_types: "Tipos de Transacción", csv_download: "Descargar CSV", csv_exporting: "Exportando datos...", csv_export_ok: "¡Exportación completada!", csv_no_wallets: "Selecciona al menos una wallet.", csv_no_types: "Selecciona al menos un tipo de transacción.", csv_select_all: "Seleccionar Todo", csv_add_wallet: "+ Añadir", csv_add_wallet_hint: "Añade wallets para exportar sus datos.", csv_invalid_address: "Formato de dirección SORA inválido.", csv_filter_mine: "Mis Wallets", csv_filter_watched: "Vigiladas", csv_filter_none: "Ninguna", csv_format: "Formato de Exportación", csv_format_hint_sm: "Exportación detallada organizada por wallet con todos los tipos."
     },
     en: {
         tab_balance: "Balance", tab_swaps: "Swaps", tab_transfers: "Transfers", tab_tokens: "Tokens", tab_liquidity: "Liquidity", tab_bridges: "Bridges", total_net_worth: "Total Net Worth", header_my_wallets: "💼 My Wallets", btn_add_wallet: "+ Add Wallet", header_watch_wallets: "👀 Watched Wallets", live_transfers: "💸 Live Transfers", time: "Time", from: "From", amount: "Amount", to: "To", waiting_activity: "Waiting for activity...", previous: "Previous", next: "Next", page: "Page", liquidity_pools: "🌊 Liquidity (Pools)", all: "All", total_pools: "Total Pools:", pair: "Pair", reserves: "Reserves", action: "Action", loading_pools: "Loading pools...", live_swaps: "⚡ Live Swaps", all_tokens: "All Tokens", search_token: "Search token...", input: "Input", output: "Output", account: "Account", refresh: "Refresh", favorites: "⭐ Favorites", search_token_name_symbol_id: "Search by name, symbol or ID...", asset: "Asset", price: "Price", loading: "Loading...", holders: "Holders", rank: "Rank", wallet: "Wallet", balance: "Balance", add_wallet: "Add Wallet", sora_address: "SORA Address", name_alias: "Name (Alias)", example_savings: "Ex: Savings", type: "Type", my_wallet_total: "My Wallet (Adds to total)", watched_wallet_tracking: "Watched (Tracking)", save_wallet: "Save Wallet", wallet: "Wallet", assets: "Assets", swaps: "Swaps", transfers: "Transfers", other: "Other", no_wallets_saved: "You have no wallets saved.", not_watching_wallets: "You are not watching any wallets.", no_favorites_yet: "You have no favorites yet.", no_data: "No data.", no_swaps_found: "No swaps found.", no_assets_found: "No assets found.", no_recent_swaps: "No recent swaps.", no_recent_transfers: "No recent transfers.", error_loading_data: "Error loading data", error_loading_pools: "Error loading pools", error_loading: "Error loading", page_x_of_y: "Page {current} of {total}", filter: "Filter:", all_tokens_star: "🌟 All", received: "⬇ RECEIVED", sent: "⬆ SENT", accounts: "accounts", chart: "Chart", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend (Fees)",
@@ -141,7 +142,8 @@ const TRANSLATIONS = {
         error_loading_container: "Error loading data.",
         chart_title: "Chart", holders_col: "Holders", chart_col: "Chart",
         view_tx_details: "View transaction details",
-        stk_payout: "Payout", stk_payout_recent: "recently", stk_payout_day: "1 day", stk_payout_days: "days"
+        stk_payout: "Payout", stk_payout_recent: "recently", stk_payout_day: "1 day", stk_payout_days: "days",
+        csv_export_btn: "Export CSV", csv_export_title: "Export Data (CSV)", csv_select_wallets: "Select Wallets", csv_date_from: "From", csv_date_to: "To", csv_select_types: "Transaction Types", csv_download: "Download CSV", csv_exporting: "Exporting data...", csv_export_ok: "Export completed!", csv_no_wallets: "Select at least one wallet.", csv_no_types: "Select at least one transaction type.", csv_select_all: "Select All", csv_add_wallet: "+ Add", csv_add_wallet_hint: "Add wallets below to export their data.", csv_invalid_address: "Invalid SORA address format.", csv_filter_mine: "My Wallets", csv_filter_watched: "Watched", csv_filter_none: "None", csv_format: "Export Format", csv_format_hint_sm: "Detailed export organized by wallet with all transaction types."
     },
     jp: {
         tab_balance: "残高", tab_swaps: "スワップ", tab_transfers: "転送", tab_tokens: "トークン", tab_liquidity: "流動性", tab_bridges: "ブリッジ", total_net_worth: "総資産", header_my_wallets: "💼 マイウォレット", btn_add_wallet: "+ ウォレット追加", header_watch_wallets: "👀 監視ウォレット", live_transfers: "💸 ライブ転送", time: "時間", from: "送信元", amount: "金額", to: "送信先", waiting_activity: "アクティビティ待機中...", previous: "前へ", next: "次へ", page: "ページ", liquidity_pools: "🌊 流動性 (プール)", all: "すべて", total_pools: "プール総数:", pair: "ペア", reserves: "準備金", action: "アクション", loading_pools: "プールを読み込み中...", live_swaps: "⚡ ライブスワップ", all_tokens: "すべてのトークン", search_token: "トークン検索...", input: "入力", output: "出力", account: "アカウント", refresh: "更新", favorites: "⭐ お気に入り", search_token_name_symbol_id: "名前、シンボル、IDで検索...", asset: "資産", price: "価格", loading: "読み込み中...", holders: "ホルダー", rank: "ランク", wallet: "ウォレット", balance: "残高", add_wallet: "ウォレット追加", sora_address: "SORAアドレス", name_alias: "名前 (エイリアス)", example_savings: "例: 貯金", type: "タイプ", my_wallet_total: "マイウォレット (合計に加算)", watched_wallet_tracking: "監視 (追跡のみ)", save_wallet: "ウォレット保存", wallet: "ウォレット", assets: "資産", swaps: "スワップ", transfers: "転送", other: "その他", no_wallets_saved: "保存されたウォレットはありません。", not_watching_wallets: "監視中のウォレットはありません。", no_favorites_yet: "お気に入りはまだありません。", no_data: "データなし。", no_swaps_found: "スワップが見つかりません。", no_assets_found: "資産が見つかりません。", no_recent_swaps: "最近のスワップはありません。", no_recent_transfers: "最近の転送はありません。", error_loading_data: "データの読み込みエラー", error_loading_pools: "プールの読み込みエラー", error_loading: "読み込みエラー", page_x_of_y: "ページ {current} / {total}", filter: "フィルター:", all_tokens_star: "🌟 すべて", received: "⬇ 受信", sent: "⬆ 送信", accounts: "アカウント", chart: "チャート", fees_pie_title: "種類別のXOR焼却", fees_line_title: "活動傾向 (手数料)",
@@ -151,7 +153,8 @@ const TRANSLATIONS = {
         tab_orderbook: "Order Book", tab_extrinsics: "エクストリンシクス", all_pallets: "全パレット", signer: "署名者", result: "結果", extrinsic_details: "エクストリンシクス詳細",
         tab_governance: "ガバナンス", gov_council: "カウンシル", gov_elections: "選挙", gov_motions: "動議", gov_democracy: "民主主義", gov_tech_committee: "技術委員会", gov_council_members: "カウンシルメンバー", gov_elected: "選出メンバー", gov_candidates: "候補者", gov_runners_up: "次点者", gov_no_motions: "アクティブな動議はありません", gov_no_referendums: "アクティブな住民投票はありません", gov_no_proposals: "アクティブな提案はありません", gov_referendums: "住民投票", gov_proposals: "公開提案", gov_next_election: "次の選挙", gov_aye: "賛成", gov_nay: "反対",
         usd_value_at_tx: "USD価値 (TX時点)",
-        search_method: "メソッド検索..."
+        search_method: "メソッド検索...",
+        csv_export_btn: "CSVエクスポート", csv_export_title: "データエクスポート (CSV)", csv_select_wallets: "ウォレットを選択", csv_date_from: "開始日", csv_date_to: "終了日", csv_select_types: "トランザクションタイプ", csv_download: "CSVダウンロード", csv_exporting: "エクスポート中...", csv_export_ok: "エクスポート完了!", csv_no_wallets: "ウォレットを1つ以上選択してください。", csv_no_types: "タイプを1つ以上選択してください。", csv_select_all: "すべて選択", csv_add_wallet: "+ 追加", csv_add_wallet_hint: "ウォレットを追加してデータをエクスポート。", csv_invalid_address: "無効なSORAアドレス形式。", csv_filter_mine: "マイウォレット", csv_filter_watched: "監視中", csv_filter_none: "なし", csv_format: "エクスポート形式", csv_format_hint_sm: "すべてのトランザクションタイプを含むウォレット別の詳細エクスポート。"
     },
     pt: {
         tab_balance: "Saldo", tab_swaps: "Trocas", tab_transfers: "Transferências", tab_tokens: "Tokens", tab_liquidity: "Liquidez", tab_bridges: "Pontes", total_net_worth: "Patrimônio Total", header_my_wallets: "💼 Minhas Carteiras", btn_add_wallet: "+ Adicionar Carteira", header_watch_wallets: "👀 Carteiras Observadas", live_transfers: "💸 Transferências ao Vivo", time: "Hora", from: "De", amount: "Quantia", to: "Para", waiting_activity: "Aguardando atividade...", previous: "Anterior", next: "Próximo", page: "Página", liquidity_pools: "🌊 Liquidez (Pools)", all: "Todos", total_pools: "Total de Pools:", pair: "Par", reserves: "Reservas", action: "Ação", loading_pools: "Carregando pools...", live_swaps: "⚡ Trocas ao Vivo", all_tokens: "Todos os Tokens", search_token: "Buscar token...", input: "Entrada", output: "Saída", account: "Conta", refresh: "Atualizar", favorites: "⭐ Favoritos", search_token_name_symbol_id: "Buscar por nome, símbolo o ID...", asset: "Ativo", price: "Preço", loading: "Carregando...", holders: "Detentores", rank: "Ranking", wallet: "Carteira", balance: "Saldo", add_wallet: "Adicionar Carteira", sora_address: "Endereço SORA", name_alias: "Nome (Apelido)", example_savings: "Ex: Poupança", type: "Tipo", my_wallet_total: "Minha Carteira (Soma ao total)", watched_wallet_tracking: "Observada (Apenas rastreamento)", save_wallet: "Salvar Carteira", wallet: "Carteira", assets: "Ativos", swaps: "Trocas", transfers: "Transferências", other: "Outro", no_wallets_saved: "Nenhuma carteira salva.", not_watching_wallets: "Você não está observando nenhuma carteira.", no_favorites_yet: "Você ainda não tem favoritos.", no_data: "Sem dados.", no_swaps_found: "Nenhuma troca encontrada.", no_assets_found: "Nenhum ativo encontrado.", no_recent_swaps: "Nenhuma troca recente.", no_recent_transfers: "Nenhuma transferência recente.", error_loading_data: "Erro ao carregar dados", error_loading_pools: "Erro ao carregar pools", error_loading: "Erro ao carregar", page_x_of_y: "Página {current} de {total}", filter: "Filtro:", all_tokens_star: "🌟 Todos", received: "⬇ RECEBIDO", sent: "⬆ ENVIADO", accounts: "contas", chart: "Gráfico", fees_pie_title: "XOR Queimado por Tipo", fees_line_title: "Tendência de Atividade",
@@ -160,7 +163,8 @@ const TRANSLATIONS = {
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Todos os Pallets", signer: "Assinante", result: "Resultado", extrinsic_details: "Detalhes do Extrinsic",
         tab_governance: "Governanca", gov_council: "Conselho", gov_elections: "Eleicoes", gov_motions: "Mocoes", gov_democracy: "Democracia", gov_tech_committee: "Comite Tecnico", gov_no_motions: "Sem mocoes ativas", gov_no_referendums: "Sem referendos ativos", gov_no_proposals: "Sem propostas ativas", gov_referendums: "Referendos Ativos", gov_proposals: "Propostas Publicas", gov_next_election: "Proxima Eleicao", gov_aye: "A favor", gov_nay: "Contra",
         usd_value_at_tx: "Valor USD (no momento da TX)",
-        search_method: "Buscar método..."
+        search_method: "Buscar método...",
+        csv_export_btn: "Exportar CSV", csv_export_title: "Exportar Dados (CSV)", csv_select_wallets: "Selecionar Carteiras", csv_date_from: "De", csv_date_to: "Até", csv_select_types: "Tipos de Transação", csv_download: "Baixar CSV", csv_exporting: "Exportando dados...", csv_export_ok: "Exportação concluída!", csv_no_wallets: "Selecione pelo menos uma carteira.", csv_no_types: "Selecione pelo menos um tipo de transação.", csv_select_all: "Selecionar Tudo", csv_add_wallet: "+ Adicionar", csv_add_wallet_hint: "Adicione carteiras para exportar seus dados.", csv_invalid_address: "Formato de endereço SORA inválido.", csv_filter_mine: "Minhas Carteiras", csv_filter_watched: "Observadas", csv_filter_none: "Nenhuma", csv_format: "Formato de Exportação", csv_format_hint_sm: "Exportação detalhada organizada por carteira com todos os tipos de transação."
     },
     it: {
         tab_balance: "Saldo", tab_swaps: "Swap", tab_transfers: "Trasferimenti", tab_tokens: "Token", tab_liquidity: "Liquidità", tab_bridges: "Ponti", total_net_worth: "Patrimonio Totale", header_my_wallets: "💼 I Miei Wallet", btn_add_wallet: "+ Aggiungi Wallet", header_watch_wallets: "👀 Wallet Osservati", live_transfers: "💸 Trasferimenti Live", time: "Ora", from: "Da", amount: "Importo", to: "A", waiting_activity: "In attesa di attività...", previous: "Precedente", next: "Successivo", page: "Pagina", liquidity_pools: "🌊 Liquidità (Pools)", all: "Tutto", total_pools: "Pools Totali:", pair: "Coppia", reserves: "Riserve", action: "Azione", loading_pools: "Caricamento pools...", live_swaps: "⚡ Swap Live", all_tokens: "Tutti i Token", search_token: "Cerca token...", input: "Input", output: "Output", account: "Account", refresh: "Aggiorna", favorites: "⭐ Preferiti", search_token_name_symbol_id: "Cerca per nome, simbolo o ID...", asset: "Asset", price: "Prezzo", loading: "Caricamento...", holders: "Detentori", rank: "Rango", wallet: "Wallet", balance: "Saldo", add_wallet: "Aggiungi Wallet", sora_address: "Indirizzo SORA", name_alias: "Nome (Alias)", example_savings: "Es: Risparmi", type: "Tipo", my_wallet_total: "Mio Wallet (Aggiunge al totale)", watched_wallet_tracking: "Osservato (Solo tracciamento)", save_wallet: "Salva Wallet", wallet: "Wallet", assets: "Asset", swaps: "Swap", transfers: "Trasferimenti", other: "Altro", no_wallets_saved: "Non hai wallet salvati.", not_watching_wallets: "Non stai osservando nessun wallet.", no_favorites_yet: "Non hai ancora preferiti.", no_data: "Nessun dato.", no_swaps_found: "Nessuno swap trovato.", no_assets_found: "Nessun asset trovato.", no_recent_swaps: "Nessuno swap recente.", no_recent_transfers: "Nessun trasferimento recente.", error_loading_data: "Errore caricamento dati", error_loading_pools: "Errore caricamento pools", error_loading: "Errore caricamento", page_x_of_y: "Pagina {current} di {total}", filter: "Filtro:", all_tokens_star: "🌟 Tutti", received: "⬇ RICEVUTO", sent: "⬆ INVIATO", accounts: "account", chart: "Grafico", fees_pie_title: "XOR Bruciato per Tipo", fees_line_title: "Tendenza Attività",
@@ -169,7 +173,8 @@ const TRANSLATIONS = {
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Tutti i Pallet", signer: "Firmatario", result: "Risultato", extrinsic_details: "Dettagli Extrinsic",
         tab_governance: "Governance", gov_council: "Consiglio", gov_elections: "Elezioni", gov_motions: "Mozioni", gov_democracy: "Democrazia", gov_tech_committee: "Comitato Tecnico", gov_no_motions: "Nessuna mozione attiva", gov_no_referendums: "Nessun referendum attivo", gov_no_proposals: "Nessuna proposta attiva", gov_referendums: "Referendum Attivi", gov_proposals: "Proposte Pubbliche", gov_next_election: "Prossima Elezione", gov_aye: "A favore", gov_nay: "Contro",
         usd_value_at_tx: "Valore USD (al momento della TX)",
-        search_method: "Cerca metodo..."
+        search_method: "Cerca metodo...",
+        csv_export_btn: "Esporta CSV", csv_export_title: "Esporta Dati (CSV)", csv_select_wallets: "Seleziona Wallet", csv_date_from: "Da", csv_date_to: "A", csv_select_types: "Tipi di Transazione", csv_download: "Scarica CSV", csv_exporting: "Esportazione in corso...", csv_export_ok: "Esportazione completata!", csv_no_wallets: "Seleziona almeno un wallet.", csv_no_types: "Seleziona almeno un tipo di transazione.", csv_select_all: "Seleziona Tutto", csv_add_wallet: "+ Aggiungi", csv_add_wallet_hint: "Aggiungi wallet per esportare i dati.", csv_invalid_address: "Formato indirizzo SORA non valido.", csv_filter_mine: "I Miei Wallet", csv_filter_watched: "Osservati", csv_filter_none: "Nessuno", csv_format: "Formato di Esportazione", csv_format_hint_sm: "Esportazione dettagliata organizzata per wallet con tutti i tipi di transazione."
     },
     tr: {
         tab_balance: "Bakiye", tab_swaps: "Swaplar", tab_transfers: "Transferler", tab_tokens: "Tokenlar", tab_liquidity: "Likidite", tab_bridges: "Köprüler", total_net_worth: "Toplam Varlık", header_my_wallets: "💼 Cüzdanlarım", btn_add_wallet: "+ Cüzdan Ekle", header_watch_wallets: "👀 İzlenen Cüzdanlar", live_transfers: "💸 Canlı Transferler", time: "Zaman", from: "Gönderen", amount: "Miktar", to: "Alıcı", waiting_activity: "Aktivite bekleniyor...", previous: "Önceki", next: "Sonraki", page: "Sayfa", liquidity_pools: "🌊 Likidite (Havuzlar)", all: "Tümü", total_pools: "Toplam Havuz:", pair: "Çift", reserves: "Rezervler", action: "İşlem", loading_pools: "Havuzlar yükleniyor...", live_swaps: "⚡ Canlı Swaplar", all_tokens: "Tüm Tokenlar", search_token: "Token ara...", input: "Giriş", output: "Çıkış", account: "Hesap", refresh: "Yenile", favorites: "⭐ Favoriler", search_token_name_symbol_id: "İsim, sembol veya ID ile ara...", asset: "Varlık", price: "Fiyat", loading: "Yükleniyor...", holders: "Sahipler", rank: "Sıra", wallet: "Cüzdan", balance: "Bakiye", add_wallet: "Cüzdan Ekle", sora_address: "SORA Adresi", name_alias: "İsim (Takma Ad)", example_savings: "Örn: Tasarruf", type: "Tip", my_wallet_total: "Cüzdanım (Toplama eklenir)", watched_wallet_tracking: "İzlenen (Sadece takip)", save_wallet: "Cüzdanı Kaydet", wallet: "Cüzdan", assets: "Varlıklar", swaps: "Swaplar", transfers: "Transferler", other: "Diğer", no_wallets_saved: "Kayıtlı cüzdanınız yok.", not_watching_wallets: "Hiçbir cüzdanı izlemiyorsunuz.", no_favorites_yet: "Henüz favoriniz yok.", no_data: "Veri yok.", no_swaps_found: "Swap bulunamadı.", no_assets_found: "Varlık bulunamadı.", no_recent_swaps: "Son swap yok.", no_recent_transfers: "Son transfer yok.", error_loading_data: "Veri yükleme hatası", error_loading_pools: "Havuz yükleme hatası", error_loading: "Yükleme hatası", page_x_of_y: "Sayfa {current} / {total}", filter: "Filtre:", all_tokens_star: "🌟 Tümü", received: "⬇ ALINAN", sent: "⬆ GÖNDERİLEN", accounts: "hesap", chart: "Grafik", fees_pie_title: "Türe Göre Yakılan XOR", fees_line_title: "Aktivite Trendi (Ücretler)",
@@ -177,35 +182,40 @@ const TRANSLATIONS = {
         network_stats_btn: "Ağ İstatistikleri", timeframe: "Zaman Aralığı:", current_block: "Mevcut Blok", live: "Canlı", bridges: "Köprüler", time_filtered: "Filtreli", whale_leaderboard: "🐳 Balina Birikim Liderliği", loading_whales: "Balinalar Yükleniyor...", network_health: "⚡ Ağ Sağlığı", global_volume: "Küresel Hacim", active_users: "Aktif Kullanıcılar", est_tps: "Tahmini TPS", stablecoin_monitor: "⚖️ Stabil Coin İzleyici", deviation_target: "* $1.00 hedefinden sapma", trending_tokens: "📈 Trend Olan Tokenlar", network_fees: "💸 Ödenen Ağ Ücretleri", total_xor: "Toplam XOR", total_usd: "Toplam USD", bridges: "Köprüler", network: "Ağ", asset: "Varlık",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "Tüm Paletler", signer: "İmzalayan", result: "Sonuç", extrinsic_details: "Extrinsic Detayları",
         tab_governance: "Yonetisim", gov_council: "Konsey", gov_elections: "Secimler", gov_motions: "Oneriler", gov_democracy: "Demokrasi", gov_tech_committee: "Teknik Komite", gov_no_motions: "Aktif onerge yok", gov_no_referendums: "Aktif referandum yok", gov_no_proposals: "Aktif teklif yok", gov_aye: "Evet", gov_nay: "Hayir",
-        search_method: "Metod ara..."
+        search_method: "Metod ara...",
+        csv_export_btn: "CSV Dışa Aktar", csv_export_title: "Veri Dışa Aktarım (CSV)", csv_select_wallets: "Cüzdanları Seçin", csv_date_from: "Başlangıç", csv_date_to: "Bitiş", csv_select_types: "İşlem Türleri", csv_download: "CSV İndir", csv_exporting: "Dışa aktarılıyor...", csv_export_ok: "Dışa aktarım tamamlandı!", csv_no_wallets: "En az bir cüzdan seçin.", csv_no_types: "En az bir işlem türü seçin.", csv_select_all: "Tümünü Seç", csv_add_wallet: "+ Ekle", csv_add_wallet_hint: "Verilerini dışa aktarmak için cüzdan ekleyin.", csv_invalid_address: "Geçersiz SORA adres formatı.", csv_filter_mine: "Cüzdanlarım", csv_filter_watched: "İzlenen", csv_filter_none: "Hiçbiri", csv_format: "Dışa Aktarım Formatı", csv_format_hint_sm: "Tüm işlem türleriyle cüzdana göre düzenlenmiş ayrıntılı dışa aktarım."
     },
     ur: {
         tab_balance: "بیلنس", tab_swaps: "تبادلے", tab_transfers: "ٹرانسفرز", tab_tokens: "ٹوکنز", tab_liquidity: "لیکویڈیٹی", tab_bridges: "پل", total_net_worth: "کل اثاثے", header_my_wallets: "💼 میرے بٹوے", btn_add_wallet: "+ بٹوا شامل کریں", header_watch_wallets: "👀 دیکھے گئے بٹوے", live_transfers: "💸 لائیو ٹرانسفرز", time: "وقت", from: "سے", amount: "رقم", to: "کو", waiting_activity: "سرگرمی کا انتظار ہے...", previous: "پچھلا", next: "اگلا", page: "صفحہ", liquidity_pools: "🌊 لیکویڈیٹی (پول)", all: "سب", total_pools: "کل پول:", pair: "جوڑا", reserves: "ذخائر", action: "عمل", loading_pools: "پول لوڈ ہو رہے ہیں...", live_swaps: "⚡ لائیو تبادلے", all_tokens: "تمام ٹوکنز", search_token: "ٹوکن تلاش کریں...", input: "ان پٹ", output: "آؤٹ پٹ", account: "اکاؤنٹ", refresh: "ریفریش", favorites: "⭐ پسندیدہ", search_token_name_symbol_id: "نام، علامت یا آئی ڈی سے تلاش کریں...", asset: "اثاثہ", price: "قیمت", loading: "لوڈ ہو رہا ہے...", holders: "ہولڈرز", rank: "درجہ", wallet: "بٹوا", balance: "بیلنس", add_wallet: "بٹوا شامل کریں", sora_address: "SORA ایڈریس", name_alias: "نام (عرف)", example_savings: "مثال: بچت", type: "قسم", my_wallet_total: "میرا بٹوا (کل میں شامل کریں)", watched_wallet_tracking: "دیکھا گیا (صرف ٹریکنگ)", save_wallet: "بٹوا محفوظ کریں", wallet: "بٹوا", assets: "اثاثے", swaps: "تبادلے", transfers: "ٹرانسفرز", other: "دیگر", no_wallets_saved: "آپ کے پاس کوئی محفوظ شدہ بٹوے نہیں ہیں۔", not_watching_wallets: "آپ کسی بٹوے کو نہیں دیکھ رہے ہیں۔", no_favorites_yet: "آپ کے پاس ابھی کوئی پسندیدہ نہیں ہے۔", no_data: "کوئی ڈیٹا نہیں۔", no_swaps_found: "کوئی تبادلہ نہیں ملا۔", no_assets_found: "کوئی اثاثہ نہیں ملا۔", no_recent_swaps: "کوئی حالیہ تبادلہ نہیں۔", no_recent_transfers: "کوئی حالیہ ٹرانسفر نہیں۔", error_loading_data: "ڈیٹا لوڈ کرنے میں خرابی", error_loading_pools: "پولز لوڈ کرنے میں خرابی", error_loading: "لوڈ کرنے میں خرابی", page_x_of_y: "صفحہ {current} از {total}", filter: "فلٹر:", all_tokens_star: "🌟 سب", received: "⬇ موصول ہوا", sent: "⬆ بھیجا گیا", accounts: "اکاؤنٹس", chart: "چارٹ", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend",
         bridge_contract: "برج کنٹریکٹ", bridge_internal_hash: "یہ ہیش SORA برج کی داخلی آئی ڈی ہے۔ یہ Etherscan پر نظر نہیں آتا۔", view: "مزید معلومات", direction: "سمت", view_on_subscan: "Subscan پر دیکھیں", transaction_hash: "ٹرانزیکشن ہیش", ethereum_request_hash: "Ethereum درخواست ہیش", origin: "اصل", extrinsic_id: "Extrinsic ID", ethereum_network: "Ethereum نیٹورک", no_external_link: "کوئی بیرونی لنک نہیں",
         network_stats_btn: "نیٹ ورک کے اعدادوشمار", timeframe: "وقت کی حد:", current_block: "موجودہ بلاک", live: "لائیو", bridges: "پل", time_filtered: "فلٹرڈ", whale_leaderboard: "🐳 وہیل جمع کرنے کی درجہ بندی", loading_whales: "وہیل لوڈ ہو رہی ہیں...", network_health: "⚡ نیٹ ورک کی صحت", global_volume: "عالمی حجم", active_users: "فعال صارفین", est_tps: "تخمینہ شدہ TPS", stablecoin_monitor: "⚖️ اسٹیبل کوائن مانیٹر", deviation_target: "* $1.00 کے ہدف سے انحراف", trending_tokens: "📈 رجحان ساز ٹوکنز", network_fees: "💸 ادا کردہ نیٹ ورک فیس", total_xor: "کل XOR", total_usd: "کل USD", bridges: "پل", network: "نیٹ ورک", asset: "اثاثہ",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "تمام پیلٹس", signer: "دستخط کنندہ", result: "نتیجہ", extrinsic_details: "Extrinsic تفصیلات",
-        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_aye: "Aye", gov_nay: "Nay"
+        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_aye: "Aye", gov_nay: "Nay",
+        csv_export_btn: "CSV برآمد", csv_export_title: "ڈیٹا برآمد (CSV)", csv_select_wallets: "بٹوے منتخب کریں", csv_date_from: "سے", csv_date_to: "تک", csv_select_types: "لین دین کی اقسام", csv_download: "CSV ڈاؤن لوڈ", csv_exporting: "برآمد ہو رہا ہے...", csv_export_ok: "!برآمد مکمل", csv_no_wallets: "کم از کم ایک بٹوا منتخب کریں۔", csv_no_types: "کم از کم ایک قسم منتخب کریں۔", csv_select_all: "سب منتخب کریں", csv_add_wallet: "+ شامل کریں", csv_add_wallet_hint: "ڈیٹا برآمد کرنے کے لیے بٹوے شامل کریں۔", csv_invalid_address: "غلط SORA ایڈریس فارمیٹ۔", csv_filter_mine: "میرے بٹوے", csv_filter_watched: "دیکھے گئے", csv_filter_none: "کوئی نہیں", csv_format: "برآمد فارمیٹ", csv_format_hint_sm: ".تمام لین دین کی اقسام کے ساتھ بٹوے کے مطابق تفصیلی برآمد"
     },
     he: {
         tab_balance: "יתרה", tab_swaps: "החלפות", tab_transfers: "העברות", tab_tokens: "אסימונים", tab_liquidity: "נזילות", tab_bridges: "גשרים", total_net_worth: "שווי כולל", header_my_wallets: "💼 הארנקים שלי", btn_add_wallet: "+ הוסף ארנק", header_watch_wallets: "👀 ארנקים במעקב", live_transfers: "💸 העברות בשידור חי", time: "זמן", from: "מאת", amount: "כמות", to: "אל", waiting_activity: "ממתין לפעילות...", previous: "הקודם", next: "הבא", page: "עמוד", liquidity_pools: "🌊 נזילות (Pools)", all: "הכל", total_pools: "סך הכל בריכות:", pair: "צמד", reserves: "רזרבות", action: "פעולה", loading_pools: "טוען בריכות...", live_swaps: "⚡ החלפות בשידור חי", all_tokens: "כל האסימונים", search_token: "חפש אסימון...", input: "קלט", output: "פלט", account: "חשבון", refresh: "רענן", favorites: "⭐ מועדפים", search_token_name_symbol_id: "חפש לפי שם, סמל או מזהה...", asset: "נכס", price: "מחיר", loading: "טוען...", holders: "מחזיקים", rank: "דירוג", wallet: "ארנק", balance: "יתרה", add_wallet: "הוסף ארנק", sora_address: "כתובת SORA", name_alias: "שם (כינוי)", example_savings: "לדוגמה: חיסכון", type: "סוג", my_wallet_total: "הארנק שלי (מוסיף לסך הכל)", watched_wallet_tracking: "במעקב (מעקב בלבד)", save_wallet: "שמור ארנק", wallet: "ארנק", assets: "נכסים", swaps: "החלפות", transfers: "העברות", other: "אחר", no_wallets_saved: "אין לך ארנקים שמורים.", not_watching_wallets: "אינך עוקב אחר אף ארנק.", no_favorites_yet: "אין לך מועדפים עדיין.", no_data: "אין נתונים.", no_swaps_found: "לא נמצאו החלפות.", no_assets_found: "לא נמצאו נכסים.", no_recent_swaps: "אין החלפות אחרונות.", no_recent_transfers: "אין העברות אחרונות.", error_loading_data: "שגיאה בטעינת נתונים", error_loading_pools: "שגיאה בטעינת בריכות", error_loading: "שגיאה בטעינה", page_x_of_y: "עמוד {current} מתוך {total}", filter: "סינון:", all_tokens_star: "🌟 הכל", received: "⬇ התקבל", sent: "⬆ נשלח", accounts: "חשבונות", chart: "טבלה", fees_pie_title: "XOR Burned by Type", fees_line_title: "Activity Trend",
         bridge_contract: "חוזה גשר", bridge_internal_hash: "ה-hash הזה הוא מזהה פנימי של גשר SORA. הוא לא נראה ב-Etherscan.", view: "מידע נוסף", direction: "כיוון", view_on_subscan: "צפה ב-Subscan", transaction_hash: "האש עסקה", ethereum_request_hash: "האש בקשת Ethereum", origin: "מקור", extrinsic_id: "מזהה Extrinsic", ethereum_network: "רשת Ethereum", no_external_link: "אין קישור חיצוני זמין",
         network_stats_btn: "סטטיסטיקות רשת", timeframe: "מסגרת זמן:", current_block: "בלוק נוכחי", live: "בשידור חי", bridges: "גשרים", time_filtered: "מסונן", whale_leaderboard: "🐳 דירוג צבירת לווייתנים", loading_whales: "טוען לווייתנים...", network_health: "⚡ בריאות הרשת", global_volume: "נפח גלובלי", active_users: "משתמשים פעילים", est_tps: "TPS מוערך", stablecoin_monitor: "⚖️ צג מטבעות יציבים", deviation_target: "* סטייה מיעד $1.00", trending_tokens: "📈 אסימונים במגמה", network_fees: "💸 עמלות רשת ששולמו", total_xor: "סך הכל XOR", total_usd: "סך הכל USD", bridges: "גשרים", network: "רשת", asset: "נכס",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "כל הפאלטים", signer: "חותם", result: "תוצאה", extrinsic_details: "פרטי Extrinsic",
-        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_aye: "Aye", gov_nay: "Nay"
+        tab_governance: "Governance", gov_council: "Council", gov_elections: "Elections", gov_motions: "Motions", gov_democracy: "Democracy", gov_tech_committee: "Technical Committee", gov_no_motions: "No active motions", gov_no_referendums: "No active referendums", gov_no_proposals: "No active proposals", gov_aye: "Aye", gov_nay: "Nay",
+        csv_export_btn: "ייצוא CSV", csv_export_title: "ייצוא נתונים (CSV)", csv_select_wallets: "בחר ארנקים", csv_date_from: "מתאריך", csv_date_to: "עד תאריך", csv_select_types: "סוגי עסקאות", csv_download: "הורד CSV", csv_exporting: "מייצא נתונים...", csv_export_ok: "!הייצוא הושלם", csv_no_wallets: ".בחר לפחות ארנק אחד", csv_no_types: ".בחר לפחות סוג עסקה אחד", csv_select_all: "בחר הכל", csv_add_wallet: "+ הוסף", csv_add_wallet_hint: ".הוסף ארנקים כדי לייצא את הנתונים שלהם", csv_invalid_address: ".פורמט כתובת SORA לא חוקי", csv_filter_mine: "הארנקים שלי", csv_filter_watched: "במעקב", csv_filter_none: "אף אחד", csv_format: "פורמט ייצוא", csv_format_hint_sm: ".ייצוא מפורט מאורגן לפי ארנק עם כל סוגי העסקאות"
     },
     ru: {
         tab_balance: "Баланс", tab_swaps: "Свопы", tab_transfers: "Переводы", tab_tokens: "Токены", tab_liquidity: "Ликвидность", tab_bridges: "Мосты", total_net_worth: "Общая стоимость", header_my_wallets: "💼 Мои кошельки", btn_add_wallet: "+ Добавить кошелек", header_watch_wallets: "👀 Отслеживаемые", live_transfers: "💸 Переводы Live", time: "Время", from: "От", amount: "Сумма", to: "Кому", waiting_activity: "Ожидание активности...", previous: "Назад", next: "Вперед", page: "Стр.", liquidity_pools: "🌊 Пулы ликвидности", all: "Все", total_pools: "Всего пулов:", pair: "Пара", reserves: "Резервы", action: "Действие", loading_pools: "Загрузка пулов...", live_swaps: "⚡ Свопы Live", all_tokens: "Все токены", search_token: "Поиск токена...", input: "Вход", output: "Выход", account: "Аккаунт", refresh: "Обновить", favorites: "⭐ Избранное", search_token_name_symbol_id: "Поиск по имени, символу или ID...", asset: "Актив", price: "Цена", loading: "Загрузка...", holders: "Холдеры", rank: "Ранг", wallet: "Кошелек", balance: "Баланс", add_wallet: "Добавить кошелек", sora_address: "Адрес SORA", name_alias: "Имя (Псевдоним)", example_savings: "Напр.: Сбережения", type: "Тип", my_wallet_total: "Мой кошелек (Суммировать)", watched_wallet_tracking: "Отслеживаемый", save_wallet: "Сохранить", wallet: "Кошелек", assets: "Активы", swaps: "Свопы", transfers: "Переводы", other: "Другое", no_wallets_saved: "Нет сохраненных кошельков.", not_watching_wallets: "Вы не отслеживаете кошельки.", no_favorites_yet: "Нет избранных.", no_data: "Нет данных.", no_swaps_found: "Свопы не найдены.", no_assets_found: "Активы не найдены.", no_recent_swaps: "Нет недавних свопов.", no_recent_transfers: "Нет недавних переводов.", error_loading_data: "Ошибка загрузки", error_loading_pools: "Ошибка загрузки пулов", error_loading: "Ошибка", page_x_of_y: "Стр. {current} из {total}", filter: "Фильтр:", all_tokens_star: "🌟 Все", received: "⬇ ПОЛУЧЕНО", sent: "⬆ ОТПРАВЛЕНО", accounts: "счетов", chart: "График", fees_pie_title: "XOR сожженный по типу", fees_line_title: "Тенденция активности",
         bridge_contract: "Контракт моста", bridge_internal_hash: "Этот хеш — внутренний ID моста SORA. Он не отображается в Etherscan.", view: "Подробнее", direction: "Направление", view_on_subscan: "Посмотреть в Subscan", transaction_hash: "Хеш транзакции", ethereum_request_hash: "Хеш запроса Ethereum", origin: "Источник", extrinsic_id: "Идентификатор Extrinsic", ethereum_network: "Сеть Ethereum", no_external_link: "Нет внешней ссылки",
         network_stats_btn: "Статистика сети", timeframe: "Таймфрейм:", current_block: "Текущий блок", live: "Live", bridges: "Мосты", time_filtered: "Фильтр", whale_leaderboard: "🐳 Таблица лидеров (Киты)", loading_whales: "Загрузка...", network_health: "⚡ Здоровье сети", global_volume: "Глоб. Объем", active_users: "Активные польз.", est_tps: "Оценка TPS", stablecoin_monitor: "⚖️ Монитор стейблкоинов", deviation_target: "* Отклонение от $1.00", trending_tokens: "📈 Тренды", network_fees: "💸 Комиссии сети", total_xor: "Всего XOR", total_usd: "Всего USD", bridges: "Мосты", network: "Сеть", asset: "Актив",
         tab_orderbook: "Order Book", tab_extrinsics: "Экстринсики", all_pallets: "Все паллеты", signer: "Подписант", result: "Результат", extrinsic_details: "Детали экстринсика",
-        tab_governance: "Управление", gov_council: "Совет", gov_elections: "Выборы", gov_motions: "Предложения", gov_democracy: "Демократия", gov_tech_committee: "Тех. комитет", gov_no_motions: "Нет активных предложений", gov_no_referendums: "Нет активных референдумов", gov_no_proposals: "Нет активных предложений", gov_aye: "За", gov_nay: "Против"
+        tab_governance: "Управление", gov_council: "Совет", gov_elections: "Выборы", gov_motions: "Предложения", gov_democracy: "Демократия", gov_tech_committee: "Тех. комитет", gov_no_motions: "Нет активных предложений", gov_no_referendums: "Нет активных референдумов", gov_no_proposals: "Нет активных предложений", gov_aye: "За", gov_nay: "Против",
+        csv_export_btn: "Экспорт CSV", csv_export_title: "Экспорт данных (CSV)", csv_select_wallets: "Выбрать кошельки", csv_date_from: "С", csv_date_to: "По", csv_select_types: "Типы транзакций", csv_download: "Скачать CSV", csv_exporting: "Экспорт данных...", csv_export_ok: "Экспорт завершён!", csv_no_wallets: "Выберите хотя бы один кошелёк.", csv_no_types: "Выберите хотя бы один тип транзакции.", csv_select_all: "Выбрать все", csv_add_wallet: "+ Добавить", csv_add_wallet_hint: "Добавьте кошельки для экспорта данных.", csv_invalid_address: "Неверный формат адреса SORA.", csv_filter_mine: "Мои кошельки", csv_filter_watched: "Отслеживаемые", csv_filter_none: "Ни одного", csv_format: "Формат экспорта", csv_format_hint_sm: "Детальный экспорт, организованный по кошелькам со всеми типами транзакций."
     },
     zh: {
         tab_balance: "余额", tab_swaps: "兑换", tab_transfers: "转账", tab_tokens: "代币", tab_liquidity: "流动性", tab_bridges: "跨链桥", total_net_worth: "总资产", header_my_wallets: "💼 我的钱包", btn_add_wallet: "+ 添加钱包", header_watch_wallets: "👀 观察钱包", live_transfers: "💸 实时转账", time: "时间", from: "发送方", amount: "金额", to: "接收方", waiting_activity: "等待活动...", previous: "上一页", next: "下一页", page: "页", liquidity_pools: "🌊 流动性池", all: "全部", total_pools: "总池数:", pair: "交易对", reserves: "储备", action: "操作", loading_pools: "加载池中...", live_swaps: "⚡ 实时兑换", all_tokens: "所有代币", search_token: "搜索代币...", input: "输入", output: "输出", account: "账户", refresh: "刷新", favorites: "⭐ 收藏", search_token_name_symbol_id: "按名称、符号或ID搜索...", asset: "资产", price: "价格", loading: "加载中...", holders: "持有人", rank: "排名", wallet: "钱包", balance: "余额", add_wallet: "添加钱包", sora_address: "SORA地址", name_alias: "名称 (别名)", example_savings: "例如: 储蓄", type: "类型", my_wallet_total: "我的钱包 (计入总额)", watched_wallet_tracking: "观察 (仅追踪)", save_wallet: "保存钱包", wallet: "钱包", assets: "资产", swaps: "兑换", transfers: "转账", other: "其他", no_wallets_saved: "没有保存的钱包。", not_watching_wallets: "没有观察任何钱包。", no_favorites_yet: "暂无收藏。", no_data: "无数据。", no_swaps_found: "未找到兑换。", no_assets_found: "未找到资产。", no_recent_swaps: "无近期兑换。", no_recent_transfers: "无近期转账。", error_loading_data: "加载数据错误", error_loading_pools: "加载池错误", error_loading: "加载错误", page_x_of_y: "第 {current} 页 / 共 {total} 页", filter: "筛选:", all_tokens_star: "🌟 全部", received: "⬇ 收到", sent: "⬆ 发送", accounts: "账户", chart: "图表", fees_pie_title: "按类型销毁 XOR", fees_line_title: "活动趋势",
         bridge_contract: "桥接合约", bridge_internal_hash: "此哈希是 SORA 桥接的内部 ID，在 Etherscan 上不可见。", view: "更多信息", direction: "方向", view_on_subscan: "在 Subscan 上查看", transaction_hash: "交易哈希", ethereum_request_hash: "Ethereum 请求哈希", origin: "来源", extrinsic_id: "Extrinsic ID", ethereum_network: "以太坊网络", no_external_link: "没有外部链接",
         network_stats_btn: "网络统计", timeframe: "时间范围:", current_block: "当前区块", live: "实时", bridges: "跨链桥", time_filtered: "已筛选", whale_leaderboard: "🐳 鲸鱼积累排行榜", loading_whales: "加载中...", network_health: "⚡ 网络健康", global_volume: "全球交易量", active_users: "活跃用户", est_tps: "预估 TPS", stablecoin_monitor: "⚖️ 稳定币监控", deviation_target: "* 偏离 $1.00 目标", trending_tokens: "📈 热门代币", network_fees: "💸 网络费用支出", total_xor: "总 XOR", total_usd: "总 USD", bridges: "跨链桥", network: "网络", asset: "资产",
         tab_orderbook: "Order Book", tab_extrinsics: "Extrinsics", all_pallets: "所有模块", signer: "签名者", result: "结果", extrinsic_details: "Extrinsic 详情",
-        tab_governance: "治理", gov_council: "理事会", gov_elections: "选举", gov_motions: "提案", gov_democracy: "民主", gov_tech_committee: "技术委员会", gov_no_motions: "无活跃提案", gov_no_referendums: "无活跃公投", gov_no_proposals: "无活跃建议", gov_aye: "赞成", gov_nay: "反对"
+        tab_governance: "治理", gov_council: "理事会", gov_elections: "选举", gov_motions: "提案", gov_democracy: "民主", gov_tech_committee: "技术委员会", gov_no_motions: "无活跃提案", gov_no_referendums: "无活跃公投", gov_no_proposals: "无活跃建议", gov_aye: "赞成", gov_nay: "反对",
+        csv_export_btn: "导出CSV", csv_export_title: "导出数据 (CSV)", csv_select_wallets: "选择钱包", csv_date_from: "开始日期", csv_date_to: "结束日期", csv_select_types: "交易类型", csv_download: "下载CSV", csv_exporting: "正在导出数据...", csv_export_ok: "导出完成！", csv_no_wallets: "请至少选择一个钱包。", csv_no_types: "请至少选择一种交易类型。", csv_select_all: "全选", csv_add_wallet: "+ 添加", csv_add_wallet_hint: "添加钱包以导出其数据。", csv_invalid_address: "SORA地址格式无效。", csv_filter_mine: "我的钱包", csv_filter_watched: "观察中", csv_filter_none: "无", csv_format: "导出格式", csv_format_hint_sm: "按钱包组织的详细导出，包含所有交易类型。"
     }
 };
 
@@ -1758,8 +1768,8 @@ function createWalletCard(wallet, data, isUnified = false) {
 </div></div>`;
 }
 
-function openAddWalletModal() { document.getElementById('addWalletModal').style.display = 'flex'; }
-function closeAddWalletModal() { document.getElementById('addWalletModal').style.display = 'none'; }
+function openAddWalletModal() { document.getElementById('addWalletModal').style.display = 'flex'; lockBodyScroll(); }
+function closeAddWalletModal() { document.getElementById('addWalletModal').style.display = 'none'; unlockBodyScroll(); }
 
 let addWalletMode = 'single';
 
@@ -1992,7 +2002,7 @@ function viewHolders(symbol, assetId) {
     currentAssetId = assetId;
     currentPage = 1;
     _currentHolderSymbol = symbol;
-    document.getElementById('holderModal').style.display = 'flex';
+    document.getElementById('holderModal').style.display = 'flex'; lockBodyScroll();
     document.getElementById('modalTitle').innerText = `${TRANSLATIONS[currentLang].holders} de ${symbol}`;
 
     // Inject screenshot button (no share link for holders)
@@ -2034,7 +2044,33 @@ async function loadHoldersPage() {
 function changePage(d) {
     if (currentPage + d > 0 && currentPage + d <= totalPages) { currentPage += d; loadHoldersPage(); }
 }
-function closeModal() { document.getElementById('holderModal').style.display = 'none'; }
+function toggleModalMax(modalId) {
+    const modal = document.getElementById(modalId);
+    const content = modal?.querySelector('.modal-content');
+    if (!content) return;
+    const btn = content.querySelector('.modal-maximize-btn');
+    content.classList.toggle('modal-maximized');
+    if (btn) btn.textContent = content.classList.contains('modal-maximized') ? '🗗' : '⛶';
+}
+function resetModalMax(modalId) {
+    const c = document.querySelector('#' + modalId + ' .modal-content');
+    if (c) { c.classList.remove('modal-maximized'); const b = c.querySelector('.modal-maximize-btn'); if (b) b.textContent = '⛶'; }
+}
+
+// --- MODAL SCROLL LOCK (prevents background scroll on mobile) ---
+let _scrollLockY = 0;
+function lockBodyScroll() {
+    _scrollLockY = window.scrollY;
+    document.body.classList.add('modal-open');
+    document.body.style.top = `-${_scrollLockY}px`;
+}
+function unlockBodyScroll() {
+    document.body.classList.remove('modal-open');
+    document.body.style.top = '';
+    window.scrollTo(0, _scrollLockY);
+}
+
+function closeModal() { resetModalMax('holderModal'); document.getElementById('holderModal').style.display = 'none'; unlockBodyScroll(); }
 
 // --- POOLS LOGIC ---
 let poolPage = 1; let poolTotalPages = 1; let pFilter = 'all';
@@ -2141,6 +2177,7 @@ async function loadPools() {
 let currentDetailsAddr = null;
 let wSwapPage = 1;
 let wTransferPage = 1;
+let wExtrinsicPage = 1;
 
 function shareWalletLink() {
     shareModalLink('#wallet=' + currentDetailsAddr);
@@ -2154,8 +2191,8 @@ async function openWalletDetails(address) {
     currentDetailsAddr = address;
     wSwapPage = 1;
     wTransferPage = 1;
-    document.getElementById('walletDetailsModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    wExtrinsicPage = 1;
+    document.getElementById('walletDetailsModal').style.display = 'flex'; lockBodyScroll();
     const isSaved = !!walletAliases[address];
     const name = walletAliases[address] || TRANSLATIONS[currentLang].wallet;
 
@@ -2207,8 +2244,9 @@ function editWalletAlias(address) {
     }
 }
 function closeDetailsModal() {
+    resetModalMax('walletDetailsModal');
     document.getElementById('walletDetailsModal').style.display = 'none';
-    document.body.style.overflow = '';
+    unlockBodyScroll();
     if (window.location.hash.startsWith('#wallet=')) {
         history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -2226,8 +2264,7 @@ function openUnifiedDetails() {
     // Store addresses of all "my" wallets for combined data loading
     unifiedWalletAddresses = myWallets.filter(w => w.type === 'my').map(w => w.address);
 
-    document.getElementById('walletDetailsModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    document.getElementById('walletDetailsModal').style.display = 'flex'; lockBodyScroll();
 
     document.getElementById('detailsTitle').innerHTML = TRANSLATIONS[currentLang]?.unified_portfolio || "Unified Portfolio";
     document.getElementById('detailsAddr').innerText = `${unifiedWalletAddresses.length} Wallets`;
@@ -2254,7 +2291,7 @@ function loadUnifiedAssets() {
     });
 }
 function openWTab(tab) {
-    ['assets', 'swaps', 'transfers', 'bridges', 'liquidity', 'staking'].forEach(t => {
+    ['assets', 'swaps', 'transfers', 'bridges', 'liquidity', 'staking', 'info', 'extrinsics'].forEach(t => {
         document.getElementById('wtab-' + t)?.classList.toggle('active', t === tab);
         const view = document.getElementById('wview-' + t);
         if (view) view.style.display = t === tab ? 'block' : 'none';
@@ -2264,6 +2301,8 @@ function openWTab(tab) {
     if (tab === 'bridges') loadWalletBridges();
     if (tab === 'liquidity') loadWalletLiquidity();
     if (tab === 'staking') loadWalletStaking();
+    if (tab === 'info') loadWalletInfo();
+    if (tab === 'extrinsics') loadWalletExtrinsics();
 }
 
 async function loadWalletStaking() {
@@ -2362,6 +2401,215 @@ async function loadWalletStaking() {
         container.innerHTML = '<div style="text-align:center; padding:30px; color:#EF4444;">Error loading staking info</div>';
         console.error('Wallet staking error:', e);
     }
+}
+
+async function loadWalletInfo() {
+    const container = document.getElementById('wInfoContent');
+    if (!container || !currentDetailsAddr) return;
+    container.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-secondary);">Loading wallet info...</div>';
+
+    try {
+        const res = await fetch(`/wallet/info/${currentDetailsAddr}`);
+        const d = await res.json();
+        if (!d || d.error || d.txCount === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-secondary);"><div style="font-size:32px; margin-bottom:12px;">📊</div><div style="font-size:14px;">No activity data for this wallet</div></div>';
+            return;
+        }
+
+        // Format wallet age
+        let ageStr = '—';
+        if (d.firstTx) {
+            const ageDays = Math.floor((Date.now() - d.firstTx) / 86400000);
+            const years = Math.floor(ageDays / 365);
+            const days = ageDays % 365;
+            ageStr = years > 0 ? `${years}y ${days}d` : `${days}d`;
+        }
+        const successRate = d.txCount > 0 ? ((d.successCount / d.txCount) * 100).toFixed(1) : '0';
+
+        let html = '<div style="display:grid; gap:12px; padding:5px;">';
+
+        // --- OVERVIEW ---
+        html += `<div style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Overview</div>`;
+        html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
+        html += wInfoCard('🕐', 'Wallet Age', ageStr);
+        html += wInfoCard('📅', 'Days Active', d.daysActive.toLocaleString());
+        html += wInfoCard('📊', 'Transactions', d.txCount.toLocaleString());
+        html += wInfoCard('✅', 'Success Rate', successRate + '%');
+        html += wInfoCard('🏛️', 'Governance TXs', d.governanceTx.toLocaleString());
+        html += wInfoCard('🪙', 'Unique Tokens', (d.uniqueTokens || 0).toLocaleString());
+        html += `</div>`;
+
+        // --- WHALE SCORE ---
+        const wb = d.whaleBreakdown || { volume: 0, frequency: 0, diversity: 0 };
+        const tierColors = { Shrimp: '#9CA3AF', Fish: '#60A5FA', Dolphin: '#34D399', Whale: '#A78BFA', Megawhale: '#F59E0B' };
+        const tierEmoji = { Shrimp: '🦐', Fish: '🐟', Dolphin: '🐬', Whale: '🐋', Megawhale: '🐳' };
+        const tc = tierColors[d.whaleTier] || '#9CA3AF';
+        const te = tierEmoji[d.whaleTier] || '';
+        const pct = d.whaleScore || 0;
+        html += `<div class="lp-summary-item" style="padding:14px; flex-direction:column; align-items:stretch;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-weight:700; font-size:14px; color:var(--text-primary);">${te} Whale Score</span>
+                <span style="font-weight:800; font-size:18px; color:${tc};">${pct}/100 — ${esc(d.whaleTier)}</span>
+            </div>
+            <div style="width:100%; height:8px; background:var(--border-color); border-radius:4px; overflow:hidden;">
+                <div style="width:${pct}%; height:100%; background:${tc}; border-radius:4px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-secondary);">
+                <span>Vol: ${wb.volume}/40</span><span>Freq: ${wb.frequency}/30</span><span>Div: ${wb.diversity}/30</span>
+            </div>
+        </div>`;
+
+        // --- TRADING ---
+        if (d.swapCount > 0) {
+            html += `<div style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Trading</div>`;
+            html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
+            html += wInfoCard('🔄', 'Swaps', d.swapCount.toLocaleString());
+            html += wInfoCard('💰', 'Total Volume', formatUsdShort(d.swapTotalVolume));
+            html += wInfoCard('📏', 'Avg Swap', formatUsdShort(d.swapAvgUsd));
+            html += wInfoCard('📈', 'Max Swap', formatUsdShort(d.swapMaxUsd));
+            html += `</div>`;
+
+            // Top tokens
+            if (d.topTokens && d.topTokens.length > 0) {
+                html += `<div class="lp-summary-item" style="padding:12px; flex-direction:column; align-items:stretch;">
+                    <div style="font-weight:600; font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Top Tokens Traded</div>`;
+                d.topTokens.forEach((t, i) => {
+                    html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; ${i < d.topTokens.length - 1 ? 'border-bottom:1px solid var(--border-color);' : ''}">
+                        <span style="font-size:12px; color:var(--text-primary);"><b>${i + 1}.</b> ${esc(t.symbol)}</span>
+                        <span style="font-size:12px; color:#10B981;">${formatUsdShort(t.total_usd)} <span style="color:var(--text-secondary); font-size:10px;">(${t.trades} trades)</span></span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+        }
+
+        // --- TRANSFERS ---
+        if (d.transfersOut.count > 0 || d.transfersIn.count > 0) {
+            html += `<div style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Transfers</div>`;
+            html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
+            html += wInfoCard('📤', 'Sent', `${d.transfersOut.count} (${formatUsdShort(d.transfersOut.usd)})`);
+            html += wInfoCard('📥', 'Received', `${d.transfersIn.count} (${formatUsdShort(d.transfersIn.usd)})`);
+            html += `</div>`;
+            const netTransfer = d.transfersIn.usd - d.transfersOut.usd;
+            html += `<div style="text-align:center; font-size:12px; color:${netTransfer >= 0 ? '#10B981' : '#EF4444'};">Net: ${netTransfer >= 0 ? '+' : ''}${formatUsdShort(netTransfer)}</div>`;
+
+            // Top contacts
+            if (d.topContacts && d.topContacts.length > 0) {
+                html += `<div class="lp-summary-item" style="padding:12px; flex-direction:column; align-items:stretch;">
+                    <div style="font-weight:600; font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Top Contacts</div>`;
+                d.topContacts.forEach((c, i) => {
+                    const short = c.counterparty.substring(0, 8) + '...' + c.counterparty.substring(c.counterparty.length - 6);
+                    html += `<div id="winfo-contact-${i}" style="display:flex; justify-content:space-between; align-items:center; padding:3px 0; cursor:pointer; ${i < d.topContacts.length - 1 ? 'border-bottom:1px solid var(--border-color);' : ''}" onclick="openWalletDetails('${esc(c.counterparty)}')">
+                        <span style="font-family:monospace; font-size:11px; color:var(--text-secondary);">${short} <span class="contact-identity" style="font-weight:600; color:var(--text-primary);"></span></span>
+                        <span style="font-size:11px; color:#10B981;">${c.tx_count} txs · ${formatUsdShort(c.total_usd)}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+
+                // Resolve contact identities (non-blocking)
+                const contactAddrs = d.topContacts.map(c => c.counterparty);
+                Promise.all(contactAddrs.map(addr =>
+                    fetch(`/identity/${addr}`).then(r => r.json()).then(id => ({ addr, display: id?.display })).catch(() => ({ addr, display: null }))
+                )).then(results => {
+                    results.forEach((r, i) => {
+                        if (r.display) {
+                            const el = document.getElementById('winfo-contact-' + i);
+                            const span = el?.querySelector('.contact-identity');
+                            if (span) span.textContent = r.display;
+                        }
+                    });
+                });
+            }
+        }
+
+        // --- DEFI ---
+        const hasLP = d.lpDeposits > 0 || d.lpWithdrawals > 0;
+        const hasBridge = d.bridgeIncoming.count > 0 || d.bridgeOutgoing.count > 0;
+        if (hasLP || hasBridge) {
+            html += `<div style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">DeFi</div>`;
+            if (hasLP) {
+                html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">`;
+                html += wInfoCard('💧', 'LP Deposits', `${d.lpDeposits} (${formatUsdShort(d.lpDepositedUsd)})`);
+                html += wInfoCard('🔥', 'LP Withdrawals', `${d.lpWithdrawals} (${formatUsdShort(d.lpWithdrawnUsd)})`);
+                html += wInfoCard('🏊', 'Unique Pools', d.lpUniquePools.toString());
+                const lpNet = d.lpDepositedUsd - d.lpWithdrawnUsd;
+                html += wInfoCard(lpNet >= 0 ? '📈' : '📉', 'LP Net', `<span style="color:${lpNet >= 0 ? '#10B981' : '#EF4444'}">${lpNet >= 0 ? '+' : ''}${formatUsdShort(lpNet)}</span>`);
+                html += `</div>`;
+            }
+            if (hasBridge) {
+                html += `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">`;
+                html += wInfoCard('🌉', 'Bridge In', `${d.bridgeIncoming.count} (${formatUsdShort(d.bridgeIncoming.usd)})`);
+                html += wInfoCard('🚀', 'Bridge Out', `${d.bridgeOutgoing.count} (${formatUsdShort(d.bridgeOutgoing.usd)})`);
+                html += wInfoCard('🌐', 'Networks', d.bridgeUniqueNetworks.toString());
+                html += `</div>`;
+                // Bridge balance bar (center = 0, right green = positive, left red = negative)
+                const bridgeNet = d.bridgeIncoming.usd - d.bridgeOutgoing.usd;
+                const bridgeTotal = d.bridgeIncoming.usd + d.bridgeOutgoing.usd;
+                const bridgePct = bridgeTotal > 0 ? Math.min(Math.abs(bridgeNet) / bridgeTotal, 1) * 50 : 0;
+                const isPositive = bridgeNet >= 0;
+                html += `<div class="lp-summary-item" style="padding:12px 14px; flex-direction:column; align-items:stretch; margin-top:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:12px; color:var(--text-secondary);">Bridge Balance</span>
+                        <span style="font-weight:700; font-size:14px; color:${bridgeNet === 0 ? 'var(--text-secondary)' : isPositive ? '#10B981' : '#EF4444'};">${bridgeNet > 0 ? '+' : ''}${formatUsdShort(bridgeNet)}</span>
+                    </div>
+                    <div style="position:relative; width:100%; height:12px; background:var(--border-color); border-radius:6px; overflow:hidden;">
+                        <div style="position:absolute; left:50%; top:0; width:2px; height:100%; background:var(--text-secondary); opacity:0.5; transform:translateX(-1px);"></div>
+                        ${isPositive
+                            ? `<div style="position:absolute; left:50%; top:1px; height:10px; width:${bridgePct}%; background:linear-gradient(90deg, #6EE7B7, #10B981); border-radius:0 5px 5px 0;"></div>`
+                            : `<div style="position:absolute; right:50%; top:1px; height:10px; width:${bridgePct}%; background:linear-gradient(270deg, #FCA5A5, #EF4444); border-radius:5px 0 0 5px;"></div>`
+                        }
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:10px; color:var(--text-secondary);">
+                        <span style="color:#EF4444;">← Out of SORA</span>
+                        <span>0</span>
+                        <span style="color:#10B981;">Into SORA →</span>
+                    </div>
+                </div>`;
+            }
+        }
+
+        // --- MODULE BREAKDOWN ---
+        if (d.modules && d.modules.length > 0) {
+            const maxCount = d.modules[0].count;
+            html += `<div style="font-weight:700; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px;">Module Breakdown</div>`;
+            html += `<div class="lp-summary-item" style="padding:12px; flex-direction:column; align-items:stretch;">`;
+            d.modules.forEach(m => {
+                const pctBar = Math.round((m.count / d.txCount) * 100);
+                const barW = Math.round((m.count / maxCount) * 100);
+                html += `<div style="margin-bottom:6px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+                        <span style="color:var(--text-primary); font-weight:600;">${esc(m.section)}</span>
+                        <span style="color:var(--text-secondary);">${m.count.toLocaleString()} (${pctBar}%)</span>
+                    </div>
+                    <div style="width:100%; height:6px; background:var(--border-color); border-radius:3px; overflow:hidden;">
+                        <div style="width:${barW}%; height:100%; background:linear-gradient(90deg, #3B82F6, #8B5CF6); border-radius:3px;"></div>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div style="text-align:center; padding:30px; color:#EF4444;">Error loading wallet info</div>';
+        console.error('Wallet info error:', e);
+    }
+}
+
+function wInfoCard(emoji, label, value) {
+    return `<div class="lp-summary-item" style="padding:10px 12px; flex-direction:column; align-items:flex-start; gap:2px;">
+        <div style="font-size:11px; color:var(--text-secondary);">${emoji} ${label}</div>
+        <div style="font-weight:700; font-size:14px; color:var(--text-primary);">${value}</div>
+    </div>`;
+}
+
+function formatUsdShort(val) {
+    const n = Math.abs(val || 0);
+    const sign = val < 0 ? '-' : '';
+    if (n >= 1e6) return sign + '$' + (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return sign + '$' + (n / 1e3).toFixed(1) + 'K';
+    return sign + '$' + n.toFixed(2);
 }
 
 let wBridgePage = 1;
@@ -2599,6 +2847,82 @@ function changeWTransferPage(delta) {
     wTransferPage += delta;
     if (wTransferPage < 1) wTransferPage = 1;
     loadWalletTransfers();
+}
+
+function changeWExtrinsicPage(delta) {
+    wExtrinsicPage += delta;
+    if (wExtrinsicPage < 1) wExtrinsicPage = 1;
+    loadWalletExtrinsics();
+}
+
+async function loadWalletExtrinsics() {
+    const tbody = document.getElementById('wExtrinsicsTable');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px;">${TRANSLATIONS[currentLang].loading}</td></tr>`;
+
+    try {
+        let extrinsics = [];
+        let totalPages = 1;
+
+        if (currentDetailsAddr === 'unified-view' && unifiedWalletAddresses.length > 0) {
+            const promises = unifiedWalletAddresses.map(addr =>
+                fetch(`/history/extrinsics/${addr}?page=1&limit=100`).then(r => r.json()).catch(() => ({ data: [] }))
+            );
+            const results = await Promise.all(promises);
+            const seen = new Set();
+            results.forEach(json => {
+                if (json.data) {
+                    json.data.forEach(d => {
+                        const key = `${d.block}-${d.extrinsic_id}`;
+                        if (!seen.has(key)) { seen.add(key); extrinsics.push(d); }
+                    });
+                }
+            });
+            extrinsics.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            extrinsics = extrinsics.slice(0, 50);
+            totalPages = 1;
+        } else {
+            const res = await fetch(`/history/extrinsics/${currentDetailsAddr}?page=${wExtrinsicPage}&limit=25`);
+            const json = await res.json();
+            extrinsics = json.data || [];
+            totalPages = json.totalPages || 1;
+        }
+
+        document.getElementById('wExtrinsicPageIndicator').innerText = `Page ${wExtrinsicPage} of ${totalPages}`;
+        document.getElementById('btnWExtrinsicPrev').disabled = wExtrinsicPage <= 1;
+        document.getElementById('btnWExtrinsicNext').disabled = wExtrinsicPage >= totalPages;
+
+        tbody.innerHTML = '';
+        if (extrinsics.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">No extrinsics found</td></tr>`;
+            return;
+        }
+
+        extrinsics.forEach(d => {
+            const resultIcon = d.success
+                ? '<span style="color:#10B981; font-weight:bold;">✓</span>'
+                : '<span style="color:#EF4444; font-weight:bold;">✗</span>';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="color:var(--text-secondary); font-size:11px; padding:8px;">${esc(d.time || '')}</td>
+                <td style="padding:8px;">
+                    <a href="#" onclick="openBlockModal('${esc(String(d.block))}'); return false;"
+                       style="color:#9B1B30; font-family:monospace; font-size:12px;">#${esc(String(d.block))}</a>
+                </td>
+                <td style="padding:8px;">
+                    <span class="pallet-badge">${esc(d.section)}::${esc(d.method)}</span>
+                </td>
+                <td style="text-align:center; padding:8px;">${resultIcon}</td>
+                <td style="text-align:center; padding:8px;">
+                    <button class="btn-ghost" onclick="openExtrinsicDetail('${esc(d.extrinsic_id)}')"
+                            style="font-size:11px; padding:2px 8px; cursor:pointer;">🔍 More Info</button>
+                </td>`;
+            tbody.appendChild(row);
+        });
+    } catch (e) {
+        console.error('Error loading wallet extrinsics:', e);
+        tbody.innerHTML = `<tr><td colspan="5" style="color:#EF4444; text-align:center; padding:20px;">Error: ${esc(e.message)}</td></tr>`;
+    }
 }
 
 // --- SORA INTELLIGENCE FRONTEND LOGIC (GLOBAL SCOPE) ---
@@ -3426,11 +3750,17 @@ async function loadBurnSupply(tab) {
         const supply = supplyRes.totalSupply || 0;
         const price = supplyRes.price || 0;
         const marketCap = supplyRes.marketCap || 0;
-        const burned24h = statsRes?.stats?.['24h']?.totalBurned || 0;
-        const burned7d  = statsRes?.stats?.['7d']?.totalBurned  || 0;
-        const burned30d = statsRes?.stats?.['30d']?.totalBurned  || 0;
-        const burnedAll = statsRes?.stats?.['all']?.totalBurned  || 0;
-        const burnedAllUsd = statsRes?.stats?.['all']?.totalBurnedUsd || 0;
+        // Use totalBurn (actual burns only) when available from subsquid data,
+        // fall back to totalBurned (net change) for XOR which uses fee-based calculation
+        const s24h = statsRes?.stats?.['24h'] || {};
+        const s7d  = statsRes?.stats?.['7d']  || {};
+        const s30d = statsRes?.stats?.['30d'] || {};
+        const sAll = statsRes?.stats?.['all'] || {};
+        const burned24h = s24h.totalBurn ?? s24h.totalBurned ?? 0;
+        const burned7d  = s7d.totalBurn  ?? s7d.totalBurned  ?? 0;
+        const burned30d = s30d.totalBurn ?? s30d.totalBurned ?? 0;
+        const burnedAll = sAll.totalBurn ?? sAll.totalBurned ?? 0;
+        const burnedAllUsd = sAll.totalBurnedUsd || 0;
 
         // Update token hero supply text
         const supplyEl = document.getElementById('burnSupply-' + tab);
@@ -3572,8 +3902,9 @@ async function loadBurnChart(tab, tf) {
         }
 
         const labels = snapshots.map(s => {
-            const d = new Date(s.timestamp);
+            const d = new Date(Number(s.timestamp));
             if (tf === '4h' || tf === '1d') return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+            if (tf === 'all' || tf === '1y') return d.toLocaleDateString([], { year:'2-digit', month:'short', day:'numeric' });
             return d.toLocaleDateString([], { month:'short', day:'numeric' });
         });
         const values = snapshots.map(s => s.total_supply);
@@ -4899,7 +5230,7 @@ async function loadGlobalSwaps(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
-            <td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.in.amount)}</b> ${d.in.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.in.usd}</span></div></div></td><td style="color:#D1D5DB; font-size:12px;">➜</td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.out.amount)}</b> ${d.out.symbol}<br><span style="font-size:10px; color:#9CA3AF;">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
+            <td><div class="swap-tok"><div class="swap-tok-head"><img src="${getProxyUrl(d.in.logo)}" loading="lazy" decoding="async" class="swap-tok-logo" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span class="swap-tok-sym">${d.in.symbol}</span></div><div class="swap-tok-vals"><span class="swap-tok-amt">${formatAmount(d.in.amount)}</span> <span class="swap-tok-usd">$${d.in.usd}</span></div></div></td><td class="swap-arrow-cell" style="color:#D1D5DB; font-size:12px;"><span class="swap-arrow-text">➜</span><span class="swap-arrow-anim"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="swap-arrow-icon"><path d="M28 12 A10 10 0 0 1 28 28"/><path d="M12 28 A10 10 0 0 1 12 12"/><polyline points="25,28 28,28 28,25"/><polyline points="15,12 12,12 12,15"/><circle cx="20" cy="20" r="2" fill="currentColor" stroke="none"/></svg></span></td><td><div class="swap-tok"><div class="swap-tok-head"><img src="${getProxyUrl(d.out.logo)}" loading="lazy" decoding="async" class="swap-tok-logo" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span class="swap-tok-sym">${d.out.symbol}</span></div><div class="swap-tok-vals"><span class="swap-tok-amt">${formatAmount(d.out.amount)}</span> <span class="swap-tok-usd">$${d.out.usd}</span></div></div></td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.wallet}')" class="${nameClass}">${short}</span><span onclick="copyToClipboard('${d.wallet}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.in.usd || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
             </td>`;
@@ -4973,7 +5304,7 @@ async function loadGlobalTransfers(reset = false) {
             const row = document.createElement('tr');
             row.innerHTML = `<td style="color:#6B7280; font-size:11px;">${d.time}</td>
             <td style="font-family:monospace; font-size:12px;"><a href="#" onclick="openBlockModal('${d.block}'); return false;" style="color:#9B1B30;">#${d.block}</a></td>
-            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td><td><div class="asset-row" style="align-items:center; display:flex; gap:8px;"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; margin-right:5px; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><div style="font-size:11px;"><b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol}</b><br><span style="color:#10B981; font-size:10px;">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
+            <td style="font-size:11px;"><span onclick="openWalletDetails('${d.from}')" class="${fromClass}">${fromShort}</span><span onclick="copyToClipboard('${d.from}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td><td><div class="swap-tok"><div class="swap-tok-head"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" class="swap-tok-logo" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span class="swap-tok-sym">${d.symbol}</span></div><div class="swap-tok-vals"><span class="swap-tok-amt">${formatAmount(d.amount)}</span> <span class="swap-tok-usd">$${d.usdValue}</span></div></div></td><td style="color:#D1D5DB;">➜</td><td style="font-size:11px;"><span onclick="openWalletDetails('${d.to}')" class="${toClass}">${toShort}</span><span onclick="copyToClipboard('${d.to}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span></td>
             <td>
                 <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usdValue || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
             </td>`;
@@ -5074,15 +5405,7 @@ async function loadGlobalBridges(reset = false) {
                 })()}
                     <span onclick="copyToClipboard('${esc(d.recipient)}')" style="cursor:pointer; margin-left:4px;" title="${TRANSLATIONS[currentLang]?.copy_tooltip || 'Copy'}">📋</span>
                 </td>
-                <td>
-                    <div class="asset-row" style="align-items:center; display:flex; gap:8px;">
-                        <img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" style="width:23px; height:23px; border-radius:50%; object-fit:contain;" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'">
-                        <div style="font-size:11px;">
-                            <b style="font-size:13px; font-weight:600;">${formatAmount(d.amount)} ${d.symbol || 'UNK'}</b><br>
-                            <span style="color:#10B981; font-size:10px;">$${Number(d.usd_value || 0).toFixed(2)}</span>
-                        </div>
-                    </div>
-                </td>
+                <td><div class="swap-tok"><div class="swap-tok-head"><img src="${getProxyUrl(d.logo)}" loading="lazy" decoding="async" class="swap-tok-logo" onerror="this.onerror=null;this.src='${LOCAL_PLACEHOLDER}'"><span class="swap-tok-sym">${d.symbol || 'UNK'}</span></div><div class="swap-tok-vals"><span class="swap-tok-amt">${formatAmount(d.amount)}</span> <span class="swap-tok-usd">$${d.usd_value || 0}</span></div></div></td>
                 <td>
                     <button class="btn-ghost" onclick="openTxModal('${d.hash}', '${d.extrinsic_id}', '${d.usd_value || ''}')" style="font-size:11px; padding:2px 6px;">🔍 ${TRANSLATIONS[currentLang]?.view || 'More Info'}</button>
                 </td>
@@ -5356,7 +5679,7 @@ function openExtrinsicDetail(extrinsicId) {
     _currentExtrinsicId = extrinsicId;
     const modal = document.getElementById('extrinsicDetailModal');
     const content = document.getElementById('extrinsicDetailContent');
-    modal.style.display = 'flex';
+    modal.style.display = 'flex'; lockBodyScroll();
 
     // Inject Share + Screenshot action buttons
     const actionsDiv = document.getElementById('extrinsicModalActions');
@@ -5416,6 +5739,17 @@ function openExtrinsicDetail(extrinsicId) {
             fetch(`/history/extrinsic/${encodeURIComponent(blk)}/${encodeURIComponent(idx)}`)
                 .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
                 .then(detail => {
+                    // Update args_json from detail response (not available in list data)
+                    if (detail && detail.args_json && detail.args_json !== '{}') {
+                        const argsEl = content.querySelector('pre');
+                        if (argsEl) {
+                            try {
+                                argsEl.textContent = JSON.stringify(JSON.parse(detail.args_json), null, 2);
+                            } catch (e) {
+                                argsEl.textContent = detail.args_json;
+                            }
+                        }
+                    }
                     const evEl = document.getElementById('extrinsicEventsPlaceholder');
                     if (!evEl) return;
                     if (detail && detail.events_json) {
@@ -5460,7 +5794,8 @@ function openExtrinsicDetail(extrinsicId) {
 }
 
 function closeExtrinsicModal() {
-    document.getElementById('extrinsicDetailModal').style.display = 'none';
+    resetModalMax('extrinsicDetailModal');
+    document.getElementById('extrinsicDetailModal').style.display = 'none'; unlockBodyScroll();
     if (window.location.hash.startsWith('#extrinsic=') || window.location.hash.startsWith('#tx=')) {
         history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -5663,7 +5998,8 @@ window.addEventListener('hashchange', () => { handleDeepLink(); });
 var _currentBlockNumber = null;
 
 function closeBlockModal() {
-    document.getElementById('blockModal').style.display = 'none';
+    resetModalMax('blockModal');
+    document.getElementById('blockModal').style.display = 'none'; unlockBodyScroll();
     if (window.location.hash.startsWith('#block=')) {
         history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -5680,7 +6016,7 @@ function screenshotBlockModal() {
 
 function openBlockModal(block) {
     _currentBlockNumber = block;
-    document.getElementById('blockModal').style.display = 'flex';
+    document.getElementById('blockModal').style.display = 'flex'; lockBodyScroll();
     document.getElementById('blockModalNumber').innerText = block;
     const contentEl = document.getElementById('blockModalContent');
 
@@ -5745,7 +6081,8 @@ var _currentTxHash = null;
 var _currentTxExtrinsicId = null;
 
 function closeTxModal() {
-    document.getElementById('txModal').style.display = 'none';
+    resetModalMax('txModal');
+    document.getElementById('txModal').style.display = 'none'; unlockBodyScroll();
     if (window.location.hash.startsWith('#tx=')) {
         history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -5763,7 +6100,7 @@ function screenshotTxModal() {
 }
 
 function openTxModal(hash, extrinsic_id, usdValue) {
-    document.getElementById('txModal').style.display = 'flex';
+    document.getElementById('txModal').style.display = 'flex'; lockBodyScroll();
     const contentEl = document.getElementById('txModalContent');
 
     const isEthereum = extrinsic_id === 'ETH';
@@ -5936,7 +6273,7 @@ function openTxModal(hash, extrinsic_id, usdValue) {
 function openBackupModal() {
     const modal = document.getElementById('backupModal');
     if (modal) {
-        modal.style.display = 'flex';
+        modal.style.display = 'flex'; lockBodyScroll();
         setTimeout(() => modal.style.opacity = '1', 10);
     }
 }
@@ -5945,7 +6282,7 @@ function closeBackupModal() {
     const modal = document.getElementById('backupModal');
     if (modal) {
         modal.style.opacity = '0';
-        setTimeout(() => modal.style.display = 'none', 300);
+        setTimeout(() => { modal.style.display = 'none'; unlockBodyScroll(); }, 300);
     }
 }
 
@@ -5994,6 +6331,222 @@ function importBackup(input) {
     reader.readAsText(file);
     input.value = '';
 }
+
+// === CSV Export ===
+function csvWalletRow(address, displayName, checked) {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex; align-items:center; justify-content:space-between; font-size:12px; cursor:pointer; padding:3px 0;';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = displayName;
+    nameSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'csv-wallet-cb';
+    cb.value = address;
+    cb.checked = checked;
+    cb.style.cssText = 'flex-shrink:0; margin-left:8px;';
+    label.appendChild(nameSpan);
+    label.appendChild(cb);
+    return label;
+}
+
+function openCsvExportModal() {
+    const list = document.getElementById('csvWalletList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    // Select All row
+    const allLabel = document.createElement('label');
+    allLabel.style.cssText = 'display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:4px 0; font-weight:600; border-bottom:1px solid var(--border-color, #e5e7eb); margin-bottom:4px; padding-bottom:6px;';
+    const allSpan = document.createElement('span');
+    allSpan.textContent = TRANSLATIONS[currentLang]?.csv_select_all || 'Select All';
+    const allCb = document.createElement('input');
+    allCb.type = 'checkbox';
+    allCb.checked = true;
+    allCb.id = 'csvSelectAll';
+    allCb.style.cssText = 'flex-shrink:0; margin-left:8px;';
+    allCb.onchange = () => {
+        document.querySelectorAll('.csv-wallet-cb').forEach(cb => cb.checked = allCb.checked);
+    };
+    allLabel.appendChild(allSpan);
+    allLabel.appendChild(allCb);
+    list.appendChild(allLabel);
+
+    // Saved wallets
+    myWallets.forEach(w => {
+        const display = w.name + ' (' + w.address.slice(0, 8) + '...' + w.address.slice(-6) + ')';
+        list.appendChild(csvWalletRow(w.address, display, true));
+    });
+
+    if (myWallets.length === 0) {
+        const hint = document.createElement('p');
+        hint.style.cssText = 'font-size:11px; color:#6B7280; margin:4px 0 0;';
+        hint.textContent = TRANSLATIONS[currentLang]?.csv_add_wallet_hint || 'Add wallets below to export their data.';
+        list.appendChild(hint);
+    }
+
+    // Clear custom wallet input
+    const customInput = document.getElementById('csvCustomWallet');
+    if (customInput) customInput.value = '';
+
+    const now = new Date();
+    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('csvDateFrom').value = from.toISOString().slice(0, 10);
+    document.getElementById('csvDateTo').value = now.toISOString().slice(0, 10);
+    const st = document.getElementById('csvExportStatus');
+    if (st) { st.style.display = 'none'; st.textContent = ''; }
+    document.getElementById('csvExportModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function filterCsvWallets(type) {
+    document.querySelectorAll('.csv-filter-btn').forEach(b => b.classList.remove('csv-filter-active'));
+    const active = document.querySelector(`.csv-filter-btn[data-filter="${type}"]`);
+    if (active) active.classList.add('csv-filter-active');
+
+    document.querySelectorAll('.csv-wallet-cb').forEach(cb => {
+        const wallet = myWallets.find(w => w.address === cb.value);
+        if (!wallet) return; // custom wallet — don't touch
+        switch (type) {
+            case 'all': cb.checked = true; break;
+            case 'mine': cb.checked = wallet.type === 'my'; break;
+            case 'watched': cb.checked = wallet.type === 'watch'; break;
+            case 'none': cb.checked = false; break;
+        }
+    });
+    const allCb = document.getElementById('csvSelectAll');
+    if (allCb) allCb.checked = (type === 'all');
+}
+
+function addCsvCustomWallet() {
+    const input = document.getElementById('csvCustomWallet');
+    if (!input) return;
+    const addr = input.value.trim();
+    if (!addr) return;
+    const ss58Re = /^[1-9A-HJ-NP-Za-km-z]{46,50}$/;
+    if (!ss58Re.test(addr)) {
+        alert(TRANSLATIONS[currentLang]?.csv_invalid_address || 'Invalid SORA address format.');
+        return;
+    }
+    // Check if already in the list
+    const existing = document.querySelector(`.csv-wallet-cb[value="${addr}"]`);
+    if (existing) {
+        existing.checked = true;
+        input.value = '';
+        return;
+    }
+    const list = document.getElementById('csvWalletList');
+    const display = addr.slice(0, 8) + '...' + addr.slice(-6);
+    list.appendChild(csvWalletRow(addr, display, true));
+    input.value = '';
+}
+
+function closeCsvExportModal() {
+    document.getElementById('csvExportModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+const CSV_FORMAT_HINTS = {
+    sorametrics: { en: 'Detailed export organized by wallet with all transaction types.', es: 'Exportacion detallada organizada por wallet con todos los tipos.' },
+    koinly: { en: 'Compatible with Koinly tax software. Sent/Received format, UTC dates.', es: 'Compatible con Koinly. Formato Sent/Received, fechas UTC.' },
+    cointracking: { en: 'Compatible with CoinTracking. Buy/Sell format with trade types.', es: 'Compatible con CoinTracking. Formato Buy/Sell con tipos de operacion.' },
+    cointracker: { en: 'Compatible with CoinTracker. MM/DD/YYYY dates, Received/Sent format.', es: 'Compatible con CoinTracker. Fechas MM/DD/YYYY, formato Received/Sent.' }
+};
+const CSV_FORMAT_FILENAMES = { sorametrics: 'sorametrics_export', koinly: 'koinly_import', cointracking: 'cointracking_import', cointracker: 'cointracker_import' };
+
+function onCsvFormatChange() {
+    const fmt = document.getElementById('csvFormat').value;
+    const hint = document.getElementById('csvFormatHint');
+    if (hint) {
+        const lang = (currentLang === 'es') ? 'es' : 'en';
+        hint.textContent = (CSV_FORMAT_HINTS[fmt] || {})[lang] || CSV_FORMAT_HINTS[fmt]?.en || '';
+    }
+    // Hide extrinsics checkbox for tax formats (not relevant)
+    const extCb = document.querySelector('.csv-type-cb[value="extrinsics"]');
+    if (extCb) {
+        const label = extCb.closest('label');
+        if (label) label.style.display = fmt === 'sorametrics' ? '' : 'none';
+        if (fmt !== 'sorametrics') extCb.checked = false;
+    }
+}
+
+async function executeCsvExport() {
+    const wallets = [...document.querySelectorAll('.csv-wallet-cb:checked')].map(cb => cb.value);
+    if (wallets.length === 0) {
+        alert(TRANSLATIONS[currentLang]?.csv_no_wallets || 'Select at least one wallet.');
+        return;
+    }
+    const types = [...document.querySelectorAll('.csv-type-cb:checked')].map(cb => cb.value);
+    if (types.length === 0) {
+        alert(TRANSLATIONS[currentLang]?.csv_no_types || 'Select at least one transaction type.');
+        return;
+    }
+    const format = document.getElementById('csvFormat')?.value || 'sorametrics';
+    const fromDate = document.getElementById('csvDateFrom').value;
+    const toDate = document.getElementById('csvDateTo').value;
+    const start = fromDate ? new Date(fromDate).getTime() : 0;
+    const end = toDate ? new Date(toDate + 'T23:59:59').getTime() : Date.now();
+
+    // Build wallet names for SoraMetrics format headers
+    const walletNames = wallets.map(addr => {
+        const saved = myWallets.find(w => w.address === addr);
+        return saved ? saved.name : '';
+    });
+
+    const btn = document.getElementById('csvDownloadBtn');
+    const status = document.getElementById('csvExportStatus');
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    status.style.display = 'block';
+    status.textContent = TRANSLATIONS[currentLang]?.csv_exporting || 'Exporting data...';
+    status.style.color = '#6B7280';
+
+    try {
+        const params = new URLSearchParams();
+        params.set('wallets', wallets.join(','));
+        params.set('types', types.join(','));
+        params.set('format', format);
+        params.set('walletNames', walletNames.join(','));
+        params.set('start', start);
+        params.set('end', end);
+
+        const resp = await fetch('/export/csv?' + params.toString());
+        if (!resp.ok) {
+            let errMsg = resp.statusText;
+            try {
+                const errJson = await resp.json();
+                errMsg = errJson.error || errMsg;
+            } catch (_) {
+                errMsg = await resp.text() || errMsg;
+            }
+            throw new Error(errMsg);
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const prefix = CSV_FORMAT_FILENAMES[format] || 'sorametrics_export';
+        a.download = `${prefix}_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        status.textContent = TRANSLATIONS[currentLang]?.csv_export_ok || 'Export completed!';
+        status.style.color = '#10B981';
+    } catch (err) {
+        status.textContent = (TRANSLATIONS[currentLang]?.error_loading || 'Error') + ': ' + err.message;
+        status.style.color = '#EF4444';
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = '';
+    }
+}
+
+window.addEventListener('click', (event) => {
+    const modal = document.getElementById('csvExportModal');
+    if (event.target === modal) closeCsvExportModal();
+});
 
 // Global Orchestrator triggered by Sticky Header Selector
 async function loadSoraIntelligence() {
@@ -6078,7 +6631,7 @@ function updateThemeIcon(theme) {
 }
 
 function initTheme() {
-    const saved = localStorage.getItem('sora_theme') || 'light';
+    const saved = localStorage.getItem('sora_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
     updateThemeIcon(saved);
 }
@@ -6211,7 +6764,7 @@ function openPoolDetails(base, target, initialTab, baseSym, targetSym, baseLogo,
     window.currentBaseSym = baseSym;
     window.currentTargetSym = targetSym;
 
-    document.getElementById('poolDetailsModal').style.display = 'flex';
+    document.getElementById('poolDetailsModal').style.display = 'flex'; lockBodyScroll();
 
     // Inject action buttons
     const poolActions = document.getElementById('poolModalActions');
@@ -6244,14 +6797,12 @@ function openPoolDetails(base, target, initialTab, baseSym, targetSym, baseLogo,
         `;
     }
 
-    document.body.style.overflow = 'hidden';
-
     openPoolTab(initialTab);
 }
 
 function closePoolDetailsModal() {
-    document.getElementById('poolDetailsModal').style.display = 'none';
-    document.body.style.overflow = '';
+    resetModalMax('poolDetailsModal');
+    document.getElementById('poolDetailsModal').style.display = 'none'; unlockBodyScroll();
     if (window.location.hash.startsWith('#pool=')) {
         history.replaceState(null, '', window.location.pathname + window.location.search);
     }
@@ -6766,8 +7317,7 @@ let candlestickSeries;
 let currentChartSymbol = '';
 
 function closeChartModal() {
-    document.getElementById('chartModal').style.display = 'none';
-    document.body.style.overflow = ''; // Unlock Body Scroll
+    document.getElementById('chartModal').style.display = 'none'; unlockBodyScroll();
     if (chart) { chart.remove(); chart = null; }
 }
 
@@ -6785,8 +7335,7 @@ function showChart(symbol, resolution = 60) {
     }
 
     window.currentChartSymbol = symbol;
-    document.getElementById('chartModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // Lock Body Scroll
+    document.getElementById('chartModal').style.display = 'flex'; lockBodyScroll();
     document.getElementById('chartTitle').innerText = symbol + " / USD";
 
     // Inject screenshot button (no share link for charts)
@@ -7237,6 +7786,17 @@ let musicWaveformHeights = []; // pseudo-random heights per track
     });
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
+
+    // Prevent touch scroll bleed-through on mobile
+    document.addEventListener('touchmove', function(e) {
+        const panel = getPanel();
+        if (panel && panel.classList.contains('visible') && panel.contains(e.target)) {
+            // Allow scroll inside playlist if it overflows
+            const playlist = e.target.closest('.music-playlist');
+            if (playlist && playlist.scrollHeight > playlist.clientHeight) return;
+            e.preventDefault();
+        }
+    }, { passive: false });
 
     // Restore saved position when panel first appears
     const observer = new MutationObserver(function() {

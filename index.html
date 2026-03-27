@@ -854,6 +854,23 @@
             gap: 12px;
         }
 
+        /* Swap arrow: text visible on desktop, animated SVG on mobile */
+        .swap-arrow-anim { display: none; }
+        .swap-arrow-icon {
+            width: 24px; height: 24px;
+            color: var(--primary-color);
+            animation: iconSwapRotate 4s ease-in-out infinite;
+            transform-origin: center;
+        }
+
+        /* Swap token cell styling */
+        .swap-tok-logo { width: 23px; height: 23px; border-radius: 50%; object-fit: contain; }
+        .swap-tok-head { display: flex; align-items: center; gap: 6px; }
+        .swap-tok-sym { font-size: 11px; }
+        .swap-tok-vals { font-size: 11px; display: flex; flex-direction: column; gap: 1px; }
+        .swap-tok-amt { font-size: 13px; font-weight: 600; }
+        .swap-tok-usd { font-size: 10px; color: #10B981; font-weight: 500; }
+
         .asset-row img {
             width: 32px;
             height: 32px;
@@ -999,6 +1016,9 @@
             align-items: center;
             justify-content: center;
             z-index: 2000;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .modal-content {
@@ -1009,7 +1029,32 @@
             max-width: 95%;
             border: 1px solid var(--border-color);
             color: var(--text-primary);
+            overscroll-behavior: contain;
         }
+
+        body.modal-open {
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+        }
+
+        .modal-content.modal-maximized {
+            width: 100vw !important;
+            max-width: 100vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+
+        .modal-maximize-btn {
+            cursor: pointer;
+            font-size: 20px;
+            color: #9CA3AF;
+            margin-right: 8px;
+            user-select: none;
+        }
+        .modal-maximize-btn:hover { color: var(--text-primary); }
 
         .close-modal {
             float: right;
@@ -2248,6 +2293,248 @@
                 white-space: nowrap;
                 margin: 0 4px !important;
             }
+
+            /* === SWAP CARDS: Compact inline layout === */
+            #swapTable tr {
+                display: grid !important;
+                grid-template-columns: 1fr auto 1fr;
+                grid-template-rows: auto auto;
+                gap: 2px 6px;
+                align-items: center;
+                padding: 12px;
+            }
+
+            /* Row 1: Input | SwapIcon | Output */
+            #swapTable td:nth-of-type(3) {
+                grid-column: 1; grid-row: 1;
+                display: flex !important;
+                justify-content: center;
+                padding: 0;
+            }
+            #swapTable td:nth-of-type(4) {
+                grid-column: 2; grid-row: 1;
+                display: flex !important;
+                justify-content: center;
+                align-items: center;
+                padding: 0;
+            }
+            #swapTable td:nth-of-type(5) {
+                grid-column: 3; grid-row: 1;
+                display: flex !important;
+                justify-content: center;
+                padding: 0;
+            }
+
+            /* Swap token: [logo] SYMBOL / Amount $USD */
+            #swapTable .swap-tok-head {
+                gap: 5px;
+            }
+            #swapTable .swap-tok-sym {
+                font-weight: 600;
+                font-size: 13px;
+            }
+            #swapTable .swap-tok-vals {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                margin-top: 4px;
+            }
+            #swapTable .swap-tok-amt {
+                font-size: 12px;
+            }
+
+            /* Row 2: Time | Account */
+            #swapTable td:nth-of-type(1) {
+                grid-column: 1 / 2; grid-row: 2;
+                display: flex !important;
+                justify-content: flex-start;
+                padding: 6px 0 0;
+                font-size: 10px;
+                opacity: 0.7;
+            }
+            #swapTable td:nth-of-type(6) {
+                grid-column: 2 / 4; grid-row: 2;
+                display: flex !important;
+                justify-content: flex-end;
+                padding: 6px 0 0;
+                font-size: 11px;
+            }
+
+            /* Keep Block(2) and Action(7) hidden */
+            #swapTable td:nth-of-type(2),
+            #swapTable td:nth-of-type(7) {
+                display: none !important;
+            }
+
+            /* Hide ::before labels for swap compact layout */
+            #swapTable td:nth-of-type(1)::before,
+            #swapTable td:nth-of-type(3)::before,
+            #swapTable td:nth-of-type(5)::before,
+            #swapTable td:nth-of-type(6)::before {
+                display: none !important;
+            }
+
+            /* Show animated SVG, hide text arrow on mobile */
+            .swap-arrow-text { display: none; }
+            .swap-arrow-anim { display: inline-flex; }
+
+            /* === TRANSFER CARDS: Compact inline layout === */
+            #transferTable tr {
+                display: grid !important;
+                grid-template-columns: 1fr auto 1fr;
+                grid-template-rows: auto auto;
+                gap: 2px 6px;
+                align-items: center;
+                padding: 12px;
+            }
+            /* Row 1: From | Token | To */
+            #transferTable td:nth-of-type(3) {
+                grid-column: 1; grid-row: 1;
+                display: flex !important;
+                justify-content: flex-start;
+                align-items: center;
+                padding: 0; font-size: 11px;
+                min-width: 0; overflow: hidden;
+            }
+            #transferTable td:nth-of-type(4) {
+                grid-column: 2; grid-row: 1;
+                display: flex !important;
+                justify-content: center;
+                padding: 0;
+            }
+            #transferTable td:nth-of-type(6) {
+                grid-column: 3; grid-row: 1;
+                display: flex !important;
+                justify-content: flex-end;
+                align-items: center;
+                text-align: right;
+                padding: 0; font-size: 11px;
+                min-width: 0; overflow: hidden;
+            }
+            /* Row 2: Time (full width) */
+            #transferTable td:nth-of-type(1) {
+                grid-column: 1 / 4; grid-row: 2;
+                display: flex !important;
+                justify-content: flex-start;
+                padding: 6px 0 0;
+                font-size: 10px; opacity: 0.7;
+            }
+            /* Hidden: Block(2), Arrow(5), Action(7) */
+            #transferTable td:nth-of-type(2),
+            #transferTable td:nth-of-type(5),
+            #transferTable td:nth-of-type(7) {
+                display: none !important;
+            }
+            #transferTable td::before {
+                display: none !important;
+            }
+
+            /* === BRIDGE CARDS: Compact inline layout === */
+            #bridgeTable tr {
+                display: grid !important;
+                grid-template-columns: 1fr auto 1fr;
+                grid-template-rows: auto auto;
+                gap: 2px 6px;
+                align-items: center;
+                padding: 12px;
+            }
+            /* Row 1: From | Token | To */
+            #bridgeTable td:nth-of-type(5) {
+                grid-column: 1; grid-row: 1;
+                display: flex !important;
+                justify-content: flex-start;
+                align-items: center;
+                padding: 0; font-size: 11px;
+                min-width: 0; overflow: hidden;
+            }
+            #bridgeTable td:nth-of-type(7) {
+                grid-column: 2; grid-row: 1;
+                display: flex !important;
+                justify-content: center;
+                padding: 0;
+            }
+            #bridgeTable td:nth-of-type(6) {
+                grid-column: 3; grid-row: 1;
+                display: flex !important;
+                justify-content: flex-end;
+                align-items: center;
+                text-align: right;
+                padding: 0; font-size: 11px;
+                min-width: 0; overflow: hidden;
+            }
+            /* Row 2: Direction | Network | Time */
+            #bridgeTable td:nth-of-type(4) {
+                grid-column: 1; grid-row: 2;
+                display: flex !important;
+                justify-content: flex-start;
+                padding: 6px 0 0; font-size: 10px;
+            }
+            #bridgeTable td:nth-of-type(3) {
+                grid-column: 2; grid-row: 2;
+                display: flex !important;
+                justify-content: center;
+                padding: 6px 0 0; font-size: 10px; opacity: 0.7;
+            }
+            #bridgeTable td:nth-of-type(1) {
+                grid-column: 3; grid-row: 2;
+                display: flex !important;
+                justify-content: flex-end;
+                padding: 6px 0 0; font-size: 10px; opacity: 0.7;
+            }
+            /* Hidden: Block(2), Action(8) */
+            #bridgeTable td:nth-of-type(2),
+            #bridgeTable td:nth-of-type(8) {
+                display: none !important;
+            }
+            #bridgeTable td::before {
+                display: none !important;
+            }
+
+            /* Shared token styling for transfers & bridges compact cards */
+            #transferTable .swap-tok,
+            #bridgeTable .swap-tok { display: flex; flex-direction: column; align-items: center; }
+            #transferTable .swap-tok-head,
+            #bridgeTable .swap-tok-head { flex-direction: column; gap: 2px; align-items: center; }
+            #transferTable .swap-tok-sym,
+            #bridgeTable .swap-tok-sym { font-weight: 600; font-size: 11px; }
+            #transferTable .swap-tok-vals,
+            #bridgeTable .swap-tok-vals { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; align-items: center; }
+            #transferTable .swap-tok-amt,
+            #bridgeTable .swap-tok-amt { font-size: 12px; }
+
+            /* Truncate long addresses */
+            #transferTable td:nth-of-type(3) > span:first-child,
+            #transferTable td:nth-of-type(6) > span:first-child,
+            #bridgeTable td:nth-of-type(5) > span:first-child,
+            #bridgeTable td:nth-of-type(5) > a:first-child,
+            #bridgeTable td:nth-of-type(6) > span:first-child,
+            #bridgeTable td:nth-of-type(6) > a:first-child {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                min-width: 0;
+            }
+
+            /* Direction arrows: From → [Token] → To */
+            #transferTable td:nth-of-type(3)::after,
+            #bridgeTable td:nth-of-type(5)::after {
+                content: "→";
+                color: #6B7280;
+                font-size: 10px;
+                flex-shrink: 0;
+                margin-left: 4px;
+            }
+            #transferTable td:nth-of-type(6)::before,
+            #bridgeTable td:nth-of-type(6)::before {
+                display: inline-flex !important;
+                content: "→" !important;
+                color: #6B7280;
+                font-size: 10px;
+                flex-shrink: 0;
+                margin-right: 4px;
+                text-transform: none;
+                font-weight: normal;
+            }
         }
 
         /* --- NEW STYLES --- */
@@ -2598,13 +2885,61 @@
         .music-playlist-item:hover { background: rgba(155, 27, 48, 0.15); color: rgba(255,255,255,0.7); }
         .music-playlist-item.active { color: #c44070; font-weight: 600; }
 
+        /* Music player close button (hidden on desktop) */
+        .music-close-btn {
+            display: none;
+            width: 28px; height: 28px; min-width: 28px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: none; color: rgba(255,255,255,0.6);
+            align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .music-close-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* Music player: prevent touch scroll bleed-through */
+        .music-player-panel.visible {
+            touch-action: none;
+            overscroll-behavior: contain;
+        }
+
         @media (max-width: 768px) {
             .music-player-panel {
-                left: 12px;
-                right: 12px;
+                top: 0 !important; bottom: auto !important;
+                left: 0 !important; right: 0 !important;
                 width: auto;
-                bottom: 16px;
+                border-radius: 0 0 16px 16px;
+                padding: 10px 14px 8px;
             }
+            .music-player-panel .music-top-row { margin-bottom: 0; gap: 10px; }
+            .music-player-panel .music-play-btn {
+                width: 40px; height: 40px; min-width: 40px;
+            }
+            .music-player-panel .music-play-btn svg { width: 18px; height: 18px; }
+            .music-player-panel .music-waveform-wrap,
+            .music-player-panel .music-volume-row { display: none; }
+            .music-player-panel .music-playlist { max-height: 150px; }
+            .music-close-btn { display: flex !important; }
+        }
+
+        /* CSV filter buttons */
+        .csv-filter-btn {
+            padding: 4px 12px; border-radius: 14px;
+            border: 1px solid var(--border-color, #e5e7eb);
+            background: transparent; color: var(--text-secondary, #6B7280);
+            font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+        }
+        .csv-filter-btn:hover { border-color: #9B1B30; color: #9B1B30; }
+        .csv-filter-btn.csv-filter-active {
+            background: linear-gradient(135deg, #9B1B30, #7A1526);
+            color: #fff; border-color: #9B1B30;
+        }
+
+        /* RTL support for CSV export modal (Hebrew, Urdu) */
+        [dir="rtl"] #csvExportModal .modal-content,
+        html[lang="he"] #csvExportModal .modal-content,
+        html[lang="ur"] #csvExportModal .modal-content {
+            direction: rtl; text-align: right;
         }
 
     </style>
@@ -2628,6 +2963,20 @@
     <div class="side-menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
     <div class="side-menu" id="sideMenu">
         <h2 style="margin-top:0; color:#9B1B30;">Sora<span style="color:var(--text-primary, #111)">Metrics</span></h2>
+        <!-- CSV Export Button -->
+        <button onclick="openCsvExportModal(); toggleMenu();"
+            style="display:flex; align-items:center; gap:10px; width:100%; padding:12px; margin-bottom:12px;
+            background:linear-gradient(135deg, #9B1B30, #7A1526); color:white; border:none; border-radius:10px;
+            font-size:14px; font-weight:600; cursor:pointer; transition:opacity 0.2s;"
+            onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span data-i18n="csv_export_btn">Export CSV</span>
+        </button>
+
         <div style="font-size:12px; color:#6B7280; margin-bottom:15px;" data-i18n="menu_instruction">
             Visibles (Max 5)
         </div>
@@ -3844,6 +4193,7 @@
 
             <div id="holderModal" class="modal">
                 <div class="modal-content">
+                    <span class="modal-maximize-btn" onclick="toggleModalMax('holderModal')" title="Maximize">⛶</span>
                     <span class="close-modal" onclick="closeModal()">&times;</span>
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
                         <div style="display:flex; align-items:center; gap:10px;">
@@ -4000,6 +4350,7 @@
                                 style="font-family:monospace; color:var(--text-secondary); font-size:12px;"></span>
                         </div>
                         <div id="poolModalActions" style="display:flex; gap:6px; margin-right:10px;"></div>
+                        <span class="modal-maximize-btn" onclick="toggleModalMax('poolDetailsModal')" title="Maximize" style="position:absolute; right:30px; top:0; font-size:22px;">⛶</span>
                         <span class="close-modal" onclick="closePoolDetailsModal()"
                             style="position:absolute; right:0; top:0; font-size:40px; line-height:0.8;">&times;</span>
                     </div>
@@ -4049,6 +4400,7 @@
                                 style="font-family:monospace; color:#6B7280; font-size:12px; word-break:break-all;"></span>
                         </div>
                         <div id="walletModalActions" style="display:flex; gap:6px; margin-right:10px;"></div>
+                        <span class="modal-maximize-btn" onclick="toggleModalMax('walletDetailsModal')" title="Maximize" style="position:absolute; right:30px; top:0; font-size:22px;">⛶</span>
                         <span class="close-modal" onclick="closeDetailsModal()"
                             style="position:absolute; right:0; top:0; font-size:40px; line-height:0.8;">&times;</span>
                     </div>
@@ -4067,6 +4419,10 @@
                             onclick="openWTab('liquidity')" data-i18n="liquidity">Liquidez</button>
                         <button id="wtab-staking" class="tab-btn" style="font-size:14px; padding:5px 15px;"
                             onclick="openWTab('staking')">Staking</button>
+                        <button id="wtab-info" class="tab-btn" style="font-size:14px; padding:5px 15px;"
+                            onclick="openWTab('info')">Info</button>
+                        <button id="wtab-extrinsics" class="tab-btn" style="font-size:14px; padding:5px 15px;"
+                            onclick="openWTab('extrinsics')">Extrinsics</button>
                     </div>
 
                     <div id="wview-assets" class="wtab-content active" style="flex:1; overflow-y:auto;">
@@ -4146,12 +4502,39 @@
                             <div style="text-align:center; padding:20px; color:var(--text-secondary);">Loading...</div>
                         </div>
                     </div>
+
+                    <div id="wview-info" class="wtab-content" style="flex:1; overflow-y:auto; display:none;">
+                        <div id="wInfoContent" style="padding:10px;">
+                            <div style="text-align:center; padding:20px; color:var(--text-secondary);">Loading...</div>
+                        </div>
+                    </div>
+
+                    <div id="wview-extrinsics" class="wtab-content" style="flex:1; overflow-y:auto; display:none;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:left; padding:8px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-color);">Time</th>
+                                    <th style="text-align:left; padding:8px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-color);">Block</th>
+                                    <th style="text-align:left; padding:8px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-color);">Pallet::Call</th>
+                                    <th style="text-align:center; padding:8px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-color);">Result</th>
+                                    <th style="text-align:center; padding:8px; font-size:12px; color:var(--text-secondary); border-bottom:1px solid var(--border-color);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wExtrinsicsTable"></tbody>
+                        </table>
+                        <div style="margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center;">
+                            <button class="secondary-btn" id="btnWExtrinsicPrev" onclick="changeWExtrinsicPage(-1)" style="font-size:12px; padding:4px 12px;">← Previous</button>
+                            <span id="wExtrinsicPageIndicator" style="font-size:12px; color:var(--text-secondary);">Page 1</span>
+                            <button class="top-btn" id="btnWExtrinsicNext" onclick="changeWExtrinsicPage(1)" style="font-size:12px; padding:4px 12px;">Next →</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Block Details Modal -->
             <div id="blockModal" class="modal">
                 <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                    <span class="modal-maximize-btn" onclick="toggleModalMax('blockModal')" title="Maximize">⛶</span>
                     <span class="close-modal"
                         onclick="closeBlockModal()">&times;</span>
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
@@ -4165,6 +4548,7 @@
             <!-- Extrinsic Details Modal -->
             <div id="extrinsicDetailModal" class="modal">
                 <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow-y: auto;">
+                    <span class="modal-maximize-btn" onclick="toggleModalMax('extrinsicDetailModal')" title="Maximize">⛶</span>
                     <span class="close-modal" onclick="closeExtrinsicModal()">&times;</span>
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
                         <h2 style="margin:0;" data-i18n="extrinsic_details">Extrinsic Details</h2>
@@ -4176,7 +4560,8 @@
 
             <!-- Transaction Details Modal -->
             <div id="txModal" class="modal">
-                <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-content" style="max-width: 650px; max-height: 80vh; overflow-y: auto;">
+                    <span class="modal-maximize-btn" onclick="toggleModalMax('txModal')" title="Maximize">⛶</span>
                     <span class="close-modal"
                         onclick="closeTxModal()">&times;</span>
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
@@ -4217,6 +4602,115 @@
         </div>
 
 
+            <!-- MODAL CSV EXPORT -->
+            <div id="csvExportModal" class="modal">
+                <div class="modal-content" style="width: 480px; max-height: 85vh; overflow-y: auto;">
+                    <span class="close-modal" onclick="closeCsvExportModal()">&times;</span>
+                    <h2 style="margin-top:0; color:var(--text-primary, #111827); font-size:20px; display:flex; align-items:center; gap:10px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            stroke="#9B1B30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span data-i18n="csv_export_title">Export Data (CSV)</span>
+                    </h2>
+
+                    <!-- Wallet Selector -->
+                    <div style="margin-bottom:18px;">
+                        <label style="font-weight:600; font-size:13px; color:var(--text-primary, #374151); margin-bottom:6px; display:block;"
+                            data-i18n="csv_select_wallets">Select Wallets</label>
+                        <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+                            <button type="button" class="csv-filter-btn csv-filter-active" data-filter="all" onclick="filterCsvWallets('all')" data-i18n="all">All</button>
+                            <button type="button" class="csv-filter-btn" data-filter="mine" onclick="filterCsvWallets('mine')" data-i18n="csv_filter_mine">My Wallets</button>
+                            <button type="button" class="csv-filter-btn" data-filter="watched" onclick="filterCsvWallets('watched')" data-i18n="csv_filter_watched">Watched</button>
+                            <button type="button" class="csv-filter-btn" data-filter="none" onclick="filterCsvWallets('none')" data-i18n="csv_filter_none">None</button>
+                        </div>
+                        <div id="csvWalletList"
+                            style="max-height:150px; overflow-y:auto; border:1px solid var(--border-color, #e5e7eb); border-radius:8px; padding:8px;">
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <input type="text" id="csvCustomWallet" placeholder="cnXX...  (SORA address)"
+                                style="flex:1; padding:8px 10px; border:1px solid var(--border-color, #e5e7eb); border-radius:8px; font-size:12px; background:var(--bg-card, #fff); color:var(--text-primary, #111); font-family:monospace;">
+                            <button onclick="addCsvCustomWallet()" type="button"
+                                style="padding:8px 14px; background:linear-gradient(135deg, #9B1B30, #7A1526); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;"
+                                data-i18n="csv_add_wallet">+ Add</button>
+                        </div>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px;">
+                        <div>
+                            <label style="font-weight:600; font-size:13px; color:var(--text-primary, #374151); margin-bottom:4px; display:block;"
+                                data-i18n="csv_date_from">From</label>
+                            <input type="date" id="csvDateFrom"
+                                style="width:100%; padding:8px; border:1px solid var(--border-color, #e5e7eb); border-radius:8px; font-size:13px; background:var(--bg-card, #fff); color:var(--text-primary, #111);">
+                        </div>
+                        <div>
+                            <label style="font-weight:600; font-size:13px; color:var(--text-primary, #374151); margin-bottom:4px; display:block;"
+                                data-i18n="csv_date_to">To</label>
+                            <input type="date" id="csvDateTo"
+                                style="width:100%; padding:8px; border:1px solid var(--border-color, #e5e7eb); border-radius:8px; font-size:13px; background:var(--bg-card, #fff); color:var(--text-primary, #111);">
+                        </div>
+                    </div>
+
+                    <!-- Transaction Types -->
+                    <div style="margin-bottom:18px;">
+                        <label style="font-weight:600; font-size:13px; color:var(--text-primary, #374151); margin-bottom:8px; display:block;"
+                            data-i18n="csv_select_types">Transaction Types</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_swaps">Swaps</span>
+                                <input type="checkbox" value="swaps" class="csv-type-cb" checked>
+                            </label>
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_transfers">Transfers</span>
+                                <input type="checkbox" value="transfers" class="csv-type-cb" checked>
+                            </label>
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_bridges">Bridges</span>
+                                <input type="checkbox" value="bridges" class="csv-type-cb" checked>
+                            </label>
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_liquidity">Liquidity</span>
+                                <input type="checkbox" value="liquidity" class="csv-type-cb" checked>
+                            </label>
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_orderbook">Order Book</span>
+                                <input type="checkbox" value="orderbook" class="csv-type-cb" checked>
+                            </label>
+                            <label style="display:flex; align-items:center; justify-content:space-between; font-size:13px; cursor:pointer; padding:2px 0;">
+                                <span data-i18n="tab_extrinsics">Extrinsics</span>
+                                <input type="checkbox" value="extrinsics" class="csv-type-cb" checked>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Export Format Selector -->
+                    <div style="margin-bottom:12px;">
+                        <label style="font-size:13px; font-weight:600; margin-bottom:6px; display:block;">
+                            <span data-i18n="csv_format">Export Format</span>
+                        </label>
+                        <select id="csvFormat" onchange="onCsvFormatChange()" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border-color, #d1d5db); background:var(--bg-card, #fff); color:var(--text-primary, #111); font-size:13px; cursor:pointer; appearance:auto;">
+                            <option value="sorametrics">SoraMetrics (Full Detail)</option>
+                            <option value="koinly">Koinly</option>
+                            <option value="cointracking">CoinTracking</option>
+                            <option value="cointracker">CoinTracker</option>
+                        </select>
+                        <p id="csvFormatHint" style="font-size:11px; color:#6B7280; margin:4px 0 0;">
+                            <span data-i18n="csv_format_hint_sm">Detailed export organized by wallet with all transaction types.</span>
+                        </p>
+                    </div>
+
+                    <!-- Download Button + Status -->
+                    <button id="csvDownloadBtn" class="btn-primary" onclick="executeCsvExport()"
+                        style="width:100%; padding:12px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                        ⬇ <span data-i18n="csv_download">Download CSV</span>
+                    </button>
+                    <div id="csvExportStatus"
+                        style="margin-top:10px; font-size:12px; color:#6B7280; text-align:center; display:none;"></div>
+                </div>
+            </div>
+
         <!-- MUSIC PLAYER PANEL -->
         <div class="music-player-panel" id="musicPlayerPanel">
             <!-- Top row: play + info + nav -->
@@ -4238,6 +4732,9 @@
                     <button class="music-playlist-toggle" onclick="toggleMusicPlaylist()" title="Playlist">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                     </button>
+                    <button class="music-close-btn" onclick="toggleMusicPlayer()" title="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
             </div>
             <!-- Waveform visualizer row -->
@@ -4256,7 +4753,7 @@
         </div>
         <audio id="musicAudio" preload="none"></audio>
 
-        <script src="script.js?v=v23"></script>
+        <script src="script.js?v=v37"></script>
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
