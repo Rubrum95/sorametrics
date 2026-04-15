@@ -219,7 +219,14 @@ const TRANSLATIONS = {
     }
 };
 
-let currentLang = localStorage.getItem('sora_lang') || 'es';
+function detectLanguage() {
+    const saved = localStorage.getItem('sora_lang');
+    if (saved) return saved;
+    const browserLang = (navigator.language || '').split('-')[0].toLowerCase();
+    const supported = ['es', 'en', 'jp', 'pt', 'it', 'tr', 'he', 'ru', 'zh', 'ur'];
+    return supported.includes(browserLang) ? browserLang : 'en';
+}
+let currentLang = detectLanguage();
 
 function applyTranslations() {
     document.querySelectorAll('[data-i18n]').forEach(element => {
@@ -262,19 +269,6 @@ function applyTranslations() {
         if (match) {
             totalHoldersBadge.innerText = `${match[1]} ${TRANSLATIONS[currentLang].accounts}`;
         }
-    }
-}
-
-function changeLanguage(lang) {
-    if (!TRANSLATIONS[lang]) return;
-    currentLang = lang;
-    localStorage.setItem('sora_lang', lang);
-    applyTranslations();
-    renderTabs(); // Re-render tabs to update button text
-
-    // Also update sidebar if open
-    if (typeof renderSidebar === 'function') {
-        renderSidebar();
     }
 }
 

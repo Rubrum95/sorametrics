@@ -25,6 +25,7 @@
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "helmet": "^8.0.0",
+    "ioredis": "^5.10.1",
     "node-cache": "^5.1.2",
     "pg": "^8.20.0",
     "socket.io": "^4.8.1"

@@ -1,3 +1,4 @@
+const { cacheGet, cacheSet } = require("./redis");
 const express = require('express');
 const http = require('http');
 const fs = require('fs');
@@ -411,6 +412,25 @@ const MOF_URLS = ['https://mof.sora.org', 'https://mof2.sora.org', 'https://mof3
 // MOF uses lowercase symbol; KUSD in our config maps to XSTUSD on MOF
 const MOF_SYMBOL_MAP = { XOR: 'xor', VAL: 'val', PSWAP: 'pswap', TBCD: 'tbcd', KUSD: 'xstusd' };
 
+// Dedicated MOF fetch — no cache, no on-chain fallback. Returns null on failure.
+async function fetchMofSupply(symbol) {
+    const mofSym = MOF_SYMBOL_MAP[symbol] || symbol.toLowerCase();
+    for (const baseUrl of MOF_URLS) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const res = await fetch(`${baseUrl}/qty/${mofSym}`, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (res.ok) {
+                const text = await res.text();
+                const val = parseFloat(text);
+                if (!isNaN(val) && val > 0 && (symbol !== 'XOR' || val < 1e9)) return val;
+            }
+        } catch (e) { /* try next mirror */ }
+    }
+    return null;
+}
+
 async function getTokenTotalSupply(symbol) {
     const now = Date.now();
     if (supplyCache[symbol] && (now - supplyCache[symbol].ts < SUPPLY_CACHE_TTL)) {
@@ -441,32 +461,22 @@ async function getTokenTotalSupply(symbol) {
 
         // For non-XOR (or XOR if CoinGecko failed): use MOF API
         if (!totalSupply) {
-            const mofSym = MOF_SYMBOL_MAP[symbol] || symbol.toLowerCase();
-            for (const baseUrl of MOF_URLS) {
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 5000);
-                    const res = await fetch(`${baseUrl}/qty/${mofSym}`, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (res.ok) {
-                        const text = await res.text();
-                        const val = parseFloat(text);
-                        // For XOR, MOF returns 1e18 (post-denomination) — skip if unreasonable
-                        if (!isNaN(val) && val > 0 && (symbol !== 'XOR' || val < 1e9)) {
-                            totalSupply = val;
-                            break;
-                        }
-                    }
-                } catch (e) { /* try next MOF mirror */ }
-            }
+            totalSupply = await fetchMofSupply(symbol);
         }
 
-        // Last resort: on-chain query
-        if (!totalSupply && api && token.assetId) {
+        // Fallback for non-XOR: use latest MOF snapshot from DB (not on-chain totalIssuance
+        // which includes locked/vesting and doesn't match circulating supply)
+        if (!totalSupply && symbol !== 'XOR') {
             try {
-                const issuance = (symbol === 'XOR')
-                    ? await withTimeout(api.query.balances.totalIssuance())
-                    : await withTimeout(api.query.tokens.totalIssuance({ code: token.assetId }));
+                const snap = await getLatestSupplySnapshot(symbol);
+                if (snap && snap.total_supply) totalSupply = snap.total_supply;
+            } catch (e2) { /* DB fallback failed */ }
+        }
+
+        // Fallback for XOR: on-chain totalIssuance
+        if (!totalSupply && symbol === 'XOR' && api && token.assetId) {
+            try {
+                const issuance = await withTimeout(api.query.balances.totalIssuance());
                 const raw = issuance.toString().replace(/,/g, '');
                 totalSupply = new BigNumber(raw).div(new BigNumber(10).pow(token.decimals)).toNumber();
             } catch (e2) { /* chain fallback failed */ }
@@ -482,35 +492,6 @@ async function getTokenTotalSupply(symbol) {
     }
 }
 
-// On-chain total issuance query — used for supply snapshots.
-// For XOR: uses CoinGecko circulating supply (on-chain returns 1e18 post-denomination
-// which causes float64 precision issues in delta calculations).
-// For other tokens: on-chain query returns correct values.
-async function getOnChainTotalIssuance(symbol) {
-    const token = BURN_TOKENS[symbol];
-    if (!token || !api) return null;
-    try {
-        // XOR: derive from CoinGecko market cap / DEX price (on-chain returns 1e36 planck)
-        if (symbol === 'XOR') {
-            const xorMarket = await fetchXorMarketData();
-            const dexPrice = tokenPrices['XOR'] || 0;
-            if (xorMarket.cgMarketCap && dexPrice > 0) {
-                return xorMarket.cgMarketCap / dexPrice;
-            } else if (xorMarket.cgMarketCap && xorMarket.cgPrice && xorMarket.cgPrice > 0) {
-                return xorMarket.cgMarketCap / xorMarket.cgPrice;
-            }
-            // Fall through to on-chain if CoinGecko unavailable
-        }
-        const issuance = (symbol === 'XOR')
-            ? await withTimeout(api.query.balances.totalIssuance())
-            : await withTimeout(api.query.tokens.totalIssuance({ code: token.assetId }));
-        const raw = issuance.toString().replace(/,/g, '');
-        return new BigNumber(raw).div(new BigNumber(10).pow(token.decimals)).toNumber();
-    } catch (e) {
-        console.error(`On-chain issuance query error for ${symbol}:`, e.message);
-        return null;
-    }
-}
 
 // Query VAL remint percentage from on-chain timeSinceGenesis.
 // SORA staking remints a declining percentage (90%→35% over 5 years) of burned VAL as staking rewards.
@@ -1419,11 +1400,9 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
     if (!api) return res.status(500).json({ error: 'API not ready' });
     const address = req.params.address;
 
-    // Per-address cache check (3 min TTL)
-    const cached = liquidityCache[address];
-    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
-        return res.json(cached.data);
-    }
+    // Redis cache check (3 min TTL)
+    const cached = await cacheGet("wallet:liq:" + address);
+    if (cached) return res.json(cached);
 
     try {
         console.log(`Liquidity Check Start: ${address}`);
@@ -1533,7 +1512,7 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
         const result = poolsData.sort((a, b) => b.value - a.value);
         console.log(`Liquidity Scan Finished. Found ${result.length} records. (cached for ${LP_STAKING_TTL / 1000}s)`);
         // Cache per-address result
-        liquidityCache[address] = { data: result, timestamp: Date.now() };
+        await cacheSet("wallet:liq:" + address, result, 180);
         res.json(result);
     } catch (e) {
         console.error("Error fetching wallet liquidity:", e);
@@ -1546,11 +1525,9 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
     if (!api) return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0 });
     const address = req.params.address;
 
-    // Per-address cache check (3 min TTL)
-    const cached = stakingCache[address];
-    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
-        return res.json(cached.data);
-    }
+    // Redis cache check (3 min TTL)
+    const cached = await cacheGet("wallet:staking:" + address);
+    if (cached) return res.json(cached);
 
     try {
         // Check if address is a stash (bonded to a controller)
@@ -1604,7 +1581,7 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
             validators
         };
         // Cache per-address result
-        stakingCache[address] = { data: result, timestamp: Date.now() };
+        await cacheSet("wallet:staking:" + address, result, 180);
         res.json(result);
     } catch (e) {
         console.error("Error fetching staking info:", e.message);
@@ -1615,10 +1592,8 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
 // Wallet Info (aggregate stats)
 app.get('/wallet/info/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     const address = req.params.address;
-    const cached = walletInfoCache[address];
-    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
-        return res.json(cached.data);
-    }
+    const cached = await cacheGet("wallet:info:" + address);
+    if (cached) return res.json(cached);
     try {
         const info = await getWalletInfo(address);
         if (!info) return res.json({ error: 'No data' });
@@ -1640,7 +1615,7 @@ app.get('/wallet/info/:address', validateAddress, rateLimit(60, 60000), async (r
             whaleScore, whaleTier,
             whaleBreakdown: { volume: volumeScore, frequency: freqScore, diversity: divScore }
         };
-        walletInfoCache[address] = { data: result, timestamp: Date.now() };
+        await cacheSet("wallet:info:" + address, result, 180);
         res.json(result);
     } catch (e) {
         console.error('Error /wallet/info:', e.message);
@@ -1694,6 +1669,8 @@ app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
 app.get('/balance/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
     if (!api) return res.json([]);
     const address = req.params.address;
+    const _bcached = await cacheGet(`balance:${address}`);
+    if (_bcached) return res.json(_bcached);
     const balances = [];
     try {
         const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
@@ -1725,6 +1702,7 @@ app.get('/balance/:address', validateAddress, rateLimit(60, 60000), async (req, 
             }
         }
         balances.sort((a, b) => parseFloat(b.usdValue) - parseFloat(a.usdValue));
+        await cacheSet(`balance:${address}`, balances, 120);
         res.json(balances);
     } catch (e) { res.json([]); }
 });
@@ -2387,6 +2365,9 @@ app.get('/stats/accumulation', rateLimit(15, 60000), async (req, res) => {
 
 app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
     try {
+        const _cached = await cacheGet("stats:network");
+        if (_cached) return res.json(_cached);
+
 
         // Snapshot de 24h
         const stats24h = await getNetworkStats(86400000);
@@ -2397,11 +2378,13 @@ app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
         // Para TPS Real, deberíamos tomar los últimos X bloques, pero esto sirve de media diaria.
         const tps = stats24h.txCount / 86400;
 
-        res.json({
+        const _result = {
             stats24h,
             stats7d,
             tps: tps.toFixed(2)
-        });
+        };
+        await cacheSet("stats:network", _result, 15);
+        res.json(_result);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -2413,6 +2396,9 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
 
         // Parse timeframe from query
         const timeframe = req.query.timeframe || '1d';
+        const _ovck = `stats:overview:${timeframe}`;
+        const _ovcached = await cacheGet(_ovck);
+        if (_ovcached) return res.json(_ovcached);
         const ms = TIMEFRAME_MS[timeframe] || 86400000;
 
         // 1. Stablecoin Pegs (Live from tokenPrices)
@@ -2438,7 +2424,7 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
         // 5. Trends (timeframe-based)
         const trends = await getMarketTrends(ms);
 
-        res.json({
+        const _ovresult = {
             pegs: {
                 KUSD: kusdPeg,
                 XSTUSD: xstusdPeg,
@@ -2450,7 +2436,9 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
                 transferVolume: transferVolume
             },
             trends: trends
-        });
+        };
+        await cacheSet(_ovck, _ovresult, 20);
+        res.json(_ovresult);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -2459,17 +2447,22 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
 app.get('/stats/header', rateLimit(30, 60000), async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
+        const _hck = `stats:header:${timeframe}`;
+        const _hcached = await cacheGet(_hck);
+        if (_hcached) return res.json(_hcached);
         const ms = TIMEFRAME_MS[timeframe];
         const startTime = (ms === undefined || ms === 0) ? 0 : (Date.now() - ms);
 
         const stats = await getFilteredStats(startTime);
 
-        res.json({
+        const _result = {
             block: sessionStats.block,
             swaps: stats.swaps,
             transfers: stats.transfers,
             bridges: stats.bridges
-        });
+        };
+        await cacheSet(_hck, _result, 15);
+        res.json(_result);
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
@@ -2814,18 +2807,31 @@ async function startApp() {
         console.log('📸 Taking supply snapshots...');
         for (const sym of Object.keys(BURN_TOKENS)) {
             try {
-                const supply = await getTokenTotalSupply(sym);
+                // Use dedicated MOF fetch for snapshots — never on-chain fallback
+                // to avoid writing totalIssuance (includes locked/vesting) instead of circulating
+                const supply = await fetchMofSupply(sym);
                 if (supply !== null && supply > 0) {
                     await insertSupplySnapshot(sym, BURN_TOKENS[sym].assetId, supply);
                     console.log(`  ✅ ${sym}: ${supply.toLocaleString()}`);
                 } else {
-                    console.log(`  ⚠️ ${sym}: skipped snapshot (MOF API returned ${supply})`);
+                    console.log(`  ⚠️ ${sym}: skipped (MOF unavailable)`);
                 }
             } catch (e) {
                 console.error(`  ❌ ${sym} snapshot error:`, e.message);
             }
         }
     }
+    // Pre-warm supply cache from DB so first requests don't return null
+    for (const sym of Object.keys(BURN_TOKENS)) {
+        try {
+            const snap = await getLatestSupplySnapshot(sym);
+            if (snap && snap.total_supply) {
+                supplyCache[sym] = { value: snap.total_supply, ts: Date.now() };
+                console.log(`  🔄 ${sym} cache warmed: ${snap.total_supply.toLocaleString()}`);
+            }
+        } catch (e) { /* DB not ready yet */ }
+    }
+
     setTimeout(takeSupplySnapshots, 15000);
     setInterval(takeSupplySnapshots, 30 * 60 * 1000); // cada 30 minutos
 

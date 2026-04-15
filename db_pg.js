@@ -424,13 +424,13 @@ async function getSupplyHistory(symbol, startTime, assetId, genesisSupply) {
     const rows = [];
     const startTimeSec = Math.floor(startTime / 1000);
 
-    // For 4H/1D timeframes (startTime > 24h ago), MOF snapshots provide sub-daily resolution.
-    // For all other timeframes, use totalIssuance data (daily resolution from on-chain queries).
-    const recentCutoff = Date.now() - (2 * 86400000); // 2 days ago
-    const useOnlyMof = (startTime > recentCutoff);
+    // Non-XOR tokens (VAL, PSWAP, TBCD, KUSD): always use MOF circulating snapshots.
+    // On-chain totalIssuance includes locked/vesting tokens and does NOT match circulating supply.
+    // XOR: use on-chain data (totalIssuance is reliable after CoinGecko/denomination handling).
+    const isXor = symbol === 'XOR';
 
-    if (useOnlyMof) {
-        // 4H / 1D: MOF circulating snapshots only (every ~30min)
+    if (!isXor) {
+        // Non-XOR: MOF circulating snapshots (accurate, available since mid-March 2026)
         const snapRes = await pool.query(
             `SELECT timestamp, total_supply FROM sm.supply_snapshots
              WHERE symbol = $1 AND timestamp >= $2 ORDER BY timestamp ASC`,
@@ -439,33 +439,117 @@ async function getSupplyHistory(symbol, startTime, assetId, genesisSupply) {
         for (const r of snapRes.rows) {
             rows.push({ timestamp: Number(r.timestamp), total_supply: r.total_supply });
         }
-    } else {
-        // 7D / 1M / 1Y / ALL: use on-chain totalIssuance (daily resolution)
 
-        // 1. Subsquid asset_snapshot DAY (April 2021 -> July 2022)
-        if (assetId) {
-            const chainRes = await pool.query(
-                `SELECT timestamp, (supply::numeric / 1e18)::float8 as total_supply
-                 FROM asset_snapshot
-                 WHERE asset_id = $1 AND type = 'DAY' AND timestamp >= $2
-                 ORDER BY timestamp ASC`,
-                [assetId, startTimeSec]
-            );
-            for (const r of chainRes.rows) {
-                rows.push({ timestamp: r.timestamp * 1000, total_supply: r.total_supply });
+        // For timeframes that go before MOF data: prepend on-chain totalIssuance
+        // adjusted by a constant offset so the transition is seamless.
+        // offset = totalIssuance(at junction) - MOF(at junction)
+        const mofStart = rows.length > 0 ? rows[0].timestamp : Date.now();
+        const needsHistory = startTime < mofStart;
+
+        if (needsHistory) {
+            const mofFirstVal = rows.length > 0 ? rows[0].total_supply : null;
+            const mofFirstSec = Math.floor(mofStart / 1000);
+
+            if (mofFirstVal) {
+                // Gather on-chain data from both sources before MOF period
+                const chainRows = [];
+
+                // Source 1: subsquid asset_snapshot (DAY granularity, only if assetId known)
+                if (assetId) {
+                    const chainRes = await pool.query(
+                        `SELECT timestamp, (supply::numeric / 1e18)::float8 as total_supply
+                         FROM asset_snapshot
+                         WHERE asset_id = $1 AND type = 'DAY' AND timestamp >= $2 AND timestamp < $3
+                         ORDER BY timestamp ASC`,
+                        [assetId, startTimeSec, mofFirstSec]
+                    );
+                    for (const r of chainRes.rows) {
+                        chainRows.push({ timestamp: r.timestamp * 1000, total_supply: r.total_supply });
+                    }
+                }
+
+                // Source 2: supply_history backfiller (fills gaps in subsquid)
+                const backfillRes = await pool.query(
+                    `SELECT timestamp, total_issuance as total_supply
+                     FROM sm.supply_history
+                     WHERE symbol = $1 AND timestamp >= $2 AND timestamp < $3
+                     ORDER BY timestamp ASC`,
+                    [symbol, startTimeSec, mofFirstSec]
+                );
+                for (const r of backfillRes.rows) {
+                    chainRows.push({ timestamp: Number(r.timestamp) * 1000, total_supply: r.total_supply });
+                }
+
+                // Deduplicate (one per day, keep first), find the latest to compute offset
+                chainRows.sort((a, b) => a.timestamp - b.timestamp);
+                const daySet = new Set();
+                const deduped = [];
+                for (const r of chainRows) {
+                    const dk = Math.floor(r.timestamp / 86400000);
+                    if (!daySet.has(dk)) { daySet.add(dk); deduped.push(r); }
+                }
+
+                if (deduped.length > 0) {
+                    // Offset between totalIssuance and circulating grows over time
+                    // (locked/vesting tokens accumulate). Use linear interpolation:
+                    // - At genesis (April 2021): offset ≈ 0 (all tokens circulated)
+                    // - At junction (last on-chain before MOF): offset = lastChain - mofFirstVal
+                    // Always interpolate relative to genesis, not the query start.
+                    const lastChain = deduped[deduped.length - 1].total_supply;
+                    const totalOffset = lastChain - mofFirstVal;
+                    const genesisTs = (genesisSupply && genesisSupply.timestamp) || deduped[0].timestamp;
+                    const junctionTs = deduped[deduped.length - 1].timestamp;
+                    const totalSpan = junctionTs - genesisTs;
+
+                    const historical = deduped.map(r => {
+                        const progress = totalSpan > 0 ? (r.timestamp - genesisTs) / totalSpan : 1;
+                        const interpolatedOffset = totalOffset * progress;
+                        return {
+                            timestamp: r.timestamp,
+                            total_supply: r.total_supply - interpolatedOffset
+                        };
+                    });
+                    rows.unshift(...historical);
+                }
             }
         }
+    } else {
+        const recentCutoff = Date.now() - (2 * 86400000);
+        const useOnlyMof = (startTime > recentCutoff);
 
-        // 2. sm.supply_history (Rust/JS backfiller — daily totalIssuance)
-        const backfillRes = await pool.query(
-            `SELECT timestamp, total_issuance as total_supply
-             FROM sm.supply_history
-             WHERE symbol = $1 AND timestamp >= $2
-             ORDER BY timestamp ASC`,
-            [symbol, startTimeSec]
-        );
-        for (const r of backfillRes.rows) {
-            rows.push({ timestamp: Number(r.timestamp) * 1000, total_supply: r.total_supply });
+        if (useOnlyMof) {
+            const snapRes = await pool.query(
+                `SELECT timestamp, total_supply FROM sm.supply_snapshots
+                 WHERE symbol = $1 AND timestamp >= $2 ORDER BY timestamp ASC`,
+                [symbol, startTime]
+            );
+            for (const r of snapRes.rows) {
+                rows.push({ timestamp: Number(r.timestamp), total_supply: r.total_supply });
+            }
+        } else {
+            // XOR: on-chain totalIssuance (daily resolution)
+            if (assetId) {
+                const chainRes = await pool.query(
+                    `SELECT timestamp, (supply::numeric / 1e18)::float8 as total_supply
+                     FROM asset_snapshot
+                     WHERE asset_id = $1 AND type = 'DAY' AND timestamp >= $2
+                     ORDER BY timestamp ASC`,
+                    [assetId, startTimeSec]
+                );
+                for (const r of chainRes.rows) {
+                    rows.push({ timestamp: r.timestamp * 1000, total_supply: r.total_supply });
+                }
+            }
+            const backfillRes = await pool.query(
+                `SELECT timestamp, total_issuance as total_supply
+                 FROM sm.supply_history
+                 WHERE symbol = $1 AND timestamp >= $2
+                 ORDER BY timestamp ASC`,
+                [symbol, startTimeSec]
+            );
+            for (const r of backfillRes.rows) {
+                rows.push({ timestamp: Number(r.timestamp) * 1000, total_supply: r.total_supply });
+            }
         }
     }
 
@@ -481,8 +565,9 @@ async function getSupplyHistory(symbol, startTime, assetId, genesisSupply) {
         }
     }
 
-    // Prepend genesis supply as anchor point
-    if (genesisSupply && genesisSupply.supply && genesisSupply.timestamp) {
+    // Prepend genesis supply as anchor point (XOR only — for non-XOR tokens,
+    // genesis is total planned supply, not circulating, so it would distort the chart)
+    if (isXor && genesisSupply && genesisSupply.supply && genesisSupply.timestamp) {
         if (startTime === 0 || genesisSupply.timestamp >= startTime) {
             if (unique.length === 0 || genesisSupply.timestamp < unique[0].timestamp) {
                 unique.unshift({ timestamp: genesisSupply.timestamp, total_supply: genesisSupply.supply });
