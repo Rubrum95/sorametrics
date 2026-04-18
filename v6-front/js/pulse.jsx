@@ -1,5 +1,142 @@
-/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, sparkPath, I, useDrill, useT */
+/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, sparkPath, I, useDrill, useT, io */
 const { useState, useEffect, useRef, useMemo } = React;
+
+// Shared socket.io connection. Created lazily the first time a component asks for it.
+// Proxied to https://sorametrics.org via v6-server.js — same-origin from the browser.
+let __pulseSocket = null;
+function getPulseSocket() {
+  if (__pulseSocket) return __pulseSocket;
+  if (typeof io !== 'function') return null;
+  __pulseSocket = io('/', {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1500,
+  });
+  return __pulseSocket;
+}
+
+// Parse timestamps that come from prod as "D/M/YYYY, HH:MM:SS" (Spanish locale).
+// Fall back to Date.now() when unparseable.
+function parseTime(t) {
+  if (!t) return Date.now();
+  if (typeof t === 'number') return t;
+  // Try ISO first (plain Date.parse works for ISO 8601).
+  const iso = Date.parse(t);
+  if (!Number.isNaN(iso)) return iso;
+  // Spanish locale format: "18/4/2026, 16:54:12"
+  const re = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
+  const m = String(t).trim().match(re);
+  if (m) {
+    const [, d, mo, y, hh = '0', mm = '0', ss = '0'] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+    if (!Number.isNaN(dt.getTime())) return dt.getTime();
+  }
+  return Date.now();
+}
+
+// Noise filter — skip per-block housekeeping extrinsics. They're 99% of the
+// feed otherwise, and the prod UI hides them in Pulse too.
+const EXTRINSIC_NOISE = new Set(['timestamp::set', 'imOnline::heartbeat', 'parachainSystem::setValidationData']);
+
+// Map real prod backend batches → feed items that match the prototype's shape.
+// Returning null skips the event (e.g. transfer from == to, or noise we don't want).
+function makeFeedItemFromSwap(s, idx) {
+  // swaps-batch row shape: { time, block, wallet, in:{amount,symbol,logo,usd}, out:{amount,symbol,logo}, hash, extrinsic_id }
+  if (!s || !s.in || !s.out) return null;
+  const amtIn = Number(s.in.amount || 0);
+  const amtOut = Number(s.out.amount || 0);
+  const usd = Number(s.in.usd || 0);
+  return {
+    id: 'wsS-' + (s.hash || (s.block + ':' + idx)),
+    kind: 'swap',
+    ts: parseTime(s.time),
+    raw: s,
+    line1: React.createElement(React.Fragment, null,
+      'Swap ',
+      React.createElement('b', null, fmt.num(amtIn, 2) + ' ' + (s.in.symbol || '?')),
+      ' → ',
+      React.createElement('b', null, fmt.num(amtOut, 2) + ' ' + (s.out.symbol || '?')),
+    ),
+    line2: fmt.addr(s.wallet || '') + ' · fee 0.3% · ' + (usd ? fmt.usd(usd) : ''),
+  };
+}
+function makeFeedItemFromTransfer(t, idx) {
+  // transfers-batch row shape: { time, block, from, to, amount, symbol, usdValue, logo, hash, extrinsic_id }
+  if (!t) return null;
+  const amt = Number(t.amount || 0);
+  return {
+    id: 'wsT-' + (t.hash || (t.block + ':' + idx)),
+    kind: 'transfer',
+    ts: parseTime(t.time),
+    raw: t,
+    line1: React.createElement(React.Fragment, null,
+      'Transfer ',
+      React.createElement('b', null, fmt.num(amt, 2) + ' ' + (t.symbol || '?')),
+    ),
+    line2: fmt.addr(t.from || '') + ' → ' + fmt.addr(t.to || ''),
+  };
+}
+function makeFeedItemFromExtrinsic(x, idx) {
+  // extrinsics-batch row shape: { time, block, extrinsic_index, extrinsic_id, section, method, signer, success, error_msg }
+  if (!x) return null;
+  const tag = (x.section || '?') + '::' + (x.method || '?');
+  // Filter out per-block housekeeping extrinsics — they'd drown the feed.
+  if (EXTRINSIC_NOISE.has(tag)) return null;
+  const isOrder = x.section === 'orderBook' || x.section === 'orderbook';
+  return {
+    id: 'wsX-' + (x.extrinsic_id || (x.block + ':' + (x.extrinsic_index || idx))),
+    kind: isOrder ? 'order' : 'block',
+    ts: parseTime(x.time),
+    raw: x,
+    line1: React.createElement(React.Fragment, null,
+      React.createElement('b', null, tag),
+      ' ',
+      x.success === false ? React.createElement('span', { className: 'tag err' }, 'failed') : null,
+    ),
+    line2: fmt.addr(x.signer || '') + ' · block ' + x.block,
+  };
+}
+function makeFeedItemFromOrder(o, idx) {
+  // orderbook-batch row shape: { time, block, event_type, base_asset, quote_asset, side, price, amount, wallet, hash, extrinsic_id }
+  if (!o) return null;
+  const side = (o.side || '').toUpperCase();
+  return {
+    id: 'wsO-' + (o.hash || (o.block + ':' + idx)),
+    kind: 'order',
+    ts: parseTime(o.time),
+    raw: o,
+    line1: React.createElement(React.Fragment, null,
+      React.createElement('b', null, side),
+      ' order ',
+      React.createElement('b', null, fmt.num(Number(o.amount || 0), 0) + ' ' + (o.base_asset || '')),
+      ' @ $',
+      Number(o.price || 0).toFixed(4),
+    ),
+    line2: (o.base_asset || '') + '/' + (o.quote_asset || '') + ' · ' + fmt.addr(o.wallet || ''),
+  };
+}
+// Prod emits new-block-stats for EVERY new head. `finalized` is the most
+// recent finalized block NUMBER (not a boolean). To avoid one "Block #...
+// finalized" row per second, we only push when the finalized number actually
+// advances — reducing the feed to ~1 row per ~20 s of real finalization.
+function makeFeedItemFromBlock(b, prevFinalized) {
+  if (!b || !b.block) return null;
+  const finalizedNum = Number(b.finalized);
+  if (!finalizedNum) return null;
+  if (prevFinalized && finalizedNum <= prevFinalized) return null;
+  return {
+    id: 'wsB-' + finalizedNum,
+    kind: 'block',
+    ts: Date.now(),
+    raw: b,
+    line1: React.createElement(React.Fragment, null,
+      'Block ',
+      React.createElement('b', null, '#' + finalizedNum.toLocaleString()),
+      ' finalized',
+    ),
+    line2: 'avg time ' + (b.avgTime ? Number(b.avgTime).toFixed(2) + 's' : '—'),
+  };
+}
 
 function Sparkline({ data, w = 70, h = 28, color = '#E5243B' }) {
   const path = sparkPath(data, w, h, 2);
@@ -82,32 +219,75 @@ function generateEvent(id, seedRand) {
 }
 
 function PulseSection({ tweaks }) {
+  const t = useT();
   const { open } = useDrill();
   const [filter, setFilter] = useState('all');
-  const [events, setEvents] = useState(() => {
-    const rand = seededRand(7);
-    return Array.from({length: 14}, (_, i) => {
-      const e = generateEvent('seed-' + i, rand);
-      e.ts = Date.now() - (14 - i) * 3000;
-      return e;
-    }).reverse();
-  });
-  const idRef = useRef(100);
+  const [events, setEvents] = useState([]);
+  const [paused, setPaused] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [currentBlock, setCurrentBlock] = useState(null);
   const [tick, setTick] = useState(0);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  // Track last finalized block number so block events aren't duplicated.
+  const lastFinalizedRef = useRef(0);
 
-  // push new events
+  // Wire socket.io to the real prod backend.
+  // Events emitted by index.js: new-block-stats, transfers-batch,
+  // swaps-batch, extrinsics-batch, orderbook-batch.
   useEffect(() => {
-    const rand = seededRand(Date.now());
-    const id = setInterval(() => {
-      const ev = generateEvent('e-' + (++idRef.current), Math.random);
-      setEvents(prev => [ev, ...prev].slice(0, 40));
-    }, 1400 / (tweaks.liveSpeed || 1));
-    return () => clearInterval(id);
-  }, [tweaks.liveSpeed]);
+    const sock = getPulseSocket();
+    if (!sock) {
+      // socket.io library didn't load (offline?) — keep feed empty.
+      return;
+    }
+    const push = (item) => {
+      if (!item || pausedRef.current) return;
+      setEvents(prev => {
+        // Dedup by id + cap ring buffer at 40 items.
+        if (prev.some(p => p.id === item.id)) return prev;
+        return [item, ...prev].slice(0, 40);
+      });
+    };
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+    const onBlock = (b) => {
+      if (b && b.block) setCurrentBlock(b.block);
+      const item = makeFeedItemFromBlock(b, lastFinalizedRef.current);
+      if (item) {
+        lastFinalizedRef.current = Number(b.finalized);
+        push(item);
+      }
+    };
+    const onSwaps = (batch) => Array.isArray(batch) && batch.forEach((s, i) => push(makeFeedItemFromSwap(s, i)));
+    const onTransfers = (batch) => Array.isArray(batch) && batch.forEach((r, i) => push(makeFeedItemFromTransfer(r, i)));
+    const onExtrinsics = (batch) => Array.isArray(batch) && batch.forEach((x, i) => push(makeFeedItemFromExtrinsic(x, i)));
+    const onOrders = (batch) => Array.isArray(batch) && batch.forEach((o, i) => push(makeFeedItemFromOrder(o, i)));
+
+    sock.on('connect', onConnect);
+    sock.on('disconnect', onDisconnect);
+    sock.on('new-block-stats', onBlock);
+    sock.on('swaps-batch', onSwaps);
+    sock.on('transfers-batch', onTransfers);
+    sock.on('extrinsics-batch', onExtrinsics);
+    sock.on('orderbook-batch', onOrders);
+    // Adopt current connection state in case we mounted after the connect event.
+    if (sock.connected) setConnected(true);
+
+    return () => {
+      sock.off('connect', onConnect);
+      sock.off('disconnect', onDisconnect);
+      sock.off('new-block-stats', onBlock);
+      sock.off('swaps-batch', onSwaps);
+      sock.off('transfers-batch', onTransfers);
+      sock.off('extrinsics-batch', onExtrinsics);
+      sock.off('orderbook-batch', onOrders);
+    };
+  }, []);
 
   // re-render clock for "ago"
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 1000);
+    const id = setInterval(() => setTick(tk => tk + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -127,8 +307,15 @@ function PulseSection({ tweaks }) {
   return (
     <div>
       <PageHeader title={t('pulse.title')} sub={t('pulse.sub')}>
-        <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> {t('common.connected')}</span>
-        <button className="btn">{t('common.pause')}</button>
+        <span className={'tag ' + (connected ? 'ok' : 'err')}>
+          <span className="live-dot" style={{width:5,height:5}}/>
+          {' '}
+          {connected ? t('common.connected') : 'disconnected'}
+          {currentBlock ? ' · #' + Number(currentBlock).toLocaleString() : ''}
+        </span>
+        <button className="btn" onClick={() => setPaused(p => !p)}>
+          {paused ? t('common.resume') : t('common.pause')}
+        </button>
         <button className="btn primary">{t('btn.fullExplorer')}</button>
       </PageHeader>
 

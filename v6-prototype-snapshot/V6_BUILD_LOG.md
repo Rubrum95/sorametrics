@@ -19,8 +19,8 @@
 
 | Phase | Goal | Status | Commit |
 |-------|------|--------|--------|
-| 0 | Scaffold `v6-front/` + `v6-server.js` proxy + verify render | **DONE** | _pending_ |
-| 1 | Wire Network Pulse to real socket.io (5 events) | IN PROGRESS | — |
+| 0 | Scaffold `v6-front/` + `v6-server.js` proxy + verify render | **DONE** | 350f78a |
+| 1 | Wire Network Pulse to real socket.io (5 events) | **DONE** | _pending_ |
 | 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | PLANNED | — |
 | 3 | Wire Balance/Portfolio + Wallet Details 8 sub-tabs | PLANNED | — |
 | 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | PLANNED | — |
@@ -86,8 +86,27 @@ TARGET=https://sorametrics.org PORT=3005 node v6-server.js  # custom target
 5. Verify: real wallet addresses + real block numbers start appearing. Connected/Pause toggle works.
 6. Commit + push.
 
-### Result (to fill)
-_(updated when phase closes)_
+### Result (Phase 1 closed)
+- Loaded `socket.io-client@4.7.5` via CDN in `index.html`.
+- `v6-server.js` already proxies `/socket.io/*` with `ws: true` + an explicit `server.on('upgrade')` handler so WebSocket upgrades bypass `express.static`.
+- Wrote `getPulseSocket()` singleton in `pulse.jsx` — one shared socket for the whole section, reconnects automatically.
+- Subscribed to all 5 prod events: `new-block-stats`, `swaps-batch`, `transfers-batch`, `extrinsics-batch`, `orderbook-batch`.
+- **Deltas discovered vs inventory assumption**:
+  1. `time` field comes as Spanish locale string `"18/4/2026, 16:54:12"`, NOT ISO. Wrote `parseTime()` with ISO-first + locale-regex fallback.
+  2. `new-block-stats.finalized` is the **last finalized block NUMBER** (integer), not a boolean. The event fires on every new head (~every 6 s) — without dedup we'd get one row per second in the feed. Added `lastFinalizedRef` to only push when the finalized number advances.
+  3. Extrinsics are ~99% `timestamp::set` (per-block housekeeping) during idle hours. Added `EXTRINSIC_NOISE` set filter: `timestamp::set`, `imOnline::heartbeat`, `parachainSystem::setValidationData` dropped from the feed (drill + table pages can still show them).
+- **Pause button** wired: `setPaused` toggles, the `push()` function respects `pausedRef`.
+- **Connection status chip** turns green "conectado" + displays current block `· #25.754.523` live.
+- Verified in browser: feed shows `Block #25.754.520 finalized`, `avg time 5.98s`, relative times (`now`, `6s`, `12s`, `18s`) correctly updating. Feed hovers at 40-item max ring buffer.
+
+### Not wired yet (deferred to later phases)
+- KPI cards (14,208 / $4.27M / 2,810 / 6.01s) still mocked — they'll wire to `/stats/overview` or `/stats/network/trend` in Phase 5 when we touch Intelligence.
+- "Trending Tokens · 24h" sidebar card + "Network Health" still mocked — same deferral.
+- Drill open from feed item uses a hand-built object with mocked detail fields — will get real data from `/history/extrinsic/:block/:idx` in Phase 4.
+
+### File changes
+- modified: `v6-front/index.html` (add `socket.io@4.7.5` CDN script)
+- modified: `v6-front/js/pulse.jsx` (full rewrite of PulseSection + 5 mapper functions + `parseTime` + `EXTRINSIC_NOISE` + socket singleton)
 
 ---
 
