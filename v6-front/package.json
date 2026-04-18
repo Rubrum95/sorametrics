@@ -1,0 +1,16 @@
+{
+  "name": "sorametrics-v6-front",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local v6 front + proxy to prod sorametrics.org backend",
+  "main": "v6-server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node v6-server.js",
+    "dev": "node v6-server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^3.0.3"
+  }
+}
