@@ -92,6 +92,29 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
         </div>
       </div>
 
+      {/* Theme — dark / light / auto (prefers-color-scheme). Persists via tweaks.theme. */}
+      <div className="tweaks-group">
+        <label>Theme</label>
+        <div className="tweaks-opts">
+          {opt('theme', 'dark')}
+          {opt('theme', 'light')}
+          {opt('theme', 'auto')}
+        </div>
+      </div>
+
+      {/* Peg alert threshold — stored alongside tweaks so backup/restore catches it.
+          Value is the maximum allowed |deviation| % before a toast fires from
+          the background peg-watcher (installed in main.jsx Phase 8). */}
+      <div className="tweaks-group">
+        <label>Peg alert · trigger if |dev| &gt; {(tweaks.pegThreshold ?? 2).toFixed(1)}%</label>
+        <input
+          type="range" min="0.5" max="10" step="0.1"
+          value={tweaks.pegThreshold ?? 2}
+          className="tweaks-slider"
+          onChange={e => setTweak('pegThreshold', parseFloat(e.target.value))}
+        />
+      </div>
+
       <BackupRestore tweaks={tweaks} setTweak={setTweak}/>
     </div>
   );

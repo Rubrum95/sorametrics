@@ -16,6 +16,15 @@ function ToastProvider({ children }) {
     setToasts(ts => [...ts, { id, msg, kind: kind || 'ok' }]);
     setTimeout(() => setToasts(ts => ts.filter(t => t.id !== id)), 2600);
   }, []);
+  // Listen for peg-alert CustomEvents dispatched by the main.jsx peg-watcher.
+  useEffect(() => {
+    const onAlert = (ev) => {
+      const { symbol, price, dev } = ev.detail || {};
+      push('⚠ ' + symbol + ' depeg ' + (price >= 1 ? '+' : '-') + Math.abs(dev).toFixed(2) + '% · $' + Number(price).toFixed(4), 'err');
+    };
+    window.addEventListener('peg-alert', onAlert);
+    return () => window.removeEventListener('peg-alert', onAlert);
+  }, [push]);
   return (
     <ToastCtx.Provider value={{ push }}>
       {children}

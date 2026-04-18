@@ -51,6 +51,55 @@ function App() {
     document.documentElement.setAttribute('data-accent',  tweaks.accent);
   }, [tweaks.density, tweaks.motion, tweaks.accent]);
 
+  // Theme toggle — dark | light | auto. "auto" follows prefers-color-scheme.
+  useEffect(() => {
+    const apply = () => {
+      let theme = tweaks.theme || 'dark';
+      if (theme === 'auto') {
+        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    };
+    apply();
+    if (tweaks.theme === 'auto' && window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: light)');
+      mq.addEventListener?.('change', apply);
+      return () => mq.removeEventListener?.('change', apply);
+    }
+  }, [tweaks.theme]);
+
+  // Peg-watcher — poll /stats/stablecoins every 60s and fire a window-level
+  // CustomEvent("peg-alert") when any stablecoin deviates beyond the
+  // user-set threshold. Consumers (toast stack) listen.
+  useEffect(() => {
+    let cancelled = false;
+    const lastFired = {}; // sym → ts of last toast (debounce)
+    const check = async () => {
+      try {
+        const r = await fetch('/stats/stablecoins');
+        if (!r.ok) return;
+        const stables = await r.json();
+        if (cancelled || !Array.isArray(stables)) return;
+        const threshold = Number(tweaks.pegThreshold) || 2;
+        for (const sc of stables) {
+          const dev = Math.abs((Number(sc.price) || 0) - 1) * 100;
+          if (dev > threshold) {
+            const now = Date.now();
+            if (!lastFired[sc.symbol] || now - lastFired[sc.symbol] > 5 * 60 * 1000) {
+              lastFired[sc.symbol] = now;
+              window.dispatchEvent(new CustomEvent('peg-alert', { detail: {
+                symbol: sc.symbol, price: sc.price, dev,
+              }}));
+            }
+          }
+        }
+      } catch {}
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [tweaks.pegThreshold]);
+
   useEffect(() => {
     const id = setInterval(() => setBlock(b => b + 1), 6000 / (tweaks.liveSpeed || 1));
     return () => clearInterval(id);

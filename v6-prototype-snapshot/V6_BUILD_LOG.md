@@ -26,8 +26,8 @@
 | 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | **DONE** | 34a07ea |
 | 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | **DONE** | a1b83c6 |
 | 6 | Wire Global Search `/search` + identity resolution `/identity/:addr` | **DONE (search)** | a87c363 |
-| 7 | Peg monitor widget + deep-link URL routing | **DONE** | _pending_ |
-| 8 | Build Batch 7 features locally: peg alerts, theme toggle, time-range, screenshot/share | PLANNED | — |
+| 7 | Peg monitor widget + deep-link URL routing | **DONE** | f850fce |
+| 8 | Peg alerts (toast) + theme toggle (dark/light/auto) | **DONE** | _pending_ |
 | 9 | Cutover prep: PWA, esbuild bundle, `/beta` subpath deploy | PLANNED | — |
 
 ---
