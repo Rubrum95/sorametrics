@@ -27,8 +27,8 @@
 | 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | **DONE** | a1b83c6 |
 | 6 | Wire Global Search `/search` + identity resolution `/identity/:addr` | **DONE (search)** | a87c363 |
 | 7 | Peg monitor widget + deep-link URL routing | **DONE** | f850fce |
-| 8 | Peg alerts (toast) + theme toggle (dark/light/auto) | **DONE** | _pending_ |
-| 9 | Cutover prep: PWA, esbuild bundle, `/beta` subpath deploy | PLANNED | — |
+| 8 | Peg alerts (toast) + theme toggle (dark/light/auto) | **DONE** | 4dc36c6 |
+| 9 | Cutover prep: PWA, SW, manifest, nginx + DEPLOY.md | **DONE** | _pending_ |
 
 ---
 

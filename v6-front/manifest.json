@@ -1,0 +1,18 @@
+{
+  "name": "SoraMetrics · beta",
+  "short_name": "SoraMetrics β",
+  "start_url": "/beta/",
+  "scope": "/beta/",
+  "display": "standalone",
+  "background_color": "#F3F4F6",
+  "theme_color": "#9B1B30",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/beta/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
