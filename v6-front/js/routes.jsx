@@ -1310,19 +1310,25 @@ function BalanceSection({ tweaks }) {
         <div className="card" style={{marginTop: 18}}>
           <div className="card-header"><div className="card-title"><span className="dot"/> Mis Wallets</div></div>
           <div className="wallet-list">
-            {wallets.map((w, i) => (
-              <div key={w.id || i} className="wallet-list-card clickable" onClick={() => setDetailWallet(w)}>
-                <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', display:'grid', placeItems:'center', fontWeight:800}}>{w.alias[0]}</div>
-                <div style={{flex:1, minWidth: 0}}>
-                  <div style={{fontWeight: 700}}>{w.alias}</div>
-                  <div className="muted tiny num">{fmt.addr(w.addr, 8, 6)}</div>
+            {wallets.map((w, i) => {
+              const toks = (w.tokens || []).filter(t => Number(t.amount) > 0);
+              const totalUsd = toks.reduce((s, t) => s + (Number(t.usdValue) || 0), 0);
+              return (
+                <div key={w.id || i} className="wallet-list-card clickable" onClick={() => setDetailWallet(w)}>
+                  <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', display:'grid', placeItems:'center', fontWeight:800}}>{w.alias[0]}</div>
+                  <div style={{flex:1, minWidth: 0}}>
+                    <div style={{fontWeight: 700}}>{w.alias}</div>
+                    <div className="muted tiny num">{fmt.addr(w.addr, 8, 6)}</div>
+                  </div>
+                  <div style={{textAlign:'right'}}>
+                    <div className="num" style={{fontWeight:700, fontSize:15}}>{totalUsd > 0 ? '$' + totalUsd.toLocaleString(undefined,{maximumFractionDigits:2}) : '—'}</div>
+                    <span className={'tag ' + (toks.length > 0 ? 'ok' : '')} style={{fontSize:10}}>
+                      {toks.length > 0 ? <><span className="live-dot" style={{width:5,height:5}}/> {toks.length} tokens</> : 'sin saldo'}
+                    </span>
+                  </div>
                 </div>
-                <div style={{textAlign:'right'}}>
-                  <div className="num" style={{fontWeight:700, fontSize:15}}>${w.value.toLocaleString()}</div>
-                  {w.live && <span className="tag ok" style={{fontSize:10}}><span className="live-dot" style={{width:5,height:5}}/> live</span>}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

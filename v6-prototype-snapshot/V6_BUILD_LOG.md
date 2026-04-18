@@ -21,8 +21,8 @@
 |-------|------|--------|--------|
 | 0 | Scaffold `v6-front/` + `v6-server.js` proxy + verify render | **DONE** | 350f78a |
 | 1 | Wire Network Pulse to real socket.io (5 events) | **DONE** | f7034ee |
-| 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | **DONE** | _pending_ |
-| 3 | Wire Balance/Portfolio + Wallet Details 8 sub-tabs | PLANNED | — |
+| 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | **DONE** | 3bebba7 |
+| 3 | Wire Balance/Portfolio + Wallet Details 8 sub-tabs | **DONE (core)** | _pending_ |
 | 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | PLANNED | — |
 | 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | PLANNED | — |
 | 6 | Wire Global Search `/search` + identity resolution `/identity/:addr` | PLANNED | — |

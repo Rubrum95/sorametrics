@@ -32,11 +32,14 @@ function ToastProvider({ children }) {
 const WalletCtx = createContext(null);
 function useWallets() { return useContext(WalletCtx); }
 
+// Real SS58 addresses that DO have on-chain balances on prod sorametrics.org.
+// Used as seed data so new visitors immediately see live numbers without
+// having to paste addresses themselves.
 const INITIAL_WALLETS = [
-  { id:'w1', alias: 'Main',    addr: FAKE_ADDRS[0], value: 24820, live: true,  kind:'seed'  },
-  { id:'w2', alias: 'Savings', addr: FAKE_ADDRS[1], value: 14420, live: false, kind:'seed'  },
-  { id:'w3', alias: 'LP Farm', addr: FAKE_ADDRS[2], value: 8210,  live: true,  kind:'key'   },
-  { id:'w4', alias: 'Cold',    addr: FAKE_ADDRS[3], value: 4100,  live: false, kind:'watch' },
+  { id:'w1', alias: 'Polkaswap Treasury', addr: 'cnRwt3q7DkvJqr3YkuN7dFibTx6yu8rqDDYKmBp4Sko5TW2Dd', value: 0, live: false, kind:'watch' },
+  { id:'w2', alias: 'XOR Whale',          addr: 'cnVhh27kkYkfJ1mH4jyPWWV6Tq2jp4dSU1wBDwZ5efRCTgq11', value: 0, live: false, kind:'watch' },
+  { id:'w3', alias: 'DEX Maker',          addr: 'cnSpcE5u2H8QqcppzUhM7rbMbshvcZBSKVPE6ANZASL3orN1V', value: 0, live: false, kind:'watch' },
+  { id:'w4', alias: 'Active Trader',      addr: 'cnRWUaRNHRbcg6ZnjkF7z17tRiz1oVQXk6GzT4PvCrxVjXyXB', value: 0, live: false, kind:'watch' },
 ];
 const INITIAL_WATCHED = [
   { id:'v1', alias: 'Whale.sora',  addr: FAKE_ADDRS[6], value: 482300 },
@@ -50,13 +53,57 @@ function loadLS(k, fallback) {
 }
 function saveLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
 
+// Cache of real balance data per address, keyed by SS58. Prod's
+// GET /balance/:addr returns the full token list with usdValue, while
+// POST /balances returns a stub with empty tokens — so we do N concurrent
+// GETs for our 4-10 wallets rather than a batch POST.
+const _balanceCache = new Map();
+async function fetchBalances(addresses) {
+  if (!addresses.length) return {};
+  const pairs = await Promise.all(addresses.map(async (addr) => {
+    try {
+      const r = await fetch('/balance/' + encodeURIComponent(addr));
+      if (!r.ok) return [addr, []];
+      const j = await r.json();
+      return [addr, Array.isArray(j) ? j : []];
+    } catch { return [addr, []]; }
+  }));
+  return Object.fromEntries(pairs);
+}
+
 function WalletProvider({ children }) {
   const [wallets, setWallets] = useState(() => loadLS('sm.wallets', INITIAL_WALLETS));
   const [watched, setWatched] = useState(() => loadLS('sm.watched', INITIAL_WATCHED));
+  const [balances, setBalances] = useState(() => ({})); // addr → tokens[]
   useEffect(() => saveLS('sm.wallets', wallets), [wallets]);
   useEffect(() => saveLS('sm.watched', watched), [watched]);
+
+  // Pull real balances from prod for all addresses (wallets + watched).
+  // Refreshes every 60s + on mount / wallet-list change.
+  useEffect(() => {
+    const addrs = [...new Set([...wallets, ...watched].map(w => w.addr).filter(Boolean))];
+    let cancelled = false;
+    const pull = async () => {
+      const next = await fetchBalances(addrs);
+      if (cancelled) return;
+      // merge into cache so tokens persist across re-renders when addrs unchanged.
+      for (const [a, t] of Object.entries(next)) _balanceCache.set(a, t);
+      setBalances({ ..._balanceCache.toJSON ? _balanceCache : Object.fromEntries(_balanceCache) });
+    };
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  // We don't want to re-fetch on every wallets change — only when addresses change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets.map(w => w.addr).join(','), watched.map(w => w.addr).join(',')]);
+
+  // Enrich wallet/watched with tokens + a naive total (sum of token amounts — unitless;
+  // real USD needs price lookup which we'll add in Phase 5 via /currency-rates + /tokens).
+  const walletsWithData = wallets.map(w => ({ ...w, tokens: balances[w.addr] || [] }));
+  const watchedWithData = watched.map(w => ({ ...w, tokens: balances[w.addr] || [] }));
+
   const api = {
-    wallets, watched, setWallets, setWatched,
+    wallets: walletsWithData, watched: watchedWithData, setWallets, setWatched,
     addWallet: (w) => setWallets(ws => [...ws, { id:'w'+Date.now(), value: 0, live: false, ...w }]),
     addWatched: (w) => setWatched(ws => [...ws, { id:'v'+Date.now(), value: 0, ...w }]),
     removeWallet: (id) => setWallets(ws => ws.filter(w => w.id !== id)),
@@ -487,14 +534,30 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   useEffect(() => { if (wallet) setAlias(wallet.alias); setConfirmRm(false); }, [wallet, open]);
   if (!wallet) return null;
 
-  const breakdown = [
-    { sym:'XOR',   pct: 0.42, color:'#E5243B' },
-    { sym:'VAL',   pct: 0.18, color:'#F5B041' },
-    { sym:'PSWAP', pct: 0.12, color:'#EC4899' },
-    { sym:'ETH',   pct: 0.10, color:'#8B7FD9' },
-    { sym:'KUSD',  pct: 0.12, color:'#60A5FA' },
-    { sym:'Otros', pct: 0.06, color:'#94A3B8' },
-  ];
+  // Real token breakdown from prod GET /balance/:addr. Shape per token:
+  // { symbol, logo, amount, usdValue }. We weight by usdValue where available,
+  // falling back to amount (unitless) for tokens without price data.
+  const TOKEN_COLOR = { XOR:'#E5243B', VAL:'#F5B041', PSWAP:'#EC4899', ETH:'#8B7FD9', KUSD:'#60A5FA', TBCD:'#10B981', DAI:'#FDE68A' };
+  const rawTokens = wallet.tokens || [];
+  const numericTokens = rawTokens
+    .map(t => ({
+      sym: t.symbol,
+      amount: Number(t.amount) || 0,
+      usdValue: Number(t.usdValue) || 0,
+      logo: t.logo,
+    }))
+    .filter(t => t.amount > 0)
+    .sort((a, b) => b.usdValue - a.usdValue);
+  const totalUsd = numericTokens.reduce((s, t) => s + t.usdValue, 0);
+  const breakdown = numericTokens.slice(0, 6).map(t => ({
+    sym: t.sym,
+    pct: totalUsd > 0 ? t.usdValue / totalUsd : 0,
+    color: TOKEN_COLOR[t.sym] || '#94A3B8',
+    amt: t.amount,
+    usd: t.usdValue,
+  }));
+  // Fallback placeholder when prod returns empty tokens (e.g. unused address).
+  if (!breakdown.length) breakdown.push({ sym: '—', pct: 1, color: '#4A3566', amt: 0, usd: 0 });
 
   const copyAddr = async () => {
     try { await navigator.clipboard.writeText(wallet.addr); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch(_){}
@@ -541,18 +604,23 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
         </div>
 
         <div className="sm-field">
-          <label>Desglose por activo · ${wallet.value.toLocaleString()}</label>
+          <label>Desglose por activo · ${totalUsd.toLocaleString(undefined,{maximumFractionDigits:2})} · {numericTokens.length} tokens</label>
           <div className="sm-breakdown">
             {breakdown.map(b => (
               <div key={b.sym} className="sm-breakdown-row">
                 <span className="sm-bd-dot" style={{background:b.color}}/>
                 <span className="sm-bd-sym">{b.sym}</span>
                 <div className="sm-bd-bar"><div style={{width:(b.pct*100)+'%', background:b.color}}/></div>
-                <span className="num tiny muted">{(b.pct*100).toFixed(0)}%</span>
-                <span className="num" style={{fontWeight:600, minWidth:70, textAlign:'right'}}>${Math.round(wallet.value * b.pct).toLocaleString()}</span>
+                <span className="num tiny muted">{(b.pct*100).toFixed(1)}%</span>
+                <span className="num" style={{fontWeight:600, minWidth:90, textAlign:'right'}}>
+                  {b.usd > 0 ? '$' + b.usd.toLocaleString(undefined,{maximumFractionDigits:2}) : (b.amt > 0 ? fmt.num(b.amt, 2) : '—')}
+                </span>
               </div>
             ))}
           </div>
+          {rawTokens.length === 0 && (
+            <div className="muted tiny" style={{marginTop:8}}>Cargando balances desde sorametrics.org…</div>
+          )}
         </div>
       </div>
 
