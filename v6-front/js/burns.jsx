@@ -1,5 +1,16 @@
-/* global React, TOKENS, fmt, FAKE_ADDRS, IDENTITIES, areaPath, sparkPath, I, useT */
+/* global React, TOKENS, fmt, FAKE_ADDRS, IDENTITIES, areaPath, sparkPath, I, useT, getPulseSocket */
 const { useState, useEffect, useRef, useMemo } = React;
+
+// Fetch helper — always returns parsed JSON or null (never throws into render).
+async function fetchJson(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
 
 function Furnace({ token, liveSpeed, motion }) {
   const ref = useRef(null);
@@ -129,32 +140,85 @@ function BurnChart({ token, type, motion }) {
 }
 
 function BurnSection({ tweaks }) {
+  const t = useT();
   const [token, setToken] = useState('XOR');
   const tk = TOKENS[token];
-  const [heroVal, setHeroVal] = useState(5418291);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setHeroVal(v => v + Math.random() * 12 * (tweaks.liveSpeed || 1));
-    }, 900);
-    return () => clearInterval(id);
-  }, [tweaks.liveSpeed]);
+  // Real burn data from prod — stats (24h/7d/30d totals), fee-flow (distribution), holders (top 10).
+  const [stats, setStats] = useState(null);
+  const [feeFlow, setFeeFlow] = useState(null);
+  const [holdersData, setHoldersData] = useState(null);
+  // Burn counter ticks up live: starts at stats.7d.totalBurned and increments when
+  // new-block-stats WS event arrives (best-effort; real burn is only on tx payments).
+  const [heroVal, setHeroVal] = useState(0);
 
-  // switch token resets base
+  // Fetch /burns/* whenever the selected token changes.
   useEffect(() => {
-    const base = { XOR: 5418291, VAL: 1204802, PSWAP: 872310, TBCD: 52483, KUSD: 109742 };
-    setHeroVal(base[token] || 1000000);
+    let cancelled = false;
+    setStats(null); setHoldersData(null);
+    fetchJson('/burns/stats/' + token).then(j => { if (!cancelled) setStats(j); });
+    fetchJson('/burns/holders/' + token).then(j => { if (!cancelled) setHoldersData(j); });
+    return () => { cancelled = true; };
   }, [token]);
 
+  // Fee-flow is global across all burn tokens — one fetch + periodic refresh.
+  useEffect(() => {
+    let cancelled = false;
+    const pull = () => fetchJson('/burns/fee-flow').then(j => { if (!cancelled) setFeeFlow(j); });
+    pull();
+    const id = setInterval(pull, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Seed heroVal from the stats.7d.totalBurned (cumulative 7-day burn).
+  useEffect(() => {
+    if (stats && stats.stats && stats.stats['7d']) {
+      setHeroVal(stats.stats['7d'].totalBurned || 0);
+    }
+  }, [stats]);
+
+  // On each new block we assume a sliver of burn happened (fees). This keeps the
+  // counter visibly moving; the true amount gets reconciled when /burns/stats
+  // refreshes on the next fetch. Also triggers the Furnace ember animation via
+  // the Furnace component's own interval — here we just re-fetch stats when a
+  // finalized block arrives and the user is ON the Burns page.
+  useEffect(() => {
+    const sock = getPulseSocket && getPulseSocket();
+    if (!sock) return;
+    let lastFetch = Date.now();
+    const onBlock = (b) => {
+      // Cheap optimistic tick — $0.00001 XOR per block is a rounding-error proxy.
+      setHeroVal(v => v + 0.0001);
+      // Throttled real refresh: at most once per 30s.
+      const now = Date.now();
+      if (now - lastFetch > 30_000) {
+        lastFetch = now;
+        fetchJson('/burns/stats/' + token).then(j => { if (j) setStats(j); });
+      }
+    };
+    sock.on('new-block-stats', onBlock);
+    return () => sock.off('new-block-stats', onBlock);
+  }, [token]);
+
+  // Real top holders from /burns/holders/:sym — top 6.
   const holders = useMemo(() => {
-    const rand = seededRand(token.charCodeAt(0) * 31);
-    return FAKE_ADDRS.map((a, i) => ({
-      addr: a,
-      name: IDENTITIES[a] || null,
-      pct: +(25 - i * 2.5 + rand() * 1.5).toFixed(2),
-      amt: (5_000_000 / (i + 1)) * (0.4 + rand() * 0.8),
-    })).slice(0, 6);
-  }, [token]);
+    if (!holdersData || !Array.isArray(holdersData.data)) return [];
+    const total = holdersData.totalSupply || 1;
+    return holdersData.data.slice(0, 6).map((h, i) => ({
+      addr: h.address,
+      name: h.name || IDENTITIES[h.address] || null,
+      pct: +((h.balance / total) * 100).toFixed(2),
+      amt: h.balance,
+    }));
+  }, [holdersData]);
+
+  // Derived: current supply + 24h/7d/30d deltas.
+  const currentSupply = (stats && stats.currentSupply) || 0;
+  const d24 = (stats && stats.stats && stats.stats['24h'] && stats.stats['24h'].totalBurned) || 0;
+  const d7 = (stats && stats.stats && stats.stats['7d'] && stats.stats['7d'].totalBurned) || 0;
+  const d30 = (stats && stats.stats && stats.stats['30d'] && stats.stats['30d'].totalBurned) || 0;
+  const usd24 = (stats && stats.stats && stats.stats['24h'] && stats.stats['24h'].totalBurnedUsd) || 0;
+  const price = d24 > 0 ? usd24 / d24 : 0;
 
   return (
     <div style={{ ['--tok-color']: tk.color, ['--tok-glow']: tk.glow, ['--tok-dark']: tk.dark, ['--tok-grad']: tk.grad }}>
@@ -190,23 +254,23 @@ function BurnSection({ tweaks }) {
             </div>
           </div>
 
-          <div className="burn-hero-value num">{fmt.int(heroVal)}</div>
-          <div className="burn-hero-unit">{token} · {fmt.usd(heroVal * (token === 'XOR' ? 0.072 : 1.08))} @ current price</div>
+          <div className="burn-hero-value num">{fmt.num(heroVal, 2)}</div>
+          <div className="burn-hero-unit">{token} · {price > 0 ? fmt.usd(heroVal * price) : '—'} @ current price</div>
 
           <div className="burn-hero-meta">
-            <div className="mi"><span>24h</span> <strong>+{fmt.num(heroVal * 0.0021)}</strong></div>
-            <div className="mi"><span>7d</span>  <strong>+{fmt.num(heroVal * 0.014)}</strong></div>
-            <div className="mi"><span>30d</span> <strong>+{fmt.num(heroVal * 0.042)}</strong></div>
-            <div className="mi"><span>vs mint</span> <strong style={{color: '#10B981'}}>deflationary 0.84%/yr</strong></div>
+            <div className="mi"><span>24h</span> <strong>+{fmt.num(d24, 2)}</strong></div>
+            <div className="mi"><span>7d</span>  <strong>+{fmt.num(d7, 2)}</strong></div>
+            <div className="mi"><span>30d</span> <strong>+{fmt.num(d30, 2)}</strong></div>
+            <div className="mi"><span>24h usd</span> <strong style={{color: '#10B981'}}>{fmt.usd(usd24)}</strong></div>
           </div>
 
           <Furnace token={token} liveSpeed={tweaks.liveSpeed} motion={tweaks.motion}/>
 
           <div className="burn-stats">
-            <div className="bstat"><div className="l">Current Supply</div><div className="v">{fmt.num(350e6 - heroVal, 1)}</div><div className="d">-0.02% / day</div></div>
-            <div className="bstat"><div className="l">Market Cap</div><div className="v">{fmt.usd(heroVal * 72)}</div><div className="d">+3.2%</div></div>
-            <div className="bstat"><div className="l">Price</div><div className="v">$0.072</div><div className="d neg">-1.4%</div></div>
-            <div className="bstat"><div className="l">Holders</div><div className="v">18,432</div><div className="d">+12 today</div></div>
+            <div className="bstat"><div className="l">Current Supply</div><div className="v">{fmt.num(currentSupply, 1)}</div><div className="d">{token}</div></div>
+            <div className="bstat"><div className="l">Market Cap</div><div className="v">{price > 0 ? fmt.usd(currentSupply * price) : '—'}</div><div className="d">live</div></div>
+            <div className="bstat"><div className="l">Price</div><div className="v">{price > 0 ? '$' + price.toFixed(price < 1 ? 4 : 2) : '—'}</div><div className="d">from 24h burn</div></div>
+            <div className="bstat"><div className="l">Holders</div><div className="v">{holdersData ? holdersData.totalHolders.toLocaleString() : '—'}</div><div className="d">{holdersData ? 'total' : 'loading…'}</div></div>
           </div>
         </div>
 

@@ -20,8 +20,8 @@
 | Phase | Goal | Status | Commit |
 |-------|------|--------|--------|
 | 0 | Scaffold `v6-front/` + `v6-server.js` proxy + verify render | **DONE** | 350f78a |
-| 1 | Wire Network Pulse to real socket.io (5 events) | **DONE** | _pending_ |
-| 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | PLANNED | — |
+| 1 | Wire Network Pulse to real socket.io (5 events) | **DONE** | f7034ee |
+| 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | **DONE** | _pending_ |
 | 3 | Wire Balance/Portfolio + Wallet Details 8 sub-tabs | PLANNED | — |
 | 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | PLANNED | — |
 | 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | PLANNED | — |
@@ -123,8 +123,24 @@ TARGET=https://sorametrics.org PORT=3005 node v6-server.js  # custom target
 3. Hook `new-block-stats` socket.io event → trigger burn animation on new block.
 4. Commit + push.
 
-### Result (to fill)
-_(updated when phase closes)_
+### Result (Phase 2 closed)
+- Added `fetchJson()` helper (null on error, never throws into render).
+- Fixed missing `const t = useT()` at top of `BurnSection`.
+- Wired 3 real endpoints per-token + global: `/burns/stats/:sym`, `/burns/fee-flow`, `/burns/holders/:sym`. Fee-flow refreshes every 30 s; stats + holders re-fetch on token switch.
+- **Hero counter**: starts from `stats.7d.totalBurned` (real 7d cumulative), ticks +0.0001 on each `new-block-stats` event (cheap optimistic), reconciles via stats re-fetch throttled to once per 30 s.
+- **24h / 7d / 30d deltas**: real `totalBurned` values from the stats envelope.
+- **Current Supply**: real `currentSupply` (77.6K XOR verified).
+- **Price**: derived as `usd24 / d24` from the 24h totals (prod doesn't expose a dedicated price field here — this is the cheapest consistent proxy).
+- **Market Cap**: `currentSupply × price` live.
+- **Holders**: real total count from `holdersData.totalHolders`, top 6 addresses rendered with `balance / totalSupply × 100` as the bar percentage.
+- Verified in browser at `/#burns`: hero 54.57 XOR = $516.74 (real 7d total), supply 77.6K, 206 holders, meta rows show $29.92 24h USD. Holders list shows real chain addresses (cnRus2…, cnRwt3…, cnVhh2…).
+
+### Not wired yet (deferred)
+- `BurnChart` still uses the prototype's seeded-random sparkline — real `/burns/supply-history/:sym` returns raw 18-decimal values on a varying schedule; a dedicated chart lib swap (lightweight-charts) is cleaner to do in Phase 7 when we build the Chart modal.
+- `Furnace` ember animation keeps its own interval; a live-synced spark on new-block-stats is cosmetic and deferred.
+
+### File changes
+- modified: `v6-front/js/burns.jsx` — `fetchJson` helper, `useT` at top, 3 real endpoints wired, `new-block-stats` hook for optimistic counter tick.
 
 ---
 
