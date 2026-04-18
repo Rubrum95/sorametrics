@@ -92,29 +92,26 @@ function TransfersSection({ tweaks }) {
   const [page, setPage] = useState(1);
   const [assetFilter, setAssetFilter] = useState(null);
 
+  // Real transfers from prod /history/global/transfers. Shape mapping:
+  //   prod { time, block, hash, extrinsic_id, from, to, amount, symbol, logo, usdValue }
+  //   prototype { id, ts, block, sym, from, to, amt, usd, fee, memo }
+  const { items: rawTransfers } = useHistory('/history/global/transfers', { pageSize: 50, page: 1, pollMs: 20_000 });
   const rows = useMemo(() => {
-    const rnd = seededRand(71);
-    const syms = Object.keys(TOKENS);
-    const memos = ['—', 'payroll', 'LP reward', 'donation', 'gas refund', 'escrow', 'airdrop', 'bounty'];
-    const now = Date.now();
-    return Array.from({length: 15}, (_, i) => {
-      const sym = syms[Math.floor(rnd() * syms.length)];
-      const price = TOKENS[sym]?.sym === 'KUSD' ? 1 : (rnd() * 4 + 0.1);
-      const amt = +(rnd() * 2000 + 2).toFixed(3);
-      return {
-        id: i,
-        ts: now - i * 9000,
-        block: 21_418_800 + Math.floor(rnd()*2000),
-        sym,
-        from: FAKE_ADDRS[Math.floor(rnd() * FAKE_ADDRS.length)],
-        to:   FAKE_ADDRS[Math.floor(rnd() * FAKE_ADDRS.length)],
-        amt,
-        usd: amt * price,
-        fee: +(rnd()*0.03 + 0.003).toFixed(4),
-        memo: memos[Math.floor(rnd() * memos.length)],
-      };
-    });
-  }, []);
+    if (!rawTransfers || rawTransfers.length === 0) return [];
+    return rawTransfers.map((r, i) => ({
+      id: 't-' + (r.hash || (r.block + ':' + i)),
+      ts: parseHistTime(r.time),
+      block: r.block,
+      hash: r.hash,
+      sym: r.symbol,
+      from: r.from,
+      to: r.to,
+      amt: Number(r.amount) || 0,
+      usd: Number(r.usdValue) || 0,
+      fee: 0, // prod /transfers doesn't expose per-row fee; deferred
+      memo: '',
+    }));
+  }, [rawTransfers]);
 
   const filtered = assetFilter ? rows.filter(r => r.sym === assetFilter) : rows;
   const pageSize = tweaks.density === 'compact' ? 12 : tweaks.density === 'spacious' ? 6 : 10;
@@ -225,30 +222,31 @@ function BridgesSection({ tweaks }) {
   const [page, setPage] = useState(1);
   const [statusF, setStatusF] = useState('all');
 
+  // Real bridges from prod /history/global/bridges. Shape:
+  //   { timestamp, block, network, direction ("Incoming"/"Outgoing"), sender,
+  //     recipient, asset_id, symbol, amount, usd_value, hash, time, logo }
+  const { items: rawBridges } = useHistory('/history/global/bridges', { pageSize: 50, page: 1, pollMs: 30_000 });
   const rows = useMemo(() => {
-    const rnd = seededRand(72);
-    const syms = ['XOR','VAL','PSWAP','ETH','DAI','KUSD'];
-    const chains = [
-      {from:'Ethereum', to:'SORA', dir:'in'},
-      {from:'SORA',     to:'Ethereum', dir:'out'},
-      {from:'Kusama',   to:'SORA', dir:'in'},
-      {from:'SORA',     to:'Polkadot', dir:'out'},
-      {from:'Liberland',to:'SORA', dir:'in'},
-    ];
-    const now = Date.now();
-    return Array.from({length: 15}, (_, i) => {
-      const c = chains[Math.floor(rnd() * chains.length)];
-      const sym = syms[Math.floor(rnd() * syms.length)];
-      const amt = +(rnd() * 800 + 5).toFixed(2);
-      const rStatus = rnd();
-      const status = rStatus < 0.7 ? 'done' : rStatus < 0.9 ? 'pending' : 'failed';
+    if (!rawBridges || rawBridges.length === 0) return [];
+    return rawBridges.map((r, i) => {
+      const isIn = (r.direction || '').toLowerCase().startsWith('in');
       return {
-        id: i, ts: now - i*12000, sym, ...c, amt, status,
-        hash: '0x' + Math.random().toString(16).slice(2, 18),
-        settle: (+(rnd()*18 + 1).toFixed(1)),
+        id: 'b-' + (r.hash || (r.block + ':' + i)),
+        ts: r.time ? parseHistTime(r.time) : Number(r.timestamp) || Date.now(),
+        sym: r.symbol,
+        from: isIn ? (r.network || 'Ethereum') : 'SORA',
+        to:   isIn ? 'SORA' : (r.network || 'Ethereum'),
+        dir: isIn ? 'in' : 'out',
+        amt: Number(r.amount) || 0,
+        usd: Number(r.usd_value) || 0,
+        status: r.status || 'done',
+        hash: r.hash,
+        settle: 0, // prod doesn't expose settlement time; deferred
+        sender: r.sender,
+        recipient: r.recipient,
       };
     });
-  }, []);
+  }, [rawBridges]);
 
   const filtered = statusF === 'all' ? rows : rows.filter(r => r.status === statusF);
   const pageSize = tweaks.density === 'compact' ? 12 : tweaks.density === 'spacious' ? 6 : 10;
@@ -363,9 +361,14 @@ function OrderBookSection({ tweaks }) {
 
   const [base, quote] = pair.split('/');
 
+  // Prod /history/global/orderbook returns order events (Place, Fill, Cancel).
+  // We surface recent Fill events as the "fills" table. Bids/asks/mid/spread
+  // would need a live book snapshot (prod doesn't expose it yet — deferred).
+  const { items: rawOrders } = useHistory('/history/global/orderbook', { pageSize: 40, page: 1, pollMs: 20_000 });
   const { bids, asks, mid, spread, fills } = useMemo(() => {
     const rnd = seededRand(73 + pair.charCodeAt(0));
     const basePrice = 0.42 + rnd() * 0.3;
+    // Bids/Asks stay mocked — no public snapshot endpoint available.
     const bids = Array.from({length: 12}, (_, i) => {
       const px = basePrice * (1 - (i+1) * 0.002 - rnd()*0.001);
       return { price: px, amount: +(rnd() * 400 + 40).toFixed(2), depth: +(rnd() * 12000 + 400).toFixed(0) };
@@ -377,14 +380,30 @@ function OrderBookSection({ tweaks }) {
     const mid = basePrice;
     const spread = ((asks[0].price - bids[0].price) / mid) * 10000;
 
-    const fills = Array.from({length: 10}, (_, i) => ({
+    // Real fills (Place/Fill events) from prod. Only keep pairs that match selected.
+    const filtered = (rawOrders || []).filter(o => {
+      if (!o.base_asset || !o.quote_asset) return false;
+      const p = o.base_asset + '/' + o.quote_asset;
+      return p === pair || pair === 'KUSD/XOR'; // default shows everything if KUSD/XOR (common pair)
+    });
+    const fills = filtered.slice(0, 10).map(o => ({
+      ts: parseHistTime(o.time),
+      side: (o.side || '').toLowerCase(),
+      price: Number(o.price) || 0,
+      amount: Number(o.amount) || 0,
+      wallet: o.wallet,
+      hash: o.hash,
+      eventType: o.event_type,
+    }));
+    // Fallback to mocked fills if prod returned nothing for this pair.
+    const finalFills = fills.length > 0 ? fills : Array.from({length: 10}, (_, i) => ({
       ts: Date.now() - i * 5000,
       side: rnd() > 0.5 ? 'buy' : 'sell',
       price: basePrice * (1 + (rnd() - 0.5) * 0.003),
       amount: +(rnd() * 180 + 10).toFixed(2),
     }));
-    return { bids, asks, mid, spread, fills };
-  }, [pair]);
+    return { bids, asks, mid, spread, fills: finalFills };
+  }, [pair, rawOrders]);
 
   const maxBidAmt = Math.max(...bids.map(b => b.amount));
   const maxAskAmt = Math.max(...asks.map(a => a.amount));

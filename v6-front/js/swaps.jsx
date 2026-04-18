@@ -46,27 +46,32 @@ function SwapArrow() {
 }
 
 function SwapsSection({ tweaks }) {
+  const t = useT();
   const { open } = useDrill();
   const [filter, setFilter] = useState(null); // token symbol or null
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState(() => {
-    const rnd = seededRand(91);
-    const now = Date.now();
-    return Array.from({length: 28}, (_, i) => makeSwap('s-' + i, rnd, now - (28-i) * 4000));
-  });
-  const idRef = useRef(200);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [, setTick] = useState(0);
 
-  // Live swap stream
-  useEffect(() => {
-    const id = setInterval(() => {
-      const rnd = Math.random;
-      const sw = makeSwap('sw-' + (++idRef.current), rnd, Date.now());
-      setItems(prev => [sw, ...prev].slice(0, 60));
-    }, 2200 / (tweaks.liveSpeed || 1));
-    return () => clearInterval(id);
-  }, [tweaks.liveSpeed]);
+  // Real swaps from prod /history/global/swaps. Shape mapping:
+  //   prod { time, block, hash, extrinsic_id, wallet, in:{symbol,amount,logo,usd}, out:{symbol,amount,logo} }
+  //   prototype { id, ts, block, hash, acc, inTok, outTok, inAmt, outAmt, usd }
+  const { items: rawSwaps } = useHistory('/history/global/swaps', { pageSize: 60, page: 1, pollMs: 20_000 });
+  const items = useMemo(() => {
+    if (!rawSwaps || rawSwaps.length === 0) return [];
+    return rawSwaps.map((s, i) => ({
+      id: 's-' + (s.hash || (s.block + ':' + i)),
+      ts: parseHistTime(s.time),
+      block: s.block,
+      hash: s.hash,
+      acc: s.wallet,
+      inTok: s.in?.symbol,
+      outTok: s.out?.symbol,
+      inAmt: Number(s.in?.amount || 0),
+      outAmt: Number(s.out?.amount || 0),
+      usd: Number(s.in?.usd || 0),
+    }));
+  }, [rawSwaps]);
 
   // time ticker
   useEffect(() => {

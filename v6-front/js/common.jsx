@@ -1,6 +1,57 @@
 /* global React, ReactDOM */
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
+// -------- Parse the Spanish-locale date strings prod emits on every history row:
+//   "18/04/2026 17:06:24" or "18/4/2026, 17:06:24"
+// Falls back to Date.now() when unparseable.
+function parseHistTime(t) {
+  if (!t) return Date.now();
+  if (typeof t === 'number') return t;
+  const iso = Date.parse(t);
+  if (!Number.isNaN(iso)) return iso;
+  const re = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
+  const m = String(t).trim().match(re);
+  if (m) {
+    const [, d, mo, y, hh = '0', mm = '0', ss = '0'] = m;
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+    if (!Number.isNaN(dt.getTime())) return dt.getTime();
+  }
+  return Date.now();
+}
+
+// Generic history fetcher — backs any section that hits /history/global/*.
+// Returns { items, loading, error, refresh, totalPages }.
+// Polls every 30s for freshness (cheap since prod uses MV + live buffer).
+function useHistory(endpoint, { pageSize = 20, page = 1, pollMs = 30_000 } = {}) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [nonce, setNonce] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'limit=' + pageSize + '&page=' + page;
+    const pull = async () => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        if (cancelled) return;
+        setItems(Array.isArray(j) ? j : (j.data || j.result || []));
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e.message || 'fetch error');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    pull();
+    const id = pollMs > 0 ? setInterval(pull, pollMs) : null;
+    return () => { cancelled = true; if (id) clearInterval(id); };
+  }, [endpoint, pageSize, page, nonce]);
+  const refresh = useCallback(() => setNonce(n => n + 1), []);
+  return { items, loading, error, refresh };
+}
+
 // --- small helpers ---
 const fmt = {
   num(n, d = 2) {
@@ -158,4 +209,4 @@ function Petals({ count = 16 }) {
   );
 }
 
-Object.assign(window, { fmt, seededRand, sparkPath, areaPath, TOKENS, FAKE_ADDRS, IDENTITIES, I, Petals });
+Object.assign(window, { fmt, seededRand, sparkPath, areaPath, TOKENS, FAKE_ADDRS, IDENTITIES, I, Petals, useHistory, parseHistTime });

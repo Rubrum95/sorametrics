@@ -139,11 +139,33 @@ function ExtrinsicsSection({ tweaks }) {
   const [expanded, setExpanded] = useState(null);
   const [palletOpen, setPalletOpen] = useState(false);
 
+  // Real extrinsics from prod /history/global/extrinsics. Shape mapping:
+  //   prod { time, block, extrinsic_index, extrinsic_id, hash, section, method,
+  //          signer, success (0/1), args_json, error_msg, events_json }
+  //   prototype expects { id, pallet, method, caller, feeXor, block, idx, ok,
+  //                       ts, hash, failReason }
+  const { items: raw, loading: histLoading } = useHistory('/history/global/extrinsics', { pageSize: 50, page: 1, pollMs: 20_000 });
   const items = useMemo(() => {
-    const rnd = seededRand(44);
-    const now = Date.now();
-    return Array.from({length: 15}, (_, i) => makeExtrinsic('x-' + i, rnd, now - (15-i) * 6000));
-  }, []);
+    if (!raw || raw.length === 0) return [];
+    return raw.map((e, i) => ({
+      // Include row index in id — prod occasionally returns duplicate
+      // extrinsic_ids across the paginated window (MV + live_extrinsics union)
+      // and React needs unique keys.
+      id: 'x-' + (e.extrinsic_id || (e.block + ':' + e.extrinsic_index)) + '-' + i,
+      pallet: e.section,
+      method: e.method,
+      caller: e.signer,
+      feeXor: 0, // prod /extrinsics endpoint doesn't include per-ext fee; derived in a later phase
+      block: e.block,
+      idx: e.extrinsic_index,
+      ok: e.success === 1 || e.success === true,
+      ts: parseHistTime(e.time),
+      hash: e.hash,
+      failReason: e.error_msg || null,
+      argsJson: e.args_json,
+      eventsJson: e.events_json,
+    }));
+  }, [raw]);
 
   // re-render for "ago"
   const [, setTick] = useState(0);
