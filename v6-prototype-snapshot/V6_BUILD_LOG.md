@@ -23,8 +23,8 @@
 | 1 | Wire Network Pulse to real socket.io (5 events) | **DONE** | f7034ee |
 | 2 | Wire Burn Tracker to `/burns/*` + burn animation on new-block-stats | **DONE** | 3bebba7 |
 | 3 | Wire Balance/Portfolio + Wallet Details 8 sub-tabs | **DONE (core)** | d0e0f3b |
-| 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | **DONE** | _pending_ |
-| 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | PLANNED | — |
+| 4 | Wire Swaps / Transfers / Extrinsics / Bridges / OrderBook + CSV tax formats | **DONE** | 34a07ea |
+| 5 | Wire Tokens / Pools / Staking / Governance / Intelligence | **DONE** | _pending_ |
 | 6 | Wire Global Search `/search` + identity resolution `/identity/:addr` | PLANNED | — |
 | 7 | Build missing prod modals: Peg monitor chart, Pool Details, Chart modal, Extrinsic/Block deep-links | PLANNED | — |
 | 8 | Build Batch 7 features locally: peg alerts, theme toggle, time-range, screenshot/share | PLANNED | — |

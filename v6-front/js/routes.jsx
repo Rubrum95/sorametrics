@@ -530,23 +530,35 @@ function PoolsSection({ tweaks }) {
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState(null);
 
+  // Real pool registry from prod /pools. Shape per pool:
+  //   { base:{symbol,name,logo,decimals}, target:{...},
+  //     reserves:{ base:"4,052,738,...", target:"19,745,743,..." },
+  //     basePrice, targetPrice }
+  // /pools doesn't expose volume24h/APR/providers — they'd need /pool/activity
+  // per-pair (N additional round-trips). For now TVL = baseReserve*basePrice.
+  const { items: rawPools } = useHistory('/pools', { pageSize: 0, page: 1, pollMs: 60_000 });
   const pools = useMemo(() => {
-    const rnd = seededRand(74);
-    const pairs = [
-      ['XOR','VAL'], ['XOR','PSWAP'], ['KUSD','XOR'], ['XOR','ETH'],
-      ['XOR','DAI'], ['PSWAP','KUSD'], ['VAL','KUSD'], ['TBCD','XOR'],
-      ['ETH','DAI'], ['PSWAP','VAL'], ['ETH','KUSD'], ['VAL','TBCD'],
-    ];
-    return pairs.map((p, i) => {
-      const tvl = (rnd() * 8e6 + 1.2e5) * (i === 0 ? 3 : 1);
-      const vol = tvl * (0.05 + rnd() * 0.3);
+    if (!rawPools || rawPools.length === 0) return [];
+    return rawPools.map((p, i) => {
+      // Reserves come as comma-strings of raw 1e18 units.
+      const parseBig = (s) => Number(String(s || '0').replace(/,/g, '')) / 1e18;
+      const baseReserve = parseBig(p.reserves?.base);
+      const targetReserve = parseBig(p.reserves?.target);
+      const bp = Number(p.basePrice) || 0;
+      const tp = Number(p.targetPrice) || 0;
+      const tvl = (baseReserve * bp) + (targetReserve * tp);
       return {
-        id: i, a: p[0], b: p[1],
-        tvl, vol, apr: +(rnd() * 42 + 2).toFixed(2),
-        providers: Math.floor(rnd() * 380 + 14),
+        id: 'p-' + i,
+        a: p.base?.symbol,
+        b: p.target?.symbol,
+        tvl,
+        vol: 0,      // would need /pool/activity — deferred to Phase 7 Pool Details modal
+        apr: 0,      // same
+        providers: 0,
+        baseReserve, targetReserve, basePrice: bp, targetPrice: tp,
       };
-    }).sort((a, b) => b.tvl - a.tvl);
-  }, []);
+    }).filter(p => p.a && p.b).sort((a, b) => b.tvl - a.tvl);
+  }, [rawPools]);
 
   const totalTvl = pools.reduce((s,p) => s + p.tvl, 0);
   const totalFees = pools.reduce((s,p) => s + p.vol * 0.003, 0);
@@ -569,7 +581,7 @@ function PoolsSection({ tweaks }) {
       <KpiGrid items={[
         { label:'Total TVL',       value: fmt.usd(totalTvl), delta:'▲ 3.2%', deltaDir:'up' },
         { label:'Total Pools',     value: String(pools.length), sub:'active AMM pools' },
-        { label:'Top Pool',        value: pools[0].a + '/' + pools[0].b, valStyle:{fontSize: 20}, sub: fmt.usd(pools[0].tvl) + ' TVL' },
+        { label:'Top Pool',        value: pools[0] ? (pools[0].a + '/' + pools[0].b) : '—', valStyle:{fontSize: 20}, sub: pools[0] ? fmt.usd(pools[0].tvl) + ' TVL' : '' },
         { label:'24h Fees Earned', value: fmt.usd(totalFees), sub:'0.3% swap fee' },
       ]}/>
 
@@ -663,37 +675,34 @@ function TokensSection({ tweaks }) {
   const [fav, setFav] = useState(() => new Set(['XOR','VAL']));
   const [filter, setFilter] = useState('all');
 
+  // Real token registry from prod /tokens. Shape: { data: [{ symbol, name,
+  //   decimals, assetId, logo, price, totalSupply, marketCap, change24h, ... }] }
+  // Prod doesn't expose per-token 24h history at this endpoint — sparklines
+  // stay seeded until Phase 7 wires /chart/:symbol?res=.
+  const { items: rawTokens } = useHistory('/tokens', { pageSize: 0, page: 1, pollMs: 60_000 });
   const tokens = useMemo(() => {
+    if (!rawTokens || rawTokens.length === 0) return [];
     const rnd = seededRand(75);
-    const base = [
-      { sym:'XOR', price:0.072, supply: 38.2e6, mcap: 38.2e6*0.072 },
-      { sym:'VAL', price:0.094, supply: 100e6, mcap: 100e6*0.094 },
-      { sym:'PSWAP', price:0.0031, supply: 600e6, mcap: 600e6*0.0031 },
-      { sym:'TBCD', price:1.002, supply: 2.4e6, mcap: 2.4e6*1.002 },
-      { sym:'KUSD', price:0.998, supply: 14.2e6, mcap: 14.2e6*0.998 },
-      { sym:'ETH',  price:3240, supply: 420, mcap: 420*3240 },
-      { sym:'DAI',  price:1.0, supply: 1.4e6, mcap: 1.4e6 },
-      { sym:'KXOR', price:0.072, supply: 8.1e5, mcap: 8.1e5*0.072 },
-      { sym:'KEN',  price:0.21,  supply: 3.2e6, mcap: 3.2e6*0.21 },
-      { sym:'KARMA',price:0.0048,supply: 280e6, mcap: 280e6*0.0048 },
-      { sym:'HMX',  price:0.018, supply: 42e6, mcap: 42e6*0.018 },
-      { sym:'AXOR', price:0.068, supply: 620000, mcap: 620000*0.068 },
-      { sym:'XSTUSD', price:0.999, supply: 2.1e6, mcap: 2.1e6 },
-      { sym:'XST',  price:0.24, supply: 1.8e6, mcap: 1.8e6*0.24 },
-      { sym:'DEO',  price:0.016, supply: 16e6, mcap: 16e6*0.016 },
-    ];
-    return base.map((t, i) => {
-      const change = (rnd() - 0.4) * 20;
+    return rawTokens.slice(0, 20).map((rt, i) => {
+      const price = Number(rt.price) || 0;
+      const supply = Number(rt.totalSupply) || 0;
+      const mcap = Number(rt.marketCap) || (price * supply);
+      const change = Number(rt.change24h) || (rnd() - 0.4) * 20;
       const spark = Array.from({length: 30}, (_, j) =>
         50 + Math.sin(j/3 + i*1.3)*14 + (change > 0 ? j*0.3 : -j*0.3) + rnd()*3
       );
-      return { ...t, change, spark, name: t.sym + ' Token' };
+      return {
+        sym: rt.symbol,
+        name: rt.name || (rt.symbol + ' Token'),
+        price, supply, mcap, change, spark,
+        logo: rt.logo,
+      };
     });
-  }, []);
+  }, [rawTokens]);
 
   const visible = filter === 'fav' ? tokens.filter(t => fav.has(t.sym)) : tokens;
-  const gainer = [...tokens].sort((a,b) => b.change - a.change)[0];
-  const loser  = [...tokens].sort((a,b) => a.change - b.change)[0];
+  const gainer = [...tokens].sort((a,b) => b.change - a.change)[0] || { sym: '—', change: 0 };
+  const loser  = [...tokens].sort((a,b) => a.change - b.change)[0] || { sym: '—', change: 0 };
   const totalMcap = tokens.reduce((s,t) => s + t.mcap, 0);
 
   const toggleFav = (sym) => {
@@ -870,25 +879,38 @@ function StakingSection({ tweaks }) {
   const [tab, setTab] = useState('validators');
   const [page, setPage] = useState(1);
 
-  const validators = useMemo(() => {
-    const rnd = seededRand(77);
-    const names = ['Sakura Node','Kusari-01','Cerberus','Moonflower','Akira Validators','Sora.keepers',
-      'PolkaLab','Nebula Stake','RedPetal','Yama','Hokkaido Node','Aurora','Kitsune','Ronin-Staking',
-      'Sakurajima','Fujiwara','Shinobi','Kirin Validator','Midori','Hanabi'];
-    return names.map((n, i) => {
-      const total = (rnd() * 4e5 + 5e4);
-      const own = total * (rnd()*0.12 + 0.01);
-      const stat = rnd();
-      const status = i < 14 ? 'active' : stat > 0.5 ? 'waiting' : 'oversubscribed';
-      return {
-        rank: i+1, name: n, total, own,
-        nominators: Math.floor(rnd() * 220 + 14),
-        commission: +(rnd() * 10 + 1).toFixed(2),
-        points: Math.floor(rnd() * 9800 + 200),
-        status,
-      };
-    });
+  // Real validators from prod /staking/validators. Endpoint returns an OBJECT
+  // (not array-of-rows) so we fetch directly instead of via useHistory.
+  // Shape: { era, validatorCount, validators: [{ address, identity, commission,
+  //   totalStake, ownStake, otherStake, nominatorsCount, isBlocked, erasSincePayout }] }
+  const [rawValidators, setRawValidators] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const r = await fetch('/staking/validators');
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled) setRawValidators(j.validators || []);
+      } catch {}
+    };
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
   }, []);
+  const validators = useMemo(() => {
+    return rawValidators.map((v, i) => ({
+      rank: i + 1,
+      name: v.identity || (v.address ? v.address.slice(0, 8) + '…' + v.address.slice(-6) : 'Unknown'),
+      address: v.address,
+      total: Number(v.totalStake) || 0,
+      own: Number(v.ownStake) || 0,
+      nominators: Number(v.nominatorsCount) || 0,
+      commission: Number(v.commission) || 0,
+      points: Math.round(Number(v.erasSincePayout) * 1000) || 0,
+      status: v.isBlocked ? 'blocked' : 'active',
+    }));
+  }, [rawValidators]);
 
   const pageSize = tweaks.density === 'compact' ? 15 : 12;
   const visible = validators.slice((page-1) * pageSize, page * pageSize);
@@ -999,15 +1021,44 @@ function GovSection({ tweaks }) {
   const t = useT();
   const [tab, setTab] = useState('consejo');
 
-  const council = useMemo(() => ([
-    { name: 'Sakura Node', addr: FAKE_ADDRS[0], joined: 2401, votes: 142 },
-    { name: 'Cerberus',     addr: FAKE_ADDRS[4], joined: 2388, votes: 201 },
-    { name: 'Kusari',       addr: FAKE_ADDRS[5], joined: 2362, votes: 188 },
-    { name: 'Moonflower',   addr: FAKE_ADDRS[6], joined: 2402, votes: 92 },
-    { name: 'PolkaLab',     addr: FAKE_ADDRS[2], joined: 2375, votes: 156 },
-    { name: 'Aurora',       addr: FAKE_ADDRS[7], joined: 2394, votes: 128 },
-    { name: 'Fujiwara',     addr: FAKE_ADDRS[1], joined: 2410, votes: 62 },
-  ]), []);
+  // Real council + motions from prod. Both return OBJECTS, so direct fetch
+  // (not useHistory which only unwraps `data`/`result` arrays).
+  const [rawCouncil, setRawCouncil] = useState([]);
+  const [rawMotions, setRawMotions] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    const pullAll = async () => {
+      try {
+        const [cRes, mRes] = await Promise.all([
+          fetch('/governance/council'),
+          fetch('/governance/motions'),
+        ]);
+        if (cRes.ok) {
+          const j = await cRes.json();
+          if (!cancelled) setRawCouncil(j.members || []);
+        }
+        if (mRes.ok) {
+          const j = await mRes.json();
+          if (!cancelled) setRawMotions(j.council || []);
+        }
+      } catch {}
+    };
+    pullAll();
+    const id = setInterval(pullAll, 120_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const council = useMemo(() => {
+    if (rawCouncil.length === 0) return []; // hide mocks until real loads
+    return rawCouncil.map((m, i) => ({
+      name: m.identity || ('Seat ' + (i + 1)),
+      addr: m.address,
+      joined: 0, // prod doesn't expose join era
+      votes: 0,  // prod /council doesn't expose vote counts — deferred
+      stake: Number(m.stake) || 0,
+      isPrime: !!m.isPrime,
+    }));
+  }, [rawCouncil]);
 
   const elections = useMemo(() => ({
     seats: 13, filled: 7,
@@ -1026,12 +1077,24 @@ function GovSection({ tweaks }) {
     ],
   }), []);
 
-  const motions = [
-    { id: 42, title:'Elevar el umbral del consejo a 5/7', proposer:'Cerberus', threshold:'5/7', votes:{aye: 4, nay: 1}, deadline: '2d 8h', status: 'open' },
-    { id: 41, title:'Financiar auditoría trimestral (12k XOR)', proposer:'Kusari', threshold:'4/7', votes:{aye: 3, nay: 0}, deadline: '5d 2h', status: 'open' },
-    { id: 40, title:'Aprobar nueva passphrase del bridge', proposer:'Sakura Node', threshold:'5/7', votes:{aye: 5, nay: 2}, deadline: 'finalizado', status: 'passed' },
-    { id: 39, title:'Rechazar puente con cadena X', proposer:'PolkaLab', threshold:'4/7', votes:{aye: 2, nay: 4}, deadline: 'finalizado', status: 'rejected' },
-  ];
+  // Real motions from prod /governance/motions → council[].
+  // Shape: { hash, index, decoded:{section,method,args,description}, remark, ... }
+  const motions = useMemo(() => {
+    if (rawMotions.length === 0) {
+      // Show empty-state instead of mocks — prod has no active motions sometimes.
+      return [];
+    }
+    return rawMotions.slice(0, 8).map((m, i) => ({
+      id: m.index != null ? m.index : i,
+      title: (m.decoded && m.decoded.description) || (m.decoded && (m.decoded.section + '::' + m.decoded.method)) || 'Unknown motion',
+      proposer: '—', // not exposed by /motions endpoint
+      threshold: '—',
+      votes: { aye: 0, nay: 0 },
+      deadline: 'pending',
+      status: 'open',
+      hash: m.hash,
+    }));
+  }, [rawMotions]);
 
   const democracy = {
     referendums: [
@@ -1387,16 +1450,82 @@ function BalanceSection({ tweaks }) {
 
 function IntelligenceSection({ tweaks }) {
   const t = useT();
-  const insights = [
-    { type:'volume',  title:'Unusual volume on PSWAP/KUSD pool', body:'+340% vs 24h avg · 18 large swaps clustered within 42 min.', tag:'Volume anomaly', severity: 'high' },
-    { type:'whale',   title:'Whale accumulation · cnVmD3…zRyP',  body:'Moved 120,400 XOR out of Polkaswap into cold wallet in 4h.', tag:'Whale alert', severity: 'high' },
-    { type:'gov',     title:'Referendum #42 closes in 6h',        body:'Currently 68% AYE · 18.4% turnout · likely to pass.', tag:'Governance', severity: 'mid' },
-    { type:'bridge',  title:'Bridge settlement slowing',          body:'ETH → SORA avg now 11.2 min (was 7.4 min 24h ago).', tag:'Bridge', severity: 'mid' },
-    { type:'staking', title:'Validator Akira entering oversub.',  body:'Commission jumped to 8% · 12 noms moved to Cerberus.', tag:'Staking', severity: 'low' },
-    { type:'burn',    title:'Burn rate up 14% this week',         body:'Swap volume on PSWAP pairs driving fee burn surge.', tag:'Burn', severity: 'low' },
-    { type:'pool',    title:'New pool listed: KEN/KUSD',          body:'TVL crossed $200K within 8 blocks of creation.', tag:'Pool', severity: 'low' },
-    { type:'holder',  title:'Top-20 holder rotation',             body:'3 new addresses entered top 20 in last 72h.', tag:'Holders', severity: 'low' },
-  ];
+  // Pull real signals from prod /stats/* endpoints and turn them into
+  // insight cards. This is a thin synthesis layer — prod doesn't publish
+  // pre-baked insights, so we derive them here.
+  const [accum, setAccum] = useState([]);
+  const [trending, setTrending] = useState([]);
+  const [stables, setStables] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const [a, t, s] = await Promise.all([
+          fetch('/stats/accumulation').then(r => r.json()).catch(() => null),
+          fetch('/stats/trending-tokens').then(r => r.json()).catch(() => null),
+          fetch('/stats/stablecoins').then(r => r.json()).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setAccum(a && Array.isArray(a.data) ? a.data : (Array.isArray(a) ? a : []));
+        setTrending(Array.isArray(t) ? t : []);
+        setStables(Array.isArray(s) ? s : []);
+      } catch {}
+    };
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const insights = useMemo(() => {
+    const out = [];
+    // Top accumulator → whale signal
+    if (accum[0]) {
+      const a = accum[0];
+      out.push({
+        type: 'whale',
+        tag: 'Whale accumulation',
+        severity: 'high',
+        title: 'Whale accumulation · ' + (a.wallet?.slice(0, 8) + '…' + a.wallet?.slice(-6)),
+        body: 'Bought ' + Number(a.total_bought_amount || 0).toFixed(2) + ' ' + (a.symbol || 'XOR') + ' worth $' + Number(a.total_bought_usd || 0).toFixed(0) + ' · ' + a.swap_count + ' swaps 24h',
+      });
+    }
+    // Top trending token
+    if (trending[0]) {
+      const tk = trending[0];
+      out.push({
+        type: 'volume',
+        tag: 'Volume spike',
+        severity: 'high',
+        title: tk.symbol + ' leads 24h volume',
+        body: '$' + Number(tk.volume || 0).toFixed(0) + ' traded · top of trending list',
+      });
+    }
+    // Stablecoin peg health — flag depegs
+    stables.forEach(sc => {
+      const price = Number(sc.price) || 0;
+      const dev = Math.abs(price - 1);
+      if (dev > 0.01) {
+        out.push({
+          type: 'peg',
+          tag: 'Peg alert',
+          severity: dev > 0.03 ? 'high' : 'mid',
+          title: sc.symbol + ' deviates ' + (dev * 100).toFixed(2) + '% from $1',
+          body: 'Current price $' + price.toFixed(4) + ' · ' + (price > 1 ? 'premium' : 'discount'),
+        });
+      }
+    });
+    // Remaining trending → low-severity "watch" entries
+    trending.slice(1, 6).forEach(tk => {
+      out.push({
+        type: 'pool',
+        tag: 'Trending',
+        severity: 'low',
+        title: tk.symbol + ' on the rise',
+        body: '$' + Number(tk.volume || 0).toFixed(0) + ' 24h volume',
+      });
+    });
+    return out;
+  }, [accum, trending, stables]);
 
   return (
     <div>
