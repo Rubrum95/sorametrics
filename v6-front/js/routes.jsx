@@ -1535,10 +1535,53 @@ function IntelligenceSection({ tweaks }) {
 
       <KpiGrid items={[
         { label:'Insights · 24h', value: '42', delta:'▲ 8 since last refresh', deltaDir:'up' },
-        { label:'Active Alerts',  value: '3', valStyle:{color:'#F5B041'}, sub:'high-severity open' },
+        { label:'Active Alerts',  value: String(insights.filter(i => i.severity === 'high').length), valStyle:{color:'#F5B041'}, sub:'high-severity open' },
         { label:'Watchlist Hits', value: '7', sub:'tracked addresses' },
-        { label:'Open Anomalies', value: '2', sub:'last 4h' },
+        { label:'Open Anomalies', value: String(insights.filter(i => i.type === 'peg').length), sub:'last 4h' },
       ]}/>
+
+      {/* Stablecoin Peg Monitor — ports prod's visual depeg badge.
+          Each row shows price vs $1 reference; bar fills red when |dev| > 2%. */}
+      {stables.length > 0 && (
+        <div className="card" style={{marginBottom: 18}}>
+          <div className="card-header">
+            <div className="card-title"><span className="dot"/> Peg Monitor</div>
+            <span className="tag">ref $1.00</span>
+          </div>
+          <div className="card-body" style={{display:'grid', gap: 12}}>
+            {stables.map((sc) => {
+              const price = Number(sc.price) || 0;
+              const devPct = (price - 1) * 100;
+              const absDev = Math.abs(devPct);
+              const depegged = absDev > 2;
+              return (
+                <div key={sc.symbol} style={{display:'grid', gridTemplateColumns:'80px 1fr 90px 110px', alignItems:'center', gap: 12}}>
+                  <div style={{fontWeight: 700}}>{sc.symbol}</div>
+                  <div style={{position:'relative', height: 6, background:'rgba(255,255,255,0.06)', borderRadius: 3}}>
+                    <div style={{position:'absolute', left:'50%', top: -3, width: 1, height: 12, background:'rgba(255,255,255,0.3)'}}/>
+                    <div style={{
+                      position:'absolute',
+                      left: devPct >= 0 ? '50%' : (50 - Math.min(absDev, 10) * 5) + '%',
+                      width: Math.min(absDev, 10) * 5 + '%',
+                      top: 0, bottom: 0,
+                      background: depegged ? '#EF4444' : '#10B981',
+                      borderRadius: 3,
+                    }}/>
+                  </div>
+                  <div className="num" style={{textAlign:'right', fontWeight: 600}}>${price.toFixed(4)}</div>
+                  <div style={{textAlign:'right'}}>
+                    {depegged ? (
+                      <span className="tag err">DEPEG {devPct >= 0 ? '+' : ''}{devPct.toFixed(2)}%</span>
+                    ) : (
+                      <span className="tag ok">peg ±{absDev.toFixed(2)}%</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="insights-grid">
         {insights.map((it, i) => (

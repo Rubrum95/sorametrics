@@ -21,9 +21,29 @@ const SECTION_COMPONENTS = {
 
 function App() {
   const [tweaks, setTweaks] = useState(() => ({ ...(window.__TWEAKS__ || {}) }));
-  const [section, setSection] = useState(tweaks.section || 'burns');
+  // Deep-link section: read ?tab=X from the URL so shareable links land on
+  // the right tab without manual sidebar clicks.
+  const [section, setSection] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && SECTION_COMPONENTS[tab]) return tab;
+    } catch (_) {}
+    return tweaks.section || 'burns';
+  });
   const [block, setBlock] = useState(21_418_802);
   const [editOpen, setEditOpen] = useState(false);
+
+  // Keep the URL in sync with the section without reloading the page.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== section) {
+        url.searchParams.set('tab', section);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (_) {}
+  }, [section]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-density', tweaks.density);
