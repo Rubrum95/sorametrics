@@ -266,16 +266,59 @@ function CommandPalette({ open, onClose }) {
 
   const index = useMemo(() => buildSearchIndex(), [open]);
 
+  // Real prod search: GET /search?q=... returns {type, data} with types
+  // "tokens" / "wallet" / "block" / "tx" / "extrinsic". We debounce the query
+  // and merge the prod hit into the local index so the palette shows both.
+  const [realHits, setRealHits] = useState([]);
+  useEffect(() => {
+    if (!q.trim() || q.length < 2) { setRealHits([]); return; }
+    const h = setTimeout(async () => {
+      try {
+        const r = await fetch('/search?q=' + encodeURIComponent(q.trim()));
+        if (!r.ok) return;
+        const j = await r.json();
+        const hits = [];
+        if (j.type === 'tokens' && Array.isArray(j.data)) {
+          j.data.forEach(tk => hits.push({
+            type: 'token', primary: tk.symbol, secondary: 'asset ' + (tk.assetId ? tk.assetId.slice(0, 10) + '…' : ''),
+            raw: tk.symbol, section: 'tokens', real: true,
+          }));
+        } else if (j.type === 'wallet' && j.data) {
+          hits.push({
+            type: 'wallet', primary: j.data.address, secondary: 'on-chain · live balance',
+            raw: j.data.address, section: 'balance', real: true,
+          });
+        } else if (j.type === 'block' && j.data) {
+          hits.push({
+            type: 'block', primary: 'Block #' + Number(j.data.block).toLocaleString(),
+            secondary: 'finalized',
+            raw: String(j.data.block), section: 'extrinsics', real: true,
+          });
+        } else if ((j.type === 'tx' || j.type === 'extrinsic') && j.data) {
+          hits.push({
+            type: j.type, primary: j.data.hash || j.data.extrinsic_id || q,
+            secondary: j.type + ' · block ' + (j.data.block || '?'),
+            raw: j.data.hash || j.data.extrinsic_id, section: 'extrinsics', real: true,
+          });
+        }
+        setRealHits(hits);
+      } catch { setRealHits([]); }
+    }, 200);
+    return () => clearTimeout(h);
+  }, [q]);
+
   const results = useMemo(() => {
     let base = type === 'all' ? index : index.filter(r => r.type === type);
     if (!q.trim()) return base.slice(0, 40);
-    return base
+    const fuzzyMatches = base
       .map(r => ({ r, s: Math.max(fuzzy(q, r.primary), fuzzy(q, r.secondary) * 0.6, fuzzy(q, r.raw) * 0.8) }))
       .filter(x => x.s > 0.2)
       .sort((a,b) => b.s - a.s)
       .slice(0, 40)
       .map(x => x.r);
-  }, [q, type, index]);
+    // Prepend real prod hits so they rank above mocks.
+    return [...realHits, ...fuzzyMatches];
+  }, [q, type, index, realHits]);
 
   // grouped for display
   const grouped = useMemo(() => {
