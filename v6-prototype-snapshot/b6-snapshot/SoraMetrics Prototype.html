@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>SoraMetrics — Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-layer">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-petals" aria-hidden="true"></div>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- Defaults for tweaks -->
+  <script>
+    window.__TWEAKS__ = /*EDITMODE-BEGIN*/{
+      "section": "extrinsics",
+      "density": "compact",
+      "chartType": "area",
+      "motion": "full",
+      "liveSpeed": 1,
+      "accent": "plum"
+    }/*EDITMODE-END*/;
+  </script>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- App scripts -->
+  <script type="text/babel" src="js/common.jsx"></script>
+  <script type="text/babel" src="js/i18n.jsx"></script>
+  <script type="text/babel" src="js/shell.jsx"></script>
+  <script type="text/babel" src="js/burns.jsx"></script>
+  <script type="text/babel" src="js/pulse.jsx"></script>
+  <script type="text/babel" src="js/portfolio.jsx"></script>
+  <script type="text/babel" src="js/swaps.jsx"></script>
+  <script type="text/babel" src="js/extrinsics.jsx"></script>
+  <script type="text/babel" src="js/routes.jsx"></script>
+  <script type="text/babel" src="js/drill_music.jsx"></script>
+  <script type="text/babel" src="js/features.jsx"></script>
+  <script type="text/babel" src="js/tweaks.jsx"></script>
+  <script type="text/babel" src="js/main.jsx"></script>
+</body>
+</html>
