@@ -641,27 +641,99 @@ function AddWalletModal({ open, onClose }) {
   );
 }
 
+// Tiny helper that renders a round token logo from a prod-provided logo
+// string (base64 or data URL). Falls back to the symbol's first letter when
+// no logo is present.
+function TinyTokLogo({ sym, logo, size = 18 }) {
+  if (logo) {
+    return <img src={logo} alt={sym || ''}
+      style={{width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', background:'rgba(255,255,255,0.04)'}}
+      onError={e => { e.currentTarget.style.display = 'none'; }}/>;
+  }
+  return (
+    <span style={{
+      width: size, height: size, borderRadius: '50%',
+      background: 'linear-gradient(135deg,#7B5B90,#4A3566)',
+      display:'inline-flex', alignItems:'center', justifyContent:'center',
+      fontSize: Math.round(size * 0.5), fontWeight: 700, color:'#fff', flexShrink: 0,
+    }}>{sym ? sym[0] : '?'}</span>
+  );
+}
+
 // Renders the 4 history sub-tabs inside WalletDetailsModal. Each row shape
-// differs between endpoints; we map defensively to a common {time, block,
-// primary, secondary} tuple.
+// differs between endpoints; we render prod-style cells with real token
+// logos + a consistent "block + time" left column.
 function WalletHistoryTable({ kind, rows }) {
   if (rows === null) return <div className="muted">Cargando {kind}…</div>;
   if (!rows || rows.length === 0) return <div className="muted tiny">Sin {kind} recientes para esta cartera.</div>;
   return (
     <table className="lp-table">
-      <thead><tr><th>Hora</th><th>Bloque</th><th>Detalle</th></tr></thead>
+      <thead>
+        <tr>
+          <th style={{width: 150}}>Hora / Bloque</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
       <tbody>
         {rows.slice(0, 30).map((r, i) => {
-          let primary = '';
-          if (kind === 'swaps') primary = (Number(r.in?.amount || 0).toFixed(2)) + ' ' + (r.in?.symbol || '') + ' → ' + (Number(r.out?.amount || 0).toFixed(2)) + ' ' + (r.out?.symbol || '');
-          else if (kind === 'transfers') primary = (Number(r.amount || 0).toFixed(2)) + ' ' + (r.symbol || '') + ' · ' + fmt.addr(r.from, 6, 4) + ' → ' + fmt.addr(r.to, 6, 4);
-          else if (kind === 'bridges') primary = (r.direction || '') + ' ' + (Number(r.amount || 0).toFixed(2)) + ' ' + (r.symbol || '') + ' · ' + (r.network || '');
-          else if (kind === 'extrinsics') primary = (r.section || '') + '::' + (r.method || '') + (r.success === 1 ? ' ✓' : ' ✗');
+          const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : '');
+          const timeStr = r.time || r.timestamp || '';
+          // Detail cell composition — includes token logos like prod.
+          let detail;
+          if (kind === 'swaps') {
+            detail = (
+              <div style={{display:'flex', alignItems:'center', gap: 6, flexWrap:'wrap'}}>
+                <TinyTokLogo sym={r.in?.symbol} logo={r.in?.logo}/>
+                <span className="num">{fmt.num(Number(r.in?.amount || 0), 2)}</span>
+                <span style={{fontWeight: 700}}>{r.in?.symbol}</span>
+                <span style={{color:'var(--fg-3)'}}>→</span>
+                <TinyTokLogo sym={r.out?.symbol} logo={r.out?.logo}/>
+                <span className="num">{fmt.num(Number(r.out?.amount || 0), 2)}</span>
+                <span style={{fontWeight: 700}}>{r.out?.symbol}</span>
+                {r.in?.usd && <span className="muted tiny" style={{marginLeft:'auto'}}>${Number(r.in.usd).toFixed(2)}</span>}
+              </div>
+            );
+          } else if (kind === 'transfers') {
+            detail = (
+              <div style={{display:'flex', alignItems:'center', gap: 6, flexWrap:'wrap'}}>
+                <TinyTokLogo sym={r.symbol} logo={r.logo}/>
+                <span className="num">{fmt.num(Number(r.amount || 0), 2)}</span>
+                <span style={{fontWeight: 700}}>{r.symbol}</span>
+                <span className="muted tiny">{fmt.addr(r.from, 6, 4)} → {fmt.addr(r.to, 6, 4)}</span>
+                {r.usdValue && <span className="muted tiny" style={{marginLeft:'auto'}}>${Number(r.usdValue).toFixed(2)}</span>}
+              </div>
+            );
+          } else if (kind === 'bridges') {
+            detail = (
+              <div style={{display:'flex', alignItems:'center', gap: 6, flexWrap:'wrap'}}>
+                <TinyTokLogo sym={r.symbol} logo={r.logo}/>
+                <span style={{fontWeight:700}}>{r.direction}</span>
+                <span className="num">{fmt.num(Number(r.amount || 0), 2)}</span>
+                <span style={{fontWeight: 700}}>{r.symbol}</span>
+                <span className="muted tiny">via {r.network || '—'}</span>
+              </div>
+            );
+          } else if (kind === 'extrinsics') {
+            detail = (
+              <div style={{display:'flex', alignItems:'center', gap: 8}}>
+                <span style={{fontFamily:'JetBrains Mono', fontSize: 12}}>
+                  <span style={{color:'#EC4899'}}>{r.section}</span>
+                  <span style={{color:'var(--fg-3)'}}>::</span>
+                  <span>{r.method}</span>
+                </span>
+                {r.success === 1 || r.success === true
+                  ? <span className="tag ok tiny">✓</span>
+                  : <span className="tag err tiny">✗</span>}
+              </div>
+            );
+          }
           return (
             <tr key={(r.hash || '') + i}>
-              <td className="tiny">{r.time || r.timestamp || '—'}</td>
-              <td className="num tiny">#{r.block}</td>
-              <td className="tiny">{primary}</td>
+              <td style={{whiteSpace:'nowrap'}}>
+                <div className="num tiny" style={{fontWeight: 600}}>#{block}</div>
+                <div className="muted tiny">{timeStr}</div>
+              </td>
+              <td>{detail}</td>
             </tr>
           );
         })}
@@ -685,6 +757,9 @@ function useWalletHistory(endpoint, addr, active) {
   }, [endpoint, addr, active]);
   return rows;
 }
+
+// Width bumped from 540 → 820 so all 8 sub-tabs fit. See WalletDetailsModal <Modal width>.
+const WALLET_MODAL_WIDTH = 820;
 
 function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   const [alias, setAlias] = useState('');
@@ -766,7 +841,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} width={540} label={wallet.alias}>
+    <Modal open={open} onClose={onClose} width={WALLET_MODAL_WIDTH} label={wallet.alias}>
       <div className="sm-modal-head">
         <div style={{display:'flex', alignItems:'center', gap:12}}>
           <div className="sm-avatar" style={{background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}>{wallet.alias[0]}</div>
@@ -778,7 +853,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
         <button className="sm-modal-x" onClick={onClose}>×</button>
       </div>
 
-      <div className="sm-modal-tabs" style={{overflowX:'auto'}}>
+      <div className="sm-modal-tabs" style={{overflowX:'auto', flexWrap:'nowrap', whiteSpace:'nowrap', scrollbarWidth:'thin'}}>
         {[
           ['assets',     'Assets'],
           ['swaps',      'Swaps'],
@@ -789,11 +864,14 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
           ['extrinsics', 'Extrinsics'],
           ['info',       'Info'],
         ].map(([id, lbl]) => (
-          <button key={id} className={'sm-modal-tab' + (subtab===id?' active':'')} onClick={() => setSubtab(id)}>{lbl}</button>
+          <button key={id}
+                  className={'sm-modal-tab' + (subtab===id?' active':'')}
+                  style={{padding:'8px 12px', fontSize: 12, flexShrink: 0}}
+                  onClick={() => setSubtab(id)}>{lbl}</button>
         ))}
       </div>
 
-      <div className="sm-modal-body">
+      <div className="sm-modal-body" style={{maxHeight: 520, overflowY: 'auto'}}>
         {subtab === 'assets' && (<>
           <div className="sm-field">
             <label>Alias</label>

@@ -21,10 +21,26 @@ function makeSwap(id, rnd, now) {
   };
 }
 
-function TokenLogo({ sym, size = 24 }) {
+// Renders a round token logo. If `logo` URL/base64 is provided (from prod
+// /tokens, /history/swaps, /balance), uses it. Otherwise falls back to the
+// gradient initial placeholder.
+function TokenLogo({ sym, logo, size = 24 }) {
+  if (logo) {
+    return (
+      <img src={logo}
+           alt={sym || ''}
+           style={{
+             width: size, height: size, borderRadius: '50%',
+             flexShrink: 0, objectFit: 'cover',
+             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+             background: 'rgba(255,255,255,0.04)',
+           }}
+           onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
   const tk = TOKENS[sym] || { grad: 'linear-gradient(135deg,#555,#333)' };
-  const t = useT();
- return (
+  return (
     <div className="swap-tok-logo-round" style={{
       width: size, height: size, borderRadius: '50%',
       background: tk.grad,
@@ -32,7 +48,7 @@ function TokenLogo({ sym, size = 24 }) {
       fontSize: Math.round(size * 0.42), fontWeight: 800, color: '#fff',
       flexShrink: 0,
       boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-    }}>{sym[0]}</div>
+    }}>{sym ? sym[0] : '?'}</div>
   );
 }
 
@@ -70,6 +86,8 @@ function SwapsSection({ tweaks }) {
       inAmt: Number(s.in?.amount || 0),
       outAmt: Number(s.out?.amount || 0),
       usd: Number(s.in?.usd || 0),
+      inLogo: s.in?.logo,     // match prod: render the real token logo (base64/url)
+      outLogo: s.out?.logo,
     }));
   }, [rawSwaps]);
 
@@ -206,7 +224,7 @@ function SwapsSection({ tweaks }) {
                   </td>
                   <td>
                     <div className="swap-tok-cell">
-                      <TokenLogo sym={s.inTok} size={26}/>
+                      <TokenLogo sym={s.inTok} logo={s.inLogo} size={26}/>
                       <div className="swap-tok-vals">
                         <div className="swap-tok-sym">{s.inTok}</div>
                         <div className="swap-tok-amt num">{fmt.num(s.inAmt, 2)}</div>
@@ -219,7 +237,7 @@ function SwapsSection({ tweaks }) {
                   </td>
                   <td>
                     <div className="swap-tok-cell">
-                      <TokenLogo sym={s.outTok} size={26}/>
+                      <TokenLogo sym={s.outTok} logo={s.outLogo} size={26}/>
                       <div className="swap-tok-vals">
                         <div className="swap-tok-sym">{s.outTok}</div>
                         <div className="swap-tok-amt num">{fmt.num(s.outAmt, 2)}</div>

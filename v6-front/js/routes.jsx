@@ -32,12 +32,27 @@ function MiniSpark({ data, color = '#9B1B30', w = 72, h = 26 }) {
   );
 }
 
-function TokenBadge({ sym, size = 22 }) {
+// Renders a round token badge. When `logo` URL/base64 is given (from
+// /history/global/transfers, /tokens, /balance), renders the real image;
+// otherwise falls back to the gradient initial letter.
+function TokenBadge({ sym, logo, size = 22 }) {
+  if (logo) {
+    return (
+      <img src={logo} alt={sym || ''}
+        style={{
+          width: size, height: size, borderRadius: '50%',
+          flexShrink: 0, objectFit: 'cover',
+          background: 'rgba(255,255,255,0.04)',
+        }}
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+      />
+    );
+  }
   const t = TOKENS[sym] || {};
   return (
     <span className="token-dot"
       style={{width: size, height: size, background: t.grad || 'linear-gradient(135deg,#64748B,#334155)'}}>
-      {sym[0]}
+      {sym ? sym[0] : '?'}
     </span>
   );
 }
@@ -104,11 +119,12 @@ function TransfersSection({ tweaks }) {
       block: r.block,
       hash: r.hash,
       sym: r.symbol,
+      logo: r.logo,  // real token logo from prod /history/transfers
       from: r.from,
       to: r.to,
       amt: Number(r.amount) || 0,
       usd: Number(r.usdValue) || 0,
-      fee: 0, // prod /transfers doesn't expose per-row fee; deferred
+      fee: 0,
       memo: '',
     }));
   }, [rawTransfers]);
@@ -187,7 +203,7 @@ function TransfersSection({ tweaks }) {
                     <div className="muted tiny">{new Date(r.ts).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})}</div>
                   </td>
                   <td><a className="block-link num" href="#" onClick={(e) => e.stopPropagation()}>#{r.block.toLocaleString()}</a></td>
-                  <td><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
+                  <td><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
                   <td className="clickable" title="Abrir wallet"
                       onClick={(ev) => { ev.stopPropagation(); if (r.from) window.openWalletDetails?.(r.from, IDENTITIES[r.from]); }}>
                     {IDENTITIES[r.from] && <div style={{fontSize:11, fontWeight:700}}>{IDENTITIES[r.from]}</div>}
@@ -249,7 +265,8 @@ function BridgesSection({ tweaks }) {
         usd: Number(r.usd_value) || 0,
         status: r.status || 'done',
         hash: r.hash,
-        settle: 0, // prod doesn't expose settlement time; deferred
+        logo: r.logo,
+        settle: 0,
         sender: r.sender,
         recipient: r.recipient,
       };
@@ -325,7 +342,7 @@ function BridgesSection({ tweaks }) {
                       {r.dir === 'in' ? '↓ IN' : '↑ OUT'}
                     </span>
                   </td>
-                  <td><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
+                  <td><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
                   <td>
                     <div className="chain-route">
                       <span className={'chain-tag c-' + r.from.toLowerCase()}>{r.from}</span>
