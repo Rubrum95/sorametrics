@@ -231,6 +231,34 @@ function PulseSection({ tweaks }) {
   pausedRef.current = paused;
   // Track last finalized block number so block events aren't duplicated.
   const lastFinalizedRef = useRef(0);
+  // Real stats from prod — replaces hardcoded KPI + Trending + Health values.
+  const [statsHeader, setStatsHeader] = useState(null);     // { block, swaps, transfers, bridges }
+  const [statsOverview, setStatsOverview] = useState(null); // { pegs, network:{volume, users, txCount, ...}, trends }
+  const [statsNetwork, setStatsNetwork] = useState(null);   // { stats24h, stats7d, tps }
+  const [stakingNet, setStakingNet] = useState(null);       // { validatorCount, eraProgress, avgBlockTime, bestBlock, ... }
+  const [trending, setTrending] = useState([]);             // [{ symbol, volume, logo }]
+
+  // Fetch all 5 stats endpoints + refresh every 30s.
+  useEffect(() => {
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const [h, o, n, sk, tr] = await Promise.all([
+          fetch('/stats/header').then(r => r.json()).catch(() => null),
+          fetch('/stats/overview').then(r => r.json()).catch(() => null),
+          fetch('/stats/network').then(r => r.json()).catch(() => null),
+          fetch('/staking/network').then(r => r.json()).catch(() => null),
+          fetch('/stats/trending-tokens').then(r => r.json()).catch(() => []),
+        ]);
+        if (cancelled) return;
+        setStatsHeader(h); setStatsOverview(o); setStatsNetwork(n);
+        setStakingNet(sk); setTrending(Array.isArray(tr) ? tr : []);
+      } catch {}
+    };
+    pull();
+    const id = setInterval(pull, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   // Wire socket.io to the real prod backend.
   // Events emitted by index.js: new-block-stats, transfers-batch,
@@ -320,10 +348,26 @@ function PulseSection({ tweaks }) {
       </PageHeader>
 
       <div className="pulse-grid">
-        <PulseStat label={t('pulse.kpi.swaps24')} value="14,208" delta="8.4%" deltaPositive={true} sub="vs 7d avg" spark={sparkA}/>
-        <PulseStat label={t('pulse.kpi.volume')} value="$4.27M" delta="12.1%" deltaPositive={true} sub="last 24h" spark={sparkB}/>
-        <PulseStat label={t('pulse.kpi.wallets')} value="2,810" delta="3.2%" deltaPositive={true} sub="unique signers" spark={sparkC}/>
-        <PulseStat label={t('pulse.kpi.block')} value="6.01s" delta="0.4%" deltaPositive={false} sub="finality 12s" spark={sparkD}/>
+        <PulseStat
+          label={t('pulse.kpi.swaps24')}
+          value={statsHeader ? Number(statsHeader.swaps || 0).toLocaleString() : '—'}
+          sub={statsNetwork ? 'vs ' + Number(statsNetwork.stats7d?.txCount || 0).toLocaleString() + ' 7d' : 'loading…'}
+          spark={sparkA}/>
+        <PulseStat
+          label={t('pulse.kpi.volume')}
+          value={statsOverview && statsOverview.network ? fmt.usd(statsOverview.network.volume || 0) : '—'}
+          sub={statsNetwork ? '7d: ' + fmt.usd(statsNetwork.stats7d?.volume || 0) : 'last 24h'}
+          spark={sparkB}/>
+        <PulseStat
+          label={t('pulse.kpi.wallets')}
+          value={statsNetwork ? Number(statsNetwork.stats24h?.users || 0).toLocaleString() : '—'}
+          sub={statsNetwork ? Number(statsNetwork.stats7d?.users || 0).toLocaleString() + ' unique 7d' : 'unique signers'}
+          spark={sparkC}/>
+        <PulseStat
+          label={t('pulse.kpi.block')}
+          value={stakingNet ? (Number(stakingNet.avgBlockTime || 0)).toFixed(2) + 's' : '—'}
+          sub={stakingNet ? 'best #' + Number(stakingNet.bestBlock || 0).toLocaleString() : 'finality'}
+          spark={sparkD}/>
       </div>
 
       <div className="pulse-layout">
@@ -375,21 +419,20 @@ function PulseSection({ tweaks }) {
               <span className="tag">Top 6</span>
             </div>
             <div className="card-body">
-              {['XOR', 'VAL', 'PSWAP', 'TBCD', 'KUSD', 'ETH'].map((sym, i) => {
-                const tk = TOKENS[sym];
-                const change = [3.4, 8.2, -1.8, 0.3, 0.01, 5.6][i];
+              {trending.length === 0 ? (
+                <div className="muted tiny" style={{padding: 12}}>Cargando…</div>
+              ) : trending.slice(0, 6).map((tk, i) => {
+                const sym = tk.symbol;
+                const vol = Number(tk.volume) || 0;
+                const fallback = TOKENS[sym] || { grad: 'linear-gradient(135deg,#7B5B90,#4A3566)', name: sym };
                 return (
-                  <div key={sym} className="holder-row" style={{ gridTemplateColumns: '32px 1fr 70px 70px 56px' }}>
-                    <div className="token-logo" style={{ background: tk.grad, width: 24, height: 24, fontSize: 10 }}>{sym[0]}</div>
-                    <div className="holder-addr"><span className="ident">{sym}</span> <span className="muted tiny">· {tk.name}</span></div>
-                    <svg className="mini-spark" viewBox="0 0 64 24" width="64" height="24">
-                      <path d={sparkPath(Array.from({length:20}, (_, j) => 10 + Math.sin(j/2 + i) * 4 + Math.random()*3), 64, 24, 2)}
-                            stroke={change >= 0 ? '#10B981' : '#EF4444'} strokeWidth="1.3" fill="none"/>
-                    </svg>
-                    <div className="holder-pct" style={{ color: change >= 0 ? '#6EE7B7' : '#FCA5A5' }}>
-                      {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+                  <div key={sym + i} className="holder-row" style={{ gridTemplateColumns: '32px 1fr 80px 80px' }}>
+                    <div className="token-logo" style={{ background: fallback.grad, width: 24, height: 24, fontSize: 10 }}>{sym[0]}</div>
+                    <div className="holder-addr"><span className="ident">{sym}</span> <span className="muted tiny">· {fallback.name}</span></div>
+                    <div className="holder-pct num" style={{ textAlign:'right', fontWeight: 600 }}>
+                      {fmt.usd(vol)}
                     </div>
-                    <div className="holder-pct num">${(0.002 + i*0.015).toFixed(4)}</div>
+                    <div className="muted tiny" style={{ textAlign:'right' }}>24h vol</div>
                   </div>
                 );
               })}
@@ -401,23 +444,31 @@ function PulseSection({ tweaks }) {
               <div className="card-title"><span className="dot"/> {t('pulse.health')}</div>
             </div>
             <div className="card-body" style={{display:'grid', gap:10}}>
-              {[
-                { l: 'Validators Online', v: '187 / 192', ok: true },
-                { l: 'Peers',              v: '42',        ok: true },
-                { l: 'Era Progress',       v: '62%',       ok: true, bar: 62 },
-                { l: 'Finality Lag',       v: '2 blocks',  ok: true },
-                { l: 'TPS (est.)',         v: '23.4',      ok: true },
-              ].map((r, i) => (
-                <div key={i} style={{display:'flex', alignItems:'center', gap: 10, fontSize: 13}}>
-                  <span style={{flex: 1, color: 'var(--fg-2)'}}>{r.l}</span>
-                  {r.bar && (
-                    <div className="holder-bar" style={{ width: 80 }}>
-                      <div className="fill" style={{ width: r.bar + '%' }}/>
-                    </div>
-                  )}
-                  <span className="num" style={{ color: r.ok ? '#6EE7B7' : '#FCA5A5', fontWeight: 700 }}>{r.v}</span>
-                </div>
-              ))}
+              {(() => {
+                // Derived from /staking/network + /stats/network
+                const vCount = Number(stakingNet?.validatorCount || 0);
+                const eraProgress = Number(stakingNet?.eraProgress || 0);
+                const finalityLag = stakingNet ? Number(stakingNet.bestBlock || 0) - Number(stakingNet.finalizedBlock || 0) : 0;
+                const tps = statsNetwork?.tps || (stakingNet ? (Number(statsNetwork?.stats24h?.txCount || 0) / 86400).toFixed(3) : '—');
+                const rows = [
+                  { l: 'Validadores', v: stakingNet ? vCount + ' activos' : '—', ok: vCount > 0 },
+                  { l: 'Era',          v: stakingNet ? '#' + stakingNet.activeEra : '—', ok: !!stakingNet },
+                  { l: 'Era Progress', v: stakingNet ? eraProgress.toFixed(0) + '%' : '—', ok: !!stakingNet, bar: eraProgress },
+                  { l: 'Finality Lag', v: stakingNet ? finalityLag + ' blocks' : '—', ok: finalityLag <= 2 },
+                  { l: 'TPS',          v: tps, ok: true },
+                ];
+                return rows.map((r, i) => (
+                  <div key={i} style={{display:'flex', alignItems:'center', gap: 10, fontSize: 13}}>
+                    <span style={{flex: 1, color: 'var(--fg-2)'}}>{r.l}</span>
+                    {r.bar != null && (
+                      <div className="holder-bar" style={{ width: 80 }}>
+                        <div className="fill" style={{ width: r.bar + '%' }}/>
+                      </div>
+                    )}
+                    <span className="num" style={{ color: r.ok ? '#6EE7B7' : '#FCA5A5', fontWeight: 700 }}>{r.v}</span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>

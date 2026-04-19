@@ -92,11 +92,26 @@ Validators online / Peers / Era Progress / Finality Lag / TPS — all hardcoded.
 | `/history/{swaps,transfers,bridges,orderbook,extrinsics}/:addr` | Not wired (per-wallet history) |
 | `/export/csv?format=...` | Wired with generic CSV only |
 
-## Pass 2 fix order
+## Pass 2 fix order (committed `ff0fe47`)
 
 1. ✅ G1: Pools DEX filter pills + `?base=` wiring
 2. ✅ G2: Pools row layout (Reservas + Total USD, no APR/Providers count)
 3. ✅ G3: Pools server-side pagination
 4. ✅ G4: Pool Providers modal
 5. ✅ G5: Pool Activity modal
-6. 🔜 G6–G15: Pass 3
+
+## Pass 3 fixes (pending commit)
+
+6. ✅ G13: Pulse KPI cards wired to `/stats/header` (229 swaps · $2.69K vol) + `/stats/network` (19 active wallets) + `/staking/network` (6.00s block time)
+7. ✅ G14: Trending Tokens card wired to `/stats/trending-tokens` (DAI, XOR, VAL, PSWAP, KUSD by real 24h volume)
+8. ✅ G15: Network Health card wired to `/staking/network` (24 validadores · Era #7052 · 50% progress · finality lag · TPS)
+
+## Still open (Pass 4 candidates)
+
+- G6: 🔍 Más Info per row — richer drill using `/history/extrinsic/:block/:idx` + `/lookup/usd-value/:id`
+- G7: Time-range selector 4H/1D/7D/1M/1Y (universal across KPIs + charts)
+- G8: Wallet Details remaining 7 sub-tabs (Swaps/Transfers/Bridges/Liquidity/Staking/Info/Extrinsics)
+- G9: Extrinsic Detail modal with decoded args_json
+- G10: CSV tax formats (koinly/cointracking/cointracker) via `/export/csv?format=`
+- G11: Peg history Chart.js line
+- G12: Governance Elections/Democracy/Tech-committee sub-tabs fully wired
