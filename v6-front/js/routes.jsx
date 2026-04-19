@@ -524,143 +524,270 @@ function OrderBookSection({ tweaks }) {
    POOLS / LIQUIDITY
    ========================================================================= */
 
+// Matches prod's 4 DEX bases on SORA.
+const DEX_BASES = [
+  { base: 'XOR',  dex: 0, color: '#E5243B' },
+  { base: 'XST',  dex: 1, color: '#F5B041' },
+  { base: 'KUSD', dex: 2, color: '#60A5FA' },
+  { base: 'VXOR', dex: 3, color: '#7B5B90' },
+];
+
 function PoolsSection({ tweaks }) {
   const t = useT();
   const { open: openDrill } = useDrill();
   const [page, setPage] = useState(1);
-  const [expanded, setExpanded] = useState(null);
+  const [baseFilter, setBaseFilter] = useState('all');     // 'all' | 'XOR' | 'XST' | 'KUSD' | 'VXOR'
+  const [pools, setPools] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [providersModal, setProvidersModal] = useState(null);  // { base, target }
+  const [activityModal, setActivityModal] = useState(null);    // { base, target }
 
-  // Real pool registry from prod /pools. Shape per pool:
-  //   { base:{symbol,name,logo,decimals}, target:{...},
-  //     reserves:{ base:"4,052,738,...", target:"19,745,743,..." },
-  //     basePrice, targetPrice }
-  // /pools doesn't expose volume24h/APR/providers — they'd need /pool/activity
-  // per-pair (N additional round-trips). For now TVL = baseReserve*basePrice.
-  const { items: rawPools } = useHistory('/pools', { pageSize: 0, page: 1, pollMs: 60_000 });
-  const pools = useMemo(() => {
-    if (!rawPools || rawPools.length === 0) return [];
-    return rawPools.map((p, i) => {
-      // Reserves come as comma-strings of raw 1e18 units.
-      const parseBig = (s) => Number(String(s || '0').replace(/,/g, '')) / 1e18;
-      const baseReserve = parseBig(p.reserves?.base);
-      const targetReserve = parseBig(p.reserves?.target);
-      const bp = Number(p.basePrice) || 0;
-      const tp = Number(p.targetPrice) || 0;
-      const tvl = (baseReserve * bp) + (targetReserve * tp);
-      return {
-        id: 'p-' + i,
-        a: p.base?.symbol,
-        b: p.target?.symbol,
-        tvl,
-        vol: 0,      // would need /pool/activity — deferred to Phase 7 Pool Details modal
-        apr: 0,      // same
-        providers: 0,
-        baseReserve, targetReserve, basePrice: bp, targetPrice: tp,
-      };
-    }).filter(p => p.a && p.b).sort((a, b) => b.tvl - a.tvl);
-  }, [rawPools]);
+  // Fetch server-paginated pools. Prod paginates at 10 per page across ~22 pages.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ page: String(page), limit: '10' });
+    if (baseFilter !== 'all') params.set('base', baseFilter);
+    const pull = async () => {
+      try {
+        const r = await fetch('/pools?' + params.toString());
+        if (!r.ok) return;
+        const j = await r.json();
+        if (cancelled) return;
+        const parseBig = (s, dec) => {
+          const raw = Number(String(s || '0').replace(/,/g, ''));
+          return raw / Math.pow(10, dec || 18);
+        };
+        const rows = (j.data || []).map((p, i) => {
+          const baseReserve = parseBig(p.reserves?.base, p.base?.decimals);
+          const targetReserve = parseBig(p.reserves?.target, p.target?.decimals);
+          const bp = Number(p.basePrice) || 0;
+          const tp = Number(p.targetPrice) || 0;
+          const totalUsd = (baseReserve * bp) + (targetReserve * tp);
+          return {
+            id: (p.base?.symbol || '?') + '-' + (p.target?.symbol || '?') + '-' + i,
+            base: p.base,
+            target: p.target,
+            baseReserve, targetReserve,
+            basePrice: bp, targetPrice: tp,
+            totalUsd,
+          };
+        });
+        setPools(rows);
+        setTotalPages(Number(j.totalPages) || 1);
+        setTotal(Number(j.total) || rows.length);
+      } catch {}
+    };
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [page, baseFilter]);
 
-  const totalTvl = pools.reduce((s,p) => s + p.tvl, 0);
-  const totalFees = pools.reduce((s,p) => s + p.vol * 0.003, 0);
-  const pageSize = tweaks.density === 'compact' ? 12 : tweaks.density === 'spacious' ? 6 : 10;
-  const visible = pools.slice((page-1) * pageSize, page * pageSize);
+  // Reset to page 1 whenever the DEX filter changes.
+  useEffect(() => { setPage(1); }, [baseFilter]);
+
+  const totalTvl = pools.reduce((s, p) => s + p.totalUsd, 0);
 
   return (
     <div>
       <PageHeader title={t('pools.title')} sub={t('pools.sub')}>
         <ExportCsvButton section="pools"
-          headers={['Pair','TVL','Volume24h','APR','Providers']}
+          headers={['Pair','BaseReserve','TargetReserve','TotalUsd']}
           rows={pools.map(p => ({
-            Pair: p.a + '/' + p.b,
-            TVL: p.tvl.toFixed(2), Volume24h: p.vol.toFixed(2),
-            APR: p.apr + '%', Providers: p.providers,
+            Pair: (p.base?.symbol || '') + '/' + (p.target?.symbol || ''),
+            BaseReserve: p.baseReserve.toFixed(2),
+            TargetReserve: p.targetReserve.toFixed(2),
+            TotalUsd: p.totalUsd.toFixed(2),
           }))}/>
         <button className="btn primary">{t('btn.provideLiquidity')}</button>
       </PageHeader>
 
       <KpiGrid items={[
-        { label:'Total TVL',       value: fmt.usd(totalTvl), delta:'▲ 3.2%', deltaDir:'up' },
-        { label:'Total Pools',     value: String(pools.length), sub:'active AMM pools' },
-        { label:'Top Pool',        value: pools[0] ? (pools[0].a + '/' + pools[0].b) : '—', valStyle:{fontSize: 20}, sub: pools[0] ? fmt.usd(pools[0].tvl) + ' TVL' : '' },
-        { label:'24h Fees Earned', value: fmt.usd(totalFees), sub:'0.3% swap fee' },
+        { label:'Total TVL (page)', value: fmt.usd(totalTvl), sub:'sum of visible pools' },
+        { label:'Total Pools',      value: String(total), sub:'across all 4 DEX' },
+        { label:'Top Pool',         value: pools[0] ? (pools[0].base.symbol + '/' + pools[0].target.symbol) : '—', valStyle:{fontSize: 20}, sub: pools[0] ? fmt.usd(pools[0].totalUsd) : '' },
+        { label:'DEX Filter',       value: baseFilter === 'all' ? 'Todo' : baseFilter, sub: baseFilter === 'all' ? 'all 4 DEX' : 'DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') },
       ]}/>
 
-      <div className="card" style={{marginTop: 18}}>
+      {/* DEX filter pills — Todo + 4 base-asset pills (XOR/XST/KUSD/VXOR). */}
+      <div className="filter-row" style={{marginTop: 18, marginBottom: 12}}>
+        <div
+          className={'filter-chip' + (baseFilter === 'all' ? ' active' : '')}
+          onClick={() => setBaseFilter('all')}
+          title="Todos los DEX"
+          style={{cursor:'pointer'}}>
+          Todo
+        </div>
+        {DEX_BASES.map(d => (
+          <div
+            key={d.base}
+            className={'filter-chip' + (baseFilter === d.base ? ' active' : '')}
+            onClick={() => setBaseFilter(d.base)}
+            title={d.base + ' (DEX ' + d.dex + ')'}
+            style={{cursor:'pointer', display:'flex', alignItems:'center', gap: 6}}>
+            <span style={{display:'inline-block', width:14, height:14, borderRadius:'50%', background: d.color}}/>
+            <span style={{fontWeight: 600}}>{d.base}</span>
+            <span className="muted tiny">DEX {d.dex}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> All Pools</div>
-          <span className="tag">{pools.length} pools</span>
+          <div className="card-title"><span className="dot"/> {baseFilter === 'all' ? 'Todos los pools' : baseFilter + ' / … (DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') + ')'}</div>
+          <span className="tag">{total} pools · página {page} de {totalPages}</span>
         </div>
         <div className="swaps-table-wrap">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft: 20}}>Pool</th>
-                <th style={{textAlign:'right'}}>TVL</th>
-                <th style={{textAlign:'right'}}>24h Volume</th>
-                <th style={{textAlign:'right'}}>APR</th>
-                <th style={{textAlign:'right'}}>Providers</th>
-                <th style={{width:36, paddingRight:20}}></th>
+                <th style={{paddingLeft: 20}}>Par</th>
+                <th style={{textAlign:'right'}}>Reservas</th>
+                <th style={{textAlign:'right'}}>Total</th>
+                <th style={{textAlign:'center'}}>Providers</th>
+                <th style={{textAlign:'center', paddingRight: 20}}>Activity</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map(p => (
-                <React.Fragment key={p.id}>
-                  <tr className={'ext-row' + (expanded === p.id ? ' open' : '')}
-                      onClick={() => setExpanded(expanded === p.id ? null : p.id)}>
-                    <td style={{paddingLeft: 20}}>
-                      <TokenPair a={p.a} b={p.b}/>
-                    </td>
-                    <td style={{textAlign:'right'}} className="num" ><span style={{fontWeight:700}}>{fmt.usd(p.tvl)}</span></td>
-                    <td style={{textAlign:'right'}} className="num">{fmt.usd(p.vol)}</td>
-                    <td style={{textAlign:'right'}} className="num">
-                      <span style={{color: p.apr > 20 ? '#FBB040' : '#6EE7B7', fontWeight:700}}>{p.apr.toFixed(2)}%</span>
-                    </td>
-                    <td style={{textAlign:'right'}} className="num">{p.providers}</td>
-                    <td style={{paddingRight: 20, textAlign:'center'}}>
-                      <span className={'ext-caret' + (expanded === p.id ? ' open' : '')}>▾</span>
-                    </td>
-                  </tr>
-                  {expanded === p.id && (
-                    <tr className="ext-detail-row">
-                      <td colSpan="6" style={{padding: 0}}>
-                        <div className="ext-detail">
-                          <div className="ext-detail-label">Top 10 Liquidity Providers</div>
-                          <table className="lp-table">
-                            <thead>
-                              <tr><th>#</th><th>Provider</th><th style={{textAlign:'right'}}>Stake</th><th style={{textAlign:'right'}}>Share</th></tr>
-                            </thead>
-                            <tbody>
-                              {Array.from({length: 10}, (_, i) => {
-                                const share = (24 - i*2.1) * (1 + Math.random()*0.2);
-                                const addr = FAKE_ADDRS[i % FAKE_ADDRS.length];
-                                return (
-                                  <tr key={i} className="clickable"
-                                      onClick={(e) => { e.stopPropagation(); openDrill({type:'lp', title:`LP · ${p.a}/${p.b}`, pool:`${p.a}/${p.b}`, stake: p.tvl * share / 100, share, addr, rewards: share * 12, since:'2024-08-12'}); }}>
-                                    <td className="num">{i+1}</td>
-                                    <td>
-                                      <div style={{display:'flex', alignItems:'center', gap: 8}}>
-                                        <div style={{width:20, height:20, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)'}}/>
-                                        {IDENTITIES[addr] && <span style={{fontSize:11, fontWeight:700}}>{IDENTITIES[addr]}</span>}
-                                        <span className="muted tiny num">{fmt.addr(addr, 5, 4)}</span>
-                                      </div>
-                                    </td>
-                                    <td style={{textAlign:'right'}} className="num">{fmt.usd(p.tvl * share / 100)}</td>
-                                    <td style={{textAlign:'right', color:'#FBB040', fontWeight: 700}} className="num">{share.toFixed(2)}%</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
+              {pools.map(p => (
+                <tr key={p.id} className="ext-row">
+                  <td style={{paddingLeft: 20}}>
+                    <TokenPair a={p.base?.symbol} b={p.target?.symbol}/>
+                  </td>
+                  <td style={{textAlign:'right'}} className="num">
+                    <div style={{lineHeight:1.3}}>
+                      <div>{fmt.num(p.baseReserve, 2)} <b>{p.base?.symbol}</b></div>
+                      <div>{fmt.num(p.targetReserve, 2)} <b>{p.target?.symbol}</b></div>
+                    </div>
+                  </td>
+                  <td style={{textAlign:'right', fontWeight: 700, color: '#6EE7B7'}} className="num">
+                    {fmt.usd(p.totalUsd)}
+                  </td>
+                  <td style={{textAlign:'center'}}>
+                    <button className="btn" onClick={() => setProvidersModal({ base: p.base, target: p.target })}>Providers</button>
+                  </td>
+                  <td style={{textAlign:'center', paddingRight: 20}}>
+                    <button className="btn" onClick={() => setActivityModal({ base: p.base, target: p.target })}>Activity</button>
+                  </td>
+                </tr>
               ))}
+              {pools.length === 0 && (
+                <tr><td colSpan="5" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>
+                  Cargando pools…
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
-        <Pagination page={page} setPage={setPage} total={pools.length} pageSize={pageSize}/>
+        <Pagination page={page} setPage={setPage} total={total} pageSize={10}/>
+      </div>
+
+      {/* Pool Providers modal — GET /pool/providers?base=&target= */}
+      {providersModal && (
+        <PoolProvidersModal
+          base={providersModal.base}
+          target={providersModal.target}
+          onClose={() => setProvidersModal(null)}
+        />
+      )}
+      {/* Pool Activity modal — GET /pool/activity?base=&target= */}
+      {activityModal && (
+        <PoolActivityModal
+          base={activityModal.base}
+          target={activityModal.target}
+          onClose={() => setActivityModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Pool Providers modal ---
+// Prod endpoint: /pool/providers?base=<id>&target=<id>
+// Response shape: { providers: [{ address, balance, share }], totalProviders, ... }
+function PoolProvidersModal({ base, target, onClose }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/pool/providers?base=' + encodeURIComponent(base.assetId) + '&target=' + encodeURIComponent(target.assetId))
+      .then(r => r.json()).then(j => { if (!cancelled) setData(j); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [base.assetId, target.assetId]);
+  // /pool/providers returns a bare array [{ address, balance }].
+  const providers = Array.isArray(data) ? data : ((data && (data.providers || data.data)) || []);
+  const totalBalance = providers.reduce((s, p) => s + (Number(p.balance) || 0), 0) || 1;
+  return (
+    <div className="sm-modal-backdrop" onClick={onClose}>
+      <div className="sm-modal" style={{width: 620}} onClick={e => e.stopPropagation()}>
+        <div className="sm-modal-head">
+          <h3 style={{margin:0}}>Providers · {base.symbol}/{target.symbol}</h3>
+          <button className="sm-modal-x" onClick={onClose}>×</button>
+        </div>
+        <div className="sm-modal-body">
+          {!data ? <div className="muted">Cargando…</div> :
+            providers.length === 0 ? <div className="muted">Sin proveedores retornados por prod.</div> :
+            <table className="lp-table">
+              <thead><tr><th>#</th><th>Proveedor</th><th style={{textAlign:'right'}}>Balance</th><th style={{textAlign:'right'}}>Share</th></tr></thead>
+              <tbody>
+                {providers.slice(0, 50).map((p, i) => {
+                  const bal = Number(p.balance) || 0;
+                  const share = bal / totalBalance * 100;
+                  return (
+                  <tr key={(p.address || '') + i}>
+                    <td className="num">{i + 1}</td>
+                    <td><span className="num tiny">{fmt.addr(p.address || p.wallet, 8, 6)}</span></td>
+                    <td style={{textAlign:'right'}} className="num">{fmt.num(bal, 4)}</td>
+                    <td style={{textAlign:'right', color:'#FBB040', fontWeight: 700}} className="num">{share.toFixed(2)}%</td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Pool Activity modal ---
+// Prod endpoint: /pool/activity?base=<id>&target=<id>
+// Response shape: { activities: [{ time, type, amount, wallet, hash }] }
+function PoolActivityModal({ base, target, onClose }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/pool/activity?base=' + encodeURIComponent(base.assetId) + '&target=' + encodeURIComponent(target.assetId))
+      .then(r => r.json()).then(j => { if (!cancelled) setData(j); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [base.assetId, target.assetId]);
+  const acts = (data && (data.activities || data.data || data)) || [];
+  const list = Array.isArray(acts) ? acts : [];
+  return (
+    <div className="sm-modal-backdrop" onClick={onClose}>
+      <div className="sm-modal" style={{width: 720}} onClick={e => e.stopPropagation()}>
+        <div className="sm-modal-head">
+          <h3 style={{margin:0}}>Activity · {base.symbol}/{target.symbol}</h3>
+          <button className="sm-modal-x" onClick={onClose}>×</button>
+        </div>
+        <div className="sm-modal-body" style={{maxHeight: 520, overflow:'auto'}}>
+          {!data ? <div className="muted">Cargando…</div> :
+            list.length === 0 ? <div className="muted">Sin actividad reciente en este pool.</div> :
+            <table className="lp-table">
+              <thead><tr><th>Tiempo</th><th>Tipo</th><th style={{textAlign:'right'}}>Monto</th><th>Wallet</th></tr></thead>
+              <tbody>
+                {list.slice(0, 80).map((a, i) => (
+                  <tr key={(a.hash || '') + i}>
+                    <td className="tiny">{a.time || fmt.ago(Number(a.timestamp) || Date.now())}</td>
+                    <td><span className="tag">{a.type || a.event_type || 'swap'}</span></td>
+                    <td style={{textAlign:'right'}} className="num">{fmt.num(Number(a.amount || 0), 2)}</td>
+                    <td><span className="num tiny">{fmt.addr(a.wallet || a.account, 6, 4)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          }
+        </div>
       </div>
     </div>
   );
