@@ -576,14 +576,89 @@ function AddWalletModal({ open, onClose }) {
   );
 }
 
+// Renders the 4 history sub-tabs inside WalletDetailsModal. Each row shape
+// differs between endpoints; we map defensively to a common {time, block,
+// primary, secondary} tuple.
+function WalletHistoryTable({ kind, rows }) {
+  if (rows === null) return <div className="muted">Cargando {kind}…</div>;
+  if (!rows || rows.length === 0) return <div className="muted tiny">Sin {kind} recientes para esta cartera.</div>;
+  return (
+    <table className="lp-table">
+      <thead><tr><th>Hora</th><th>Bloque</th><th>Detalle</th></tr></thead>
+      <tbody>
+        {rows.slice(0, 30).map((r, i) => {
+          let primary = '';
+          if (kind === 'swaps') primary = (Number(r.in?.amount || 0).toFixed(2)) + ' ' + (r.in?.symbol || '') + ' → ' + (Number(r.out?.amount || 0).toFixed(2)) + ' ' + (r.out?.symbol || '');
+          else if (kind === 'transfers') primary = (Number(r.amount || 0).toFixed(2)) + ' ' + (r.symbol || '') + ' · ' + fmt.addr(r.from, 6, 4) + ' → ' + fmt.addr(r.to, 6, 4);
+          else if (kind === 'bridges') primary = (r.direction || '') + ' ' + (Number(r.amount || 0).toFixed(2)) + ' ' + (r.symbol || '') + ' · ' + (r.network || '');
+          else if (kind === 'extrinsics') primary = (r.section || '') + '::' + (r.method || '') + (r.success === 1 ? ' ✓' : ' ✗');
+          return (
+            <tr key={(r.hash || '') + i}>
+              <td className="tiny">{r.time || r.timestamp || '—'}</td>
+              <td className="num tiny">#{r.block}</td>
+              <td className="tiny">{primary}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+// Per-wallet history fetch — each sub-tab triggers one GET.
+function useWalletHistory(endpoint, addr, active) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    if (!active || !addr) return;
+    let cancelled = false;
+    setRows(null);
+    fetch(endpoint + '/' + encodeURIComponent(addr) + '?limit=30&page=1')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setRows(j?.data || j?.result || (Array.isArray(j) ? j : [])); })
+      .catch(() => { if (!cancelled) setRows([]); });
+    return () => { cancelled = true; };
+  }, [endpoint, addr, active]);
+  return rows;
+}
+
 function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   const [alias, setAlias] = useState('');
   const [confirmRm, setConfirmRm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [subtab, setSubtab] = useState('assets');
   const wallets = useWallets();
   const toast = useToast();
 
-  useEffect(() => { if (wallet) setAlias(wallet.alias); setConfirmRm(false); }, [wallet, open]);
+  useEffect(() => { if (wallet) setAlias(wallet.alias); setConfirmRm(false); setSubtab('assets'); }, [wallet, open]);
+
+  // All hooks must run every render (Rules of Hooks), even when wallet is null.
+  // Pass a safe empty addr so the sub-tab hooks don't fetch without a target.
+  const addr = wallet?.addr || '';
+  const swaps = useWalletHistory('/history/swaps', addr, subtab === 'swaps' && !!wallet);
+  const transfers = useWalletHistory('/history/transfers', addr, subtab === 'transfers' && !!wallet);
+  const bridges = useWalletHistory('/history/bridges', addr, subtab === 'bridges' && !!wallet);
+  const extrinsics = useWalletHistory('/history/extrinsics', addr, subtab === 'extrinsics' && !!wallet);
+  // Liquidity + staking + info are single-shot GETs without pagination.
+  const [liquidity, setLiquidity] = useState(null);
+  const [staking, setStaking] = useState(null);
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    if (!addr) return;
+    let c = false;
+    if (subtab === 'liquidity' && !liquidity) {
+      fetch('/wallet/liquidity/' + encodeURIComponent(addr)).then(r => r.json()).then(j => { if (!c) setLiquidity(j); }).catch(() => {});
+    }
+    if (subtab === 'staking' && !staking) {
+      fetch('/wallet/staking/' + encodeURIComponent(addr)).then(r => r.json()).then(j => { if (!c) setStaking(j); }).catch(() => {});
+    }
+    if (subtab === 'info' && !info) {
+      fetch('/wallet/info/' + encodeURIComponent(addr)).then(r => r.json()).then(j => { if (!c) setInfo(j); }).catch(() => {});
+    }
+    return () => { c = true; };
+  }, [subtab, addr, liquidity, staking, info]);
+  // Reset the single-shot caches when opening a different wallet.
+  useEffect(() => { setLiquidity(null); setStaking(null); setInfo(null); }, [addr]);
+
   if (!wallet) return null;
 
   // Real token breakdown from prod GET /balance/:addr. Shape per token:
@@ -638,42 +713,106 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
         <button className="sm-modal-x" onClick={onClose}>×</button>
       </div>
 
+      <div className="sm-modal-tabs" style={{overflowX:'auto'}}>
+        {[
+          ['assets',     'Assets'],
+          ['swaps',      'Swaps'],
+          ['transfers',  'Transfers'],
+          ['bridges',    'Bridges'],
+          ['liquidity',  'Liquidity'],
+          ['staking',    'Staking'],
+          ['extrinsics', 'Extrinsics'],
+          ['info',       'Info'],
+        ].map(([id, lbl]) => (
+          <button key={id} className={'sm-modal-tab' + (subtab===id?' active':'')} onClick={() => setSubtab(id)}>{lbl}</button>
+        ))}
+      </div>
+
       <div className="sm-modal-body">
-        <div className="sm-field">
-          <label>Alias</label>
-          <div style={{display:'flex', gap:8}}>
-            <input className="sm-input" value={alias} onChange={e => setAlias(e.target.value)}/>
-            <button className="btn" onClick={saveRename} disabled={!alias.trim() || alias === wallet.alias}>Guardar</button>
+        {subtab === 'assets' && (<>
+          <div className="sm-field">
+            <label>Alias</label>
+            <div style={{display:'flex', gap:8}}>
+              <input className="sm-input" value={alias} onChange={e => setAlias(e.target.value)}/>
+              <button className="btn" onClick={saveRename} disabled={!alias.trim() || alias === wallet.alias}>Guardar</button>
+            </div>
           </div>
-        </div>
 
-        <div className="sm-field">
-          <label>Dirección</label>
-          <div className="sm-addr-row">
-            <span className="num tiny" style={{flex:1, overflowWrap:'anywhere'}}>{wallet.addr}</span>
-            <button className="btn" onClick={copyAddr}>{copied ? '✓ Copiado' : 'Copiar'}</button>
+          <div className="sm-field">
+            <label>Dirección</label>
+            <div className="sm-addr-row">
+              <span className="num tiny" style={{flex:1, overflowWrap:'anywhere'}}>{wallet.addr}</span>
+              <button className="btn" onClick={copyAddr}>{copied ? '✓ Copiado' : 'Copiar'}</button>
+            </div>
           </div>
-        </div>
 
-        <div className="sm-field">
-          <label>Desglose por activo · ${totalUsd.toLocaleString(undefined,{maximumFractionDigits:2})} · {numericTokens.length} tokens</label>
-          <div className="sm-breakdown">
-            {breakdown.map(b => (
-              <div key={b.sym} className="sm-breakdown-row">
-                <span className="sm-bd-dot" style={{background:b.color}}/>
-                <span className="sm-bd-sym">{b.sym}</span>
-                <div className="sm-bd-bar"><div style={{width:(b.pct*100)+'%', background:b.color}}/></div>
-                <span className="num tiny muted">{(b.pct*100).toFixed(1)}%</span>
-                <span className="num" style={{fontWeight:600, minWidth:90, textAlign:'right'}}>
-                  {b.usd > 0 ? '$' + b.usd.toLocaleString(undefined,{maximumFractionDigits:2}) : (b.amt > 0 ? fmt.num(b.amt, 2) : '—')}
-                </span>
-              </div>
-            ))}
+          <div className="sm-field">
+            <label>Desglose por activo · ${totalUsd.toLocaleString(undefined,{maximumFractionDigits:2})} · {numericTokens.length} tokens</label>
+            <div className="sm-breakdown">
+              {breakdown.map(b => (
+                <div key={b.sym} className="sm-breakdown-row">
+                  <span className="sm-bd-dot" style={{background:b.color}}/>
+                  <span className="sm-bd-sym">{b.sym}</span>
+                  <div className="sm-bd-bar"><div style={{width:(b.pct*100)+'%', background:b.color}}/></div>
+                  <span className="num tiny muted">{(b.pct*100).toFixed(1)}%</span>
+                  <span className="num" style={{fontWeight:600, minWidth:90, textAlign:'right'}}>
+                    {b.usd > 0 ? '$' + b.usd.toLocaleString(undefined,{maximumFractionDigits:2}) : (b.amt > 0 ? fmt.num(b.amt, 2) : '—')}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {rawTokens.length === 0 && (
+              <div className="muted tiny" style={{marginTop:8}}>Cargando balances desde sorametrics.org…</div>
+            )}
           </div>
-          {rawTokens.length === 0 && (
-            <div className="muted tiny" style={{marginTop:8}}>Cargando balances desde sorametrics.org…</div>
-          )}
-        </div>
+        </>)}
+
+        {/* History sub-tabs: 4 variants share the same row shape — compact table */}
+        {['swaps','transfers','bridges','extrinsics'].includes(subtab) && (
+          <WalletHistoryTable
+            kind={subtab}
+            rows={subtab==='swaps'?swaps:subtab==='transfers'?transfers:subtab==='bridges'?bridges:extrinsics}
+          />
+        )}
+
+        {subtab === 'liquidity' && (
+          <div className="sm-field">
+            <label>Posiciones de liquidez</label>
+            {!liquidity ? <div className="muted">Cargando…</div> :
+             (liquidity.positions || []).length === 0 ? <div className="muted tiny">Sin posiciones de liquidez.</div> :
+              <table className="lp-table">
+                <thead><tr><th>Pool</th><th style={{textAlign:'right'}}>Share</th><th style={{textAlign:'right'}}>Valor</th></tr></thead>
+                <tbody>
+                  {(liquidity.positions || []).slice(0, 30).map((p, i) => (
+                    <tr key={i}>
+                      <td>{p.base?.symbol || p.base}/{p.target?.symbol || p.target}</td>
+                      <td style={{textAlign:'right'}} className="num">{((Number(p.share) || 0) * 100).toFixed(2)}%</td>
+                      <td style={{textAlign:'right'}} className="num">{fmt.usd(Number(p.usdValue || p.value) || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            }
+          </div>
+        )}
+
+        {subtab === 'staking' && (
+          <div className="sm-field">
+            <label>Staking</label>
+            {!staking ? <div className="muted">Cargando…</div> :
+              <pre className="ext-args" style={{maxHeight: 300, overflow:'auto'}}>{JSON.stringify(staking, null, 2)}</pre>
+            }
+          </div>
+        )}
+
+        {subtab === 'info' && (
+          <div className="sm-field">
+            <label>Información on-chain</label>
+            {!info ? <div className="muted">Cargando…</div> :
+              <pre className="ext-args" style={{maxHeight: 300, overflow:'auto'}}>{JSON.stringify(info, null, 2)}</pre>
+            }
+          </div>
+        )}
       </div>
 
       <div className="sm-modal-foot">
@@ -726,21 +865,93 @@ function exportCsv(section, headers, rows) {
 /* A button that attaches onClick exporting rows the section provides.
    Props: section, headers, rows (array of plain objects keyed by header),
           label (optional override) */
+// CSV tax formats exposed by prod /export/csv?format=<name>&address=<addr>.
+// The dropdown lets the user pick among the 4 tax tools prod supports.
+// "sorametrics" is the local format built from visible rows (no server roundtrip).
+const CSV_FORMATS = [
+  { id: 'sorametrics',   label: 'SoraMetrics (local)' },
+  { id: 'koinly',        label: 'Koinly' },
+  { id: 'cointracking',  label: 'CoinTracking' },
+  { id: 'cointracker',   label: 'CoinTracker' },
+];
 function ExportCsvButton({ section, headers, rows, label, className }) {
   const t = useT ? useT() : ((k) => k);
   const toast = useToast();
-  const click = () => {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [address, setAddress] = useState('');
+
+  const clickLocal = () => {
     try {
       exportCsv(section, headers, rows);
       toast.push((label || (t('btn.exportCsv') || 'CSV')) + ' · ' + (rows?.length || 0), 'ok');
+      setOpen(false);
+    } catch { toast.push('Error CSV', 'err'); }
+  };
+  const fetchProdFormat = async (fmt) => {
+    if (!address) { toast.push('Introduce una dirección SS58', 'err'); return; }
+    setBusy(true);
+    try {
+      const url = '/export/csv?format=' + encodeURIComponent(fmt) + '&address=' + encodeURIComponent(address);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'sorametrics_' + fmt + '_' + (address.slice(0, 8)) + '_' + timestampSlug() + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.push('CSV ' + fmt + ' descargado', 'ok');
+      setOpen(false);
     } catch (e) {
-      toast.push('Error CSV', 'err');
+      toast.push('Error: ' + (e.message || 'export'), 'err');
+    } finally {
+      setBusy(false);
     }
   };
+
   return (
-    <button className={'btn ' + (className || '')} onClick={click}>
-      {label || t('btn.exportCsv') || 'Export CSV'}
-    </button>
+    <>
+      <button className={'btn ' + (className || '')} onClick={() => setOpen(true)}>
+        {label || t('btn.exportCsv') || 'Export CSV'}
+      </button>
+      {open && (
+        <div className="sm-modal-backdrop" onClick={() => setOpen(false)}>
+          <div className="sm-modal" style={{width: 480}} onClick={e => e.stopPropagation()}>
+            <div className="sm-modal-head">
+              <h3 style={{margin:0}}>Exportar CSV — {section}</h3>
+              <button className="sm-modal-x" onClick={() => setOpen(false)}>×</button>
+            </div>
+            <div className="sm-modal-body">
+              <div className="sm-field">
+                <label>Formato</label>
+                <div className="tweaks-opts" style={{flexWrap:'wrap', gap:6}}>
+                  <button className="tweaks-opt active" onClick={clickLocal} disabled={busy}>
+                    SoraMetrics (local · {rows?.length || 0} filas visibles)
+                  </button>
+                </div>
+              </div>
+              <div className="sm-field">
+                <label>O exportar historial completo para una dirección (tax tools)</label>
+                <input className="sm-input" placeholder="cnR… dirección SS58"
+                       value={address} onChange={e => setAddress(e.target.value)}/>
+                <div className="tweaks-opts" style={{flexWrap:'wrap', gap:6, marginTop:8}}>
+                  {CSV_FORMATS.filter(f => f.id !== 'sorametrics').map(f => (
+                    <button key={f.id} className="tweaks-opt"
+                            onClick={() => fetchProdFormat(f.id)} disabled={busy || !address}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="muted tiny" style={{marginTop:6}}>
+                  Descarga de prod /export/csv?format=… · limit 50.000 filas.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

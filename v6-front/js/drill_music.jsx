@@ -296,11 +296,36 @@ function BurnDetail({ r }) {
 
 function ExtrinsicDetail({ r }) {
   const [argsOpen, setArgsOpen] = useState(true);
-  const events = r.events || [
-    {pallet: 'system', name: 'ExtrinsicSuccess', color: '#10B981'},
-    {pallet: r.pallet || 'liquidityProxy', name: 'Exchange', color: '#EC4899'},
-    {pallet: 'transactionPayment', name: 'TransactionFeePaid', color: '#10B981'},
-  ];
+  // G9: pull rich detail from prod /history/extrinsic/:block/:idx whenever
+  // the drill opens for a row that has a real block + idx. Fills args_json +
+  // events_json + success + signer + error_msg.
+  const [live, setLive] = useState(null);
+  useEffect(() => {
+    const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : null);
+    const idx = r.idx != null ? r.idx : (r.extrinsic_id ? String(r.extrinsic_id).split('-')[1] : null);
+    if (!block || idx == null) return;
+    let cancelled = false;
+    fetch('/history/extrinsic/' + encodeURIComponent(block) + '/' + encodeURIComponent(idx))
+      .then(res => res.ok ? res.json() : null)
+      .then(j => { if (!cancelled && j) setLive(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [r.block, r.idx, r.extrinsic_id]);
+  // Prefer live args_json / events_json when present.
+  const argsJson = live?.args_json || r.argsJson;
+  const eventsJsonRaw = live?.events_json || r.eventsJson;
+  const decodedEvents = useMemo(() => {
+    if (!eventsJsonRaw) return null;
+    try { return typeof eventsJsonRaw === 'string' ? JSON.parse(eventsJsonRaw) : eventsJsonRaw; }
+    catch { return null; }
+  }, [eventsJsonRaw]);
+  const events = decodedEvents && Array.isArray(decodedEvents)
+    ? decodedEvents.map(e => ({ pallet: e.s || e.section, name: e.m || e.method, data: e.d || e.data, color: '#EC4899' }))
+    : (r.events || [
+        {pallet: 'system', name: 'ExtrinsicSuccess', color: '#10B981'},
+        {pallet: r.pallet || 'liquidityProxy', name: 'Exchange', color: '#EC4899'},
+        {pallet: 'transactionPayment', name: 'TransactionFeePaid', color: '#10B981'},
+      ]);
   return (
     <>
       <div className="drill-section">
@@ -322,9 +347,19 @@ function ExtrinsicDetail({ r }) {
           Decoded Args <span style={{color:'var(--fg-3)', marginLeft: 6}}>{argsOpen ? '▾' : '▸'}</span>
         </div>
         {argsOpen && (
-          <pre className="ext-args" style={{marginTop: 8}}>{r.args || JSON.stringify({
-            dex_id: 0, swap_amount: '12.4 XOR', min_out: '1.2 VAL', filter_mode: 'Disabled'
-          }, null, 2)}</pre>
+          <pre className="ext-args" style={{marginTop: 8}}>{
+            argsJson
+              ? (typeof argsJson === 'string'
+                  ? (() => { try { return JSON.stringify(JSON.parse(argsJson), null, 2); } catch { return argsJson; } })()
+                  : JSON.stringify(argsJson, null, 2))
+              : (r.args || '{ // loading from /history/extrinsic/' + (r.block || '?') + '/' + (r.idx ?? '?') + ' … }')
+          }</pre>
+        )}
+        {live?.signer && (
+          <div className="muted tiny" style={{marginTop: 6}}>signer: <span className="num">{fmt.addr(live.signer, 8, 6)}</span></div>
+        )}
+        {live?.error_msg && (
+          <div style={{color:'#FCA5A5', marginTop: 6, fontSize: 12}}>error: {live.error_msg}</div>
         )}
       </div>
 

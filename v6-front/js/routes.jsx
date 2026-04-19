@@ -1148,26 +1148,30 @@ function GovSection({ tweaks }) {
   const t = useT();
   const [tab, setTab] = useState('consejo');
 
-  // Real council + motions from prod. Both return OBJECTS, so direct fetch
-  // (not useHistory which only unwraps `data`/`result` arrays).
+  // Real council + motions + elections + democracy + tech committee from prod.
+  // All five endpoints return OBJECTS (not array-of-rows), so direct fetch.
   const [rawCouncil, setRawCouncil] = useState([]);
   const [rawMotions, setRawMotions] = useState([]);
+  const [rawElections, setRawElections] = useState(null);    // { elected: [], candidates: [], runnersUp: [] }
+  const [rawDemocracy, setRawDemocracy] = useState(null);    // { referendums: [], proposals: [], currentBlock, ... }
+  const [rawTech, setRawTech] = useState(null);              // { members: [], prime, identities }
   useEffect(() => {
     let cancelled = false;
     const pullAll = async () => {
       try {
-        const [cRes, mRes] = await Promise.all([
-          fetch('/governance/council'),
-          fetch('/governance/motions'),
+        const [cRes, mRes, eRes, dRes, tRes] = await Promise.all([
+          fetch('/governance/council').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/governance/motions').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/governance/elections').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/governance/democracy').then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch('/governance/technical-committee').then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
-        if (cRes.ok) {
-          const j = await cRes.json();
-          if (!cancelled) setRawCouncil(j.members || []);
-        }
-        if (mRes.ok) {
-          const j = await mRes.json();
-          if (!cancelled) setRawMotions(j.council || []);
-        }
+        if (cancelled) return;
+        setRawCouncil(cRes?.members || []);
+        setRawMotions(mRes?.council || []);
+        setRawElections(eRes);
+        setRawDemocracy(dRes);
+        setRawTech(tRes);
       } catch {}
     };
     pullAll();
@@ -1187,22 +1191,26 @@ function GovSection({ tweaks }) {
     }));
   }, [rawCouncil]);
 
-  const elections = useMemo(() => ({
-    seats: 13, filled: 7,
-    candidates: [
-      { name:'Hokkaido Node', votes: 48200, bond: 120 },
-      { name:'Yama',          votes: 41000, bond: 100 },
-      { name:'RedPetal',      votes: 39500, bond: 80 },
-      { name:'Sakurajima',    votes: 31200, bond: 80 },
-      { name:'Akira',         votes: 24800, bond: 60 },
-      { name:'Midori',        votes: 18400, bond: 60 },
-    ],
-    runnersUp: [
-      { name:'Shinobi', votes: 14200 },
-      { name:'Hanabi',  votes: 11900 },
-      { name:'Ronin',    votes: 9820 },
-    ],
-  }), []);
+  // Real elections from /governance/elections.
+  // Shape: { elected:[{address,stake}], candidates?, runnersUp? }
+  const elections = useMemo(() => {
+    const src = rawElections || {};
+    const elected = Array.isArray(src.elected) ? src.elected : [];
+    return {
+      seats: elected.length || 13,
+      filled: elected.length,
+      candidates: elected.map(e => ({
+        name: e.identity || (e.address ? e.address.slice(0, 8) + '…' + e.address.slice(-6) : 'Unknown'),
+        addr: e.address,
+        votes: Math.round(Number(e.stake) || 0),
+        bond: 0,
+      })),
+      runnersUp: (Array.isArray(src.runnersUp) ? src.runnersUp : []).map(e => ({
+        name: e.identity || (e.address ? e.address.slice(0, 8) + '…' + e.address.slice(-6) : 'Unknown'),
+        votes: Math.round(Number(e.stake || e.votes) || 0),
+      })),
+    };
+  }, [rawElections]);
 
   // Real motions from prod /governance/motions → council[].
   // Shape: { hash, index, decoded:{section,method,args,description}, remark, ... }
@@ -1223,32 +1231,48 @@ function GovSection({ tweaks }) {
     }));
   }, [rawMotions]);
 
-  const democracy = {
-    referendums: [
-      { id: 42, title: 'Aumentar límite de gas en 30%',       aye: 68, nay: 32, ends: '6h 12m', turnout: 18.4 },
-      { id: 41, title: 'Añadir soporte a nuevo puente EVM',    aye: 74, nay: 26, ends: '1d 4h',  turnout: 14.8 },
-      { id: 40, title: 'Reducir comisión por defecto a 0.25%', aye: 42, nay: 58, ends: '2d 18h', turnout: 22.1 },
-    ],
-    proposals: [
-      { id: 'P-017', title: 'Sprint de marketing asiático',     seconds: 12, deposit: 2400 },
-      { id: 'P-016', title: 'Programa de embajadores v2',       seconds: 8,  deposit: 1200 },
-      { id: 'P-015', title: 'Tokenomics rework · Q3',           seconds: 22, deposit: 3800 },
-    ],
-  };
+  // Real democracy from /governance/democracy.
+  // Shape: { referendums:[{id,status,detail:{end,tally:{ayes,nays,turnout}},timeRemaining,...}],
+  //          proposals:[], currentBlock, totalReferendums, ... }
+  const democracy = useMemo(() => {
+    const src = rawDemocracy || {};
+    const refs = (src.referendums || []).map(rf => {
+      const tally = rf.detail?.tally || {};
+      const ayes = Number(tally.ayes) || 0;
+      const nays = Number(tally.nays) || 0;
+      const total = ayes + nays || 1;
+      return {
+        id: rf.id,
+        title: rf.decoded?.description || ('Referendum #' + rf.id),
+        aye: Math.round((ayes / total) * 100),
+        nay: Math.round((nays / total) * 100),
+        ends: rf.timeRemaining || '—',
+        turnout: Number(rf.detail?.tally?.turnout || 0) / 1e18,
+        status: rf.status,
+      };
+    });
+    const props = (src.proposals || []).map(p => ({
+      id: 'P-' + (p.index != null ? p.index : p.id || '?'),
+      title: p.decoded?.description || 'Public proposal',
+      seconds: p.seconds?.length || 0,
+      deposit: Number(p.deposit) || 0,
+    }));
+    return { referendums: refs, proposals: props };
+  }, [rawDemocracy]);
 
-  const tech = {
-    members: [
-      { name:'Cerberus',   addr: FAKE_ADDRS[4] },
-      { name:'Aurora',     addr: FAKE_ADDRS[7] },
-      { name:'Kusari',     addr: FAKE_ADDRS[5] },
-      { name:'PolkaLab',   addr: FAKE_ADDRS[2] },
-      { name:'Sakura Node',addr: FAKE_ADDRS[0] },
-    ],
-    motions: [
-      { id: 18, title:'Hotfix: reentrancy guard en liquidityProxy::swap', threshold:'3/5', aye:3, nay:0, status:'passed' },
-      { id: 17, title:'Enable fast-track on referendum #42', threshold:'4/5', aye:2, nay:1, status:'open' },
-    ],
-  };
+  // Real tech committee from /governance/technical-committee.
+  // Shape: { members:[{address,identity,isPrime}], prime, identities }
+  const tech = useMemo(() => ({
+    members: ((rawTech && rawTech.members) || []).map(m => ({
+      name: m.identity || (m.address ? m.address.slice(0, 8) + '…' + m.address.slice(-6) : 'Unknown'),
+      addr: m.address,
+      isPrime: !!m.isPrime,
+    })),
+    // Tech-committee motions not exposed by /governance/technical-committee.
+    // When /governance/motions returns tech-specific entries we could split
+    // them from council motions; for now this stays empty + empty-state UI.
+    motions: [],
+  }), [rawTech]);
 
   return (
     <div>

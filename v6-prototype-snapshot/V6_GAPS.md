@@ -106,12 +106,15 @@ Validators online / Peers / Era Progress / Finality Lag / TPS — all hardcoded.
 7. ✅ G14: Trending Tokens card wired to `/stats/trending-tokens` (DAI, XOR, VAL, PSWAP, KUSD by real 24h volume)
 8. ✅ G15: Network Health card wired to `/staking/network` (24 validadores · Era #7052 · 50% progress · finality lag · TPS)
 
-## Still open (Pass 4 candidates)
+## Pass 4 fixes (pending commit)
 
-- G6: 🔍 Más Info per row — richer drill using `/history/extrinsic/:block/:idx` + `/lookup/usd-value/:id`
+- ✅ G8: Wallet Details **8 sub-tabs** wired — Assets (existing) + Swaps + Transfers + Bridges + Liquidity + Staking + Extrinsics + Info. Each fetches the per-addr endpoint only when its tab is opened. Polkaswap Treasury shows real XOR→DAI swaps at block #25,761,288 on 19/04/2026.
+- ✅ G9: Extrinsic drill body enriched via `/history/extrinsic/:block/:idx` — pulls real `args_json`, `events_json`, `signer`, `error_msg` on drill open, parses the JSON strings, renders events list grouped by pallet.
+- ✅ G10: CSV export now opens a modal with format picker — "SoraMetrics (local)" for visible rows, plus **Koinly / CoinTracking / CoinTracker** buttons that call `/export/csv?format=<fmt>&address=<addr>` and stream the blob.
+- ✅ G12: Governance **all 5 sub-tabs** wired — Consejo + Motions (Pass 2) + **Elecciones** (8 real elected + stake) + **Democracia** (real referendums with tally ayes/nays) + **Comité Técnico** (real members + isPrime flag).
+
+## Still open (Pass 5 candidates)
+
+- G6: 🔍 Más Info per row — dedicated magnifier button + rich detail view (overlap w/ G9 for extrinsics; swaps need `/lookup/usd-value/:id`)
 - G7: Time-range selector 4H/1D/7D/1M/1Y (universal across KPIs + charts)
-- G8: Wallet Details remaining 7 sub-tabs (Swaps/Transfers/Bridges/Liquidity/Staking/Info/Extrinsics)
-- G9: Extrinsic Detail modal with decoded args_json
-- G10: CSV tax formats (koinly/cointracking/cointracker) via `/export/csv?format=`
-- G11: Peg history Chart.js line
-- G12: Governance Elections/Democracy/Tech-committee sub-tabs fully wired
+- G11: Peg history Chart.js line in Intelligence
