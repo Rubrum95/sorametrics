@@ -296,22 +296,36 @@ function BurnDetail({ r }) {
 
 function ExtrinsicDetail({ r }) {
   const [argsOpen, setArgsOpen] = useState(true);
-  // G9: pull rich detail from prod /history/extrinsic/:block/:idx whenever
-  // the drill opens for a row that has a real block + idx. Fills args_json +
-  // events_json + success + signer + error_msg.
+  const [eventsOpen, setEventsOpen] = useState(true);
+  const [showRawEvents, setShowRawEvents] = useState(false);
+  const [copied, setCopied] = useState('');
+  // G9/Pass5: pull rich detail from /history/extrinsic/:block/:idx AND
+  // /lookup/usd-value/:id so the drill matches prod's "Detalles del Extrinsic"
+  // modal field-for-field (Extrinsic ID, Hash, Block, Pallet, Firmante,
+  // Resultado, Hora, Valor USD, full Arguments JSON, full Events JSON).
   const [live, setLive] = useState(null);
+  const [usd, setUsd] = useState(null);
+  const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : null);
+  const idx = r.idx != null ? r.idx : (r.extrinsic_id ? String(r.extrinsic_id).split('-')[1] : null);
+  const extrinsicId = block && idx != null ? (block + '-' + idx) : (r.extrinsic_id || null);
+
   useEffect(() => {
-    const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : null);
-    const idx = r.idx != null ? r.idx : (r.extrinsic_id ? String(r.extrinsic_id).split('-')[1] : null);
     if (!block || idx == null) return;
     let cancelled = false;
     fetch('/history/extrinsic/' + encodeURIComponent(block) + '/' + encodeURIComponent(idx))
       .then(res => res.ok ? res.json() : null)
       .then(j => { if (!cancelled && j) setLive(j); })
       .catch(() => {});
+    // Prod exposes USD value at TX time via /lookup/usd-value/:extrinsic_id.
+    if (extrinsicId) {
+      fetch('/lookup/usd-value/' + encodeURIComponent(extrinsicId))
+        .then(res => res.ok ? res.json() : null)
+        .then(j => { if (!cancelled && j && j.usd_value != null) setUsd(j); })
+        .catch(() => {});
+    }
     return () => { cancelled = true; };
-  }, [r.block, r.idx, r.extrinsic_id]);
-  // Prefer live args_json / events_json when present.
+  }, [block, idx, extrinsicId]);
+
   const argsJson = live?.args_json || r.argsJson;
   const eventsJsonRaw = live?.events_json || r.eventsJson;
   const decodedEvents = useMemo(() => {
@@ -321,60 +335,120 @@ function ExtrinsicDetail({ r }) {
   }, [eventsJsonRaw]);
   const events = decodedEvents && Array.isArray(decodedEvents)
     ? decodedEvents.map(e => ({ pallet: e.s || e.section, name: e.m || e.method, data: e.d || e.data, color: '#EC4899' }))
-    : (r.events || [
-        {pallet: 'system', name: 'ExtrinsicSuccess', color: '#10B981'},
-        {pallet: r.pallet || 'liquidityProxy', name: 'Exchange', color: '#EC4899'},
-        {pallet: 'transactionPayment', name: 'TransactionFeePaid', color: '#10B981'},
-      ]);
+    : (r.events || []);
+  const hash = live?.hash || r.hash;
+  const signer = live?.signer || r.caller || r.signer;
+  const section = live?.section || r.pallet || r.section;
+  const method = live?.method || r.method;
+  const timeStr = live?.time || (r.ts ? new Date(r.ts).toLocaleString('es-ES') : null);
+  const success = live?.success === 1 || live?.success === true || (live == null && r.ok !== false);
+
+  const copy = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(''), 1200);
+    } catch {}
+  };
+
+  const prettyArgs = (() => {
+    if (!argsJson) return '// cargando args_json desde prod…';
+    if (typeof argsJson !== 'string') return JSON.stringify(argsJson, null, 2);
+    try { return JSON.stringify(JSON.parse(argsJson), null, 2); }
+    catch { return argsJson; }
+  })();
+
   return (
     <>
+      {/* Header field set — mirrors prod's "Detalles del Extrinsic" card */}
       <div className="drill-section">
-        <div className="drill-sec-title">Call</div>
-        <div style={{fontFamily:'JetBrains Mono', fontSize: 15, fontWeight: 700}}>
-          <span style={{color:'#EC4899'}}>{r.pallet || 'liquidityProxy'}</span>
-          <span style={{color:'var(--fg-3)'}}> :: </span>
-          <span style={{color:'var(--fg-0)'}}>{r.method || 'swap'}</span>
-        </div>
-        <Field label="Status">
-          {r.ok !== false
+        <div className="drill-sec-title">Detalles del Extrinsic</div>
+        <Field label="Extrinsic ID">
+          <span className="num" style={{fontWeight: 600}}>{extrinsicId || '—'}</span>
+          {extrinsicId && (
+            <button className="btn tiny" style={{marginLeft:8, fontSize:11}} onClick={() => copy(extrinsicId, 'id')}>
+              {copied === 'id' ? '✓' : '⎘'}
+            </button>
+          )}
+        </Field>
+        <Field label="Hash">
+          <span className="num tiny" style={{overflowWrap:'anywhere'}}>{hash || '—'}</span>
+          {hash && (
+            <button className="btn tiny" style={{marginLeft:8, fontSize:11}} onClick={() => copy(hash, 'hash')}>
+              {copied === 'hash' ? '✓' : '⎘'}
+            </button>
+          )}
+        </Field>
+        <Field label="Block">
+          <span className="num" style={{fontWeight: 600}}>#{block ? Number(block).toLocaleString('es-ES') : '—'}</span>
+        </Field>
+        <Field label="Pallet">
+          <span style={{fontFamily:'JetBrains Mono', fontSize: 14, fontWeight: 700}}>
+            <span style={{color:'#EC4899'}}>{section || '—'}</span>
+            <span style={{color:'var(--fg-3)'}}> :: </span>
+            <span style={{color:'var(--fg-0)'}}>{method || '—'}</span>
+          </span>
+        </Field>
+        <Field label="Firmante">
+          {signer ? <Addr addr={signer}/> : <span className="muted">—</span>}
+        </Field>
+        <Field label="Resultado">
+          {success
             ? <span className="br-status done">✓ Success</span>
-            : <span className="br-status failed">✗ {r.failReason || 'Failed'}</span>}
+            : <span className="br-status failed">✗ {live?.error_msg || r.failReason || 'Failed'}</span>}
+        </Field>
+        <Field label="Hora">
+          <span className="num tiny">{timeStr || '—'}</span>
+        </Field>
+        <Field label="Valor USD (al momento de TX)">
+          <span className="num" style={{fontWeight:700, color:'#6EE7B7'}}>
+            {usd != null ? '$' + Number(usd.usd_value).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (extrinsicId ? 'cargando…' : '—')}
+          </span>
+          {usd?.source && <span className="muted tiny" style={{marginLeft:6}}>({usd.source})</span>}
         </Field>
       </div>
 
       <div className="drill-section">
-        <div className="drill-sec-title" style={{cursor:'pointer'}} onClick={() => setArgsOpen(o => !o)}>
-          Decoded Args <span style={{color:'var(--fg-3)', marginLeft: 6}}>{argsOpen ? '▾' : '▸'}</span>
+        <div className="drill-sec-title" style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}} onClick={() => setArgsOpen(o => !o)}>
+          <span>Arguments (JSON)</span>
+          <span style={{color:'var(--fg-3)'}}>{argsOpen ? '▾' : '▸'}</span>
+          {argsJson && (
+            <button className="btn tiny" style={{marginLeft:'auto', fontSize:11}} onClick={(e) => { e.stopPropagation(); copy(prettyArgs, 'args'); }}>
+              {copied === 'args' ? '✓ copiado' : 'copiar'}
+            </button>
+          )}
         </div>
         {argsOpen && (
-          <pre className="ext-args" style={{marginTop: 8}}>{
-            argsJson
-              ? (typeof argsJson === 'string'
-                  ? (() => { try { return JSON.stringify(JSON.parse(argsJson), null, 2); } catch { return argsJson; } })()
-                  : JSON.stringify(argsJson, null, 2))
-              : (r.args || '{ // loading from /history/extrinsic/' + (r.block || '?') + '/' + (r.idx ?? '?') + ' … }')
-          }</pre>
-        )}
-        {live?.signer && (
-          <div className="muted tiny" style={{marginTop: 6}}>signer: <span className="num">{fmt.addr(live.signer, 8, 6)}</span></div>
-        )}
-        {live?.error_msg && (
-          <div style={{color:'#FCA5A5', marginTop: 6, fontSize: 12}}>error: {live.error_msg}</div>
+          <pre className="ext-args" style={{marginTop: 8, maxHeight: 320, overflow:'auto'}}>{prettyArgs}</pre>
         )}
       </div>
 
       <div className="drill-section">
-        <div className="drill-sec-title">Events · {events.length}</div>
-        <div className="ext-events">
-          {events.map((ev, i) => (
-            <div key={i} className="ext-event-chip" style={{['--ec']: ev.color}}>
-              <span className="ec-dot"/>
-              <span className="ec-pallet">{ev.pallet}</span>
-              <span className="ec-sep">·</span>
-              <span className="ec-name">{ev.name}</span>
-            </div>
-          ))}
+        <div className="drill-sec-title" style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}} onClick={() => setEventsOpen(o => !o)}>
+          <span>Events · {events.length}</span>
+          <span style={{color:'var(--fg-3)'}}>{eventsOpen ? '▾' : '▸'}</span>
+          {decodedEvents && (
+            <button className="btn tiny" style={{marginLeft:'auto', fontSize:11}}
+                    onClick={(e) => { e.stopPropagation(); setShowRawEvents(v => !v); }}>
+              {showRawEvents ? 'chips' : 'raw JSON'}
+            </button>
+          )}
         </div>
+        {eventsOpen && !showRawEvents && (
+          <div className="ext-events" style={{marginTop: 8}}>
+            {events.map((ev, i) => (
+              <div key={i} className="ext-event-chip" style={{['--ec']: ev.color}}>
+                <span className="ec-dot"/>
+                <span className="ec-pallet">{ev.pallet}</span>
+                <span className="ec-sep">·</span>
+                <span className="ec-name">{ev.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {eventsOpen && showRawEvents && decodedEvents && (
+          <pre className="ext-args" style={{marginTop: 8, maxHeight: 380, overflow:'auto'}}>{JSON.stringify(decodedEvents, null, 2)}</pre>
+        )}
       </div>
 
       <div className="drill-section">

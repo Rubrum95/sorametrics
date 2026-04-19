@@ -237,7 +237,20 @@ function SwapsSection({ tweaks }) {
                     </div>
                   </td>
                   <td style={{textAlign:'right', paddingRight: 20}}>
-                    <button className="row-action-btn" title="View tx">↗</button>
+                    <button className="row-action-btn" title="Más Info"
+                      onClick={(ev) => { ev.stopPropagation(); open({
+                        type:'swap',
+                        title: s.inTok + ' → ' + s.outTok,
+                        block: s.block,
+                        idx: s.idx,
+                        extrinsic_id: s.block && s.idx != null ? (s.block + '-' + s.idx) : null,
+                        hash: s.hash,
+                        caller: s.acc,
+                        inSym: s.inTok, outSym: s.outTok,
+                        inAmt: s.inAmt, outAmt: s.outAmt,
+                        usd: s.usd,
+                        ts: s.ts,
+                      }); }}>🔍 Más Info</button>
                   </td>
                 </tr>
               ))}

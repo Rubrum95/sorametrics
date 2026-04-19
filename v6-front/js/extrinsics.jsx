@@ -354,7 +354,7 @@ function ExtrinsicsSection({ tweaks }) {
                         : <span className="status-pill err" title="Failed">✗</span>}
                     </td>
                     <td style={{paddingRight: 20, textAlign:'center'}}>
-                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, fee:e.feeXor, block:e.block, ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, args: argsFor(e), events: eventsFor(e)}); }} title="Open drill">↗</button>
+                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, fee:e.feeXor, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title="Más Info">🔍 Más Info</button>
                       <span className={'ext-caret' + (expanded === e.id ? ' open' : '')} style={{marginLeft: 6}}>▾</span>
                     </td>
                   </tr>
