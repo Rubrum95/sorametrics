@@ -813,22 +813,34 @@ function TokensSection({ tweaks }) {
   // Prod doesn't expose per-token 24h history at this endpoint — sparklines
   // stay seeded until Phase 7 wires /chart/:symbol?res=.
   const { items: rawTokens } = useHistory('/tokens', { pageSize: 0, page: 1, pollMs: 60_000 });
+  // /stats/overview.network.volume gives us real 24h network volume so the
+  // KPI card isn't a stale $0. Prod doesn't expose aggregate market cap here.
+  const [networkOverview, setNetworkOverview] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const pull = () => fetch('/stats/overview').then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setNetworkOverview(j); }).catch(() => {});
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
   const tokens = useMemo(() => {
     if (!rawTokens || rawTokens.length === 0) return [];
-    const rnd = seededRand(75);
     return rawTokens.slice(0, 20).map((rt, i) => {
       const price = Number(rt.price) || 0;
-      const supply = Number(rt.totalSupply) || 0;
-      const mcap = Number(rt.marketCap) || (price * supply);
-      const change = Number(rt.change24h) || (rnd() - 0.4) * 20;
-      const spark = Array.from({length: 30}, (_, j) =>
-        50 + Math.sin(j/3 + i*1.3)*14 + (change > 0 ? j*0.3 : -j*0.3) + rnd()*3
-      );
+      const change = Number(rt.change24h) || 0;
+      // Real sparkline: prod returns [{ value, time }] with ~21 points over 24h.
+      const realSpark = Array.isArray(rt.sparkline)
+        ? rt.sparkline.map(p => Number(p.value) || 0).filter(v => v > 0)
+        : [];
       return {
         sym: rt.symbol,
         name: rt.name || (rt.symbol + ' Token'),
-        price, supply, mcap, change, spark,
+        price, supply: 0, mcap: 0,
+        change,
+        spark: realSpark.length >= 2 ? realSpark : [price, price],
         logo: rt.logo,
+        assetId: rt.assetId,
       };
     });
   }, [rawTokens]);
@@ -836,7 +848,8 @@ function TokensSection({ tweaks }) {
   const visible = filter === 'fav' ? tokens.filter(t => fav.has(t.sym)) : tokens;
   const gainer = [...tokens].sort((a,b) => b.change - a.change)[0] || { sym: '—', change: 0 };
   const loser  = [...tokens].sort((a,b) => a.change - b.change)[0] || { sym: '—', change: 0 };
-  const totalMcap = tokens.reduce((s,t) => s + t.mcap, 0);
+  // Real 24h network trading volume (from /stats/overview) replaces fake mcap sum.
+  const vol24h = Number(networkOverview?.network?.volume) || 0;
 
   const toggleFav = (sym) => {
     setFav(prev => {
@@ -863,7 +876,7 @@ function TokensSection({ tweaks }) {
 
       <KpiGrid items={[
         { label:'Total Tokens',   value: String(tokens.length), sub:'registered' },
-        { label:'Total Mcap',     value: fmt.usd(totalMcap), delta:'▲ 2.1%', deltaDir:'up' },
+        { label:'Volume · 24H',   value: fmt.usd(vol24h), sub: 'network-wide' },
         { label:'Top Gainer',     value: gainer.sym, valStyle:{fontSize: 22, color: '#6EE7B7'}, sub: '+' + gainer.change.toFixed(1) + '% · 24h' },
         { label:'Top Loser',      value: loser.sym, valStyle:{fontSize: 22, color: '#FCA5A5'}, sub: loser.change.toFixed(1) + '% · 24h' },
       ]}/>
@@ -912,53 +925,86 @@ function HoldersSection({ tweaks }) {
   const t = useT();
   const { open } = useDrill();
   const [page, setPage] = useState(1);
+  const [asset, setAsset] = useState('XOR');
+  const [raw, setRaw] = useState(null);   // { page, totalHolders, totalPages, data: [{ address, balance, balanceStr }] }
+
+  // Each SORA asset has a well-known assetId. Start with the big 4 and expose
+  // as pills so the user can switch like in prod.
+  const ASSETS = [
+    { sym:'XOR',   id:'0x0200000000000000000000000000000000000000000000000000000000000000' },
+    { sym:'VAL',   id:'0x0200040000000000000000000000000000000000000000000000000000000000' },
+    { sym:'PSWAP', id:'0x0200050000000000000000000000000000000000000000000000000000000000' },
+    { sym:'KUSD',  id:'0x02000c0000000000000000000000000000000000000000000000000000000000' },
+  ];
+  const assetId = ASSETS.find(a => a.sym === asset)?.id || ASSETS[0].id;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/holders/' + encodeURIComponent(assetId) + '?page=' + page + '&limit=25')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled && j) setRaw(j); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [assetId, page]);
+
+  useEffect(() => { setPage(1); }, [asset]);
 
   const holders = useMemo(() => {
-    const rnd = seededRand(76);
-    const top5 = ['Polkaswap', 'XOR Treasury', 'Bridge Reserve', 'DAO Multisig', 'Cerberus'];
-    return Array.from({length: 20}, (_, i) => {
-      const val = (22e6 * Math.pow(0.72, i)) + rnd() * 50000;
-      const label = i < 5 ? top5[i] : (i === 5 ? 'Kusari' : null);
-      return {
-        rank: i + 1,
-        name: label,
-        addr: FAKE_ADDRS[i % FAKE_ADDRS.length],
-        value: val,
-        tokens: Math.floor(rnd() * 10 + 2),
-        lastActivity: fmt.ago(Date.now() - (rnd() * 86400000 * 3)),
-      };
-    });
-  }, []);
+    if (!raw || !raw.data) return [];
+    const offset = ((raw.page || 1) - 1) * 25;
+    return raw.data.map((h, i) => ({
+      rank: offset + i + 1,
+      name: h.name || null,
+      addr: h.address,
+      value: Number(h.balance) || 0,
+      balanceStr: h.balanceStr,
+      tokens: 0, // prod /holders only returns per-asset balance; use Tokens tab for multi-asset count
+      lastActivity: null,
+    }));
+  }, [raw]);
 
-  const pageSize = tweaks.density === 'compact' ? 15 : tweaks.density === 'spacious' ? 8 : 12;
-  const visible = holders.slice((page-1) * pageSize, page * pageSize);
+  const totalHolders = raw?.totalHolders || 0;
+  const totalPages = raw?.totalPages || 1;
 
-  const top10Share = holders.slice(0,10).reduce((s,h) => s + h.value, 0) /
-                     holders.reduce((s,h) => s + h.value, 0) * 100;
+  // Top 10 share — computed from this page's top 10 only (page 1 = real top 10)
+  const top10Share = raw && page === 1 && holders.length >= 10
+    ? (holders.slice(0, 10).reduce((s,h) => s + h.value, 0) / holders.reduce((s,h) => s + h.value, 0) * 100)
+    : null;
 
   return (
     <div>
       <PageHeader title={t('holders.title')} sub={t('holders.sub')}>
         <ExportCsvButton section="holders"
-          headers={['Rank','Name','Address','Value','Tokens']}
+          headers={['Rank','Address','Balance']}
           rows={holders.map(r => ({
-            Rank: r.rank, Name: r.name || '', Address: r.addr,
-            Value: r.value.toFixed(2), Tokens: r.tokens,
+            Rank: r.rank, Address: r.addr, Balance: r.balanceStr || String(r.value),
           }))}/>
         <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> snapshot · now</span>
       </PageHeader>
 
+      {/* Asset selector pills — pick which token's holders to inspect. */}
+      <div className="filter-row" style={{marginTop: 12, marginBottom: 12}}>
+        {ASSETS.map(a => (
+          <div key={a.sym}
+               className={'filter-chip' + (asset === a.sym ? ' active' : '')}
+               onClick={() => setAsset(a.sym)}
+               style={{cursor:'pointer', fontWeight: 600}}>
+            {a.sym}
+          </div>
+        ))}
+      </div>
+
       <KpiGrid items={[
-        { label:'Unique Holders',  value:'18,420', delta:'▲ 142 · 24h', deltaDir:'up' },
-        { label:'Top 10 Share',    value: top10Share.toFixed(1), unit:'%', sub: 'of chain value' },
-        { label:'Whales (>$1M)',   value: '42', sub:'addresses' },
-        { label:'Median Balance',  value:'$142', sub:'across all holders' },
+        { label: 'Total Holders', value: totalHolders ? totalHolders.toLocaleString() : '—', sub: 'for ' + asset },
+        { label: 'Top 10 Share',  value: top10Share != null ? top10Share.toFixed(1) : '—', unit: top10Share != null ? '%' : '', sub: 'of page total' },
+        { label: 'Pages',         value: String(totalPages), sub: '25 per page' },
+        { label: 'Current Page',  value: '#' + page + ' of ' + totalPages, sub: 'paginated' },
       ]}/>
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> {t('burn.topHolders')}</div>
-          <span className="tag">{holders.length} ranked</span>
+          <div className="card-title"><span className="dot"/> Top holders · {asset}</div>
+          <span className="tag">{totalHolders} ranked total</span>
         </div>
         <div className="swaps-table-wrap">
           <table className="swaps-table">
@@ -966,37 +1012,33 @@ function HoldersSection({ tweaks }) {
               <tr>
                 <th style={{paddingLeft: 20, width: 56}}>#</th>
                 <th>{t('col.account')}</th>
-                <th style={{textAlign:'right'}}>{t('col.value')}</th>
-                <th style={{textAlign:'right'}}>{t('col.tokens')}</th>
-                <th style={{paddingRight: 20}}>{t('col.lastActivity')}</th>
+                <th style={{textAlign:'right', paddingRight: 20}}>Balance ({asset})</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map(h => (
-                <tr key={h.rank} className="swap-row clickable" onClick={() => open({type:'holder', title:`#${h.rank} · ${h.name || fmt.addr(h.addr,6,4)}`, ...h})}>
+              {holders.length === 0 && (
+                <tr><td colSpan="3" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>Cargando holders desde prod…</td></tr>
+              )}
+              {holders.map(h => (
+                <tr key={h.rank} className="swap-row clickable" onClick={() => open({type:'holder', title:`#${h.rank} · ${fmt.addr(h.addr,6,4)}`, addr: h.addr, value: h.value, balanceStr: h.balanceStr, rank: h.rank})}>
                   <td style={{paddingLeft: 20}}>
                     <span className={'rank-chip ' + (h.rank <= 3 ? 'top3' : '')}>{h.rank}</span>
                   </td>
                   <td>
                     <div style={{display:'flex', alignItems:'center', gap: 10}}>
                       <div style={{width:28, height:28, borderRadius:'50%', background: h.rank <= 5 ? 'linear-gradient(135deg,#9B1B30,#4A3566)' : 'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink: 0}}/>
-                      <div>
-                        {h.name && <div style={{fontSize:13, fontWeight:700, color:'var(--fg-0)'}}>{h.name}</div>}
-                        <div className="muted tiny num">{fmt.addr(h.addr, 6, 4)}</div>
-                      </div>
+                      <div className="num tiny">{h.addr}</div>
                     </div>
                   </td>
-                  <td style={{textAlign:'right'}} className="num">
-                    <span style={{fontWeight:700, color:'var(--fg-0)'}}>{fmt.usd(h.value)}</span>
+                  <td style={{textAlign:'right', paddingRight: 20}} className="num">
+                    <span style={{fontWeight:700, color:'var(--fg-0)'}}>{h.balanceStr || fmt.num(h.value, 2)}</span>
                   </td>
-                  <td style={{textAlign:'right'}} className="num">{h.tokens}</td>
-                  <td style={{paddingRight: 20}} className="muted tiny">{h.lastActivity}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <Pagination page={page} setPage={setPage} total={holders.length} pageSize={pageSize}/>
+        <Pagination page={page} setPage={setPage} total={totalHolders} pageSize={25}/>
       </div>
     </div>
   );
@@ -1568,7 +1610,27 @@ function BalanceSection({ tweaks }) {
         { id:'vig', label:'Vigiladas', count: watched.length },
       ]} current={tab} onChange={setTab}/>
 
-      {tab === 'overview' && (
+      {tab === 'overview' && (() => {
+        // Real allocation: aggregate every wallet's tokens by symbol, weight
+        // by usdValue, surface the top 5 + "Otros" bucket. Replaces the
+        // hardcoded 42/18/12/10/12/6% pie.
+        const bySym = {};
+        wallets.forEach(w => (w.tokens || []).forEach(tk => {
+          const sym = tk.symbol;
+          const usd = Number(tk.usdValue) || 0;
+          if (!sym || usd <= 0) return;
+          bySym[sym] = (bySym[sym] || 0) + usd;
+        }));
+        const entries = Object.entries(bySym).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+        const top5 = entries.slice(0, 5);
+        const rest = entries.slice(5).reduce((s, [, v]) => s + v, 0);
+        const palette = ['#E5243B','#F5B041','#EC4899','#8B7FD9','#60A5FA','#94A3B8'];
+        const alloc = top5.map(([sym, v], i) => ({
+          sym, pct: (v / total) * 100, usd: v, color: palette[i] || '#94A3B8',
+        }));
+        if (rest > 0) alloc.push({ sym: 'Otros', pct: (rest / total) * 100, usd: rest, color: palette[5] });
+        return (
         <div>
           <div style={{display:'flex', justifyContent:'center', marginTop: 14}}>
             <TimeRangePills value={range} onChange={setRange}/>
@@ -1576,19 +1638,27 @@ function BalanceSection({ tweaks }) {
           <div className="card" style={{padding: 32, marginTop: 14, textAlign:'center'}}>
             <div className="stat-label">Patrimonio Neto Total</div>
             <div className="num" style={{fontSize: 56, fontWeight: 800, margin:'14px 0', color:'var(--fg-0)'}}>${net.toLocaleString(undefined,{maximumFractionDigits:2})}</div>
-            <div className="stat-delta up" style={{fontSize: 14}}>▲ $1,240 · 2.4% · {rangeLabel}</div>
+            <div className="muted tiny">{wallets.length} wallets · {entries.length} tokens con saldo · rango {rangeLabel}</div>
           </div>
-          <div className="balance-alloc-grid">
-            {['XOR 42%', 'VAL 18%', 'PSWAP 12%', 'ETH 10%', 'Stables 12%', 'Otros 6%'].map((s, i) => (
-              <div key={i} className="alloc-card">
-                <div className="alloc-bar" style={{background: ['#E5243B','#F5B041','#EC4899','#8B7FD9','#60A5FA','#94A3B8'][i]}}/>
-                <div style={{fontWeight: 700}}>{s.split(' ')[0]}</div>
-                <div className="num" style={{color:'var(--accent)', fontWeight: 700}}>{s.split(' ')[1]}</div>
-              </div>
-            ))}
-          </div>
+          {alloc.length === 0 ? (
+            <div className="card" style={{marginTop: 14, padding: 20, textAlign:'center'}}>
+              <div className="muted tiny">Ninguna wallet con balance aún — añade una wallet con saldo para ver la distribución real.</div>
+            </div>
+          ) : (
+            <div className="balance-alloc-grid">
+              {alloc.map((a, i) => (
+                <div key={a.sym + i} className="alloc-card">
+                  <div className="alloc-bar" style={{background: a.color}}/>
+                  <div style={{fontWeight: 700}}>{a.sym}</div>
+                  <div className="num" style={{color:'var(--accent)', fontWeight: 700}}>{a.pct.toFixed(1)}%</div>
+                  <div className="muted tiny num">${a.usd.toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {tab === 'mis' && (
         <div className="card" style={{marginTop: 18}}>

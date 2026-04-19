@@ -65,9 +65,17 @@ const proxy = createProxyMiddleware({
     },
     error: (err, req, res) => {
       console.error(`[v6-server] proxy error on ${req?.url}:`, err.message);
-      if (res && !res.headersSent) {
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'upstream_unavailable', path: req?.url }));
+      // WS upgrade failures hand us a raw `net.Socket` here, not an HTTP
+      // response. writeHead/end don't exist on sockets, so guard the write
+      // and just destroy the socket instead. For normal HTTP requests we
+      // still return a JSON 502.
+      if (res && typeof res.writeHead === 'function') {
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'upstream_unavailable', path: req?.url }));
+        }
+      } else if (res && typeof res.destroy === 'function') {
+        try { res.destroy(); } catch {}
       }
     },
   },
