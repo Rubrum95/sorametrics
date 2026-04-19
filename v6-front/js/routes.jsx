@@ -188,13 +188,15 @@ function TransfersSection({ tweaks }) {
                   </td>
                   <td><a className="block-link num" href="#" onClick={(e) => e.stopPropagation()}>#{r.block.toLocaleString()}</a></td>
                   <td><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
-                  <td>
+                  <td className="clickable" title="Abrir wallet"
+                      onClick={(ev) => { ev.stopPropagation(); if (r.from) window.openWalletDetails?.(r.from, IDENTITIES[r.from]); }}>
                     {IDENTITIES[r.from] && <div style={{fontSize:11, fontWeight:700}}>{IDENTITIES[r.from]}</div>}
-                    <div className="muted tiny num">{fmt.addr(r.from, 5, 4)}</div>
+                    <div className="muted tiny num" style={{textDecoration:'underline dotted', textUnderlineOffset: 2}}>{fmt.addr(r.from, 5, 4)}</div>
                   </td>
-                  <td>
+                  <td className="clickable" title="Abrir wallet"
+                      onClick={(ev) => { ev.stopPropagation(); if (r.to) window.openWalletDetails?.(r.to, IDENTITIES[r.to]); }}>
                     {IDENTITIES[r.to] && <div style={{fontSize:11, fontWeight:700}}>{IDENTITIES[r.to]}</div>}
-                    <div className="muted tiny num">{fmt.addr(r.to, 5, 4)}</div>
+                    <div className="muted tiny num" style={{textDecoration:'underline dotted', textUnderlineOffset: 2}}>{fmt.addr(r.to, 5, 4)}</div>
                   </td>
                   <td style={{textAlign:'right'}}>
                     <div className="num" style={{fontWeight:700}}>{fmt.num(r.amt, 3)} {r.sym}</div>

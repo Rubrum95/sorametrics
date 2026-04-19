@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Sidebar, Topbar, BurnSection, PulseSection, PortfolioSection, SwapsSection, ExtrinsicsSection, TransfersSection, BridgesSection, OrderBookSection, PoolsSection, TokensSection, HoldersSection, StakingSection, GovSection, BalanceSection, IntelligenceSection, TweaksPanel, Petals, DrillProvider, MusicPlayer, LangProvider, ToastProvider, WalletProvider, GlobalSearchProvider */
+/* global React, ReactDOM, Sidebar, Topbar, BurnSection, PulseSection, PortfolioSection, SwapsSection, ExtrinsicsSection, TransfersSection, BridgesSection, OrderBookSection, PoolsSection, TokensSection, HoldersSection, StakingSection, GovSection, BalanceSection, IntelligenceSection, TweaksPanel, Petals, DrillProvider, MusicPlayer, LangProvider, ToastProvider, WalletProvider, WalletDetailsProvider, GlobalSearchProvider */
 const { useState, useEffect, useCallback } = React;
 
 const SECTION_COMPONENTS = {
@@ -141,6 +141,7 @@ function App() {
     <LangProvider>
     <ToastProvider>
     <WalletProvider>
+    <WalletDetailsProvider>
     <DrillProvider>
     <GlobalSearchProvider>
       <div className="app">
@@ -155,6 +156,7 @@ function App() {
       </div>
     </GlobalSearchProvider>
     </DrillProvider>
+    </WalletDetailsProvider>
     </WalletProvider>
     </ToastProvider>
     </LangProvider>

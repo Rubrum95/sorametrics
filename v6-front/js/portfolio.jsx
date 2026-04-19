@@ -56,6 +56,7 @@ function MiniSpark({ data, color, w = 64, h = 24 }) {
 }
 
 function PortfolioSection({ tweaks }) {
+  const t = useT();
   const [cur, setCur] = useState('USD');
   const [tick, setTick] = useState(0);
 

@@ -41,6 +41,71 @@ function ToastProvider({ children }) {
 const WalletCtx = createContext(null);
 function useWallets() { return useContext(WalletCtx); }
 
+// Global helper: open the WalletDetailsModal anchored anywhere — swap row,
+// transfer row, pool provider row, holder row, drill panel. Works because
+// WalletDetailsProvider (rendered once at app root in main.jsx) sets the
+// singleton setter on window.__SM_WALLET_DETAILS__ on mount.
+function openWalletDetails(addr, alias) {
+  if (!addr) return false;
+  try {
+    if (typeof window.__SM_WALLET_DETAILS__ === 'function') {
+      window.__SM_WALLET_DETAILS__({
+        addr,
+        alias: alias || (addr.length > 14 ? addr.slice(0, 8) + '…' + addr.slice(-4) : addr),
+        id: 'external-' + addr,
+        kind: 'watch',
+      });
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+// Wraps the app. Renders a singleton WalletDetailsModal that any section
+// can open via openWalletDetails(addr). If the addr isn't in the wallet
+// store, we fetch /balance/:addr on-the-fly so the Assets tab has data.
+function WalletDetailsProvider({ children }) {
+  const [external, setExternal] = useState(null);
+  const [externalTokens, setExternalTokens] = useState([]);
+  const store = useContext(WalletCtx);
+
+  useEffect(() => {
+    window.__SM_WALLET_DETAILS__ = (w) => setExternal(w);
+    return () => { if (window.__SM_WALLET_DETAILS__) delete window.__SM_WALLET_DETAILS__; };
+  }, []);
+
+  // When opening an address that's NOT in the user's wallet store, fetch
+  // its balance directly from prod so Assets tab renders the real tokens.
+  useEffect(() => {
+    if (!external?.addr) { setExternalTokens([]); return; }
+    const known = store?.wallets?.find(w => w.addr === external.addr) || store?.watched?.find(w => w.addr === external.addr);
+    if (known && Array.isArray(known.tokens) && known.tokens.length > 0) {
+      setExternalTokens(known.tokens);
+      return;
+    }
+    let cancelled = false;
+    fetch('/balance/' + encodeURIComponent(external.addr))
+      .then(r => r.ok ? r.json() : [])
+      .then(j => { if (!cancelled) setExternalTokens(Array.isArray(j) ? j : []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [external?.addr, store?.wallets]);
+
+  const wallet = external ? {
+    ...external,
+    tokens: externalTokens.length > 0
+      ? externalTokens
+      : (store?.wallets?.find(w => w.addr === external.addr)?.tokens || []),
+  } : null;
+
+  return (
+    <>
+      {children}
+      <WalletDetailsModal wallet={wallet} open={!!wallet} onClose={() => setExternal(null)}/>
+    </>
+  );
+}
+
 // Real SS58 addresses that DO have on-chain balances on prod sorametrics.org.
 // Used as seed data so new visitors immediately see live numbers without
 // having to paste addresses themselves.
@@ -1046,7 +1111,10 @@ Object.assign(window, {
   ToastProvider, useToast,
   WalletProvider, useWallets,
   GlobalSearchProvider, useSearch,
-  AddWalletModal, WalletDetailsModal,
+  AddWalletModal, WalletDetailsModal, WalletDetailsProvider,
+  // Global wallet-details opener — any section (swaps/transfers/holders/drill)
+  // calls window.openWalletDetails(addr, alias?) to pop the modal.
+  openWalletDetails,
   ExportCsvButton, exportCsv,
   BackupRestore,
   Modal,

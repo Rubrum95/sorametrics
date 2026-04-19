@@ -228,11 +228,13 @@ function SwapsSection({ tweaks }) {
                     </div>
                   </td>
                   <td>
-                    <div style={{display:'flex', alignItems:'center', gap:8, minWidth: 0}}>
+                    <div className="clickable" style={{display:'flex', alignItems:'center', gap:8, minWidth: 0, cursor:'pointer'}}
+                         title="Abrir wallet"
+                         onClick={(ev) => { ev.stopPropagation(); if (s.acc) window.openWalletDetails?.(s.acc, IDENTITIES[s.acc]); }}>
                       <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#7B5B90,#4A3566)',flexShrink:0}}/>
                       <div style={{flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25}}>
                         {IDENTITIES[s.acc] && <span style={{fontSize: 12, fontWeight: 700, color:'var(--fg-0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{IDENTITIES[s.acc]}</span>}
-                        <span className="muted tiny num" style={{whiteSpace:'nowrap'}}>{fmt.addr(s.acc, 5, 4)}</span>
+                        <span className="muted tiny num" style={{whiteSpace:'nowrap', textDecoration:'underline dotted', textUnderlineOffset: 2}}>{fmt.addr(s.acc, 5, 4)}</span>
                       </div>
                     </div>
                   </td>
