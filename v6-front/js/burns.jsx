@@ -142,14 +142,16 @@ function BurnChart({ token, type, motion }) {
 function BurnSection({ tweaks }) {
   const t = useT();
   const [token, setToken] = useState('XOR');
+  const [tf, setTf] = useState('7d');   // G7: timeframe selector 24h / 7d / 30d / All
   const tk = TOKENS[token];
 
   // Real burn data from prod — stats (24h/7d/30d totals), fee-flow (distribution), holders (top 10).
   const [stats, setStats] = useState(null);
   const [feeFlow, setFeeFlow] = useState(null);
   const [holdersData, setHoldersData] = useState(null);
-  // Burn counter ticks up live: starts at stats.7d.totalBurned and increments when
-  // new-block-stats WS event arrives (best-effort; real burn is only on tx payments).
+  // Burn counter is driven by the selected timeframe (24h / 7d / 30d) from
+  // stats.stats[tf].totalBurned; "All" pipes in stats.stats['30d'] since prod
+  // doesn't expose an all-time burn total at this endpoint.
   const [heroVal, setHeroVal] = useState(0);
 
   // Fetch /burns/* whenever the selected token changes.
@@ -170,12 +172,15 @@ function BurnSection({ tweaks }) {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Seed heroVal from the stats.7d.totalBurned (cumulative 7-day burn).
+  // Seed heroVal from the stats for the selected timeframe.
   useEffect(() => {
-    if (stats && stats.stats && stats.stats['7d']) {
-      setHeroVal(stats.stats['7d'].totalBurned || 0);
+    if (!stats || !stats.stats) return;
+    // "All" → use the longest available window (30d) as a proxy.
+    const key = tf === 'All' ? '30d' : tf;
+    if (stats.stats[key]) {
+      setHeroVal(stats.stats[key].totalBurned || 0);
     }
-  }, [stats]);
+  }, [stats, tf]);
 
   // On each new block we assume a sliver of burn happened (fees). This keeps the
   // counter visibly moving; the true amount gets reconciled when /burns/stats
@@ -224,8 +229,8 @@ function BurnSection({ tweaks }) {
     <div style={{ ['--tok-color']: tk.color, ['--tok-glow']: tk.glow, ['--tok-dark']: tk.dark, ['--tok-grad']: tk.grad }}>
       <PageHeader title={t('burn.title')} sub={t('burn.sub')}>
         <div className="segmented">
-          {['24h', '7d', '30d', 'All'].map(tf => (
-            <button key={tf} className={tf === '7d' ? 'active' : ''}>{tf}</button>
+          {['24h', '7d', '30d', 'All'].map(t => (
+            <button key={t} className={tf === t ? 'active' : ''} onClick={() => setTf(t)}>{t}</button>
           ))}
         </div>
         <button className="btn">Share</button>

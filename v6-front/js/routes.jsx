@@ -175,7 +175,13 @@ function TransfersSection({ tweaks }) {
             </thead>
             <tbody>
               {visible.map(r => (
-                <tr key={r.id} className="swap-row clickable" onClick={() => open({...r, type:'transfer', title:`${r.sym} transfer · ${fmt.num(r.amt,3)} ${r.sym}`, hash:'0x' + Math.random().toString(16).slice(2,18)})}>
+                <tr key={r.id} className="swap-row clickable" onClick={() => open({
+                  ...r,
+                  type:'transfer',
+                  title:`${r.sym} transfer · ${fmt.num(r.amt,3)} ${r.sym}`,
+                  // Real hash from prod history — keep, don't fabricate.
+                  hash: r.hash,
+                })}>
                   <td style={{paddingLeft: 20}}>
                     <div style={{fontSize:12, fontWeight:700}}>{fmt.ago(r.ts)}</div>
                     <div className="muted tiny">{new Date(r.ts).toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})}</div>
@@ -1497,16 +1503,58 @@ function GovSection({ tweaks }) {
    BALANCE (Overview / Mis Wallets / Vigiladas — Spanish)
    ========================================================================= */
 
+// G7 — universal time-range pills. Match prod's exact labels: 4H/1D/7D/1M/1Y.
+// Selection persists in localStorage so it survives tab switches + reloads.
+const TIME_RANGES = [
+  { id: '4h', label: '4H', hours: 4 },
+  { id: '1d', label: '1D', hours: 24 },
+  { id: '7d', label: '7D', hours: 168 },
+  { id: '1m', label: '1M', hours: 720 },
+  { id: '1y', label: '1Y', hours: 8760 },
+];
+function useTimeRange(defaultId = '7d') {
+  const [id, setId] = useState(() => {
+    try { return localStorage.getItem('sm.timeRange') || defaultId; } catch { return defaultId; }
+  });
+  const set = (next) => {
+    setId(next);
+    try { localStorage.setItem('sm.timeRange', next); } catch {}
+  };
+  return [id, set];
+}
+function TimeRangePills({ value, onChange }) {
+  return (
+    <div className="filter-row" style={{gap: 4}}>
+      {TIME_RANGES.map(r => (
+        <div
+          key={r.id}
+          className={'filter-chip' + (value === r.id ? ' active' : '')}
+          onClick={() => onChange(r.id)}
+          style={{cursor:'pointer', minWidth: 40, textAlign:'center', fontWeight: 600}}>
+          {r.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BalanceSection({ tweaks }) {
   const t = useT();
   const [tab, setTab] = useState('overview');
   const [addOpen, setAddOpen] = useState(false);
   const [detailWallet, setDetailWallet] = useState(null);
+  const [range, setRange] = useTimeRange('24h');
   const store = useWallets();
   const wallets = store.wallets;
   const watched = store.watched;
 
-  const net = wallets.reduce((s,w) => s + w.value, 0);
+  // Real net worth = sum of each wallet's token USD values (from /balance/:addr).
+  const net = wallets.reduce((s, w) => {
+    const tokenUsd = (w.tokens || []).reduce((a, t) => a + (Number(t.usdValue) || 0), 0);
+    return s + tokenUsd;
+  }, 0);
+  // Time-range label — shown as sub-text on net worth.
+  const rangeLabel = TIME_RANGES.find(r => r.id === range)?.label || '24h';
 
   return (
     <div>
@@ -1522,10 +1570,13 @@ function BalanceSection({ tweaks }) {
 
       {tab === 'overview' && (
         <div>
-          <div className="card" style={{padding: 32, marginTop: 18, textAlign:'center'}}>
+          <div style={{display:'flex', justifyContent:'center', marginTop: 14}}>
+            <TimeRangePills value={range} onChange={setRange}/>
+          </div>
+          <div className="card" style={{padding: 32, marginTop: 14, textAlign:'center'}}>
             <div className="stat-label">Patrimonio Neto Total</div>
-            <div className="num" style={{fontSize: 56, fontWeight: 800, margin:'14px 0', color:'var(--fg-0)'}}>${net.toLocaleString()}</div>
-            <div className="stat-delta up" style={{fontSize: 14}}>▲ $1,240 · 2.4% · 24h</div>
+            <div className="num" style={{fontSize: 56, fontWeight: 800, margin:'14px 0', color:'var(--fg-0)'}}>${net.toLocaleString(undefined,{maximumFractionDigits:2})}</div>
+            <div className="stat-delta up" style={{fontSize: 14}}>▲ $1,240 · 2.4% · {rangeLabel}</div>
           </div>
           <div className="balance-alloc-grid">
             {['XOR 42%', 'VAL 18%', 'PSWAP 12%', 'ETH 10%', 'Stables 12%', 'Otros 6%'].map((s, i) => (

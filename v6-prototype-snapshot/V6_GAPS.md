@@ -119,7 +119,18 @@ Validators online / Peers / Era Progress / Finality Lag / TPS — all hardcoded.
 - ✅ **Drill parity with prod "Detalles del Extrinsic" modal**: Extrinsic ID + Hash (full, not truncated) + Block + Pallet + Firmante + Resultado + Hora + **Valor USD (al momento de TX)** via `/lookup/usd-value/:id` + Arguments JSON (pretty-printed + copy) + Events · count with "raw JSON" toggle
 - ✅ G11: **Peg history Chart.js line** — KUSD / XSTUSD / TBCD plotted. Client-side rolling ring of /stats/stablecoins snapshots stored in localStorage (`sm.pegHistory`, capped at 120 samples).
 
-## Still open (Pass 6 candidates)
+## Pass 6 fixes (pending commit)
 
-- G7: Time-range selector 4H/1D/7D/1M/1Y — touches Pulse/Burns/Balance KPI cards + needs per-section range param wiring
-- G6 (remainder): Transfers/Bridges/OrderBook rows still use generic ↗; could promote to 🔍 Más Info label pattern too
+- ✅ User feedback: reverted **🔍 Más Info** label → **↗** (original prototype aesthetic preferred)
+- ✅ Transfers drill: dropped synthesized `hash: '0x' + Math.random()...'` — now passes the real `r.hash` from prod
+- ✅ G7 **Time-range pills**:
+  - BalanceSection Overview now renders the 5 pills (4H/1D/7D/1M/1Y), persisted in `localStorage.sm.timeRange`
+  - Net worth computation switched from fake `.value` sum to real sum of `(w.tokens.usdValue)` from prod
+  - Burns Tracker `24h/7d/30d/All` segmented buttons now functional: click 24h → 5.60 XOR burned (real), 7d → 56.83, 30d → 209.19
+  - Shared `TIME_RANGES` constant + `useTimeRange` + `TimeRangePills` component (reusable in future sections)
+
+## Still open (Pass 7 candidates)
+
+- Propagate time-range to Pulse KPIs (needs `/stats/network/trend?range=...` wiring)
+- Pulse + Intelligence KPI bar charts responsive to range
+- G16-G20 polish items (favicon, music real, light mode drift)

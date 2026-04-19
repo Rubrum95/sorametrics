@@ -250,7 +250,7 @@ function SwapsSection({ tweaks }) {
                         inAmt: s.inAmt, outAmt: s.outAmt,
                         usd: s.usd,
                         ts: s.ts,
-                      }); }}>🔍 Más Info</button>
+                      }); }}>↗</button>
                   </td>
                 </tr>
               ))}
