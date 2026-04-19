@@ -660,7 +660,9 @@ function DefaultDetail({ r }) {
    MUSIC PLAYER
    ========================================================================= */
 
-const TRACKS = [
+// Fallback playlist when prod /music/list is unreachable. Replaced at runtime
+// by the real response (see fetchTracks below).
+const FALLBACK_TRACKS = [
   { title: 'Sakura no Yume',     artist: 'Yumiko Tanaka',  dur: 214 },
   { title: 'Midnight Tokyo',     artist: 'Kanade',         dur: 186 },
   { title: 'Lo-fi XOR',          artist: 'Sora Collective',dur: 248 },
@@ -683,23 +685,66 @@ function MusicPlayer() {
   const [listOpen, setListOpen] = useState(false);
   const [pos, setPos] = useState({ x: 28, y: window.innerHeight - 260 });
   const [drag, setDrag] = useState(null);
+  // G17: pull the real playlist from prod /music/list — JSON array of
+  // { title, artist, src }. src is a relative URL like /music/Foo.mp3 which
+  // gets served directly by the proxy (same-origin) so <audio> can load it.
+  const [tracks, setTracks] = useState(FALLBACK_TRACKS);
+  const audioRef = useRef(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/music/list').then(r => r.ok ? r.json() : null).then(j => {
+      if (cancelled || !Array.isArray(j) || j.length === 0) return;
+      // Normalise — prod responses don't carry a dur field. We'll rely on the
+      // audio element's metadata to fill in once loaded (see onLoadedMetadata).
+      setTracks(j.map(t => ({ title: t.title, artist: t.artist, src: t.src, dur: 180 })));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
-  const track = TRACKS[trackIdx];
+  const track = tracks[trackIdx] || tracks[0];
 
-  // tick
+  // Real audio playback: when `playing` flips on + we have a src, trigger the
+  // HTMLAudioElement. When a track changes, set src + (optionally) play.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (track?.src && el.src !== track.src) {
+      el.src = track.src;
+      el.load();
+      if (playing) el.play().catch(() => {});
+    }
+    el.volume = volume;
+    if (playing) { el.play().catch(() => {}); }
+    else el.pause();
+  }, [track?.src, playing, volume]);
+
+  // Tick: drive `elapsed` from the real audio currentTime when src is loaded,
+  // fall back to +1s interval simulation when no src (fallback playlist).
   useEffect(() => {
     if (!playing) return;
+    const el = audioRef.current;
+    if (el && el.src) {
+      const onTime = () => setElapsed(Math.floor(el.currentTime));
+      const onEnd = () => setTrackIdx(i => (i + 1) % tracks.length);
+      el.addEventListener('timeupdate', onTime);
+      el.addEventListener('ended', onEnd);
+      return () => {
+        el.removeEventListener('timeupdate', onTime);
+        el.removeEventListener('ended', onEnd);
+      };
+    }
+    // Fallback: simulated ticker (no real audio)
     const id = setInterval(() => {
       setElapsed(e => {
-        if (e + 1 >= track.dur) {
-          setTrackIdx(i => (i + 1) % TRACKS.length);
+        if (e + 1 >= (track?.dur || 180)) {
+          setTrackIdx(i => (i + 1) % tracks.length);
           return 0;
         }
         return e + 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [playing, track.dur]);
+  }, [playing, track?.dur, tracks.length]);
 
   // reset on track change
   useEffect(() => { setElapsed(0); }, [trackIdx]);
@@ -736,13 +781,24 @@ function MusicPlayer() {
     setElapsed(Math.floor(p * track.dur));
   };
 
-  const next = () => setTrackIdx(i => (i + 1) % TRACKS.length);
-  const prev = () => setTrackIdx(i => (i - 1 + TRACKS.length) % TRACKS.length);
+  const next = () => setTrackIdx(i => (i + 1) % tracks.length);
+  const prev = () => setTrackIdx(i => (i - 1 + tracks.length) % tracks.length);
 
   const stars = [0,1,2,3,4];
 
   return (
     <>
+      {/* Real audio element — hidden, driven by the UI controls above. Only
+          renders a src when /music/list returned real tracks; otherwise the
+          fallback simulated ticker handles progress. */}
+      <audio ref={audioRef} preload="metadata" style={{display:'none'}}
+             onLoadedMetadata={(e) => {
+               // Update track.dur with real file duration once metadata arrives.
+               const d = Math.floor(e.currentTarget.duration);
+               if (Number.isFinite(d) && d > 0) {
+                 setTracks(ts => ts.map((t, i) => i === trackIdx ? { ...t, dur: d } : t));
+               }
+             }}/>
       <button
         className={'music-btn' + (playing ? ' playing' : '')}
         onClick={() => setOpen(o => !o)}
@@ -814,7 +870,7 @@ function MusicPlayer() {
 
           {listOpen && (
             <div className="music-list">
-              {TRACKS.map((t, i) => (
+              {tracks.map((t, i) => (
                 <div key={i} className={'music-list-row' + (i === trackIdx ? ' active' : '')}
                      onClick={() => setTrackIdx(i)}>
                   <span className="music-list-num">

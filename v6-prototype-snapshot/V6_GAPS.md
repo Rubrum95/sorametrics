@@ -129,8 +129,15 @@ Validators online / Peers / Era Progress / Finality Lag / TPS — all hardcoded.
   - Burns Tracker `24h/7d/30d/All` segmented buttons now functional: click 24h → 5.60 XOR burned (real), 7d → 56.83, 30d → 209.19
   - Shared `TIME_RANGES` constant + `useTimeRange` + `TimeRangePills` component (reusable in future sections)
 
-## Still open (Pass 7 candidates)
+## Pass 7 fixes (pending commit)
 
-- Propagate time-range to Pulse KPIs (needs `/stats/network/trend?range=...` wiring)
-- Pulse + Intelligence KPI bar charts responsive to range
-- G16-G20 polish items (favicon, music real, light mode drift)
+- ✅ **G17 Music player real tracks**: `/music/list` fetched, fallback playlist only used if endpoint fails. Real `<audio>` element plays the returned mp3s. First track "20-Twenty-What · SoraMetrics Radio · 6:24" loads with metadata-driven duration.
+- ✅ **G7 Pulse time-range extension**: TimeRangePills added to Pulse PageHeader. KPIs (SWAPS / VOLUME / ACTIVE WALLETS) flip between `stats24h` and `stats7d` from `/stats/network` on range change. Labels update to `· 24H` or `· 7D`. Verified: 24H=259 swaps/$2.91K, 7D=2255 swaps/$31.29K.
+- ✅ Shared `TimeRangePills` + `useTimeRange` exposed globally so future sections can reuse.
+
+## Still open (Pass 8 candidates)
+
+- Propagate time-range to other sections (Intelligence, Tokens, Holders) + `/stats/network/trend?range=` once prod supports it
+- G16: favicon doesn't round-trip scope=/beta/ properly in dev
+- G18: backup JSON schema interop with prod
+- G20: light mode drift testing

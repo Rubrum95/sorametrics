@@ -1895,4 +1895,6 @@ Object.assign(window, {
   TransfersSection, BridgesSection, OrderBookSection, PoolsSection,
   TokensSection, HoldersSection, StakingSection, GovSection,
   BalanceSection, IntelligenceSection,
+  // Shared helpers for other sections (Pulse/Burns/etc) that want the same pills.
+  TimeRangePills, useTimeRange, TIME_RANGES,
 });

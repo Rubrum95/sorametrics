@@ -1,4 +1,4 @@
-/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, sparkPath, I, useDrill, useT, io */
+/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, sparkPath, I, useDrill, useT, io, TimeRangePills, useTimeRange */
 const { useState, useEffect, useRef, useMemo } = React;
 
 // Shared socket.io connection. Created lazily the first time a component asks for it.
@@ -237,6 +237,7 @@ function PulseSection({ tweaks }) {
   const [statsNetwork, setStatsNetwork] = useState(null);   // { stats24h, stats7d, tps }
   const [stakingNet, setStakingNet] = useState(null);       // { validatorCount, eraProgress, avgBlockTime, bestBlock, ... }
   const [trending, setTrending] = useState([]);             // [{ symbol, volume, logo }]
+  const [range, setRange] = useTimeRange('24h');            // G7: shared pill — prod only exposes 24h + 7d here
 
   // Fetch all 5 stats endpoints + refresh every 30s.
   useEffect(() => {
@@ -335,6 +336,7 @@ function PulseSection({ tweaks }) {
   return (
     <div>
       <PageHeader title={t('pulse.title')} sub={t('pulse.sub')}>
+        <TimeRangePills value={range} onChange={setRange}/>
         <span className={'tag ' + (connected ? 'ok' : 'err')}>
           <span className="live-dot" style={{width:5,height:5}}/>
           {' '}
@@ -348,26 +350,38 @@ function PulseSection({ tweaks }) {
       </PageHeader>
 
       <div className="pulse-grid">
-        <PulseStat
-          label={t('pulse.kpi.swaps24')}
-          value={statsHeader ? Number(statsHeader.swaps || 0).toLocaleString() : '—'}
-          sub={statsNetwork ? 'vs ' + Number(statsNetwork.stats7d?.txCount || 0).toLocaleString() + ' 7d' : 'loading…'}
-          spark={sparkA}/>
-        <PulseStat
-          label={t('pulse.kpi.volume')}
-          value={statsOverview && statsOverview.network ? fmt.usd(statsOverview.network.volume || 0) : '—'}
-          sub={statsNetwork ? '7d: ' + fmt.usd(statsNetwork.stats7d?.volume || 0) : 'last 24h'}
-          spark={sparkB}/>
-        <PulseStat
-          label={t('pulse.kpi.wallets')}
-          value={statsNetwork ? Number(statsNetwork.stats24h?.users || 0).toLocaleString() : '—'}
-          sub={statsNetwork ? Number(statsNetwork.stats7d?.users || 0).toLocaleString() + ' unique 7d' : 'unique signers'}
-          spark={sparkC}/>
-        <PulseStat
-          label={t('pulse.kpi.block')}
-          value={stakingNet ? (Number(stakingNet.avgBlockTime || 0)).toFixed(2) + 's' : '—'}
-          sub={stakingNet ? 'best #' + Number(stakingNet.bestBlock || 0).toLocaleString() : 'finality'}
-          spark={sparkD}/>
+        {(() => {
+          // Pulse KPIs switch between stats24h / stats7d when the range pill
+          // flips. Longer ranges (1M/1Y) fall back to 7d — prod doesn't expose
+          // those windows on /stats/network.
+          const use7d = range === '7d' || range === '1m' || range === '1y';
+          const bucket = use7d ? statsNetwork?.stats7d : statsNetwork?.stats24h;
+          const label24or7 = use7d ? '7D' : '24H';
+          return (
+            <>
+              <PulseStat
+                label={'SWAPS · ' + label24or7}
+                value={bucket ? Number(bucket.txCount || 0).toLocaleString() : '—'}
+                sub={statsNetwork ? 'vs ' + Number((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.txCount || 0).toLocaleString() + ' ' + (use7d ? '24H' : '7D') : 'loading…'}
+                spark={sparkA}/>
+              <PulseStat
+                label={'VOLUME · ' + label24or7}
+                value={bucket ? fmt.usd(bucket.volume || 0) : '—'}
+                sub={statsNetwork ? (use7d ? '24H: ' : '7D: ') + fmt.usd((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.volume || 0) : '—'}
+                spark={sparkB}/>
+              <PulseStat
+                label={'ACTIVE WALLETS · ' + label24or7}
+                value={bucket ? Number(bucket.users || 0).toLocaleString() : '—'}
+                sub={statsNetwork ? Number((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.users || 0).toLocaleString() + ' ' + (use7d ? '24H' : '7D') : 'unique signers'}
+                spark={sparkC}/>
+              <PulseStat
+                label={t('pulse.kpi.block')}
+                value={stakingNet ? (Number(stakingNet.avgBlockTime || 0)).toFixed(2) + 's' : '—'}
+                sub={stakingNet ? 'best #' + Number(stakingNet.bestBlock || 0).toLocaleString() : 'finality'}
+                spark={sparkD}/>
+            </>
+          );
+        })()}
       </div>
 
       <div className="pulse-layout">
