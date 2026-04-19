@@ -1599,6 +1599,85 @@ function BalanceSection({ tweaks }) {
    INTELLIGENCE
    ========================================================================= */
 
+// --- Peg history Chart.js line ---
+// Prod exposes /stats/stablecoins only as a snapshot. To give users a rolling
+// history without touching the backend, we persist up to the last 120 samples
+// per symbol in localStorage ('sm.pegHistory') and plot them with Chart.js.
+// Each sample = { t: ts, KUSD: px, XSTUSD: px, TBCD: px }.
+function PegHistoryChart({ stables }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+  const [history, setHistory] = useState(() => {
+    try { const raw = localStorage.getItem('sm.pegHistory'); if (raw) return JSON.parse(raw).slice(-120); } catch {}
+    return [];
+  });
+
+  // Append each new stables snapshot to history + persist.
+  useEffect(() => {
+    if (!stables || !stables.length) return;
+    const sample = { t: Date.now() };
+    stables.forEach(sc => { sample[sc.symbol] = Number(sc.price) || 0; });
+    setHistory(h => {
+      const next = [...h, sample].slice(-120);
+      try { localStorage.setItem('sm.pegHistory', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [stables]);
+
+  // Redraw Chart.js on every history update.
+  useEffect(() => {
+    if (!canvasRef.current || !window.Chart || history.length === 0) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    const labels = history.map(p => new Date(p.t).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}));
+    const syms = ['KUSD', 'XSTUSD', 'TBCD'];
+    const colors = { KUSD: '#60A5FA', XSTUSD: '#F5B041', TBCD: '#10B981' };
+    const datasets = syms.map(sym => ({
+      label: sym,
+      data: history.map(p => p[sym] || null),
+      borderColor: colors[sym],
+      backgroundColor: colors[sym] + '22',
+      fill: false,
+      tension: 0.25,
+      pointRadius: 0,
+      spanGaps: true,
+    }));
+    chartRef.current = new window.Chart(canvasRef.current.getContext('2d'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#C8A0B8' } },
+          tooltip: { mode: 'index', intersect: false },
+        },
+        scales: {
+          x: { ticks: { color: '#94A3B8', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: {
+            ticks: { color: '#94A3B8', callback: v => '$' + Number(v).toFixed(2) },
+            grid: { color: 'rgba(255,255,255,0.04)' },
+          },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [history]);
+
+  return (
+    <div className="card" style={{marginBottom: 18}}>
+      <div className="card-header">
+        <div className="card-title"><span className="dot"/> Peg history · KUSD / XSTUSD / TBCD</div>
+        <span className="tag">{history.length} snapshots · ref $1.00</span>
+      </div>
+      <div className="card-body" style={{height: 220}}>
+        {history.length < 2
+          ? <div className="muted tiny" style={{padding: 20, textAlign:'center'}}>Recogiendo datos… el primer punto se guarda ahora mismo.</div>
+          : <canvas ref={canvasRef}/>}
+      </div>
+    </div>
+  );
+}
+
 function IntelligenceSection({ tweaks }) {
   const t = useT();
   // Pull real signals from prod /stats/* endpoints and turn them into
@@ -1690,6 +1769,12 @@ function IntelligenceSection({ tweaks }) {
         { label:'Watchlist Hits', value: '7', sub:'tracked addresses' },
         { label:'Open Anomalies', value: String(insights.filter(i => i.type === 'peg').length), sub:'last 4h' },
       ]}/>
+
+      {/* Stablecoin peg history line — Chart.js. Client-side rolling ring of
+          /stats/stablecoins snapshots stored in localStorage so the curve
+          survives reloads. Prod has no historical stablecoin price endpoint,
+          so we build one here at 30s cadence. */}
+      {stables.length > 0 && <PegHistoryChart stables={stables}/>}
 
       {/* Stablecoin Peg Monitor — ports prod's visual depeg badge.
           Each row shows price vs $1 reference; bar fills red when |dev| > 2%. */}

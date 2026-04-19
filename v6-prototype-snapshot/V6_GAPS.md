@@ -106,15 +106,20 @@ Validators online / Peers / Era Progress / Finality Lag / TPS — all hardcoded.
 7. ✅ G14: Trending Tokens card wired to `/stats/trending-tokens` (DAI, XOR, VAL, PSWAP, KUSD by real 24h volume)
 8. ✅ G15: Network Health card wired to `/staking/network` (24 validadores · Era #7052 · 50% progress · finality lag · TPS)
 
-## Pass 4 fixes (pending commit)
+## Pass 4 fixes (`ec54141`)
 
-- ✅ G8: Wallet Details **8 sub-tabs** wired — Assets (existing) + Swaps + Transfers + Bridges + Liquidity + Staking + Extrinsics + Info. Each fetches the per-addr endpoint only when its tab is opened. Polkaswap Treasury shows real XOR→DAI swaps at block #25,761,288 on 19/04/2026.
-- ✅ G9: Extrinsic drill body enriched via `/history/extrinsic/:block/:idx` — pulls real `args_json`, `events_json`, `signer`, `error_msg` on drill open, parses the JSON strings, renders events list grouped by pallet.
-- ✅ G10: CSV export now opens a modal with format picker — "SoraMetrics (local)" for visible rows, plus **Koinly / CoinTracking / CoinTracker** buttons that call `/export/csv?format=<fmt>&address=<addr>` and stream the blob.
-- ✅ G12: Governance **all 5 sub-tabs** wired — Consejo + Motions (Pass 2) + **Elecciones** (8 real elected + stake) + **Democracia** (real referendums with tally ayes/nays) + **Comité Técnico** (real members + isPrime flag).
+- ✅ G8: Wallet Details **8 sub-tabs** (Assets/Swaps/Transfers/Bridges/Liquidity/Staking/Extrinsics/Info)
+- ✅ G9: Extrinsic drill body with `/history/extrinsic/:block/:idx`
+- ✅ G10: CSV modal with SoraMetrics / Koinly / CoinTracking / CoinTracker formats
+- ✅ G12: Governance 5 sub-tabs all real
 
-## Still open (Pass 5 candidates)
+## Pass 5 fixes (`da647ca` + peg chart commit)
 
-- G6: 🔍 Más Info per row — dedicated magnifier button + rich detail view (overlap w/ G9 for extrinsics; swaps need `/lookup/usd-value/:id`)
-- G7: Time-range selector 4H/1D/7D/1M/1Y (universal across KPIs + charts)
-- G11: Peg history Chart.js line in Intelligence
+- ✅ G6: **🔍 Más Info** button per row in Extrinsics + Swaps, passing block+idx+extrinsic_id so drill fetch fires with full context
+- ✅ **Drill parity with prod "Detalles del Extrinsic" modal**: Extrinsic ID + Hash (full, not truncated) + Block + Pallet + Firmante + Resultado + Hora + **Valor USD (al momento de TX)** via `/lookup/usd-value/:id` + Arguments JSON (pretty-printed + copy) + Events · count with "raw JSON" toggle
+- ✅ G11: **Peg history Chart.js line** — KUSD / XSTUSD / TBCD plotted. Client-side rolling ring of /stats/stablecoins snapshots stored in localStorage (`sm.pegHistory`, capped at 120 samples).
+
+## Still open (Pass 6 candidates)
+
+- G7: Time-range selector 4H/1D/7D/1M/1Y — touches Pulse/Burns/Balance KPI cards + needs per-section range param wiring
+- G6 (remainder): Transfers/Bridges/OrderBook rows still use generic ↗; could promote to 🔍 Más Info label pattern too
