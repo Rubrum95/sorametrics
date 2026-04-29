@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>SoraMetrics — Choose Network</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Real-time analytics for the SORA networks. Pick a chain to enter the dashboard.">
+<meta name="theme-color" content="#9B1B30">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0:#07070a; --bg-1:#0e0e13; --bg-2:#15151c;
+    --fg-0:#fafafa; --fg-1:#e5e7eb; --fg-2:#9ca3af; --fg-3:#6b7280;
+    --burg:#9B1B30; --plum:#7B2D5B; --amethyst:#7B5B90;
+    --ember:#E5243B; --rose:#C8A0B8;
+    --border:rgba(255,255,255,0.08);
+    --border-strong:rgba(255,255,255,0.16);
+    --grad-v2:  linear-gradient(135deg, #FF4E3C 0%, #E5243B 50%, #9B1B30 100%);
+    --grad-mn:  linear-gradient(135deg, #7B2D5B 0%, #7B5B90 50%, #C8A0B8 100%);
+    --grad-rainbow: linear-gradient(120deg, #fff 0%, #C8A0B8 25%, #7B5B90 50%, #FF4E3C 75%, #fff 100%);
+    --t-fast: 200ms cubic-bezier(.2,.8,.2,1);
+    --t:      400ms cubic-bezier(.2,.8,.2,1);
+    --t-slow: 800ms cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg-0); color: var(--fg-1);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    min-height: 100vh; overflow-x: hidden;
+  }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+  /* ---------------------- background layers ---------------------- */
+  .bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    background:
+      radial-gradient(1400px 900px at 12% -10%, rgba(229,36,59,0.10), transparent 60%),
+      radial-gradient(1100px 800px at 88% 110%, rgba(123,91,144,0.10), transparent 60%),
+      radial-gradient(1600px 1100px at 50% 50%, rgba(229,36,59,0.025), transparent 60%),
+      #07070a;
+  }
+  .bg-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+  .bg-glow {
+    position: absolute; border-radius: 50%; filter: blur(140px) saturate(0.85);
+    opacity: 0.20; will-change: transform, opacity;
+  }
+  .bg-glow-1 {
+    width: 720px; height: 720px; left: -240px; top: -200px;
+    background: radial-gradient(circle, #9B1B30, transparent 70%);
+    animation: float1 22s ease-in-out infinite alternate;
+  }
+  .bg-glow-2 {
+    width: 820px; height: 820px; right: -260px; bottom: -300px;
+    background: radial-gradient(circle, #7B5B90, transparent 70%);
+    animation: float2 28s ease-in-out infinite alternate;
+  }
+  .bg-glow-3 {
+    width: 540px; height: 540px; left: 50%; top: 60%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, #E5243B, transparent 70%);
+    opacity: 0.06; animation: pulse 9s ease-in-out infinite;
+  }
+  @keyframes float1 { from { transform: translate(0, 0); } to { transform: translate(80px, 50px); } }
+  @keyframes float2 { from { transform: translate(0, 0); } to { transform: translate(-60px, -40px); } }
+  @keyframes pulse  { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.10; } }
+
+  /* ---------------------- page shell ---------------------- */
+  .page {
+    position: relative; z-index: 1; min-height: 100vh;
+    display: flex; flex-direction: column;
+    padding: 24px 28px 24px;
+  }
+
+  /* ---------------------- topbar ---------------------- */
+  .topbar {
+    width: 100%; max-width: 1280px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding-bottom: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; color: var(--fg-0); font-weight: 700; letter-spacing: -0.01em; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 9px; background: var(--grad-v2);
+    box-shadow: 0 0 24px rgba(229,36,59,0.30), 0 1px 0 rgba(255,255,255,0.12) inset;
+  }
+  .brand .name { font-size: 16px; }
+  .brand .name .accent {
+    background: var(--grad-v2); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .topbar .meta {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--fg-2); font-size: 12px;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  }
+  .topbar .meta .dot { width: 7px; height: 7px; border-radius: 50%; background: #10B981; box-shadow: 0 0 10px rgba(16,185,129,0.6); animation: blink 2.5s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* ---------------------- hero ---------------------- */
+  .hero {
+    width: 100%; max-width: 1100px; margin: 80px auto 0; text-align: center;
+    animation: fadeInUp 800ms cubic-bezier(.2,.8,.2,1) backwards;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .eyebrow {
+    color: var(--fg-2); font-size: 12px; font-weight: 600; letter-spacing: 0.20em; text-transform: uppercase;
+    margin-bottom: 18px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before, .eyebrow::after {
+    content: ''; width: 32px; height: 1px; background: linear-gradient(90deg, transparent, var(--fg-3), transparent);
+  }
+  h1 {
+    margin: 0 0 18px; font-size: clamp(44px, 7vw, 96px); font-weight: 900;
+    letter-spacing: -0.04em; line-height: 1.0;
+    background: linear-gradient(120deg, #fff 0%, #E0C8D5 35%, #C8A0B8 60%, #7B5B90 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .lede {
+    color: var(--fg-2); font-size: clamp(15px, 1.4vw, 18px); max-width: 680px; margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ---------------------- cross-chain ticker ---------------------- */
+  .ticker {
+    width: 100%; max-width: 1280px; margin: 56px auto 0;
+    padding: 14px 24px; border-radius: 18px;
+    background: linear-gradient(90deg, rgba(229,36,59,0.06), rgba(123,91,144,0.10), rgba(229,36,59,0.06));
+    border: 1px solid rgba(160,98,176,0.20);
+    display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+    color: var(--fg-2); font-size: 13px;
+    animation: fadeInUp 800ms 100ms cubic-bezier(.2,.8,.2,1) backwards;
+  }
+  .ticker-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: #C8A0B8; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .ticker-label .arrow { font-size: 14px; }
+  .ticker-stats { display: flex; gap: 24px; flex-wrap: wrap; flex: 1; }
+  .ticker-stat { display: inline-flex; align-items: baseline; gap: 6px; }
+  .ticker-stat .v { color: var(--fg-0); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .ticker-stat .k { color: var(--fg-3); font-size: 12px; }
+
+  /* ---------------------- cards ---------------------- */
+  .grid {
+    width: 100%; max-width: 1280px; margin: 36px auto 56px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+  }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; gap: 22px; margin: 24px auto 36px; } }
+
+  .card {
+    position: relative; display: flex; flex-direction: column;
+    padding: 36px 32px 30px; border-radius: 28px;
+    background: rgba(20, 20, 28, 0.55);
+    border: 1px solid var(--border);
+    cursor: pointer; text-decoration: none; color: inherit;
+    overflow: hidden;
+    backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+    transition: transform var(--t), border-color var(--t), background var(--t), box-shadow var(--t);
+    will-change: transform;
+    animation: fadeInUp 800ms 200ms cubic-bezier(.2,.8,.2,1) backwards;
+  }
+  .card:nth-child(2) { animation-delay: 300ms; }
+  .card::before {
+    content: ''; position: absolute; inset: 0; border-radius: 28px;
+    background: var(--card-grad); opacity: 0; transition: opacity var(--t);
+    pointer-events: none; z-index: 0;
+  }
+  .card::after {
+    /* Subtle inner highlight on top edge */
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
+    pointer-events: none; z-index: 1;
+  }
+  .card:hover {
+    transform: translateY(-8px);
+    border-color: var(--border-strong);
+    box-shadow:
+      0 40px 100px -32px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 0 80px -20px var(--card-glow);
+  }
+  .card:hover::before { opacity: 0.10; }
+  .card:active { transform: translateY(-4px); }
+  .card > * { position: relative; z-index: 1; }
+
+  .card-v2 { --card-grad: var(--grad-v2); --card-accent: #E5243B; --card-glow: rgba(229,36,59,0.30); }
+  .card-mn { --card-grad: var(--grad-mn); --card-accent: #A062B0; --card-glow: rgba(160,98,176,0.30); }
+
+  .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px;
+  }
+  .card-icon {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: var(--card-grad);
+    box-shadow: 0 12px 36px -8px var(--card-accent), 0 1px 0 rgba(255,255,255,0.18) inset;
+    display: grid; place-items: center; color: white; font-weight: 900; font-size: 26px; letter-spacing: -0.02em;
+  }
+  .card-badges { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .card-badge {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg-2);
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  }
+  .card-badge.live { color: #10B981; border-color: rgba(16,185,129,0.30); }
+  .card-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+  .card-badge.tech { color: var(--card-accent); border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.02); }
+
+  .card-title {
+    font-size: 38px; font-weight: 800; letter-spacing: -0.025em; color: var(--fg-0); margin: 0 0 8px;
+  }
+  .card-subtitle {
+    font-size: 14px; color: var(--card-accent); font-weight: 600; margin: 0 0 14px; letter-spacing: 0.02em;
+  }
+  .card-sub {
+    color: var(--fg-2); font-size: 14px; line-height: 1.6; margin: 0 0 26px;
+  }
+
+  /* feature pills */
+  .features {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 26px;
+  }
+  .feature {
+    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); color: var(--fg-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    font-weight: 500; letter-spacing: 0.02em;
+  }
+
+  .card-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .stat-k {
+    color: var(--fg-3); font-size: 10.5px; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .stat-v {
+    color: var(--fg-0); font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+  }
+  .stat-v.loading { color: var(--fg-3); }
+
+  .card-cta {
+    display: inline-flex; align-items: center; gap: 12px; margin-top: 26px;
+    padding: 14px 24px; border-radius: 14px;
+    background: var(--card-grad); color: white;
+    font-weight: 700; font-size: 14px; letter-spacing: -0.005em;
+    width: fit-content;
+    box-shadow: 0 12px 32px -10px var(--card-accent);
+    transition: transform var(--t), box-shadow var(--t);
+  }
+  .card:hover .card-cta { transform: translateX(6px); box-shadow: 0 16px 40px -10px var(--card-accent); }
+  .card-cta svg { transition: transform var(--t); }
+  .card:hover .card-cta svg { transform: translateX(3px); }
+
+  /* ---------------------- combined stats strip ---------------------- */
+  .combined-stats {
+    width: 100%; max-width: 1280px; margin: 0 auto 56px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+    background: var(--border);
+    animation: fadeInUp 800ms 400ms cubic-bezier(.2,.8,.2,1) backwards;
+  }
+  @media (max-width: 760px) { .combined-stats { grid-template-columns: repeat(2, 1fr); } }
+  .combined-stat {
+    padding: 22px 20px; background: rgba(15, 15, 20, 0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  .combined-stat .k {
+    color: var(--fg-3); font-size: 11px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .combined-stat .v {
+    color: var(--fg-0); font-size: 28px; font-weight: 800; letter-spacing: -0.025em;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+  }
+  .combined-stat .sub {
+    color: var(--fg-3); font-size: 11px; margin-top: 4px;
+  }
+
+  /* ---------------------- footer ---------------------- */
+  footer {
+    width: 100%; max-width: 1280px; margin: auto auto 0; padding-top: 28px;
+    border-top: 1px solid var(--border);
+    color: var(--fg-3); font-size: 12px;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  }
+  footer a { color: var(--fg-2); text-decoration: none; transition: color var(--t-fast); }
+  footer a:hover { color: var(--fg-0); }
+  footer .links { display: inline-flex; gap: 18px; flex-wrap: wrap; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bg-glow-1, .bg-glow-2, .bg-glow-3 { animation: none; }
+    .card, .hero, .ticker, .combined-stats { animation: none; }
+    .card { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+  </div>
+
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <span class="name"><span class="accent">Sora</span>Metrics</span>
+      </div>
+      <div class="meta" id="status">
+        <span class="dot" aria-hidden="true"></span>
+        <span>All systems operational</span>
+      </div>
+    </header>
+
+    <main class="hero" role="main">
+      <div class="eyebrow">Two networks · One dashboard</div>
+      <h1>Choose your network</h1>
+      <p class="lede">
+        Real-time on-chain analytics for the SORA ecosystem. Pick the chain you want to explore —
+        production data is live in either path, and cross-chain XOR migrations are stitched between them.
+      </p>
+    </main>
+
+    <section class="ticker" aria-label="Cross-chain XOR migration">
+      <span class="ticker-label">
+        <span>SORA v2</span>
+        <span class="arrow" style="color:#C8A0B8;">⇌</span>
+        <span>Minamoto</span>
+      </span>
+      <div class="ticker-stats">
+        <div class="ticker-stat"><span class="v" id="cc-claims">—</span><span class="k">claims</span></div>
+        <div class="ticker-stat"><span class="v" id="cc-xor">—</span><span class="k">XOR migrated</span></div>
+        <div class="ticker-stat"><span class="v" id="cc-recipients">—</span><span class="k">unique recipients</span></div>
+        <div class="ticker-stat"><span class="v" id="cc-last">—</span><span class="k">last claim</span></div>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="Networks">
+      <a class="card card-v2" href="/sorav2" aria-label="Open SORA v2 dashboard">
+        <div class="card-head">
+          <div class="card-icon" aria-hidden="true">v2</div>
+          <div class="card-badges">
+            <span class="card-badge live"><span class="dot"></span>Production</span>
+            <span class="card-badge tech">Substrate</span>
+          </div>
+        </div>
+        <h2 class="card-title">SORA v2</h2>
+        <p class="card-subtitle">The mainnet that's been running</p>
+        <p class="card-sub">
+          The Substrate-based mainnet powering PolkaSwap, Hashi v2 bridges, governance,
+          NPoS staking and the ecosystem of tokens, pools and burns that built SORA today.
+        </p>
+        <div class="features">
+          <span class="feature">PolkaSwap pools</span>
+          <span class="feature">Hashi v2 bridges</span>
+          <span class="feature">Governance</span>
+          <span class="feature">Staking</span>
+          <span class="feature">Burns</span>
+          <span class="feature">XOR / VAL / KUSD</span>
+        </div>
+        <div class="card-stats">
+          <div><div class="stat-k">Tokens</div><div class="stat-v loading" id="v2-tokens">—</div></div>
+          <div><div class="stat-k">Pools</div><div class="stat-v loading" id="v2-pools">—</div></div>
+          <div><div class="stat-k">Block</div><div class="stat-v loading" id="v2-block">—</div></div>
+        </div>
+        <span class="card-cta">
+          Open SORA v2 dashboard
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </a>
+
+      <a class="card card-mn" href="/minamoto" aria-label="Open SORA Minamoto dashboard">
+        <div class="card-head">
+          <div class="card-icon" aria-hidden="true">源</div>
+          <div class="card-badges">
+            <span class="card-badge live"><span class="dot"></span>Mainnet live</span>
+            <span class="card-badge tech">Iroha 3 · Nexus</span>
+          </div>
+        </div>
+        <h2 class="card-title">SORA Minamoto</h2>
+        <p class="card-subtitle">The new economic infrastructure</p>
+        <p class="card-sub">
+          The Hyperledger Iroha 3 mainnet of SORA Nexus. Data Spaces, AMX cross-dataspace settlement,
+          ZK Halo2 confidential transfers, oracle TWAPs and the rails for institutional RWAs.
+        </p>
+        <div class="features">
+          <span class="feature">Iroha 3 NPoS</span>
+          <span class="feature">Data Spaces</span>
+          <span class="feature">ZK Halo2</span>
+          <span class="feature">AMX cross-DS</span>
+          <span class="feature">Oracle TWAP</span>
+          <span class="feature">RWAs</span>
+        </div>
+        <div class="card-stats">
+          <div><div class="stat-k">Domains</div><div class="stat-v loading" id="mn-domains">—</div></div>
+          <div><div class="stat-k">Peers</div><div class="stat-v loading" id="mn-peers">—</div></div>
+          <div><div class="stat-k">Block</div><div class="stat-v loading" id="mn-block">—</div></div>
+        </div>
+        <span class="card-cta">
+          Open Minamoto dashboard
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </a>
+    </section>
+
+    <section class="combined-stats" aria-label="Combined ecosystem stats">
+      <div class="combined-stat">
+        <div class="k">XOR supply on Minamoto</div>
+        <div class="v" id="xor-supply">—</div>
+        <div class="sub">all sources combined</div>
+      </div>
+      <div class="combined-stat">
+        <div class="k">Cross-chain migrated</div>
+        <div class="v" id="xor-migrated">—</div>
+        <div class="sub">verified on-chain v2 burns</div>
+      </div>
+      <div class="combined-stat">
+        <div class="k">Minamoto accounts</div>
+        <div class="v" id="mn-accounts">—</div>
+        <div class="sub">registered on Iroha 3</div>
+      </div>
+      <div class="combined-stat">
+        <div class="k">Iroha runtime</div>
+        <div class="v" id="iroha-version">—</div>
+        <div class="sub">live on Minamoto</div>
+      </div>
+    </section>
+
+    <footer>
+      <div>SoraMetrics &copy; 2026 — independent SORA analytics</div>
+      <div class="links">
+        <a href="/sorav2">Open SORA v2 →</a>
+        <a href="/minamoto">Open Minamoto →</a>
+        <a href="https://sora.org" target="_blank" rel="noopener">sora.org</a>
+        <a href="https://minamoto.sora.org" target="_blank" rel="noopener">minamoto.sora.org</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // ----- formatters -----
+    function setText(id, v) { const el = document.getElementById(id); if (el && v != null) el.textContent = v; }
+    function setStat(id, v) {
+      const el = document.getElementById(id);
+      if (el && v != null) {
+        el.textContent = v;
+        el.classList.remove('loading');
+      }
+    }
+    function fmt(n) {
+      const x = Number(n);
+      if (!Number.isFinite(x)) return '—';
+      if (x >= 1_000_000_000) return (x / 1_000_000_000).toFixed(2) + 'B';
+      if (x >= 1_000_000)     return (x / 1_000_000).toFixed(2) + 'M';
+      if (x >= 1_000)         return (x / 1_000).toFixed(1) + 'k';
+      return String(Math.round(x));
+    }
+    function fmtXor(s) {
+      if (s == null) return '—';
+      const n = Number(s);
+      if (!Number.isFinite(n)) return s;
+      if (n === 0) return '0';
+      if (n < 0.001) return n.toFixed(6);
+      if (n < 1) return n.toFixed(4);
+      if (n < 1000) return n.toFixed(2);
+      if (n < 1_000_000) return (n / 1000).toFixed(1) + 'k';
+      return (n / 1_000_000).toFixed(2) + 'M';
+    }
+    function relative(iso) {
+      if (!iso) return '—';
+      const t = typeof iso === 'string' ? Date.parse(iso) : Number(iso);
+      if (!Number.isFinite(t)) return '—';
+      const sec = Math.max(0, Math.round((Date.now() - t) / 1000));
+      if (sec < 60) return sec + 's';
+      if (sec < 3600) return Math.round(sec / 60) + 'min';
+      if (sec < 86400) return Math.round(sec / 3600) + 'h';
+      return Math.round(sec / 86400) + 'd';
+    }
+
+    // Animated counter — eases to the target.
+    function animateNumber(el, target, formatter) {
+      if (!el) return;
+      formatter = formatter || (x => String(x));
+      const startStr = el.textContent;
+      const startN = parseFloat(startStr) || 0;
+      const endN = Number(target);
+      if (!Number.isFinite(endN)) { el.textContent = formatter(target); return; }
+      const dur = 700;
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const v = startN + (endN - startN) * eased;
+        el.textContent = formatter(v);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // ----- v2 stats -----
+    fetch('/stats/overview', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        if (d.tokensCount != null) {
+          const el = document.getElementById('v2-tokens');
+          el.classList.remove('loading');
+          animateNumber(el, d.tokensCount, fmt);
+        }
+        if (d.poolsCount != null) {
+          const el = document.getElementById('v2-pools');
+          el.classList.remove('loading');
+          animateNumber(el, d.poolsCount, fmt);
+        }
+        if (d.lastBlock != null) {
+          const el = document.getElementById('v2-block');
+          el.classList.remove('loading');
+          animateNumber(el, d.lastBlock, x => '#' + fmt(x));
+        }
+      })
+      .catch(() => {});
+
+    // ----- minamoto network state -----
+    fetch('/api/minamoto/network-state', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || !d.state) return;
+        const s = d.state;
+        if (s.domains != null) { setStat('mn-domains', fmt(s.domains)); }
+        if (s.peers != null)   { setStat('mn-peers', fmt(s.peers)); }
+        if (s.block_height != null) {
+          const el = document.getElementById('mn-block');
+          el.classList.remove('loading');
+          animateNumber(el, s.block_height, x => '#' + fmt(x));
+        }
+        if (s.accounts != null) setStat('mn-accounts', fmt(s.accounts));
+        if (s.iroha_version)    setStat('iroha-version', s.iroha_version);
+      })
+      .catch(() => {});
+
+    // ----- cross-chain (combined) -----
+    fetch('/api/minamoto/cross-chain/stats', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setText('cc-claims', d.total_claims != null ? fmt(d.total_claims) : '0');
+        setText('cc-xor', fmtXor(d.total_xor_claimed));
+        setText('cc-recipients', d.unique_recipients != null ? fmt(d.unique_recipients) : '0');
+        setText('cc-last', d.last_claim_at ? relative(d.last_claim_at) + ' ago' : '—');
+        setText('xor-migrated', fmtXor(d.total_xor_claimed));
+      })
+      .catch(() => {});
+
+    // ----- xor total supply on Minamoto -----
+    fetch('/api/minamoto/asset/xor%23universal', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setText('xor-supply', fmtXor(d.total_quantity));
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-network="minamoto">
+<head>
+<meta charset="UTF-8">
+<title>SoraMetrics — Minamoto</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="Real-time SORA Nexus Minamoto (Iroha 3) on-chain analytics.">
+<meta name="theme-color" content="#7B5B90">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  /* Minamoto-specific accent override (plum/amethyst) */
+  :root[data-network="minamoto"] {
+    --accent: #A062B0;
+    --accent-2: #7B5B90;
+    --accent-glow: rgba(160, 98, 176, 0.20);
+    --accent-glow-strong: rgba(160, 98, 176, 0.42);
+  }
+  /* Iroha 3 I105 account ids include half-width katakana (U+FF65–U+FF9F)
+     as the network discriminant. Inter / JetBrains Mono lack those glyphs
+     and the browser renders them as tofu. Noto Sans JP fills the gap when
+     listed as a fallback in the family stack — ASCII still uses the
+     Inter / JetBrains Mono of the rest of the dashboard. */
+  body { font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, sans-serif; }
+  .mono, .num { font-family: 'JetBrains Mono', 'Noto Sans JP', ui-monospace, SFMono-Regular, monospace; }
+  /* Network switcher pill in the header */
+  .network-pill {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 12px 6px 8px; border-radius:999px;
+    background:rgba(123,91,144,0.18); border:1px solid rgba(160,98,176,0.32);
+    color:#E0C8D5; font-size:12px; font-weight:600; letter-spacing:0.04em;
+    text-decoration:none; transition:background 200ms ease;
+  }
+  .network-pill:hover { background:rgba(123,91,144,0.28); }
+  .network-pill .swap-icon {
+    width:18px; height:18px; border-radius:50%;
+    background:linear-gradient(135deg,#7B2D5B,#7B5B90,#C8A0B8);
+    display:grid; place-items:center; color:white; font-weight:900; font-size:10px;
+  }
+
+  /* ==========================================================
+     Mobile responsive overrides for Minamoto-specific layouts
+     v2's /styles.css already handles .responsive-table, the
+     hamburger drawer, and .hide-mobile. These rules cover the
+     inline-grid rows we use inside the wallet drilldown / lane
+     staking panel that have fixed column widths and would
+     overflow narrow viewports otherwise.
+     ========================================================== */
+  @media (max-width: 640px) {
+    /* Section padding tightens on phones so cards aren't crushed */
+    .main > div { padding: 16px 12px 32px !important; }
+    .section { padding: 0 !important; }
+
+    /* Page header collapses to two rows: title + sub above, actions below */
+    .page-header { flex-direction: column; align-items: stretch !important; gap: 10px; }
+    .page-header .page-actions { flex-wrap: wrap; }
+
+    /* Stat-card grid tightens — each KPI takes ~half the viewport */
+    .stat-card { padding: 10px 12px; }
+    .stat-card .stat-value { font-size: 16px; }
+    .stat-card .stat-sub { font-size: 10px; }
+
+    /* Wallet drilldown rows + Top Tokens table collapse the multi-column
+       inline grid into a 2-col stacked card so the asset breakdown,
+       transfers, and extrinsics rows still read on a phone. We mark
+       them via class names from wallet.jsx. */
+    .mn-row-asset,
+    .mn-row-transfer,
+    .mn-row-extrinsic,
+    .mn-row-top-token {
+      grid-template-columns: 32px 1fr auto !important;
+      grid-auto-flow: row;
+      row-gap: 4px !important;
+      padding: 10px 12px !important;
+    }
+    .mn-row-asset > .mn-row-bar,
+    .mn-row-transfer > .mn-row-bar { display: none; }
+
+    /* Topbar layout shrinks — the section name truncates instead of
+       wrapping the whole row. Lang picker compresses. */
+    header { padding: 12px 14px !important; }
+    header > div { gap: 8px !important; }
+
+    /* Pulse 2-col grid collapses to a single column so live feed +
+       assets + health stack vertically full-width. */
+    .mn-pulse-grid { grid-template-columns: 1fr !important; gap: 12px !important; }
+  }
+
+  /* Tighter breakpoint for very narrow phones (~360px) — the topbar's
+     "MINAMOTO /" breadcrumb prefix is redundant with the network switcher
+     pill on the right, so hide it to give the section title room. */
+  @media (max-width: 480px) {
+    .hide-mobile-tight { display: none !important; }
+    .mn-topbar { padding: 12px 10px !important; }
+    /* Compact lang picker buttons */
+    .mn-topbar button { padding: 3px 6px !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-layer">
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-petals" aria-hidden="true"></div>
+  </div>
+
+  <div id="root"></div>
+
+  <script>
+    // App-level config consumed by JSX modules
+    window.__MN_CONFIG__ = {
+      apiBase: '/api/minamoto',
+      sectionDefault: 'overview',
+      networkLabel: 'Minamoto',
+      backHref: '/',
+    };
+  </script>
+
+  <!-- React + Babel (same versions as the SORA v2 SPA, cache-shared) -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Minamoto modules -->
+  <script type="text/babel" src="/js/minamoto/common.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/i18n.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/shell.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/overview.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/blocks.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/transactions.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/accounts.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/domains.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/assets.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/peers.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/lanes.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/instructions.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/permissions.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/verbs.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/governance.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/ecosystem.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/crosschain.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/wallet.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/prometheus.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/routes.jsx"></script>
+  <script type="text/babel" src="/js/minamoto/main.jsx"></script>
+</body>
+</html>
