@@ -1,266 +1,89 @@
 # SoraMetrics
 
-Production-grade analytics dashboard for the [SORA Network](https://sora.org). Indexes on-chain data in real time, serves it through a REST + WebSocket API, and renders it in a responsive single-page frontend.
+Production analytics dashboard for the SORA ecosystem. Indexes on-chain data in real time, serves it through a REST + WebSocket API, and renders it in a responsive single-page frontend.
 
 **Live:** [sorametrics.org](https://www.sorametrics.org)
+
+Dual-network: tracks both **SORA v2 (Substrate)** mainnet and **Minamoto (Iroha 3 / SORA Nexus)** mainnet from the same backend.
+
+---
+
+## Overview
+
+A user landing on `sorametrics.org` is presented with two entry points:
+
+| Path | Network | Purpose |
+|------|---------|---------|
+| `/` | — | Landing page with two entry buttons |
+| `/sorav2` | SORA v2 (Substrate) | Full SPA: tokens, pools, swaps, transfers, governance, staking, portfolio, intelligence widgets |
+| `/minamoto` | Minamoto (Iroha 3) | Iroha 3 explorer: blocks, accounts, ISIs, domains, assets, peers, lanes, governance, permissions, prometheus |
+
+Both SPAs share the same Express server, the same PostgreSQL instance, and the same shell (PWA, i18n, dark/light theme, mobile drawer, deep-linking). They differ only in the data layer (`sm.*` vs `mn.*` schemas).
 
 ---
 
 ## Architecture
 
 ```
-Browser (SPA)            Server                    Blockchain
-┌──────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│ index.html   │◄──►│ index.js         │◄──►│ SORA Substrate Node │
-│ script.js    │ WS │ Express + Socket │ WS │ wss://ws.mof.sora   │
-│ sw.js (PWA)  │    │ .IO              │    └─────────────────────┘
-└──────────────┘    │                  │
-                    │ db_better.js     │    ┌─────────────────────┐
-                    │ SQLite (WAL)     │    │ backfiller.js       │
-                    │  ├ database_30d  │◄───│ backfiller_orderbook│
-                    │  └ database      │    │ (PM2 processes)     │
-                    └──────────────────┘    └─────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              Browser (SPA)                                   │
+│   /          → landing.html        (network selector)                        │
+│   /sorav2    → index.html          + js/*.jsx              (Substrate UI)   │
+│   /minamoto  → minamoto.html       + js/minamoto/*.jsx     (Iroha 3 UI)     │
+│   sw.js + manifest.json (PWA, offline-capable)                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+                          │ REST + Socket.IO
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         Node.js / Express server                             │
+│                              (index.js, port 3000)                           │
+│                                                                              │
+│  ┌─── SORA v2 routes ─────────────────────────────┐  ┌─── Minamoto ──────┐  │
+│  │ /tokens, /pools, /balance, /history/global/*,  │  │ /api/minamoto/*   │  │
+│  │ /governance/*, /burns/*, /stats/*,             │  │ (mounted from     │  │
+│  │ /chart/:symbol, /search, /polkamarkt/*,        │  │  minamoto/        │  │
+│  │ /stats/fee-config, /stats/fee-burns-live, …    │  │  routes.js)       │  │
+│  └────────────────────────────────────────────────┘  └───────────────────┘  │
+│                                                                              │
+│  ┌─── Adapters ────────────────────────────────────────────────────────────┐│
+│  │ blockchain.js       Polkadot/SORA WS client (failover via WS_ENDPOINTS)││
+│  │ db_pg.js            PostgreSQL backend (sm.* schema, async)            ││
+│  │ db_better.js        Legacy SQLite backend (kept for reference)         ││
+│  │ redis.js            Redis cache layer (price/identity TTL)             ││
+│  │ eth_helper.js       Ethereum RPC (Hashi v2 bridge events)              ││
+│  │ minamoto/torii_client.js   Iroha 3 Torii REST + Prometheus             ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────────────────────┘
+                          │
+       ┌──────────────────┼──────────────────────────────────────────┐
+       ▼                  ▼                                          ▼
+┌─────────────┐    ┌─────────────────────┐                  ┌───────────────────┐
+│ SORA Node   │    │ PostgreSQL 14       │                  │ Iroha 3 Torii     │
+│ wss://...   │    │ (Docker)            │                  │ minamoto.sora.org │
+│ + Hashi ETH │    │ ┌─ sm.*  (SORA v2) │                  │ + /metrics (Prom) │
+│             │    │ ├─ mn.*  (Minamoto)│                  │                   │
+│             │    │ └─ public.history_ │                  │                   │
+│             │    │      element       │                  │                   │
+│             │    │      (subsquid)    │                  │                   │
+└─────────────┘    └─────────────────────┘                  └───────────────────┘
 ```
-
-| Layer | File(s) | Role |
-|-------|---------|------|
-| **Frontend** | `index.html`, `script.js`, `sw.js` | SPA with Chart.js, LightweightCharts, Socket.IO client, html2canvas. PWA-capable. |
-| **API Server** | `index.js` | Express 5 REST API (52 endpoints) + Socket.IO real-time feed. |
-| **Database** | `db_better.js` | `better-sqlite3` with dual-DB strategy: 30-day rolling (`database_30d.db`) + full history (`database.db`). WAL mode, prepared statement cache, 256 MB mmap. |
-| **Indexers** | `backfiller.js`, `backfiller_orderbook.js` | Historical block processors. Batch-insert with transactions, resume via `backfill_state.json`. |
-| **Blockchain** | `blockchain.js`, `config.js` | `@polkadot/api` + `@sora-substrate/api` connection layer with auto-reconnect. |
-
----
-
-## Features
-
-### Dashboard Sections
-
-| Section | Description |
-|---------|-------------|
-| **Portfolio** | Multi-wallet net worth with donut chart, holdings table, LP summary, staking. Multi-currency (USD/EUR/XOR). |
-| **Swaps** | Global swap history with filters, token logos, USD values at TX time. |
-| **Transfers** | Transfer history across all indexed wallets. |
-| **Extrinsics** | Block explorer with section/method filters, success/failed status, detailed args JSON. Search by hash. |
-| **Order Book** | Limit order tracking (placed, executed, cancelled) with pair logos. |
-| **Pools** | Liquidity pool list sorted by TVL, provider rankings, pool activity. |
-| **Governance** | Council, Elections, Motions, Democracy, Technical Committee (5 sub-tabs). |
-| **Tokens** | Token list with price, supply, 24h change, sparkline charts. |
-| **Holders** | Per-token holder distribution with on-chain identity resolution. |
-
-### Cross-Cutting Features
-
-- **Real-time updates** via Socket.IO (new swaps, transfers, blocks).
-- **On-chain identity resolution** with 3-tier cache (memory 1h, DB 24h, RPC fallback).
-- **Deep links**: `#tx=HASH`, `#block=NUM`, `#wallet=ADDR`, `#pool=BASE-TARGET`.
-- **Share + Screenshot** buttons on all modal views.
-- **Candlestick charts** (LightweightCharts) with SMA/EMA overlays, 5m to 1D timeframes.
-- **PWA** with Service Worker caching and offline support.
-- **Multi-language** (EN/ES) with `data-i18n` attribute system.
-- **Dark theme** with CSS custom properties.
 
 ---
 
 ## Tech Stack
 
-| Category | Technology |
-|----------|-----------|
-| Runtime | Node.js |
-| HTTP | Express 5 |
-| Real-time | Socket.IO 4 |
-| Database | SQLite via `better-sqlite3` |
-| Blockchain | `@polkadot/api`, `@sora-substrate/api` |
-| Security | Helmet, CORS, rate limiting, input validation, XSS escaping |
-| Compression | gzip (`compression`) |
-| Process Manager | PM2 |
-| Charts | LightweightCharts, Chart.js |
-| Screenshots | html2canvas |
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= 18
-- npm
-
-### Installation
-
-```bash
-git clone https://github.com/Rubrum95/sorametrics.git
-cd sorametrics
-npm install
-```
-
-### Configuration
-
-Copy and edit the config file:
-
-```bash
-cp config.js config.local.js
-```
-
-Key variables in `config.js`:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WS_ENDPOINT` | `wss://ws.mof.sora.org` | SORA node WebSocket |
-| `WS_ENDPOINT_BACKFILL` | `wss://mof2.sora.org` | Separate node for historical indexing |
-| `PORT` | `3000` | HTTP server port |
-| `CORS_ORIGINS` | `''` | Comma-separated allowed origins |
-
-### Running
-
-```bash
-# Development
-npm start
-
-# Production (PM2)
-pm2 start ecosystem.config.js
-```
-
-This starts two processes:
-- `sorametrics` — API server on port 3000
-- `sorametrics-backfiller` — Historical block indexer
-
----
-
-## API Reference
-
-52 endpoints organized by domain:
-
-### Health & Meta
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Server health check |
-| GET | `/api/version` | Current version |
-
-### Tokens & Pools
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/tokens?page=&limit=` | Paginated token list with prices |
-| GET | `/pools?page=&limit=` | Pool list sorted by TVL |
-| GET | `/pool/providers?base=&target=&page=` | Pool liquidity providers |
-| GET | `/pool/activity?base=&target=` | Pool add/remove events |
-| GET | `/holders/:assetId?page=` | Token holder distribution |
-| GET | `/chart/:symbol?resolution=` | OHLCV candlestick data |
-
-### Wallet
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/balance/:address` | Token balances for address |
-| POST | `/balances` | Batch balance query |
-| GET | `/wallet/liquidity/:address` | LP positions |
-| GET | `/wallet/staking/:address` | Staking info (bonded, nominations) |
-| GET | `/identity/:address` | On-chain identity |
-
-### History
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/history/global/swaps` | Global swap feed |
-| GET | `/history/global/transfers` | Global transfer feed |
-| GET | `/history/global/bridges` | Global bridge feed |
-| GET | `/history/global/extrinsics` | Global extrinsic feed |
-| GET | `/history/global/orderbook` | Global order book events |
-| GET | `/history/global/liquidity` | Global liquidity events |
-| GET | `/history/swaps/:address` | Wallet swap history |
-| GET | `/history/transfers/:address` | Wallet transfer history |
-| GET | `/history/bridges/:address` | Wallet bridge history |
-| GET | `/history/extrinsics/:address` | Wallet extrinsic history |
-| GET | `/history/orderbook/:address` | Wallet order book history |
-| GET | `/search?q=` | Global search (hash, address, block) |
-
-### Statistics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/stats/overview` | Dashboard summary metrics |
-| GET | `/stats/header` | Header bar stats |
-| GET | `/stats/network` | Network stats (validators, era) |
-| GET | `/stats/network/trend` | Network trend data |
-| GET | `/stats/fees` | Fee statistics |
-| GET | `/stats/fees/trend` | Fee trend over time |
-| GET | `/stats/trending-tokens` | Top movers |
-| GET | `/stats/stablecoins` | Stablecoin metrics |
-| GET | `/stats/accumulation` | Accumulation data |
-| GET | `/currency-rates` | EUR/XOR exchange rates |
-
-### Governance
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/governance/council` | Council members |
-| GET | `/governance/elections` | Election candidates |
-| GET | `/governance/motions` | Active motions |
-| GET | `/governance/democracy` | Referenda |
-| GET | `/governance/technical-committee` | TC members |
-
-### Burns & Supply
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/burns/supply/:symbol` | Current total supply |
-| GET | `/burns/supply-history/:symbol` | Historical supply snapshots |
-| GET | `/burns/stats/:symbol` | Burn statistics |
-| GET | `/burns/fee-flow` | Fee distribution flow |
-
----
-
-## Database Schema
-
-Dual-database strategy with SQLite:
-
-- **`database_30d.db`** — Rolling 30-day window (fast queries for live dashboard)
-- **`database.db`** — Full historical archive (attached as `hist`)
-
-### Tables
-
-| Table | Key Columns | Purpose |
-|-------|-------------|---------|
-| `transfers` | block, from_address, to_address, amount, symbol, time | Transfer events |
-| `swaps` | block, caller, input/output symbol/amount, time | DEX swap events |
-| `bridges` | block, caller, symbol, amount, direction, network, time | Bridge events |
-| `fees` | block, caller, fee_amount, type, time | Transaction fees |
-| `extrinsics` | block, extrinsic_id, hash, section, method, signer, success, time | All extrinsics |
-| `liquidity` | block, caller, base/target assets, type, time | LP add/remove |
-| `orderbook` | block, caller, event_type, base/target, price, amount, time | Order book events |
-| `identities` | address, display, legal, web, twitter, updated_at | Cached on-chain identities |
-| `supply_snapshots` | symbol, total_supply, block, timestamp | Periodic supply records |
-| `burn_stats` | symbol, period, burned, block_start, block_end | Aggregated burn data |
-
-### Performance Tuning
-
-```sql
-PRAGMA journal_mode = WAL;
-PRAGMA synchronous = NORMAL;
-PRAGMA cache_size = -64000;    -- 64 MB
-PRAGMA mmap_size = 268435456;  -- 256 MB
-PRAGMA temp_store = MEMORY;
-```
-
----
-
-## Deployment
-
-The app runs on a VPS with PM2:
-
-```bash
-# Deploy files
-scp index.js script.js index.html sw.js user@server:/app/
-
-# Restart
-ssh user@server "pm2 restart sorametrics"
-```
-
-### PM2 Ecosystem
-
-```javascript
-// ecosystem.config.js
-{
-  apps: [
-    { name: 'sorametrics',            script: 'index.js',      max_memory_restart: '512M' },
-    { name: 'sorametrics-backfiller', script: 'backfiller.js',  max_memory_restart: '1G'   }
-  ]
-}
-```
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 20+ |
+| Web | Express 5, Socket.IO 4 |
+| Frontend | Vanilla React + Babel-standalone (in-browser JSX), Chart.js, LightweightCharts |
+| Database | PostgreSQL 14 (primary), SQLite (legacy/local fallback) |
+| Cache | Redis 7 (ioredis) |
+| SORA v2 RPC | `@polkadot/api`, `@sora-substrate/api` (WS, with failover) |
+| Iroha 3 | Torii REST + Prometheus scraping |
+| Process manager | PM2 |
+| Security | Helmet, CORS, rate limiting (60 req/min/IP), input validation |
+| PWA | Service Worker, manifest.json, offline cache |
+| i18n | `data-i18n` attribute system, 14 languages |
 
 ---
 
@@ -268,20 +91,302 @@ ssh user@server "pm2 restart sorametrics"
 
 ```
 sorametrics/
-├── index.js                  # Express API server + WebSocket
-├── index.html                # SPA frontend (HTML + CSS)
-├── script.js                 # Client-side JavaScript
-├── sw.js                     # Service Worker (PWA cache)
-├── db_better.js              # Database layer (better-sqlite3)
-├── backfiller.js             # Historical block indexer
-├── backfiller_orderbook.js   # Order book event indexer
-├── blockchain.js             # Polkadot/SORA API connection
-├── config.js                 # Environment configuration
-├── ecosystem.config.js       # PM2 process definitions
-├── package.json              # Dependencies
-├── manifest.json             # PWA manifest
-└── favicon.svg               # App icon
+├── index.js                     # Express + Socket.IO server (single entry point)
+├── index.html                   # SORA v2 SPA shell
+├── minamoto.html                # Minamoto SPA shell
+├── landing.html                 # Network selector landing
+├── styles.css                   # Shared v6 styles
+├── sw.js                        # Service Worker (PWA)
+├── manifest.json                # PWA manifest
+├── favicon.svg, header-banner.jpg
+│
+├── blockchain.js                # SORA WS connection (with WS_ENDPOINTS failover)
+├── config.js                    # Env-driven config
+├── db_pg.js                     # PostgreSQL backend (sm.* schema)
+├── db_better.js                 # Legacy SQLite backend (deprecated)
+├── redis.js                     # Redis cache helpers
+├── eth_helper.js                # Ethereum RPC for Hashi v2 bridge
+│
+├── ecosystem.config.js          # PM2 process definitions
+├── package.json
+│
+├── js/                          # SORA v2 frontend (React via Babel-standalone)
+│   ├── main.jsx                 # Entry point
+│   ├── shell.jsx                # App shell (nav, drawer, search)
+│   ├── routes.jsx               # Section routing
+│   ├── i18n.jsx                 # Translations + helpers
+│   ├── common.jsx               # Shared components (KpiGrid, MiniSpark, etc.)
+│   ├── pulse.jsx                # Network Pulse (live KPIs)
+│   ├── portfolio.jsx            # Multi-wallet portfolio
+│   ├── swaps.jsx                # Swaps + transfers + bridges
+│   ├── extrinsics.jsx           # Block explorer
+│   ├── intelligence.jsx         # Bridge/burn analytics widgets
+│   ├── tokens / pools / studio / tools / polkamarkt / xor_migration ...
+│   └── minamoto/                # Minamoto frontend (12 modules)
+│       ├── shell.jsx, routes.jsx, main.jsx, common.jsx, i18n.jsx
+│       ├── overview.jsx
+│       ├── blocks.jsx, transactions.jsx, accounts.jsx, domains.jsx, assets.jsx
+│       ├── peers.jsx, prometheus.jsx
+│       ├── governance.jsx, lanes.jsx, permissions.jsx, instructions.jsx
+│       ├── crosschain.jsx, ecosystem.jsx, verbs.jsx, wallet.jsx
+│
+├── minamoto/                    # Minamoto backend module
+│   ├── config.js                # Env-driven (TORII_BASE, intervals, retention)
+│   ├── torii_client.js          # HTTP wrapper (retry, timeout, 5s cache)
+│   ├── prom_parser.js           # Prometheus text → JSON (462 metrics)
+│   ├── db.js                    # pg Pool + parametrized CRUD (mn.* schema)
+│   ├── schema.sql               # Idempotent DDL (10 tables)
+│   ├── routes.js                # Express router for /api/minamoto/*
+│   └── indexer.js               # PM2 worker, 9 parallel polling jobs
+│
+├── backfiller.js                # SORA v2 historical block indexer
+├── backfiller_orderbook.js      # Order book historical indexer
+├── events_backfiller.js         # Events backfill helper
+├── supply-filler.js             # Token supply snapshots
+├── gap_filler_fees.js           # Fill gaps in fee history
+├── backfill_fees.js             # Fee history backfill
+├── fee_burns_indexer.js         # Live fee burn indexer (sm.fee_burns_live)
+├── preimage_indexer.js          # Governance preimage indexer
+│
+└── scripts/                     # One-off setup / maintenance scripts
+    ├── load_asset_registry.js   # Bootstrap sm.asset_registry (~962 assets)
+    ├── backfill_price_history.js
+    ├── backfill_xor_supply.js
+    ├── create_materialized_views.sql
+    ├── check_coverage.js
+    ├── debug_dai.js, fix_dai.js
+└── add_indices.sql              # Index additions for hot queries
 ```
+
+---
+
+## Database
+
+### PostgreSQL schemas
+
+| Schema | Source | Purpose |
+|--------|--------|---------|
+| `sm.*` | This codebase + `scripts/` | SORA v2 indexed data: live events, materialized views, asset registry, price history, fee burns, supply snapshots |
+| `mn.*` | `minamoto/schema.sql` | Minamoto (Iroha 3) state: blocks, transactions, accounts, domains, assets, peers, prometheus snapshots |
+| `public.history_element` | External `sora-subsquid` indexer | Raw SORA v2 events (canonical source). Reused via materialized views. |
+
+Strict schema isolation: `sm.*` and `mn.*` never cross-reference each other. Each network owns its data.
+
+### `sm.*` (SORA v2)
+
+| Table / View | Role |
+|--------------|------|
+| `sm.asset_registry` | 962 tokens (id, symbol, decimals, logo) bootstrapped from sora-xor whitelist |
+| `sm.price_history` | Hourly price buckets in USD (derived from DAI swap ratios) |
+| `sm.identity_cache` | Cached on-chain identities |
+| `sm.supply_snapshots` | Token supply over time |
+| `sm.live_swaps`, `sm.live_transfers`, `sm.live_bridges` | Real-time events from WS subscription |
+| `sm.fee_burns_live` | Per-block fee burn events |
+| `sm.polkamarkt_markets` / `_trades` / `_claims` | Polkamarkt scaffolding (feature-detected) |
+| `mv_swaps`, `mv_transfers`, `mv_bridges`, `mv_fees`, `mv_extrinsics`, `mv_liquidity`, `mv_orderbook` | 7 materialized views (~20 GB) for fast paginated queries |
+
+### `mn.*` (Minamoto)
+
+| Table | Role |
+|-------|------|
+| `mn.network_state` | Single-row latest network status |
+| `mn.blocks` | Block height, hash (BYTEA(32)), timestamp, transaction count |
+| `mn.transactions` | Transaction hash, authority, status, block height, fee_sponsor |
+| `mn.accounts` | Account ID, signatories, signature check condition |
+| `mn.assets`, `mn.asset_definitions` | Asset state (NUMERIC(78,0) for raw values) |
+| `mn.domains` | Domain registry (`name.dataspace`) |
+| `mn.peers` | Peer multiaddrs from `/peers` |
+| `mn.metrics_snapshots` | Prometheus scrape history (rolling 30 days) |
+| `mn.indexer_state` | Poll cursor + last-success timestamps per job |
+| `mn.schema_version` | Manual migration tracking |
+
+DDL is idempotent — safe to re-run. See [`minamoto/schema.sql`](minamoto/schema.sql).
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL 14 (the `sora-subsquid` Docker container is the typical deployment)
+- Redis 7
+- A reachable SORA v2 WebSocket endpoint (or run a local `sora2/substrate` node)
+- Optional: a reachable Minamoto Torii endpoint (`https://minamoto.sora.org` is public)
+
+### Install
+
+```bash
+git clone git@github.com:Rubrum95/sorametrics.git
+cd sorametrics
+npm install
+```
+
+### Configure
+
+```bash
+cp .env.example .env
+# Edit .env: set PG_*, WS_ENDPOINTS, MINAMOTO_TORII, etc.
+```
+
+All environment variables are documented in [`.env.example`](.env.example). Key ones:
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `PORT` | 3000 | HTTP server port |
+| `WS_ENDPOINTS` | `wss://ws.mof.sora.org,wss://mof2.sora.org` | Comma-separated, failover order |
+| `PG_HOST` / `PG_PORT` / `PG_USER` / `PG_PASS` / `PG_DB` | — | PostgreSQL connection |
+| `MINAMOTO_TORII` | `https://minamoto.sora.org` | Iroha 3 Torii base URL |
+| `ETH_RPC_URL` | — | Required only for Hashi v2 bridge indexer |
+
+### Initialize database
+
+```bash
+# Create sm.* schema (run psql or your migration tool)
+psql -f scripts/create_materialized_views.sql
+
+# Bootstrap asset registry
+node scripts/load_asset_registry.js
+
+# Optional: backfill price history (~246K hourly records)
+node scripts/backfill_price_history.js
+
+# Create mn.* schema (Minamoto)
+psql -f minamoto/schema.sql
+```
+
+### Run
+
+```bash
+# Development (single process)
+npm start
+
+# Production (PM2)
+pm2 start ecosystem.config.js
+```
+
+---
+
+## PM2 Processes
+
+| Name | Script | Memory | Role |
+|------|--------|--------|------|
+| `sorametrics-api` | `index.js` | 512 MB | Express API + WebSocket server (port 3000) |
+| `sorametrics-backfill` | `backfiller.js` | 1 GB | SORA v2 historical block indexer |
+| `sorametrics-preimage-indexer` | `preimage_indexer.js` | 512 MB | Governance preimage tracker |
+| `sorametrics-minamoto-indexer` | `minamoto/indexer.js` | 512 MB | Minamoto Torii poller (9 parallel jobs) |
+
+`fee_burns_indexer.js` is currently triggered manually or via cron — not registered in PM2.
+
+---
+
+## API Reference
+
+### SORA v2 (Substrate)
+
+#### Health & meta
+- `GET /health`
+- `GET /api/version`
+- `GET /health/rpc-source` — current active WS endpoint, primary/secondary status
+
+#### Tokens & pools
+- `GET /tokens?page=&limit=` — paginated token list with prices
+- `GET /pools?page=&limit=` — pools sorted by TVL
+- `GET /pool/providers?base=&target=&page=` — pool LP providers
+- `GET /pool/activity?base=&target=` — add/remove liquidity events
+- `GET /holders/:assetId?page=` — holder distribution
+- `GET /chart/:symbol?resolution=` — OHLCV candlestick data
+
+#### Wallet
+- `GET /balance/:address` — token balances
+- `POST /balances` — batch balance query
+- `GET /wallet/liquidity/:address` — LP positions
+- `GET /wallet/staking/:address` — bonded amount, nominations
+- `GET /identity/:address` — on-chain identity
+
+#### History
+- `GET /history/global/{swaps,transfers,bridges,extrinsics,orderbook,liquidity}`
+- `GET /history/{swaps,transfers,bridges,extrinsics,orderbook}/:address`
+- `GET /search?q=` — global search by hash, address, or block
+
+#### Statistics
+- `GET /stats/{overview,header,network,fees,trending-tokens,stablecoins,accumulation}`
+- `GET /stats/network/trend`, `GET /stats/fees/trend`
+- `GET /stats/fee-config` — on-chain xorFee weights
+- `GET /stats/fee-burns-live` — live fee burn events
+- `GET /currency-rates` — EUR/XOR exchange rates
+
+#### Governance
+- `GET /governance/{council,elections,motions,democracy,technical-committee}`
+
+#### Burns & supply
+- `GET /burns/supply/:symbol`, `/burns/supply-history/:symbol`
+- `GET /burns/stats/:symbol`, `/burns/fee-flow`
+
+#### Polkamarkt (feature-detected, awaits runtime ≥ 4.8.x)
+- `GET /polkamarkt/{state,markets,market/:id,positions/:addr}`
+
+### Minamoto (Iroha 3) — `/api/minamoto/*`
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /api/minamoto/health` | Indexer + Torii reachability |
+| `GET /api/minamoto/status` | Live status + last indexed snapshot |
+| `GET /api/minamoto/network-state` | Latest single-row state |
+| `GET /api/minamoto/blocks?page=&limit=` | Paginated blocks |
+| `GET /api/minamoto/transactions?page=&limit=` | Paginated transactions |
+| `GET /api/minamoto/accounts` | Account list |
+| `GET /api/minamoto/accounts/:id/{assets,permissions,transactions}` | Per-account drill-in |
+| `GET /api/minamoto/domains` | Domain registry |
+| `GET /api/minamoto/assets` | Asset list with definitions |
+| `GET /api/minamoto/peers` | Multiaddr peer list |
+| `GET /api/minamoto/permissions/{stats,grants}` | Permission grant stats + paginated grants |
+| `GET /api/minamoto/lane-staking/lifecycle` | Public lane staking events |
+| `GET /api/minamoto/sumeragi/roles` | Empirical leader + voter roles |
+| `GET /api/minamoto/transactions/fee-sponsorship` | Sponsored tx analytics |
+| `GET /api/minamoto/prometheus/{metrics,snapshot}` | Prometheus passthrough |
+| `GET /api/minamoto/indexer/state` | Per-job last-success cursors |
+
+### Real-time (Socket.IO)
+
+The server emits real-time events for SORA v2: `new_swap`, `new_transfer`, `new_bridge`, `new_block`, `new_extrinsic`. The client connects on the same origin.
+
+---
+
+## Indexer Architecture
+
+### SORA v2
+
+- **Live (push)**: WebSocket subscription in `index.js` writes to `sm.live_*` and broadcasts via Socket.IO.
+- **Backfill (pull)**: `backfiller.js` walks block ranges newest→oldest, batch-inserts into materialized views. State persists in `backfill_state.json` (gitignored) so restarts resume.
+- **Specialized**: `preimage_indexer.js` tracks governance preimages; `fee_burns_indexer.js` tracks per-block fee burn breakdown.
+
+### Minamoto
+
+`minamoto/indexer.js` runs 9 parallel polling jobs against the Torii REST API. Each job has its own interval (`MINAMOTO_POLL_*_MS` env vars):
+
+| Job | Default interval | Source |
+|-----|------------------|--------|
+| `network_state` | 10s | `/v1/explorer/metrics` + `/status` |
+| `blocks` | 15s | `/v1/explorer/blocks?page=...` |
+| `transactions` | 15s | `/v1/explorer/transactions?page=...` |
+| `accounts` | 60s | `/v1/explorer/accounts` |
+| `domains` | 5min | `/v1/explorer/domains` |
+| `assets` | 5min | `/v1/explorer/assets` |
+| `peers` | 30s | `/peers` |
+| `prometheus` | 15s | `/metrics` (parsed to JSON) |
+
+Each job recovers FK violations silently and bumps `mn.indexer_state` on success.
+
+---
+
+## Security Notes
+
+- All input validated; query params clamped (`limit ≤ 100`, `page ≥ 0`, `offset ≤ 500K`).
+- Rate limiting: 60 req/min/IP via Helmet middleware.
+- SSRF-protected image proxy for token logos.
+- No secrets in code: all credentials via env vars (`.env` is gitignored).
+- Music assets in `music/` are deployed separately via SCP (gitignored, large files).
 
 ---
 
