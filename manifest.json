@@ -1,17 +1,18 @@
 {
-    "name": "SoraMetrics",
-    "short_name": "SoraMetrics",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#F3F4F6",
-    "theme_color": "#9B1B30",
-    "orientation": "portrait",
-    "icons": [
-        {
-            "src": "/favicon.svg",
-            "sizes": "any",
-            "type": "image/svg+xml",
-            "purpose": "any maskable"
-        }
-    ]
+  "name": "SoraMetrics",
+  "short_name": "SoraMetrics",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07070a",
+  "theme_color": "#9B1B30",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

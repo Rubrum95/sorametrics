@@ -1,4 +1,3 @@
-const { cacheGet, cacheSet } = require("./redis");
 const express = require('express');
 const http = require('http');
 const fs = require('fs');
@@ -6,8 +5,13 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
-const { initApi } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, getBurnStatsFromChain, getSupplySnapshotDelta, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd, getWalletInfo, getExportData, updatePriceHistory } = require('./db_pg');
+const { initApi, getActiveEndpoint } = require('./blockchain');
+const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, getBurnStatsFromChain, getSupplySnapshotDelta, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd, getWalletInfo, getExportData, updatePriceHistory, initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow, initPolkamarktSchema, pmInsertMarket, pmUpdateMarketStatus, pmInsertTrade, pmInsertClaim, pmGetTotals, pmGetMarkets, pmGetMarketDetail, pmGetUserPositions } = require('./db_pg');
+const { startFeeBurnsIndexer } = require("./fee_burns_indexer");
+const { Pool: _PgPool } = require("pg");
+const { ApiPromise: _ApiPromise, WsProvider: _WsProvider } = require("@polkadot/api");
+const { options: _soraOptions } = require("@sora-substrate/api");
+const { blake2AsHex } = require("@polkadot/util-crypto");
 // ... (imports)
 
 
@@ -62,15 +66,40 @@ const app = express();
 
 // --- SECURITY HEADERS ---
 const helmet = require('helmet');
+// v6 frontend loads React + ReactDOM + Babel standalone + Socket.IO from
+// CDNs (unpkg, cdn.socket.io, cloudflareinsights), plus Google Fonts for
+// Inter/JetBrains Mono. Whitelist those explicitly so the CSP doesn't
+// block them. Without this entire dashboard renders blank (React never
+// boots, stylesheet MIME is rejected).
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net", "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://googletagmanager.com"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: [
+                "'self'", "'unsafe-inline'",
+                "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net",
+                "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://googletagmanager.com",
+                "https://unpkg.com", "https://cdn.socket.io",
+                "https://static.cloudflareinsights.com",
+            ],
+            scriptSrcElem: [
+                "'self'", "'unsafe-inline'",
+                "https://cdnjs.cloudflare.com", "https://cdn.jsdelivr.net",
+                "https://www.googletagmanager.com", "https://www.google-analytics.com", "https://googletagmanager.com",
+                "https://unpkg.com", "https://cdn.socket.io",
+                "https://static.cloudflareinsights.com",
+            ],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            styleSrcElem: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             imgSrc: ["'self'", "data:", "https://raw.githubusercontent.com", "https://avatars.githubusercontent.com", "https://www.googletagmanager.com", "https://www.google-analytics.com"],
-            connectSrc: ["'self'", "wss:", "ws:", "https://www.google-analytics.com", "https://analytics.google.com", "https://www.googletagmanager.com"],
-            fontSrc: ["'self'"],
+            // Include CDN origins so source-map fetches (unpkg, cdn.socket.io,
+            // cdn.jsdelivr.net) don't spam the console with CSP errors.
+            connectSrc: [
+                "'self'", "wss:", "ws:",
+                "https://www.google-analytics.com", "https://analytics.google.com", "https://www.googletagmanager.com",
+                "https://unpkg.com", "https://cdn.socket.io", "https://cdn.jsdelivr.net",
+            ],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
             scriptSrcAttr: ["'unsafe-inline'"],
             upgradeInsecureRequests: null,
         }
@@ -95,14 +124,52 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 // --- STATIC FILES: Solo servir archivos frontend, no código backend ---
+// v6 frontend adds /styles.css and /js/*.jsx files on top of the legacy
+// /script.js. Without them whitelisted express falls through to the 404
+// handler and the browser gets text/html for an asset it expected as CSS
+// or JS, tanking the whole render.
 const path = require('path');
-const ALLOWED_STATIC = new Set(['/', '/index.html', '/script.js', '/sw.js', '/manifest.json', '/favicon.svg', '/header-banner.jpg']);
+// Note: '/' is INTENTIONALLY NOT in this set. Express.static would map '/' →
+// /index.html (default index lookup) and shadow our `app.get('/')` route that
+// serves landing.html. Same reason '/sorav2' and '/minamoto' aren't here —
+// each goes through its own app.get(...) handler below.
+const ALLOWED_STATIC = new Set([
+    '/index.html', '/script.js', '/sw.js', '/manifest.json', '/favicon.svg', '/header-banner.jpg',
+    '/styles.css',
+    // Network landing + Minamoto SPA shell (served as files when requested by name,
+    // but the clean routes /, /sorav2, /minamoto are handled by app.get below).
+    '/landing.html', '/minamoto.html',
+]);
 app.use((req, res, next) => {
-    if (req.method === 'GET' && (ALLOWED_STATIC.has(req.path) || (req.path.startsWith('/music/') && !req.path.includes('..')))) {
-        return express.static(__dirname)(req, res, next);
-    }
+    // Must accept HEAD as well as GET — Cloudflare issues HEAD requests to
+    // check cache freshness before GET, and if HEAD 404s CF caches the
+    // 404 and serves it for subsequent GETs. That's what dropped the
+    // stylesheet and the JSX modules ("MIME text/html" on the browser).
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const p = req.path;
+    const isStatic = ALLOWED_STATIC.has(p)
+        || (p.startsWith('/music/') && !p.includes('..'))
+        // v6 JSX modules (e.g. /js/intelligence.jsx). Tight regex to prevent
+        // traversal and only allow leaf .jsx files under /js/.
+        || /^\/js\/[a-zA-Z0-9_.-]+\.jsx$/.test(p)
+        // Minamoto JSX modules (/js/minamoto/<name>.jsx). Same anti-traversal regex.
+        || /^\/js\/minamoto\/[a-zA-Z0-9_.-]+\.jsx$/.test(p);
+    if (isStatic) return express.static(__dirname)(req, res, next);
     next();
 });
+
+// --- MINAMOTO API ROUTER (mn schema, isolated from sm.* / SORA v2) ---
+try {
+    const _mnRouter = require('./minamoto/routes');
+    app.use('/api/minamoto', _mnRouter);
+    // Alias so the v2 SPA can hit the SAME data without crossing namespaces in
+    // its head. Both networks share the migration registry — the data is
+    // identical, only the UI orientation differs.
+    app.use('/api/sorav2/xor-migration', _mnRouter);
+    console.log('✅ /api/minamoto router mounted');
+} catch (e) {
+    console.error('⚠️ Minamoto router failed to mount:', e.message);
+}
 
 // --- MUSIC PLAYLIST ENDPOINT ---
 app.get('/music/list', (req, res) => {
@@ -193,6 +260,37 @@ app.get('/health', rateLimit(30, 60000), (req, res) => {
         uptime: Math.floor(process.uptime()),
         wsConnected: !!(api && api.isConnected),
         timestamp: Date.now()
+    });
+});
+
+// --- RPC SOURCE ENDPOINT ---
+// Tells the frontend which WS endpoint is currently servicing the indexer.
+// The pill in the sidebar reads this to show "Sorametrics node" when we're
+// on the local container or "Fallback: <host>" when WsProvider has rotated
+// to a public node. Loopback (127.0.0.1) is treated as the local case.
+app.get('/health/rpc-source', rateLimit(60, 60000), (req, res) => {
+    const { WS_ENDPOINTS } = require('./config');
+    const active = getActiveEndpoint();
+    let label = 'unknown';
+    let isPrimary = false;
+    let isLocal = false;
+    if (active) {
+        isPrimary = WS_ENDPOINTS && active === WS_ENDPOINTS[0];
+        isLocal = /^ws:\/\/(127\.0\.0\.1|localhost)/.test(active);
+        if (isLocal) label = 'sorametrics';
+        else {
+            // Strip protocol + path for a friendly "host" label.
+            const host = active.replace(/^wss?:\/\//, '').replace(/\/.*$/, '');
+            label = host;
+        }
+    }
+    res.json({
+        active,                      // full URL, e.g. "ws://127.0.0.1:9944"
+        label,                        // friendly: "sorametrics" | "ws.mof.sora.org" | …
+        isPrimary,                    // true when we're on endpoint[0]
+        isLocal,                      // true when host is loopback
+        connected: !!(api && api.isConnected),
+        endpoints: WS_ENDPOINTS,
     });
 });
 
@@ -344,11 +442,11 @@ let activityCache = { data: null, timestamp: 0 };
 
 // LP & Staking caches to avoid scanning 432 pools on every request
 let poolPropertiesCache = { data: null, timestamp: 0 }; // Global pool properties (same for all wallets)
-const POOL_PROPS_TTL = 5 * 60 * 1000; // 5 min
+const POOL_PROPS_TTL = 30 * 60 * 1000; // 30 min — pool list rarely changes (only via governance)
 let liquidityCache = {}; // Per-address LP results: { address: { data, timestamp } }
 let stakingCache = {};   // Per-address staking results: { address: { data, timestamp } }
 let walletInfoCache = {}; // Per-address wallet info: { address: { data, timestamp } }
-const LP_STAKING_TTL = 3 * 60 * 1000; // 3 min per-address cache
+const LP_STAKING_TTL = 15 * 60 * 1000; // 15 min — LP positions only change when the user transacts
 
 const SWAPS_TTL = 24 * 1000;    // 24s
 const TRANSFERS_TTL = 60 * 1000; // 60s
@@ -839,9 +937,22 @@ async function getTokenPriceInXor(assetId, tokenDecimals) {
 }
 
 
+// Token price in DAI via liquidityProxy.quote(). This matches what
+// Polkaswap itself displays to users (same primitive). With an
+// infinitesimal input (0.000001 × 10^decimals) the quote approaches mid
+// price and the result is almost independent of pool depth, which is
+// exactly what we want for a dashboard.
+//
+// Why quote() instead of reserves ratio:
+//   · Multi-hop routing — if TOKEN/DAI pool doesn't exist, SORA finds
+//     the best path automatically (TOKEN → XOR → DAI, or via XSTUSD).
+//   · Multi-DEX — picks best between XYK / TBC / XST / OB.
+//   · Honest — pool fees (0.3%) are already baked into the output.
+//   · Consistent — same call Polkaswap uses, same numbers the user sees.
+//
+// Cache is keyed by assetId + decimals, 60s TTL (same as legacy impl).
 async function getPriceInDai(assetId, decimals) {
     try {
-        // CHECK CACHE FIRST - evitar queries innecesarias
         const cacheKey = `${assetId}_${decimals}`;
         if (!getPriceInDai.cache) getPriceInDai.cache = {};
         const cached = getPriceInDai.cache[cacheKey];
@@ -849,56 +960,48 @@ async function getPriceInDai(assetId, decimals) {
             return cached.price;
         }
 
-        if (assetId === DAI_ID) return 1;
-        if (!api) return 0;
-
-        // --- SPECIAL CASE: XST ---
-        // The XOR-XST pool is deprecated or unbalanced. Use XST-XSTUSD pool instead.
-        if (assetId === XST_ID) {
-            // 1. Get XSTUSD Price in DAI
-            const xstusdPrice = await getPriceInDai(XSTUS_ID, 18);
-            if (xstusdPrice === 0) {
-                // Fallback? If XSTUSD is 0 (due to XOR=0), we can't calculate.
-                // console.log('XSTUSD Price is 0, defaulting XST to 0');
-                return 0;
-            }
-
-            // 2. Get XST Price relative to XSTUSD (XST-XSTUSD pool)
-            // Pair order: XSTUSD (0x020008...) < XST (0x020009...)
-            const reserves = await withTimeout(api.query.poolXYK.reserves(XSTUS_ID, XST_ID));
-
-            if (reserves && reserves.length >= 2) {
-                const baseRes = new BigNumber(reserves[0].toString()); // XSTUSD
-                const targetRes = new BigNumber(reserves[1].toString()); // XST
-                if (!targetRes.isZero()) {
-                    const baseNormal = baseRes.div('1e18');
-                    const targetNormal = targetRes.div('1e18'); // Both 18 dec
-                    const priceInXstUsd = baseNormal.div(targetNormal).toNumber();
-                    
-                    const finalPrice = priceInXstUsd * xstusdPrice;
-                    getPriceInDai.cache[cacheKey] = { price: finalPrice, ts: Date.now() };
-                    return finalPrice;
-                }
-            }
+        if (assetId === DAI_ID) {
+            getPriceInDai.cache[cacheKey] = { price: 1, ts: Date.now() };
+            return 1;
         }
-        // -------------------------
+        if (!api || !api.rpc?.liquidityProxy?.quote) return 0;
 
-        // 1. Get XOR Price in DAI (Anchor)
-        const xorPrice = await getXorPriceInDai();
-        if (assetId === XOR_ID) {
-            getPriceInDai.cache[cacheKey] = { price: xorPrice, ts: Date.now() };
-            return xorPrice;
+        // Input amount = 0.000001 × 10^decimals (infinitesimal vs. any pool
+        // size). Raw value is 10^(decimals - 6). BigInt keeps precision for
+        // the 18-decimal assets SORA uses.
+        const decInt = Number(decimals) || 18;
+        const rawIn = (10n ** BigInt(Math.max(decInt - 6, 0))).toString();
+
+        // DEX 0 + filter 'Disabled' + empty selected sources = "try every
+        // DEX / every pair, pick the best path". That's what the Polkaswap
+        // UI passes.
+        const quoted = await withTimeout(
+            api.rpc.liquidityProxy.quote(0, assetId, DAI_ID, rawIn, 'WithDesiredInput', [], 'Disabled')
+        );
+        const j = quoted.toJSON();
+        const amountOutRaw = j?.amount;
+        if (amountOutRaw == null) {
+            getPriceInDai.cache[cacheKey] = { price: 0, ts: Date.now() };
+            return 0;
         }
-        if (xorPrice === 0) return 0;
 
-        // 2. Get Token Price relative to XOR
-        const tokenPriceInXor = await getTokenPriceInXor(assetId, decimals);
-        const finalPrice = tokenPriceInXor * xorPrice;
-        getPriceInDai.cache[cacheKey] = { price: finalPrice, ts: Date.now() };
-        return finalPrice;
+        // DAI is 18 decimals. price_USD = (out_DAI_raw / 1e18) / 0.000001.
+        // Equivalently: price_USD = out_DAI_raw / 10^(18 - 6) = out / 1e12.
+        // We use BigNumber for safety on exotic decimals.
+        const outBN = new BigNumber(String(amountOutRaw));
+        const inputReadable = new BigNumber('0.000001');
+        const outputReadable = outBN.div(new BigNumber(10).pow(18));
+        const price = outputReadable.div(inputReadable).toNumber();
+
+        const safePrice = Number.isFinite(price) && price > 0 ? price : 0;
+        getPriceInDai.cache[cacheKey] = { price: safePrice, ts: Date.now() };
+        return safePrice;
 
     } catch (e) {
-        console.error(`CRITICAL ERROR in getPriceInDai for ${assetId}:`, e);
+        // A quote failure typically means no path exists (new / illiquid
+        // token). Cache 0 briefly so we don't hammer the node with retries.
+        if (!getPriceInDai.cache) getPriceInDai.cache = {};
+        getPriceInDai.cache[`${assetId}_${decimals}`] = { price: 0, ts: Date.now() };
         return 0;
     }
 }
@@ -1396,13 +1499,15 @@ app.get('/holders/:assetId', validateAssetId, rateLimit(15, 60000), async (req, 
     }
 });
 
-app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
+app.get("/wallet/liquidity/:address", validateAddress, rateLimit(300, 60000), async (req, res) => {
     if (!api) return res.status(500).json({ error: 'API not ready' });
     const address = req.params.address;
 
-    // Redis cache check (3 min TTL)
-    const cached = await cacheGet("wallet:liq:" + address);
-    if (cached) return res.json(cached);
+    // Per-address cache check (3 min TTL)
+    const cached = liquidityCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
 
     try {
         console.log(`Liquidity Check Start: ${address}`);
@@ -1512,7 +1617,7 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
         const result = poolsData.sort((a, b) => b.value - a.value);
         console.log(`Liquidity Scan Finished. Found ${result.length} records. (cached for ${LP_STAKING_TTL / 1000}s)`);
         // Cache per-address result
-        await cacheSet("wallet:liq:" + address, result, 180);
+        liquidityCache[address] = { data: result, timestamp: Date.now() };
         res.json(result);
     } catch (e) {
         console.error("Error fetching wallet liquidity:", e);
@@ -1521,13 +1626,15 @@ app.get('/wallet/liquidity/:address', validateAddress, rateLimit(60, 60000), asy
 });
 
 // Native staking info for a wallet
-app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
+app.get("/wallet/staking/:address", validateAddress, rateLimit(300, 60000), async (req, res) => {
     if (!api) return res.json({ staked: 0, unbonding: 0, rewards: 0, usdValue: 0 });
     const address = req.params.address;
 
-    // Redis cache check (3 min TTL)
-    const cached = await cacheGet("wallet:staking:" + address);
-    if (cached) return res.json(cached);
+    // Per-address cache check (3 min TTL)
+    const cached = stakingCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
 
     try {
         // Check if address is a stash (bonded to a controller)
@@ -1581,7 +1688,7 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
             validators
         };
         // Cache per-address result
-        await cacheSet("wallet:staking:" + address, result, 180);
+        stakingCache[address] = { data: result, timestamp: Date.now() };
         res.json(result);
     } catch (e) {
         console.error("Error fetching staking info:", e.message);
@@ -1590,10 +1697,12 @@ app.get('/wallet/staking/:address', validateAddress, rateLimit(60, 60000), async
 });
 
 // Wallet Info (aggregate stats)
-app.get('/wallet/info/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
+app.get("/wallet/info/:address", validateAddress, rateLimit(300, 60000), async (req, res) => {
     const address = req.params.address;
-    const cached = await cacheGet("wallet:info:" + address);
-    if (cached) return res.json(cached);
+    const cached = walletInfoCache[address];
+    if (cached && Date.now() - cached.timestamp < LP_STAKING_TTL) {
+        return res.json(cached.data);
+    }
     try {
         const info = await getWalletInfo(address);
         if (!info) return res.json({ error: 'No data' });
@@ -1615,7 +1724,7 @@ app.get('/wallet/info/:address', validateAddress, rateLimit(60, 60000), async (r
             whaleScore, whaleTier,
             whaleBreakdown: { volume: volumeScore, frequency: freqScore, diversity: divScore }
         };
-        await cacheSet("wallet:info:" + address, result, 180);
+        walletInfoCache[address] = { data: result, timestamp: Date.now() };
         res.json(result);
     } catch (e) {
         console.error('Error /wallet/info:', e.message);
@@ -1666,11 +1775,9 @@ app.get('/currency-rates', rateLimit(10, 60000), (req, res) => {
     }).on('error', () => res.json({ EUR: eurRateCache.rate }));
 });
 
-app.get('/balance/:address', validateAddress, rateLimit(60, 60000), async (req, res) => {
+app.get("/balance/:address", validateAddress, rateLimit(300, 60000), async (req, res) => {
     if (!api) return res.json([]);
     const address = req.params.address;
-    const _bcached = await cacheGet(`balance:${address}`);
-    if (_bcached) return res.json(_bcached);
     const balances = [];
     try {
         const { data: { free: xorFree } } = await withTimeout(api.query.system.account(address));
@@ -1702,7 +1809,6 @@ app.get('/balance/:address', validateAddress, rateLimit(60, 60000), async (req, 
             }
         }
         balances.sort((a, b) => parseFloat(b.usdValue) - parseFloat(a.usdValue));
-        await cacheSet(`balance:${address}`, balances, 120);
         res.json(balances);
     } catch (e) { res.json([]); }
 });
@@ -1916,7 +2022,14 @@ app.get('/history/orderbook/:address', validateAddress, rateLimit(30, 60000), as
 });
 
 // --- EXTRINSICS ENDPOINTS ---
-app.get('/history/global/extrinsics', rateLimit(30, 60000), async (req, res) => {
+// Caché por params (clave única por combinación). 10s TTL — extrinsics
+// nuevos llegan a la live_extrinsics constantemente, pero 10s de stale es
+// imperceptible y reduce drásticamente la carga DB cuando varios componentes
+// consultan a la vez (network pulse + extrinsics tab + drill panels).
+const _extrCache = new Map();
+const EXTR_TTL_MS = 10_000;
+
+app.get('/history/global/extrinsics', rateLimit(60, 60000), async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
@@ -1925,7 +2038,20 @@ app.get('/history/global/extrinsics', rateLimit(30, 60000), async (req, res) => 
         const timestamp = req.query.timestamp ? parseInt(req.query.timestamp) : null;
         const block = req.query.block ? parseInt(req.query.block) : null;
         const success = req.query.success !== undefined ? parseInt(req.query.success) : null;
+
+        const key = `${page}|${limit}|${section}|${method}|${timestamp}|${block}|${success}`;
+        const cached = _extrCache.get(key);
+        if (cached && Date.now() - cached.ts < EXTR_TTL_MS) {
+            return res.json(cached.data);
+        }
         const result = await getLatestExtrinsics(page, limit, section, timestamp, block, success, method);
+        _extrCache.set(key, { ts: Date.now(), data: result });
+        // Cap cache size — most users hit a few combinations, but no need to
+        // hold thousands of stale entries.
+        if (_extrCache.size > 200) {
+            const firstKey = _extrCache.keys().next().value;
+            if (firstKey) _extrCache.delete(firstKey);
+        }
         res.json(result);
     } catch (e) {
         console.error('Error /history/global/extrinsics:', e);
@@ -2365,9 +2491,6 @@ app.get('/stats/accumulation', rateLimit(15, 60000), async (req, res) => {
 
 app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
     try {
-        const _cached = await cacheGet("stats:network");
-        if (_cached) return res.json(_cached);
-
 
         // Snapshot de 24h
         const stats24h = await getNetworkStats(86400000);
@@ -2378,68 +2501,55 @@ app.get('/stats/network', rateLimit(20, 60000), async (req, res) => {
         // Para TPS Real, deberíamos tomar los últimos X bloques, pero esto sirve de media diaria.
         const tps = stats24h.txCount / 86400;
 
-        const _result = {
+        res.json({
             stats24h,
             stats7d,
             tps: tps.toFixed(2)
-        };
-        await cacheSet("stats:network", _result, 15);
-        res.json(_result);
+        });
     } catch (e) {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
-    // Un endpoint agregado para el Dashboard
-    try {
+// Cache + parallel fetch — overview was 10s cold (4 sequential DB queries
+// without cache). Each timeframe gets its own bucket. 30s TTL is fine since
+// the dashboard is meant to be a snapshot, not real-time.
+const _overviewCache = new Map();
+const OVERVIEW_TTL_MS = 30_000;
 
-        // Parse timeframe from query
+app.get('/stats/overview', rateLimit(60, 60000), async (req, res) => {
+    try {
         const timeframe = req.query.timeframe || '1d';
-        const _ovck = `stats:overview:${timeframe}`;
-        const _ovcached = await cacheGet(_ovck);
-        if (_ovcached) return res.json(_ovcached);
         const ms = TIMEFRAME_MS[timeframe] || 86400000;
 
-        // 1. Stablecoin Pegs (Live from tokenPrices)
+        // Cache key per timeframe so /stats/overview?timeframe=1d and ?timeframe=7d
+        // dont share entries.
+        const cached = _overviewCache.get(timeframe);
+        if (cached && Date.now() - cached.ts < OVERVIEW_TTL_MS) {
+            return res.json(cached.data);
+        }
+
         const kusdPeg = tokenPrices['KUSD'] || 0;
         const xstusdPeg = tokenPrices['XSTUSD'] || 0;
         const tbcdPeg = tokenPrices['TBCD'] || 0;
 
-        // 2. Network Stats (timeframe-based)
-        const netStats = await getNetworkStats(ms);
+        // Parallelise the 4 DB queries (was 4× sequential, ~10s cold).
+        const [netStats, lpVolume, transferVolume, trends] = await Promise.all([
+            getNetworkStats(ms).catch(() => ({})),
+            getLpVolume(ms).catch(() => 0),
+            getTransferVolume(ms).catch(() => 0),
+            getMarketTrends(ms).catch(() => ({})),
+        ]);
 
-        // 3. LP Volume (timeframe-based)
-        let lpVolume = 0;
-        try {
-            lpVolume = await getLpVolume(ms);
-        } catch (e) { /* silently ignore if function not exists */ }
-
-        // 4. Transfer Volume (timeframe-based)
-        let transferVolume = 0;
-        try {
-            transferVolume = await getTransferVolume(ms);
-        } catch (e) { /* silently ignore if function not exists */ }
-
-        // 5. Trends (timeframe-based)
-        const trends = await getMarketTrends(ms);
-
-        const _ovresult = {
-            pegs: {
-                KUSD: kusdPeg,
-                XSTUSD: xstusdPeg,
-                TBCD: tbcdPeg
-            },
-            network: {
-                ...netStats,
-                lpVolume: lpVolume,
-                transferVolume: transferVolume
-            },
-            trends: trends
+        const data = {
+            pegs: { KUSD: kusdPeg, XSTUSD: xstusdPeg, TBCD: tbcdPeg },
+            network: { ...netStats, lpVolume, transferVolume },
+            trends,
         };
-        await cacheSet(_ovck, _ovresult, 20);
-        res.json(_ovresult);
+        _overviewCache.set(timeframe, { ts: Date.now(), data });
+        res.json(data);
     } catch (e) {
+        console.error('Error /stats/overview:', e.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -2447,23 +2557,1118 @@ app.get('/stats/overview', rateLimit(20, 60000), async (req, res) => {
 app.get('/stats/header', rateLimit(30, 60000), async (req, res) => {
     try {
         const timeframe = req.query.timeframe || '1d';
-        const _hck = `stats:header:${timeframe}`;
-        const _hcached = await cacheGet(_hck);
-        if (_hcached) return res.json(_hcached);
         const ms = TIMEFRAME_MS[timeframe];
         const startTime = (ms === undefined || ms === 0) ? 0 : (Date.now() - ms);
 
         const stats = await getFilteredStats(startTime);
 
-        const _result = {
+        res.json({
             block: sessionStats.block,
             swaps: stats.swaps,
             transfers: stats.transfers,
             bridges: stats.bridges
-        };
-        await cacheSet(_hck, _result, 15);
-        res.json(_result);
+        });
     } catch (e) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Live fee config read from chain storage. Cached 60s so every page load
+// doesn't hammer the WS node. Exposes the two multipliers (congestion +
+// governance-set), the current remint accumulators, RemintPeriod, and real
+// paymentInfo samples per extrinsic class. SORA fees are flat per class
+// (transfer = swap = 0.1 XOR currently, bridge = 1 XOR) — NOT linear in
+// weight, confirmed by live probe. The governance multiplier changes via
+// runtime upgrade / council motion so the widget can show it explicitly.
+let _feeConfigCache = { ts: 0, data: null };
+// Lowered from 60s → 15s so the buy-burn buckets in the Network Fees
+// widget reset visibly within ~15s of the on-chain cycle, instead of
+// lagging up to a minute behind the live countdown.
+const FEE_CONFIG_TTL = 15_000;
+async function computeFeeConfig() {
+    const api = await initApi();
+    const XOR = '0x0200000000000000000000000000000000000000000000000000000000000000';
+    const VAL = '0x0200040000000000000000000000000000000000000000000000000000000000';
+    const dummy = 'cnVS46aLyfRHTossU1ZEXaw6Eok1Lk9NeMdhJsSNzp7ywJLEq';
+    const hexToXor = (hex) => Number(BigInt(String(hex))) / 1e18;
+    const big = (v) => Number(BigInt(v.toString())) / 1e18;
+
+    const [nfm, xfm, remintPeriod, xorToVal, xorToBuyBack, head] = await Promise.all([
+        api.query.transactionPayment.nextFeeMultiplier(),
+        api.query.xorFee.multiplier(),
+        api.query.xorFee.remintPeriod(),
+        api.query.xorFee.xorToVal(),
+        api.query.xorFee.xorToBuyBack(),
+        api.rpc.chain.getHeader(),
+    ]);
+
+    const sample = async (buildTx) => {
+        try {
+            const info = await buildTx().paymentInfo(dummy);
+            const j = info.toJSON();
+            return { fee: hexToXor(j.partialFee), weightRefTime: Number(j.weight.refTime) || 0, class: j.class };
+        } catch (e) { return null; }
+    };
+    const samples = {};
+    samples.transfer = await sample(() => api.tx.assets.transfer(XOR, dummy, '1000000000000000000'));
+    if (api.tx.liquidityProxy?.swap) {
+        samples.swap = await sample(() => api.tx.liquidityProxy.swap(
+            0, XOR, VAL,
+            { WithDesiredInput: { desired_amount_in: '1000000000000000000', min_amount_out: '0' } },
+            ['XYKPool'], 'Disabled'
+        ));
+    }
+    if (api.tx.ethBridge?.transferToSidechain) {
+        samples.bridge = await sample(() => api.tx.ethBridge.transferToSidechain(
+            XOR, '0x0000000000000000000000000000000000000000',
+            '1000000000000000000', 0
+        ));
+    }
+
+    return {
+        nextFeeMultiplier: big(nfm),
+        xorFeeMultiplier: big(xfm),
+        xorToValXor: big(xorToVal),
+        xorToBuyBackXor: big(xorToBuyBack),
+        remintPeriodBlocks: Number(remintPeriod.toString()) || 0,
+        samples,
+        asOfBlock: Number(head.number.toString()) || 0,
+        asOfTs: Date.now(),
+    };
+}
+
+app.get('/stats/fee-config', rateLimit(30, 60000), async (req, res) => {
+    try {
+        const now = Date.now();
+        if (!_feeConfigCache.data || now - _feeConfigCache.ts > FEE_CONFIG_TTL) {
+            _feeConfigCache = { ts: now, data: await computeFeeConfig() };
+        }
+        res.json(_feeConfigCache.data);
+    } catch (e) {
+        console.error('Error /stats/fee-config:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// /stats/fee-burns-live?window=<1h|4h|6h|24h|7d>
+//
+// Real burn-from-fees stats, counting from when the indexer started
+// (fee_burns_indexer.js subscribes to finalized heads). Aggregates over
+// sm.fee_burns_live, which only has rows for blocks with actual fee
+// activity, so this is cheap. 15s cache.
+//
+// Returns:
+//   fees.totalXor              total XOR paid in fees during the window
+//   referrer.paidXor           sum of ReferrerRewarded amounts
+//   referrer.redirectedToKusdXor  amount that fell through (no referrer)
+//                                 and was redirected to the KUSD bucket
+//   burns.{xor,val,kusd,tbcd}  amounts burned, in each token natives
+//   weights                    runtime weights used for the period
+//
+// "live" mode is handled fully on the frontend from /stats/fee-config
+// accumulators — no backend roundtrip for that case.
+const _feeBurnsLiveCache = {};
+const FEE_BURNS_LIVE_TTL = 15_000;
+const FEE_BURNS_WINDOWS = {
+    "1h":   3600,
+    "4h":  14400,
+    "6h":  21600,
+    "24h": 86400,
+    "7d": 604800,
+};
+
+app.get("/stats/fee-burns-live", rateLimit(60, 60000), async (req, res) => {
+    const window = String(req.query.window || "24h");
+    const seconds = FEE_BURNS_WINDOWS[window];
+    if (!seconds) {
+        return res.status(400).json({ error: "Invalid window. Use 1h, 4h, 6h, 24h, 7d." });
+    }
+    try {
+        const now = Date.now();
+        const cached = _feeBurnsLiveCache[window];
+        if (cached && now - cached.ts < FEE_BURNS_LIVE_TTL) {
+            return res.json(cached.data);
+        }
+        const sums = await getFeeBurnsWindow(seconds);
+        // Runtime weights — 4.7.x: 10/20/50/20=100; 4.8.x: 10/20/50/5=85.
+        const sv = api?.runtimeVersion?.specVersion?.toNumber?.() ?? 0;
+        const weights = sv >= 120
+            ? { ref: 10, xor: 20, val: 50, kusd: 5,  total: 85 }
+            : { ref: 10, xor: 20, val: 50, kusd: 20, total: 100 };
+        const data = {
+            window,
+            startTime: now - seconds * 1000,
+            endTime: now,
+            seconds,
+            weights,
+            fees: {
+                totalXor: Number(sums.fees_paid_xor) || 0,
+            },
+            referrer: {
+                paidXor:               Number(sums.ref_paid_xor)        || 0,
+                redirectedToKusdXor:   Number(sums.ref_redirected_xor)  || 0,
+            },
+            burns: {
+                xor:  Number(sums.remint_xor_burned)  || 0,
+                val:  Number(sums.remint_val_burned)  || 0,
+                kusd: Number(sums.remint_kusd_burned) || 0,
+                tbcd: Number(sums.remint_tbcd_burned) || 0,
+            },
+            blocks:  Number(sums.rows)   || 0,
+            firstTs: Number(sums.min_ts) || 0,
+            lastTs:  Number(sums.max_ts) || 0,
+        };
+        _feeBurnsLiveCache[window] = { ts: now, data };
+        res.json(data);
+    } catch (e) {
+        console.error("[fee-burns-live]", e.message);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
+// ════════════════════════════════════════════════════════════════════
+// RESTORED BLOCK — endpoints + helpers lost between 22-abr and 25-abr 2026
+// Source: index.js.bak.pre-v2-static.20260422073652 (verified working)
+// Restored 2026-04-25 by reinjection (no DB changes, no behavioral diffs)
+// ════════════════════════════════════════════════════════════════════
+
+
+// --- ARCHIVE_WS_ENDPOINT + getArchiveApi ---
+const ARCHIVE_WS_ENDPOINT = process.env.ARCHIVE_WS_ENDPOINT || 'wss://mof2.sora.org';
+let _archiveApi = null;
+async function getArchiveApi() {
+    if (_archiveApi && _archiveApi.isConnected) return _archiveApi;
+    const provider = new _WsProvider(ARCHIVE_WS_ENDPOINT, 2500);
+    _archiveApi = await _ApiPromise.create(_soraOptions({ provider }));
+    await _archiveApi.isReady;
+    return _archiveApi;
+}
+
+
+// --- TECH_ACCOUNTS_TTL + buildTechAccountsMap + /api/tech-accounts ---
+let _techAccountsCache = { ts: 0, data: null };
+const TECH_ACCOUNTS_TTL = 6 * 60 * 60 * 1000; // 6h
+
+async function buildTechAccountsMap() {
+    if (!api || !api.isConnected) throw new Error("api_not_ready");
+    const rows = await api.query.technical.techAccounts.entries();
+    const out = {};
+    for (const [key, val] of rows) {
+        const addr = key.args[0].toString();
+        const h = val.toHuman();
+        const outerKey = Object.keys(h || {})[0];
+        let label = "Technical";
+        try {
+            const v = h[outerKey];
+            if (outerKey === "Generic" && Array.isArray(v)) {
+                // ["pallet-name","sub-key"] → "pallet-name/sub-key"
+                label = v.filter(x => typeof x === "string").join("/") || outerKey;
+            } else if (outerKey === "Pure" && Array.isArray(v) && typeof v[1] === "object") {
+                const inner = Object.keys(v[1])[0];
+                label = inner || outerKey;
+            } else if (outerKey === "Identifier") {
+                label = (Array.isArray(v) ? v.join("/") : String(v)) || outerKey;
+            } else {
+                label = outerKey;
+            }
+        } catch (_) {}
+        out[addr] = label;
+    }
+    return out;
+}
+
+app.get("/api/tech-accounts", rateLimit(30, 60000), async (req, res) => {
+    try {
+        const now = Date.now();
+        if (!_techAccountsCache.data || (now - _techAccountsCache.ts) > TECH_ACCOUNTS_TTL) {
+            const data = await buildTechAccountsMap();
+            _techAccountsCache = { ts: now, data };
+        }
+        res.set("Cache-Control", "public, max-age=3600"); // client hint: 1h
+        res.json(_techAccountsCache.data);
+    } catch (e) {
+        console.error("Error /api/tech-accounts:", e.message);
+        res.status(500).json({ error: "tech_accounts_unavailable" });
+    }
+});
+
+
+// --- /mof/qty/:symbol ---
+app.get('/mof/qty/:symbol', rateLimit(60, 60000), async (req, res) => {
+    try {
+        const sym = String(req.params.symbol || '').toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+        if (!sym) return res.status(400).send('bad_symbol');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const upstream = await fetch('https://mof.sora.org/qty/' + encodeURIComponent(sym), { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!upstream.ok) return res.status(upstream.status).send(await upstream.text().catch(() => ''));
+        res.set('Content-Type', 'text/plain; charset=utf-8');
+        res.set('Cache-Control', 'public, max-age=300');
+        res.send((await upstream.text()).trim());
+    } catch (e) {
+        res.status(502).send('mof_unavailable');
+    }
+});
+
+
+// --- governance/preimage/* + scheduler/agenda + /block/:n + getPreimageDb ---
+app.get("/governance/preimages", rateLimit(10, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        if (!api.query.preimage || !api.query.preimage.statusFor) {
+            return res.json({ preimages: [], identities: {} });
+        }
+        const entries = await withTimeout(api.query.preimage.statusFor.entries());
+        const preimages = [];
+        const addresses = new Set();
+        for (const [key, statusOpt] of entries) {
+            if (!statusOpt || statusOpt.isNone) continue;
+            const hash = key.args[0].toHex();
+            const raw = statusOpt.unwrap().toJSON();
+            const kind = raw && typeof raw === 'object' ? Object.keys(raw)[0] : null;
+            const body = kind && raw[kind] && typeof raw[kind] === 'object' ? raw[kind] : {};
+            const statusName = kind ? (kind[0].toUpperCase() + kind.slice(1)) : 'Unknown';
+            const ticket = body.deposit || body.ticket || body.maybeTicket || null;
+            const depositor = Array.isArray(ticket) ? ticket[0] : null;
+            const deposit = Array.isArray(ticket) && ticket[1] !== undefined ? ticket[1] : null;
+            if (depositor) addresses.add(depositor);
+            preimages.push({
+                hash,
+                status: statusName,
+                len: body.len ?? null,
+                count: body.count ?? null,
+                depositor,
+                deposit: deposit !== null ? String(deposit) : null
+            });
+        }
+        // Enrich each preimage with first-seen block + timestamp from the
+        // dedicated preimage indexer SQLite. This powers the "Subida" column
+        // and chronological sorting (most recent on top).
+        try {
+            const db = getPreimageDb();
+            if (db) {
+                const stmt = db.prepare(
+                    "SELECT block_height AS block, timestamp FROM preimage_events " +
+                    "WHERE hash = ? AND method = 'Noted' ORDER BY block_height ASC LIMIT 1"
+                );
+                for (const p of preimages) {
+                    try {
+                        const row = stmt.get(p.hash);
+                        if (row) {
+                            p.firstSeenBlock = row.block;
+                            p.firstSeenTimestamp = row.timestamp;
+                        } else {
+                            p.firstSeenBlock = null;
+                            p.firstSeenTimestamp = null;
+                        }
+                    } catch { /* best effort */ }
+                }
+            }
+        } catch { /* indexer not ready, skip enrichment */ }
+
+        // Sort: entries with a known first-seen timestamp first (newest on top),
+        // then everything else by status (Requested / Unrequested / Unknown).
+        preimages.sort((a, b) => {
+            const at = a.firstSeenTimestamp || 0;
+            const bt = b.firstSeenTimestamp || 0;
+            if (at !== bt) return bt - at;
+            const rank = s => s === 'Requested' ? 0 : s === 'Unrequested' ? 1 : 2;
+            return rank(a.status) - rank(b.status);
+        });
+        const identities = await attachIdentities([...addresses]);
+        res.json({ preimages, identities });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Scheduler agenda — lists all scheduled calls in upcoming blocks, flagging
+// entries whose referenced preimage bytes are NOT stored on-chain. Critical
+// for catching runtime upgrades that will silently fail.
+app.get("/governance/scheduler/agenda", rateLimit(10, 60000), async (req, res) => {
+    try {
+        if (!api) return res.status(503).json({ error: "API not connected" });
+        if (!api.query.scheduler || !api.query.scheduler.agenda) {
+            return res.json({ entries: [], tip: null });
+        }
+        const head = await withTimeout(api.rpc.chain.getHeader(), 10000);
+        const tip = head.number.toNumber();
+        const agendaEntries = await withTimeout(api.query.scheduler.agenda.entries(), 30000);
+
+        const missingHashes = new Set();
+        const rawList = [];
+        for (const [key, value] of agendaEntries) {
+            const blockAt = key.args[0].toNumber();
+            if (blockAt < tip) continue; // past
+            const scheduled = value.toJSON() || [];
+            for (let i = 0; i < scheduled.length; i++) {
+                const s = scheduled[i];
+                if (!s) continue;
+                let lookupHash = null;
+                let lookupLen = null;
+                let inlineCall = null;
+                const call = s.call;
+                if (call && typeof call === 'object') {
+                    const lookup = call.lookup || call.Lookup;
+                    if (lookup) {
+                        lookupHash = (lookup.hash_ || lookup.hash || '').toLowerCase();
+                        lookupLen = lookup.len ?? null;
+                    }
+                    const inline = call.inline || call.Inline;
+                    if (inline) {
+                        inlineCall = inline;
+                    }
+                }
+                rawList.push({
+                    block: blockAt,
+                    slot: i,
+                    maybeId: s.maybeId || null,
+                    priority: s.priority ?? null,
+                    origin: s.origin || null,
+                    lookupHash,
+                    lookupLen,
+                    inlineCall,
+                    maybePeriodic: s.maybePeriodic || null
+                });
+                if (lookupHash) missingHashes.add(lookupHash);
+            }
+        }
+
+        // Check preimage availability for all referenced lookup hashes
+        const hashStatus = {};
+        for (const h of missingHashes) {
+            try {
+                const st = await withTimeout(api.query.preimage.statusFor(h), 5000);
+                if (st && !st.isNone) {
+                    const json = st.unwrap().toJSON();
+                    const kind = json && typeof json === 'object' ? Object.keys(json)[0] : null;
+                    const body = kind ? json[kind] : {};
+                    const ticket = body.deposit || body.ticket || body.maybeTicket || null;
+                    hashStatus[h] = {
+                        status: kind,
+                        len: body.len ?? null,
+                        count: body.count ?? null,
+                        depositor: Array.isArray(ticket) ? ticket[0] : null,
+                        bytesAvailable: !!body.len
+                    };
+                } else {
+                    hashStatus[h] = { status: 'none', bytesAvailable: false };
+                }
+            } catch { hashStatus[h] = { status: 'error', bytesAvailable: false }; }
+        }
+
+        // Decode inline calls where possible
+        const entries = rawList.map(r => {
+            let decoded = null;
+            if (r.inlineCall) {
+                try { decoded = decodeProposal(api.createType('Call', r.inlineCall)); } catch {}
+            }
+            const blocksRemaining = Math.max(0, r.block - tip);
+            const secondsRemaining = blocksRemaining * 6;
+            const preimage = r.lookupHash ? hashStatus[r.lookupHash] : null;
+            const alert = r.lookupHash && preimage && !preimage.bytesAvailable;
+            return {
+                block: r.block,
+                blocksRemaining,
+                secondsRemaining,
+                slot: r.slot,
+                maybeId: r.maybeId,
+                priority: r.priority,
+                origin: r.origin,
+                lookupHash: r.lookupHash,
+                lookupLen: r.lookupLen,
+                inlineDecoded: decoded,
+                preimage,
+                alert: !!alert
+            };
+        }).sort((a, b) => a.block - b.block);
+
+        res.json({ tip, entries });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Block explorer — returns header + extrinsics + events + logs for a given
+// block number. Used by the "Block #N" modal (Subscan-style view). Reads
+// directly from the archive node, no indexer needed.
+app.get("/block/:n", rateLimit(600, 60000), async (req, res) => {
+    try {
+        const n = parseInt(req.params.n);
+        if (!Number.isFinite(n) || n < 0) return res.status(400).json({ error: 'Invalid block number' });
+        const archive = await withTimeout(getArchiveApi(), 30000);
+        const blockHash = await withTimeout(archive.rpc.chain.getBlockHash(n), 15000);
+        const [signedBlock, events, runtimeVersion] = await Promise.all([
+            withTimeout(archive.rpc.chain.getBlock(blockHash), 15000),
+            withTimeout(archive.query.system.events.at(blockHash), 15000),
+            withTimeout(archive.rpc.state.getRuntimeVersion(blockHash), 10000).catch(() => null)
+        ]);
+        let timestamp = null;
+        try {
+            const tsRaw = await withTimeout(archive.query.timestamp.now.at(blockHash), 8000);
+            timestamp = typeof tsRaw.toNumber === 'function' ? tsRaw.toNumber() : Number(tsRaw.toString());
+        } catch {}
+
+        const header = signedBlock.block.header;
+        const extrinsics = signedBlock.block.extrinsics;
+
+        // Map events per extrinsic (phase)
+        const extrinsicEvents = new Array(extrinsics.length).fill(null).map(() => []);
+        const inherentEvents = [];
+        events.forEach((record, idx) => {
+            const phase = record.phase;
+            const evOut = {
+                index: idx,
+                section: record.event.section,
+                method: record.event.method,
+                data: record.event.data.toJSON()
+            };
+            if (phase && phase.isApplyExtrinsic) {
+                const ei = phase.asApplyExtrinsic.toNumber();
+                if (extrinsicEvents[ei]) extrinsicEvents[ei].push(evOut); else inherentEvents.push(evOut);
+            } else {
+                inherentEvents.push(evOut);
+            }
+        });
+
+        const extList = extrinsics.map((ext, i) => {
+            const evs = extrinsicEvents[i] || [];
+            const successEv = evs.find(e => e.section === 'system' && e.method === 'ExtrinsicSuccess');
+            const failEv = evs.find(e => e.section === 'system' && e.method === 'ExtrinsicFailed');
+            let args = null;
+            try { args = ext.method.args.map(a => a.toJSON()); } catch {}
+            return {
+                index: i,
+                hash: ext.hash.toHex(),
+                signer: ext.isSigned ? ext.signer.toString() : null,
+                section: ext.method.section,
+                method: String(ext.method.method),
+                args,
+                success: successEv ? true : (failEv ? false : null),
+                events: evs
+            };
+        });
+
+        const logs = (header.digest && header.digest.logs ? header.digest.logs : []).map(l => {
+            try { return l.toJSON(); } catch { return String(l); }
+        });
+
+        res.json({
+            number: n,
+            hash: blockHash.toHex(),
+            parentHash: header.parentHash.toHex(),
+            stateRoot: header.stateRoot.toHex(),
+            extrinsicsRoot: header.extrinsicsRoot.toHex(),
+            timestamp,
+            specVersion: runtimeVersion ? runtimeVersion.specVersion.toNumber() : null,
+            specName: runtimeVersion ? runtimeVersion.specName.toString() : null,
+            extrinsics: extList,
+            inherentEvents,
+            logs,
+            totalExtrinsics: extList.length,
+            totalEvents: events.length,
+            source: ARCHIVE_WS_ENDPOINT
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Fast preimage events lookup — reads from the dedicated SQLite indexer
+// maintained by preimage_indexer.js. Returns sub-100ms for any hash in the
+// indexer's coverage window (default: last 60 days).
+const _preimageDbPath = require('path').join(__dirname, 'preimage_index.db');
+let _preimageDb = null;
+function getPreimageDb() {
+    if (_preimageDb) return _preimageDb;
+    try {
+        const BetterSqlite3 = require('better-sqlite3');
+        _preimageDb = new BetterSqlite3(_preimageDbPath, { readonly: true, fileMustExist: true });
+        _preimageDb.pragma('journal_mode = WAL');
+    } catch (e) {
+        _preimageDb = null;
+    }
+    return _preimageDb;
+}
+
+app.get("/governance/preimage/:hash/events-fast", rateLimit(1200, 60000), async (req, res) => {
+    try {
+        const hash = String(req.params.hash || '').toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ error: 'Invalid hash' });
+        const db = getPreimageDb();
+        if (!db) {
+            return res.status(503).json({
+                error: 'Preimage indexer not ready yet. The dedicated indexer DB has not been created. It will populate in the background.',
+                indexerReady: false
+            });
+        }
+        const from = parseInt(req.query.from);
+        const to = parseInt(req.query.to);
+        let q = 'SELECT block_height AS block, event_index, timestamp, method, hash, data, reason, reason_detail FROM preimage_events WHERE hash = ?';
+        const params = [hash];
+        if (Number.isFinite(from)) { q += ' AND block_height >= ?'; params.push(from); }
+        if (Number.isFinite(to)) { q += ' AND block_height <= ?'; params.push(to); }
+        q += ' ORDER BY block_height ASC, event_index ASC';
+        const rows = db.prepare(q).all(...params);
+
+        const state = {};
+        try {
+            const sr = db.prepare('SELECT key, value FROM indexer_state').all();
+            for (const r of sr) state[r.key] = r.value;
+        } catch {}
+
+        const events = rows.map(r => ({
+            block: r.block,
+            event: 'preimage.' + r.method,
+            hash: r.hash,
+            timestamp: r.timestamp,
+            data: r.data ? (() => { try { return JSON.parse(r.data); } catch { return r.data; } })() : null,
+            reason: r.reason || null,
+            reason_detail: r.reason_detail || null
+        }));
+        res.json({
+            hash,
+            count: events.length,
+            events,
+            indexer: {
+                liveLastBlock: state.live_last_block ? parseInt(state.live_last_block) : null,
+                backfillCursor: state.backfill_cursor ? parseInt(state.backfill_cursor) : null,
+                backfillComplete: !!state.backfill_complete_at
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Scan preimage pallet events for a given hash in [from, to] block range.
+// Uses the archive node (mof2) to access historical state. Parallel workers.
+// Returns a timeline of Preimage.Noted / Requested / Cleared / Unnoted events.
+const _preimageEventsCache = new Map();
+app.get("/governance/preimage/:hash/events", rateLimit(3, 60000), async (req, res) => {
+    try {
+        if (!api) return res.status(503).json({ error: "API not connected" });
+        const targetHash = String(req.params.hash || '').toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(targetHash)) return res.status(400).json({ error: 'Invalid hash' });
+
+        const head = await withTimeout(api.rpc.chain.getHeader(), 10000);
+        const tip = head.number.toNumber();
+        const MAX_RANGE = 800; // bounded to fit under Cloudflare 100s timeout
+        const reqFrom = parseInt(req.query.from);
+        const reqTo = parseInt(req.query.to);
+        const to = Number.isFinite(reqTo) ? Math.min(reqTo, tip) : tip;
+        const from = Number.isFinite(reqFrom) ? Math.max(0, reqFrom) : Math.max(0, to - MAX_RANGE + 1);
+        if (to < from) return res.status(400).json({ error: 'to < from' });
+        if ((to - from + 1) > MAX_RANGE) {
+            return res.status(400).json({
+                error: `range too large (${to - from + 1}), max=${MAX_RANGE}. Narrow to/from.`,
+                maxRange: MAX_RANGE
+            });
+        }
+
+        const cacheKey = targetHash + ':' + from + ':' + to;
+        if (_preimageEventsCache.has(cacheKey)) {
+            return res.json(_preimageEventsCache.get(cacheKey));
+        }
+
+        const archive = await withTimeout(getArchiveApi(), 30000);
+        const CONCURRENCY = 30;
+        let next = to;
+        let scanned = 0;
+        const hits = [];
+        async function proc(n) {
+            try {
+                const h = await withTimeout(archive.rpc.chain.getBlockHash(n), 15000);
+                const events = await withTimeout(archive.query.system.events.at(h), 15000);
+                let hitThisBlock = false;
+                for (const r of events) {
+                    const ev = r.event;
+                    if (ev.section !== 'preimage') continue;
+                    const hashField = ev.data[0]?.toHex?.() || String(ev.data[0]);
+                    if (hashField.toLowerCase() !== targetHash) continue;
+                    hitThisBlock = true;
+                    hits.push({
+                        block: n,
+                        event: ev.section + '.' + ev.method,
+                        data: ev.data.toJSON()
+                    });
+                }
+                if (hitThisBlock) {
+                    try {
+                        const ts = await withTimeout(archive.query.timestamp.now.at(h), 8000);
+                        const tsMs = typeof ts.toNumber === 'function' ? ts.toNumber() : Number(ts.toString());
+                        for (const hit of hits) if (hit.block === n && !hit.timestamp) hit.timestamp = tsMs;
+                    } catch {}
+                }
+            } catch { /* skip */ }
+            scanned++;
+        }
+        const workers = [];
+        for (let i = 0; i < CONCURRENCY; i++) {
+            workers.push((async () => { while (next >= from) { const b = next--; await proc(b); } })());
+        }
+        await Promise.all(workers);
+
+        hits.sort((a, b) => a.block - b.block);
+        const payload = {
+            hash: targetHash,
+            from,
+            to,
+            tip,
+            scanned,
+            count: hits.length,
+            events: hits,
+            archive: ARCHIVE_WS_ENDPOINT
+        };
+        _preimageEventsCache.set(cacheKey, payload);
+        res.json(payload);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Find which referendums reference a given preimage hash (ongoing + finished).
+// Scans democracy.referendumInfoOf for the last N referendums and extracts
+// the preimage hash each references. Returns any that match the query hash.
+app.get("/governance/preimage/:hash/referendums", rateLimit(10, 60000), async (req, res) => {
+    try {
+        if (!api) return res.status(503).json({ error: "API not connected" });
+        const targetHash = String(req.params.hash || '').toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(targetHash)) return res.status(400).json({ error: 'Invalid hash' });
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
+        const count = (await withTimeout(api.query.democracy.referendumCount())).toNumber();
+        const from = Math.max(0, count - limit);
+        const matches = [];
+        for (let i = count - 1; i >= from; i--) {
+            try {
+                const info = await withTimeout(api.query.democracy.referendumInfoOf(i));
+                if (!info || info.isNone) continue;
+                const data = info.toJSON();
+                const status = data ? Object.keys(data)[0] : 'unknown';
+                const detail = data ? data[status] : {};
+                let refHash = null;
+                const prop = detail && detail.proposal;
+                if (prop && typeof prop === 'object') {
+                    const lookup = prop.lookup || prop.Lookup;
+                    if (lookup) refHash = (lookup.hash_ || lookup.hash || '').toLowerCase();
+                } else if (typeof prop === 'string') {
+                    refHash = prop.toLowerCase();
+                }
+                if (refHash === targetHash) {
+                    matches.push({ id: i, status, detail });
+                }
+            } catch { /* skip */ }
+        }
+        res.json({ hash: targetHash, scanned: count - from, fromId: from, toId: count - 1, matches });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Decode a single preimage by hash + len
+app.get("/governance/preimage/:hash", rateLimit(600, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        const hash = String(req.params.hash || '');
+        const len = parseInt(req.query.len) || 0;
+        if (!/^0x[0-9a-f]{64}$/i.test(hash)) return res.status(400).json({ error: 'Invalid hash' });
+        const decoded = await resolvePreimage(hash, len);
+        res.json({ hash, len, decoded });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Recover preimage bytes by hash from recent indexed blocks.
+// Useful when a preimage has been unnoted/cleared but was uploaded within the
+// subsquid rolling window (~30 days). Scans live_extrinsics for notePreimage
+// blocks, then RPC-fetches each block to derive blake2_256(bytes) and match.
+const _preimageRecoverCache = new Map();
+app.get("/governance/preimage/recover/:hash", rateLimit(10, 60000), async (req, res) => {
+    try {
+        if (!api) return res.status(503).json({ error: "API not connected" });
+        const targetHash = String(req.params.hash || '').toLowerCase();
+        if (!/^0x[0-9a-f]{64}$/.test(targetHash)) return res.status(400).json({ error: 'Invalid hash' });
+
+        if (_preimageRecoverCache.has(targetHash)) {
+            return res.json(_preimageRecoverCache.get(targetHash));
+        }
+
+        const pg = new _PgPool({
+            host: process.env.PG_HOST || 'localhost',
+            port: parseInt(process.env.PG_PORT) || 23798,
+            database: process.env.PG_DB || 'squid',
+            user: process.env.PG_USER || 'postgres',
+            password: process.env.PG_PASS || 'squid',
+            max: 2,
+            connectionTimeoutMillis: 5000
+        });
+        let rows = [];
+        try {
+            const r = await pg.query(
+                "SELECT DISTINCT block, formatted_time FROM sm.live_extrinsics " +
+                "WHERE section = 'preimage' AND method IN ('notePreimage','notePreimageOperational') " +
+                "ORDER BY block DESC"
+            );
+            rows = r.rows;
+        } finally {
+            pg.end().catch(() => {});
+        }
+
+        const archive = await withTimeout(getArchiveApi(), 30000);
+        for (const row of rows) {
+            try {
+                const blockHash = await withTimeout(archive.rpc.chain.getBlockHash(row.block), 20000);
+                const signedBlock = await withTimeout(archive.rpc.chain.getBlock(blockHash), 20000);
+                for (const ext of signedBlock.block.extrinsics) {
+                    const section = ext.method.section;
+                    const method = ext.method.method;
+                    if (section !== 'preimage' || !String(method).toLowerCase().startsWith('notepreimage')) continue;
+                    const bytes = ext.method.args[0].toHex();
+                    if (blake2AsHex(bytes, 256).toLowerCase() !== targetHash) continue;
+                    let decoded = null;
+                    try { decoded = decodeProposal(archive.createType('Call', bytes)); } catch {}
+                    const payload = {
+                        found: true,
+                        hash: targetHash,
+                        bytes,
+                        bytesLen: (bytes.length - 2) / 2,
+                        decoded,
+                        block: row.block,
+                        timestamp: row.formatted_time,
+                        signer: ext.signer.toString(),
+                        extrinsicMethod: section + '.' + method,
+                        source: 'subsquid index + archive RPC (' + ARCHIVE_WS_ENDPOINT + ')'
+                    };
+                    _preimageRecoverCache.set(targetHash, payload);
+                    return res.json(payload);
+                }
+            } catch { /* skip block and continue */ }
+        }
+
+        res.json({
+            found: false,
+            hash: targetHash,
+            scannedBlocks: rows.length,
+            message: 'Not found in indexed notePreimage extrinsics (rolling ~30 days). Older preimages require an archive-node scan.'
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// List all notePreimage extrinsics indexed in subsquid (rolling ~30d),
+// with their derived blake2_256 hash and decoded call. Useful for auditing
+// "what was uploaded recently" without knowing the hash in advance.
+app.get("/governance/preimages/indexed", rateLimit(5, 60000), async (req, res) => {
+    try {
+        if (!api) return res.status(503).json({ error: "API not connected" });
+        const pg = new _PgPool({
+            host: process.env.PG_HOST || 'localhost',
+            port: parseInt(process.env.PG_PORT) || 23798,
+            database: process.env.PG_DB || 'squid',
+            user: process.env.PG_USER || 'postgres',
+            password: process.env.PG_PASS || 'squid',
+            max: 2,
+            connectionTimeoutMillis: 5000
+        });
+        let rows = [];
+        try {
+            const r = await pg.query(
+                "SELECT DISTINCT block, formatted_time FROM sm.live_extrinsics " +
+                "WHERE section = 'preimage' AND method IN ('notePreimage','notePreimageOperational') " +
+                "ORDER BY block DESC"
+            );
+            rows = r.rows;
+        } finally {
+            pg.end().catch(() => {});
+        }
+        const archive = await withTimeout(getArchiveApi(), 30000);
+        const notes = [];
+        for (const row of rows) {
+            try {
+                const blockHash = await withTimeout(archive.rpc.chain.getBlockHash(row.block), 20000);
+                const signedBlock = await withTimeout(archive.rpc.chain.getBlock(blockHash), 20000);
+                for (const ext of signedBlock.block.extrinsics) {
+                    if (ext.method.section !== 'preimage') continue;
+                    if (!String(ext.method.method).toLowerCase().startsWith('notepreimage')) continue;
+                    const bytes = ext.method.args[0].toHex();
+                    const hash = blake2AsHex(bytes, 256);
+                    let decoded = null;
+                    try { decoded = decodeProposal(archive.createType('Call', bytes)); } catch {}
+                    let stillOnChain = false;
+                    try {
+                        const st = await withTimeout(api.query.preimage.statusFor(hash));
+                        stillOnChain = !!(st && !st.isNone);
+                    } catch {}
+                    notes.push({
+                        block: row.block,
+                        timestamp: row.formatted_time,
+                        extrinsicMethod: ext.method.section + '.' + ext.method.method,
+                        signer: ext.signer.toString(),
+                        hash,
+                        bytes,
+                        bytesLen: (bytes.length - 2) / 2,
+                        decoded,
+                        stillOnChain
+                    });
+                }
+            } catch (e) {
+                notes.push({ block: row.block, error: e.message });
+            }
+        }
+        res.json({ count: notes.length, notes });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
+// --- decode-pretty IIFE ---
+// ==================== DECODE PRETTY (runtime-upgrade enrichment) ====================
+// GET /governance/preimage/:hash/decode-pretty[?len=N]
+// Returns an enriched decode for runtime-upgrade preimages (system.setCode /
+// setCodeWithoutChecks): decompresses the zstd-wrapped WASM, pulls specVersion
+// from the custom section, and checks blake2_256 integrity. For non-upgrade
+// calls returns the generic decoded args. Cached 1h by hash.
+// Inserted automatically — uses globals already in index.js (fs, blake2AsHex, api, rateLimit).
+{
+  const { execFileSync } = require('child_process');
+  const osModule = require('os');
+  const pathModule = require('path');
+
+  const SUBSTRATE_ZSTD_MAGIC = '52bc537646db8e05';
+  const WASM_MAGIC = '0061736d01000000';
+  const prettyCache = new Map();
+  const PRETTY_CACHE_MAX = 32;
+  const PRETTY_CACHE_TTL_MS = 60 * 60 * 1000;
+
+  function prettyCacheGet(hash) {
+    const entry = prettyCache.get(hash);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > PRETTY_CACHE_TTL_MS) { prettyCache.delete(hash); return null; }
+    return entry.value;
+  }
+  function prettyCacheSet(hash, value) {
+    if (prettyCache.size >= PRETTY_CACHE_MAX) {
+      const firstKey = prettyCache.keys().next().value;
+      if (firstKey !== undefined) prettyCache.delete(firstKey);
+    }
+    prettyCache.set(hash, { ts: Date.now(), value });
+  }
+
+  function readCompact(buf, offset) {
+    const first = buf[offset];
+    const mode = first & 0x03;
+    if (mode === 0) return [first >> 2, 1];
+    if (mode === 1) return [((first | (buf[offset + 1] << 8)) >> 2), 2];
+    if (mode === 2) {
+      const v = first | (buf[offset + 1] << 8) | (buf[offset + 2] << 16) | (buf[offset + 3] << 24);
+      return [v >>> 2, 4];
+    }
+    return [null, 1];
+  }
+
+  function extractRuntimeVersion(wasm) {
+    const NAME = Buffer.from('runtime_version', 'utf8');
+    let off = wasm.indexOf(NAME);
+    while (off >= 0) {
+      if (off >= 1 && wasm[off - 1] === NAME.length) {
+        let cursor = off + NAME.length;
+        const [specNameLen, n1] = readCompact(wasm, cursor);
+        if (specNameLen == null) { off = wasm.indexOf(NAME, off + 1); continue; }
+        cursor += n1;
+        const specName = wasm.slice(cursor, cursor + specNameLen).toString('utf8');
+        cursor += specNameLen;
+        const [implNameLen, n2] = readCompact(wasm, cursor);
+        if (implNameLen == null) { off = wasm.indexOf(NAME, off + 1); continue; }
+        cursor += n2;
+        const implName = wasm.slice(cursor, cursor + implNameLen).toString('utf8');
+        cursor += implNameLen;
+        const authoringVersion = wasm.readUInt32LE(cursor); cursor += 4;
+        const specVersion      = wasm.readUInt32LE(cursor); cursor += 4;
+        const implVersion      = wasm.readUInt32LE(cursor); cursor += 4;
+        if (specName === 'sora-substrate' && specVersion > 0 && specVersion < 100000) {
+          return { specName, implName, authoringVersion, specVersion, implVersion };
+        }
+      }
+      off = wasm.indexOf(NAME, off + 1);
+    }
+    return null;
+  }
+
+  function decompressZstd(compressedBytes) {
+    const tmpIn  = pathModule.join(osModule.tmpdir(), `sm-preimage-${Date.now()}-${process.pid}.zst`);
+    const tmpOut = tmpIn.replace(/\.zst$/, '.wasm');
+    try {
+      fs.writeFileSync(tmpIn, compressedBytes);
+      execFileSync('zstd', ['-d', '-f', '-q', tmpIn, '-o', tmpOut]);
+      return fs.readFileSync(tmpOut);
+    } finally {
+      try { fs.unlinkSync(tmpIn); } catch (_) {}
+      try { fs.unlinkSync(tmpOut); } catch (_) {}
+    }
+  }
+
+  app.get('/governance/preimage/:hash/decode-pretty', rateLimit(60, 60000), async (req, res) => {
+    try {
+      if (!api) return res.status(503).json({ error: 'api_not_connected' });
+      const hash = String(req.params.hash || '').toLowerCase();
+      if (!/^0x[0-9a-f]{64}$/.test(hash)) return res.status(400).json({ error: 'bad_hash' });
+      const len = parseInt(req.query.len, 10) || 0;
+
+      const cached = prettyCacheGet(hash);
+      if (cached) { res.set('X-Cache', 'HIT'); return res.json(cached); }
+
+      let rawHex = null;
+      if (api.query.preimage && api.query.preimage.preimageFor) {
+        const p = await api.query.preimage.preimageFor([hash, len]);
+        if (p && !p.isNone) rawHex = p.unwrap().toHex();
+      }
+      if (!rawHex && api.query.democracy && api.query.democracy.preimages) {
+        const prop = await api.query.democracy.preimages(hash);
+        if (prop && !prop.isNone) {
+          const available = prop.unwrap();
+          if (available.isAvailable) rawHex = available.asAvailable.data.toHex();
+        }
+      }
+      if (!rawHex) return res.status(404).json({ error: 'preimage_not_found', hash });
+
+      const derived = blake2AsHex(rawHex, 256);
+      const integrity = derived.toLowerCase() === hash ? 'match' : 'mismatch';
+
+      const call = api.createType('Call', rawHex);
+      const section = call.section;
+      const method  = call.method;
+      const isRuntimeUpgrade = section === 'system' && (method === 'setCode' || method === 'setCodeWithoutChecks');
+
+      if (!isRuntimeUpgrade) {
+        const payload = {
+          hash, kind: 'generic', section, method,
+          args: call.toHuman().args || {}, integrity,
+        };
+        prettyCacheSet(hash, payload);
+        return res.json(payload);
+      }
+
+      const codeBytes = Buffer.from(call.args[0].toU8a(true));
+      const head8 = codeBytes.slice(0, 8).toString('hex');
+      if (head8 !== SUBSTRATE_ZSTD_MAGIC) {
+        const payload = {
+          hash, kind: 'runtime_upgrade', section, method,
+          compressedBytes: codeBytes.length,
+          wasmMagicOk: head8 === WASM_MAGIC,
+          integrity, note: 'not_zstd_wrapped',
+        };
+        prettyCacheSet(hash, payload);
+        return res.json(payload);
+      }
+
+      const zstdPayload = codeBytes.slice(8);
+      const wasm = decompressZstd(zstdPayload);
+      const wasmMagicOk = wasm.slice(0, 8).toString('hex') === WASM_MAGIC;
+      const target = extractRuntimeVersion(wasm);
+
+      const head = await api.rpc.state.getRuntimeVersion();
+      const current = {
+        specName:         head.specName.toString(),
+        specVersion:      head.specVersion.toNumber(),
+        implVersion:      head.implVersion.toNumber(),
+        authoringVersion: head.authoringVersion.toNumber(),
+      };
+
+      const payload = {
+        hash, kind: 'runtime_upgrade', section, method,
+        current, target,
+        compressedBytes:   codeBytes.length,
+        decompressedBytes: wasm.length,
+        wasmMagicOk, integrity,
+      };
+      prettyCacheSet(hash, payload);
+      res.set('X-Cache', 'MISS');
+      return res.json(payload);
+    } catch (e) {
+      console.error('[decode-pretty] error:', (e && e.stack) || e);
+      return res.status(500).json({ error: 'decode_failed', message: String((e && e.message) || e) });
+    }
+  });
+}
+// ==================== END DECODE PRETTY ====================
+
+// ============================================================
+// POLKAMARKT endpoints — prediction markets (runtime ≥ 4.8.x)
+// ============================================================
+//
+// Every endpoint does feature-detection first:
+//   · `api.query.polkamarkt` absent → pallet not in current runtime, we
+//     return { available: false, reason } so the frontend can show the
+//     "Coming soon" card instead of rendering empty tables or errors.
+//   · Present → query the local mirror populated by the live indexer.
+//
+// The mirror (sm.polkamarkt_markets / _trades / _claims) stays empty until
+// the pallet emits events, so these endpoints are safe to expose now.
+
+function pmAvailable() {
+    return !!(api && api.query && api.query.polkamarkt);
+}
+function pmUnavailable() {
+    return {
+        available: false,
+        reason: 'Polkamarkt pallet not active in current runtime (needs SORA runtime ≥ 4.8.x via on-chain governance)',
+    };
+}
+
+app.get('/polkamarkt/state', rateLimit(30, 60000), async (req, res) => {
+    try {
+        if (!pmAvailable()) return res.json(pmUnavailable());
+        const totals = await pmGetTotals();
+        res.json({ available: true, totals });
+    } catch (e) {
+        console.error('Error /polkamarkt/state:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/polkamarkt/markets', rateLimit(30, 60000), async (req, res) => {
+    try {
+        if (!pmAvailable()) return res.json({ ...pmUnavailable(), data: [], total: 0, page: 1, totalPages: 1 });
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 25, 100);
+        const status = req.query.status || null;
+        const result = await pmGetMarkets({ page, limit, status });
+        res.json(result);
+    } catch (e) {
+        console.error('Error /polkamarkt/markets:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/polkamarkt/market/:id', rateLimit(30, 60000), async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id) || id < 0) return res.status(400).json({ error: 'Invalid market id' });
+    try {
+        if (!pmAvailable()) return res.json({ ...pmUnavailable(), data: null });
+        const detail = await pmGetMarketDetail(id);
+        if (!detail) return res.status(404).json({ error: 'Market not found' });
+        res.json({ available: true, ...detail });
+    } catch (e) {
+        console.error('Error /polkamarkt/market/:id:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/polkamarkt/positions/:addr', rateLimit(30, 60000), async (req, res) => {
+    const addr = req.params.addr;
+    if (!/^cn[A-Za-z0-9]{46,50}$/.test(addr)) return res.status(400).json({ error: 'Invalid SORA address' });
+    try {
+        if (!pmAvailable()) return res.json({ ...pmUnavailable(), positions: [] });
+        const positions = await pmGetUserPositions(addr);
+        res.json({ available: true, positions });
+    } catch (e) {
+        console.error('Error /polkamarkt/positions:', e.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -2703,7 +3908,46 @@ app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
     }
 });
 
-app.get('/burns/holders/:symbol', rateLimit(10, 60000), async (req, res) => {
+
+// Shared scan logic for /burns/holders. Called both synchronously on cold
+// hit and asynchronously by stale-while-revalidate. Updates holdersCache.
+async function refreshHoldersInBackground(symbol, token) {
+    try {
+        let fullList = [];
+        if (symbol === 'XOR') {
+            const allEntries = await withTimeout(api.query.system.account.entries(), 60000);
+            for (const [key, value] of allEntries) {
+                const data = value.toJSON();
+                const free = (data.data && data.data.free) ? data.data.free.toString() : '0';
+                const amountBn = new BigNumber(free).div('1e18');
+                if (amountBn.gt(1)) {
+                    fullList.push({ address: key.args[0].toString(), balance: amountBn.toNumber(), balanceStr: amountBn.toFormat(2) });
+                }
+            }
+        } else {
+            const allEntries = await withTimeout(api.query.tokens.accounts.entries(), 60000);
+            for (const [key, value] of allEntries) {
+                let currentAssetId = key.args[1].toString();
+                if (currentAssetId.startsWith('{')) { try { currentAssetId = JSON.parse(currentAssetId).code; } catch (e) { } }
+                if (currentAssetId === token.assetId) {
+                    const data = value.toJSON();
+                    const free = data.free ? data.free.toString() : '0';
+                    const amountBn = new BigNumber(free).div(new BigNumber(10).pow(token.decimals));
+                    if (amountBn.gt(0.1)) {
+                        fullList.push({ address: key.args[0].toString(), balance: amountBn.toNumber(), balanceStr: amountBn.toFormat(2) });
+                    }
+                }
+            }
+        }
+        fullList.sort((a, b) => b.balance - a.balance);
+        holdersCache[token.assetId] = { timestamp: Date.now(), list: fullList };
+        console.log(`✅ Refreshed holders for ${symbol}: ${fullList.length} holders`);
+    } catch (e) {
+        console.error(`❌ refreshHoldersInBackground(${symbol}):`, e.message);
+    }
+}
+
+app.get("/burns/holders/:symbol", rateLimit(120, 60000), async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
 
@@ -2717,12 +3961,27 @@ app.get('/burns/holders/:symbol', rateLimit(10, 60000), async (req, res) => {
     try {
         let fullList = [];
         const now = Date.now();
+        const cached = holdersCache[token.assetId];
+        const isFresh = cached && (now - cached.timestamp < CACHE_DURATION);
+        const hasStale = cached && cached.list && cached.list.length > 0;
 
-        // Reuse existing holdersCache
-        if (holdersCache[token.assetId] && (now - holdersCache[token.assetId].timestamp < CACHE_DURATION)) {
-            fullList = holdersCache[token.assetId].list;
+        // Stale-while-revalidate: if we have ANY cached list (even old), serve
+        // it instantly and refresh in the background. This avoids the 17-24s
+        // freeze every time the cache expires (typical XOR holders scan).
+        if (isFresh) {
+            fullList = cached.list;
+        } else if (hasStale) {
+            fullList = cached.list;
+            // Trigger background refresh — fire-and-forget, no await.
+            if (!holdersCache[token.assetId]._refreshing) {
+                holdersCache[token.assetId]._refreshing = true;
+                refreshHoldersInBackground(symbol, token).finally(() => {
+                    if (holdersCache[token.assetId]) holdersCache[token.assetId]._refreshing = false;
+                });
+            }
         } else {
-            console.log(`🔍 Scanning holders for ${symbol}...`);
+            // No cache at all — must do the slow scan synchronously this once.
+            console.log(`🔍 Scanning holders for ${symbol}... (cold)`);
             if (symbol === 'XOR') {
                 const allEntries = await withTimeout(api.query.system.account.entries(), 60000);
                 for (const [key, value] of allEntries) {
@@ -2780,14 +4039,25 @@ app.get('/burns/holders/:symbol', rateLimit(10, 60000), async (req, res) => {
     }
 });
 
-app.get('/', rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/index.html'));
+// --- NETWORK ROUTING ---
+// /         → landing page (choose network)
+// /sorav2   → existing SORA v2 dashboard (was previously the only entry)
+// /minamoto → SORA Nexus Minamoto dashboard (Iroha 3)
+app.get('/',         rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/landing.html'));
+app.get('/sorav2',   rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/index.html'));
+app.get('/minamoto', rateLimit(60, 60000), (req, res) => res.sendFile(__dirname + '/minamoto.html'));
 
 async function startApp() {
     console.log('🛡️ Iniciando servidor con Alta Estabilidad (Proxy Limitado + Batching 3s)...');
     await initDB();
+    // Polkamarkt tables are idempotent; safe to run every boot. If the pallet
+    // activates later via runtime upgrade the indexer picks up from there.
+    await initPolkamarktSchema().catch(e => console.error('[pm] schema init failed:', e.message));
+    await initFeeBurnsLiveSchema().catch(e => console.error('[fee-burns] schema init failed:', e.message));
     await loadOfficialWhitelist();
     resolveBurnTokenIds();
     api = await initApi();
+    startFeeBurnsIndexer(api, { insertFeeBurnRow });
 
     // Initialize denomination factor from on-chain + fix legacy fees with missing denom_factor
     await updateDenomFactor();
@@ -2836,6 +4106,22 @@ async function startApp() {
     setInterval(takeSupplySnapshots, 30 * 60 * 1000); // cada 30 minutos
 
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT} `));
+
+    // Pre-warm holders cache for the heavy tokens. Each scan is 17-24s
+    // synchronously — without this, the first user clicking "Holders" tab
+    // pays the latency. Spread out 5s apart so we dont hammer the RPC.
+    setTimeout(() => {
+        const PRE_WARM_TOKENS = ['XOR', 'VAL', 'KUSD', 'PSWAP', 'TBCD'];
+        PRE_WARM_TOKENS.forEach((sym, i) => {
+            setTimeout(() => {
+                const token = BURN_TOKENS[sym];
+                if (token && token.assetId && typeof refreshHoldersInBackground === 'function') {
+                    console.log(`🔥 Pre-warming holders cache for ${sym}...`);
+                    refreshHoldersInBackground(sym, token).catch(e => console.warn(`Pre-warm ${sym} failed:`, e.message));
+                }
+            }, i * 5000);
+        });
+    }, 30000);
 
     // Pre-load identity cache from DB
     try {
@@ -3033,6 +4319,229 @@ async function startApp() {
                 }
             } catch (e) { console.error("Error processing extrinsic:", e); }
         });
+
+        // --- HASHI v2 BRIDGES (event-driven, multi-chain) ---
+        // sorametrics historically only indexed EthBridge (Hashi v1). SORA
+        // runtime also exposes three Hashi v2 bridges that emit Burned/Minted
+        // directly, each with its own address shape. Shapes probed live:
+        //   substrateBridgeApp.Burned(netId, assetId, sender:AccountId, recipient:GenericAccount, amount)
+        //   substrateBridgeApp.Minted(netId, assetId, sender:GenericAccount, recipient:AccountId, amount)
+        //   parachainBridgeApp.Burned(netId, assetId, AccountId, ParachainAccountId, amount)
+        //   parachainBridgeApp.Minted(netId, assetId, Option<ParachainAccountId>, AccountId, amount)
+        //   jettonApp.Burned(assetId, AccountId, TonAddress, amount)           // SORA → TON
+        //   jettonApp.Minted(assetId, TonAddress, AccountId, amount)           // TON → SORA
+        // For JettonApp the network is always "TON"; the other two use the
+        // SubNetworkId enum ("Kusama" / "Polkadot" / "Liberland" / …).
+        // User-facing labels prepend the family ("Parachain: Kusama") so the
+        // widget can distinguish XCM-parachain from substrate-relay routes.
+        const decodeV2Bridge = (ev, index) => {
+            const { section, method, data } = ev.event;
+            const raw = data.map(d => d.toString());
+            let networkFamily, networkName, netIdIdx, assetIdx, senderIdx, recipientIdx, amountIdx, direction;
+            if (section === 'jettonApp') {
+                networkFamily = 'TON';
+                networkName = 'TON';
+                assetIdx = 0; amountIdx = 3;
+                if (method === 'Burned')  { senderIdx = 1; recipientIdx = 2; direction = 'Outgoing'; }
+                if (method === 'Minted')  { senderIdx = 1; recipientIdx = 2; direction = 'Incoming'; }
+                // jetton has no network_id in the tuple; netIdIdx stays undefined.
+            } else if (section === 'substrateBridgeApp' || section === 'parachainBridgeApp') {
+                networkFamily = section === 'parachainBridgeApp' ? 'Parachain' : 'Substrate';
+                netIdIdx = 0; assetIdx = 1; amountIdx = 4;
+                if (method === 'Burned')  { senderIdx = 2; recipientIdx = 3; direction = 'Outgoing'; }
+                if (method === 'Minted')  { senderIdx = 2; recipientIdx = 3; direction = 'Incoming'; }
+                // netIdIdx resolves to e.g. "Kusama", "Polkadot", "Liberland".
+                const netName = String(raw[0] || '').trim();
+                networkName = netName ? (networkFamily + ': ' + netName) : networkFamily;
+            } else {
+                return null;
+            }
+            if (!direction) return null; // non-Burned/Minted event we don't track
+            return {
+                assetId: raw[assetIdx],
+                sender: raw[senderIdx] || 'Unknown',
+                recipient: raw[recipientIdx] || 'Unknown',
+                amountRaw: raw[amountIdx] || '0',
+                network: networkName,
+                direction,
+                section, method,
+            };
+        };
+
+        const v2BridgeEvents = allEvents.filter(({ event }) =>
+            (event.section === 'substrateBridgeApp' || event.section === 'parachainBridgeApp' || event.section === 'jettonApp')
+            && (event.method === 'Burned' || event.method === 'Minted')
+        );
+        for (const ev of v2BridgeEvents) {
+            const dec = decodeV2Bridge(ev);
+            if (!dec) continue;
+            const assetInfo = getAssetInfo(dec.assetId);
+            const decimals = assetInfo ? assetInfo.decimals : 18;
+            const symbol = assetInfo ? assetInfo.symbol : 'UNK';
+            const amountBn = new BigNumber(String(dec.amountRaw).replace(/,/g, '')).div(new BigNumber(10).pow(decimals));
+            const extrinsicIdx = ev.phase.isApplyExtrinsic ? ev.phase.asApplyExtrinsic.toNumber() : null;
+            const extHash = extrinsicIdx != null && signedBlock.block.extrinsics[extrinsicIdx]
+                ? signedBlock.block.extrinsics[extrinsicIdx].hash.toHex()
+                : null;
+            (async () => {
+                try {
+                    const price = await getOrFetchPrice(symbol, dec.assetId, decimals);
+                    const usdValue = amountBn.times(price).toNumber();
+                    if (amountBn.gt(0)) {
+                        insertBridge({
+                            block: blockNumber,
+                            network: dec.network,
+                            direction: dec.direction,
+                            sender: dec.sender,
+                            recipient: dec.recipient,
+                            assetId: dec.assetId,
+                            amount: amountBn.toFixed(6),
+                            usdValue,
+                            hash: extHash || ('v2:' + blockNumber + ':' + (extrinsicIdx ?? '?')),
+                            extrinsic_id: extHash || `${blockNumber}-${extrinsicIdx ?? '?'}`,
+                        });
+                        console.log(`🌉 ${dec.section}.${dec.method} (${dec.network}) ${dec.direction} ${amountBn.toFixed(2)} ${symbol}`);
+                    }
+                } catch (e) { console.error('v2 bridge insert error:', e.message); }
+            })();
+        }
+
+        // --- POLKAMARKT (prediction market) EVENTS ---
+        // Event shapes (from pallets/polkamarkt/src/lib.rs):
+        //   MarketCreated(market_id, seed_liquidity)
+        //   TradeExecuted(market_id, trader, side, outcome, collateral, shares, fee)
+        //   MarketLocked(market_id)
+        //   MarketResolved(market_id, outcome)
+        //   MarketCancelled(market_id)
+        //   MarketClaimed(market_id, trader, payout)
+        //   CreatorFeesClaimed(market_id, creator, amount)
+        //   CreatorLiquidityClaimed(market_id, creator, amount)
+        //   MarketBondLockReleased(market_id, creator, amount)
+        // When the pallet is not present (current runtime 119), this block is
+        // a no-op: `allEvents.filter` returns empty and nothing gets called.
+        const pmEvents = allEvents.filter(({ event }) => event.section === 'polkamarkt');
+        if (pmEvents.length > 0) {
+            // Resolve ts once for the whole block — cheaper than per event.
+            const blockTs = Date.now(); // live indexer: now ≈ block ts
+            (async () => {
+                for (const rec of pmEvents) {
+                    const { section, method, data } = rec.event;
+                    const raw = data.map(d => d.toString());
+                    const extrinsicIdx = rec.phase.isApplyExtrinsic ? rec.phase.asApplyExtrinsic.toNumber() : null;
+                    const extHash = extrinsicIdx != null && signedBlock.block.extrinsics[extrinsicIdx]
+                        ? signedBlock.block.extrinsics[extrinsicIdx].hash.toHex()
+                        : null;
+                    try {
+                        if (method === 'MarketCreated') {
+                            // Hydrate market metadata from chain storage (question, oracle,
+                            // source, opengov link). That requires api.query.polkamarkt.*
+                            // which we've already confirmed present (events were emitted).
+                            const marketId = Number(raw[0]);
+                            const seedLiquidity = raw[1];
+                            let question = null, oracle = null, resolutionSource = null;
+                            let creator = 'Unknown', closeBlock = 0, collateralAsset = '', conditionId = 0;
+                            let opengov = {};
+                            try {
+                                const mOpt = await api.query.polkamarkt.markets(marketId);
+                                if (mOpt && mOpt.isSome !== false) {
+                                    const m = mOpt.toJSON ? mOpt.toJSON() : mOpt;
+                                    creator = String(m.creator || 'Unknown');
+                                    conditionId = Number(m.conditionId ?? m.condition_id ?? 0);
+                                    closeBlock = Number(m.closeBlock ?? m.close_block ?? 0);
+                                    collateralAsset = String(m.collateralAsset ?? m.collateral_asset ?? '');
+                                }
+                                const cOpt = await api.query.polkamarkt.conditions(conditionId);
+                                if (cOpt) {
+                                    const c = cOpt.toJSON ? cOpt.toJSON() : cOpt;
+                                    const hex2str = (h) => {
+                                        try { return Buffer.from(String(h || '').replace(/^0x/, ''), 'hex').toString('utf8'); }
+                                        catch { return ''; }
+                                    };
+                                    question = hex2str(c?.question) || null;
+                                    oracle = hex2str(c?.oracle) || null;
+                                    resolutionSource = hex2str(c?.resolutionSource ?? c?.resolution_source) || null;
+                                }
+                                const ogOpt = await api.query.polkamarkt.opengovConditions(conditionId).catch(() => null);
+                                if (ogOpt) {
+                                    const og = ogOpt.toJSON ? ogOpt.toJSON() : null;
+                                    if (og) {
+                                        opengov = {
+                                            opengovNetwork: String(og.network || og.relay_network || 'Polkadot'),
+                                            opengovParachain: Number(og.parachainId ?? og.parachain_id) || null,
+                                            opengovTrack: Number(og.trackId ?? og.track_id) || null,
+                                            opengovReferendum: Number(og.referendumIndex ?? og.referendum_index) || null,
+                                        };
+                                    }
+                                }
+                            } catch (_) { /* best-effort hydration */ }
+                            await pmInsertMarket({
+                                marketId, conditionId, creator, closeBlock, collateralAsset,
+                                seedLiquidity, status: 'Open',
+                                question, oracle, resolutionSource,
+                                ...opengov,
+                                block: blockNumber, ts: blockTs,
+                            });
+                            console.log(`🎲 Polkamarkt Market #${marketId} created by ${creator.slice(0, 10)}…`);
+                        } else if (method === 'TradeExecuted') {
+                            await pmInsertTrade({
+                                marketId: Number(raw[0]),
+                                trader: raw[1],
+                                side: raw[2],       // 'Buy' | 'Sell'
+                                outcome: raw[3],    // 'Yes' | 'No'
+                                collateral: raw[4],
+                                shares: raw[5],
+                                fee: raw[6],
+                                block: blockNumber,
+                                ts: blockTs,
+                                hash: extHash,
+                            });
+                        } else if (method === 'MarketLocked') {
+                            await pmUpdateMarketStatus(Number(raw[0]), 'Locked', null, blockNumber, blockTs);
+                        } else if (method === 'MarketResolved') {
+                            await pmUpdateMarketStatus(Number(raw[0]), 'Resolved', raw[1], blockNumber, blockTs);
+                        } else if (method === 'MarketCancelled') {
+                            await pmUpdateMarketStatus(Number(raw[0]), 'Cancelled', null, blockNumber, blockTs);
+                        } else if (method === 'MarketClaimed') {
+                            await pmInsertClaim({
+                                marketId: Number(raw[0]),
+                                account: raw[1],
+                                kind: 'payout',
+                                amount: raw[2],
+                                block: blockNumber, ts: blockTs,
+                            });
+                        } else if (method === 'CreatorFeesClaimed') {
+                            await pmInsertClaim({
+                                marketId: Number(raw[0]),
+                                account: raw[1],
+                                kind: 'creator_fees',
+                                amount: raw[2],
+                                block: blockNumber, ts: blockTs,
+                            });
+                        } else if (method === 'CreatorLiquidityClaimed') {
+                            await pmInsertClaim({
+                                marketId: Number(raw[0]),
+                                account: raw[1],
+                                kind: 'creator_liquidity',
+                                amount: raw[2],
+                                block: blockNumber, ts: blockTs,
+                            });
+                        } else if (method === 'MarketBondLockReleased') {
+                            await pmInsertClaim({
+                                marketId: Number(raw[0]),
+                                account: raw[1],
+                                kind: 'bond_released',
+                                amount: raw[2],
+                                block: blockNumber, ts: blockTs,
+                            });
+                        }
+                        // MarketSeeded / GovernanceBonded / HollarRouted / XorBuybackSwept are
+                        // informational — no action needed for v1 of the UI.
+                    } catch (e) {
+                        console.error(`polkamarkt.${method} handler error:`, e.message);
+                    }
+                }
+            })();
+        }
 
         const swapEvents = allEvents.filter(({ event }) =>
             event.section === 'liquidityProxy' && event.method === 'Exchange'

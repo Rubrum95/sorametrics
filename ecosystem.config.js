@@ -25,6 +25,37 @@ module.exports = {
             env: {
                 NODE_ENV: 'production'
             }
+        },
+        {
+            name: 'sorametrics-preimage-indexer',
+            script: 'preimage_indexer.js',
+            instances: 1,
+            max_memory_restart: '512M',
+            restart_delay: 10000,
+            exp_backoff_restart_delay: 2000,
+            autorestart: true,
+            log_date_format: 'YYYY-MM-DD HH:mm:ss',
+            env: {
+                NODE_ENV: 'production',
+                WS: 'wss://mof2.sora.org',
+                BACKFILL_BATCH: '200',
+                BACKFILL_CONCURRENCY: '15',
+                BACKFILL_SPAN: '200000'
+            }
+        },
+        {
+            name: 'sorametrics-minamoto-indexer',
+            script: 'minamoto/indexer.js',
+            instances: 1,
+            max_memory_restart: '512M',
+            restart_delay: 10000,
+            exp_backoff_restart_delay: 2000,
+            autorestart: true,
+            log_date_format: 'YYYY-MM-DD HH:mm:ss',
+            env: {
+                NODE_ENV: 'production',
+                MINAMOTO_TORII: 'https://minamoto.sora.org'
+            }
         }
     ]
 };

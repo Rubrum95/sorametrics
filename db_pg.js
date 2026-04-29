@@ -13,9 +13,9 @@ const PG_CONFIG = {
     database: process.env.PG_DB || 'squid',
     user: process.env.PG_USER || 'postgres',
     password: process.env.PG_PASS || 'squid',
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    max: 50,                         // 20 → 50 (was bottleneck during peak load)
+    idleTimeoutMillis: 60000,        // 30s → 60s (keep connections warm longer)
+    connectionTimeoutMillis: 10000,  // 5s → 10s (more headroom under burst)
     statement_timeout: 30000,
 };
 
@@ -1007,7 +1007,10 @@ async function getLiquidityEvents(page = 1, limit = 25, timestamp = null) {
 
     const result = await paginatedQuery('mv_liquidity_events', 'live_liquidity_events', LIQ_COLS, where, params, 'timestamp DESC', page, limit, null);
     result.data = result.data.map(r => ({ ...r, usd_value: fmtUsd(r.usd_value) }));
-    return { data: result.data, total: result.total };
+    // Preserve page/totalPages from paginatedQuery so the client can paginate
+    // beyond the first chunk (previously only `{data,total}` was returned,
+    // which capped the UI at ~1-2 pages).
+    return { data: result.data, total: result.total, page: result.page, totalPages: result.totalPages };
 }
 
 async function getPoolActivity(base, target, limit = 10) {
@@ -1606,7 +1609,9 @@ async function getWalletInfo(address) {
                 COALESCE((SELECT COUNT(*) FROM sm.mv_transfers WHERE from_addr = $1), 0) + COALESCE((SELECT COUNT(*) FROM sm.live_transfers WHERE from_addr = $1), 0) as out_count,
                 COALESCE((SELECT SUM(usd_value) FROM sm.mv_transfers WHERE from_addr = $1), 0) + COALESCE((SELECT SUM(usd_value) FROM sm.live_transfers WHERE from_addr = $1), 0) as out_usd,
                 COALESCE((SELECT COUNT(*) FROM sm.mv_transfers WHERE to_addr = $1), 0) + COALESCE((SELECT COUNT(*) FROM sm.live_transfers WHERE to_addr = $1), 0) as in_count,
-                COALESCE((SELECT SUM(usd_value) FROM sm.mv_transfers WHERE to_addr = $1), 0) + COALESCE((SELECT SUM(usd_value) FROM sm.live_transfers WHERE to_addr = $1), 0) as in_usd`,
+                COALESCE((SELECT SUM(usd_value) FROM sm.mv_transfers WHERE to_addr = $1), 0) + COALESCE((SELECT SUM(usd_value) FROM sm.live_transfers WHERE to_addr = $1), 0) as in_usd,
+                (SELECT MIN(timestamp) FROM (SELECT timestamp FROM sm.mv_transfers WHERE from_addr = $1 OR to_addr = $1 UNION ALL SELECT timestamp FROM sm.live_transfers WHERE from_addr = $1 OR to_addr = $1) AS _t) as first_transfer_ts,
+                (SELECT MAX(timestamp) FROM (SELECT timestamp FROM sm.mv_transfers WHERE from_addr = $1 OR to_addr = $1 UNION ALL SELECT timestamp FROM sm.live_transfers WHERE from_addr = $1 OR to_addr = $1) AS _t) as last_transfer_ts`,
             [address]),
         // Q9: LP summary
         pool.query(
@@ -1639,7 +1644,9 @@ async function getWalletInfo(address) {
     const b = bridgeSummary.rows[0] || {};
 
     return {
-        firstTx: e.first_tx, lastTx: e.last_tx, txCount: parseInt(e.tx_count) || 0,
+        firstTx: e.first_tx || t.first_transfer_ts || null,
+        lastTx:  e.last_tx  || t.last_transfer_ts  || null,
+        txCount: parseInt(e.tx_count) || 0,
         successCount: parseInt(e.success_count) || 0, daysActive: parseInt(e.days_active) || 0,
         modules: modules.rows,
         governanceTx: parseInt(governance.rows[0]?.cnt) || 0,
@@ -1746,8 +1753,342 @@ async function updatePriceHistory(tokenPrices) {
 // EXPORTS
 // ============================================================
 
+// ============================================================
+// POLKAMARKT (prediction market pallet — available in runtime ≥ 4.8.x)
+// ============================================================
+//
+// Pallet surface (extracted from pallets/polkamarkt/src/lib.rs on github):
+//   Storage: Markets, Conditions, MarketPools, MarketVolume, MarketPositions,
+//            MarketResolution, OpengovConditions, MarketCreatorFees, …
+//   Events:  MarketCreated, TradeExecuted, MarketLocked, MarketResolved,
+//            MarketCancelled, MarketClaimed, CreatorFeesClaimed, XorBuybackSwept
+//   Calls:   create_market, buy, sell, resolve_market, cancel_market, claim_market
+//
+// Schema here is a local mirror populated by the live indexer in index.js
+// (backend consumes `api.events.polkamarkt.*`). Endpoints query these
+// tables; if empty, UI shows "coming soon" via the feature-detection
+// endpoint /polkamarkt/state.
+
+async function initPolkamarktSchema() {
+    const client = await pool.connect();
+    try {
+        // Markets replica — kept in sync by MarketCreated / Locked / Resolved /
+        // Cancelled events. Question / oracle / resolution_source are cached
+        // here from Conditions[condId] the first time we see the market so
+        // endpoints don't need a second RPC round-trip.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.polkamarkt_markets (
+                market_id           BIGINT PRIMARY KEY,
+                condition_id        BIGINT NOT NULL,
+                creator             TEXT NOT NULL,
+                close_block         INTEGER NOT NULL,
+                collateral_asset    TEXT NOT NULL,
+                seed_liquidity      NUMERIC(60) NOT NULL DEFAULT 0,
+                status              TEXT NOT NULL,               -- 'Open' | 'Locked' | 'Resolved' | 'Cancelled'
+                resolution          TEXT,                          -- 'Yes' | 'No' | NULL
+                question            TEXT,
+                oracle              TEXT,
+                resolution_source   TEXT,
+                opengov_network     TEXT,
+                opengov_parachain   INTEGER,
+                opengov_track       INTEGER,
+                opengov_referendum  INTEGER,
+                created_at_block    INTEGER NOT NULL,
+                created_at_ts       BIGINT  NOT NULL,
+                resolved_at_block   INTEGER,
+                resolved_at_ts      BIGINT
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_markets_status ON sm.polkamarkt_markets(status)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_markets_creator ON sm.polkamarkt_markets(creator)`);
+
+        // Every TradeExecuted event (buy / sell, yes / no). We do NOT
+        // aggregate ahead of time — the prob-over-time sparkline is
+        // computed on-demand from this table (cheap while dataset is
+        // small; we can bucketize later if volume grows).
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.polkamarkt_trades (
+                id          BIGSERIAL PRIMARY KEY,
+                market_id   BIGINT NOT NULL,
+                trader      TEXT NOT NULL,
+                side        TEXT NOT NULL,           -- 'Buy' | 'Sell'
+                outcome     TEXT NOT NULL,           -- 'Yes' | 'No'
+                collateral  NUMERIC(60) NOT NULL,
+                shares      NUMERIC(60) NOT NULL,
+                fee         NUMERIC(60) NOT NULL,
+                block       INTEGER NOT NULL,
+                ts          BIGINT  NOT NULL,
+                hash        TEXT
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_trades_market_ts ON sm.polkamarkt_trades(market_id, ts)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_trades_trader ON sm.polkamarkt_trades(trader)`);
+
+        // Claims — trader payouts after resolution, and creator fee/liquidity claims.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.polkamarkt_claims (
+                id         BIGSERIAL PRIMARY KEY,
+                market_id  BIGINT NOT NULL,
+                account    TEXT   NOT NULL,
+                kind       TEXT   NOT NULL,         -- 'payout' | 'creator_fees' | 'creator_liquidity' | 'bond_released'
+                amount     NUMERIC(60) NOT NULL,
+                block      INTEGER NOT NULL,
+                ts         BIGINT  NOT NULL
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_claims_account ON sm.polkamarkt_claims(account)`);
+        console.log('[db_pg] polkamarkt schema ready');
+    } catch (e) {
+        console.error('[db_pg] polkamarkt schema init error:', e.message);
+    } finally {
+        client.release();
+    }
+}
+
+async function pmInsertMarket(m) {
+    await pool.query(
+        `INSERT INTO sm.polkamarkt_markets
+         (market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,
+          status, question, oracle, resolution_source,
+          opengov_network, opengov_parachain, opengov_track, opengov_referendum,
+          created_at_block, created_at_ts)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         ON CONFLICT (market_id) DO NOTHING`,
+        [m.marketId, m.conditionId, m.creator, m.closeBlock, m.collateralAsset, m.seedLiquidity,
+         m.status || 'Open', m.question, m.oracle, m.resolutionSource,
+         m.opengovNetwork, m.opengovParachain, m.opengovTrack, m.opengovReferendum,
+         m.block, m.ts]
+    );
+}
+
+async function pmUpdateMarketStatus(marketId, status, resolution, block, ts) {
+    await pool.query(
+        `UPDATE sm.polkamarkt_markets
+         SET status = $2, resolution = $3,
+             resolved_at_block = CASE WHEN $2 IN ('Resolved','Cancelled') THEN $4 ELSE resolved_at_block END,
+             resolved_at_ts    = CASE WHEN $2 IN ('Resolved','Cancelled') THEN $5 ELSE resolved_at_ts END
+         WHERE market_id = $1`,
+        [marketId, status, resolution || null, block, ts]
+    );
+}
+
+async function pmInsertTrade(t) {
+    await pool.query(
+        `INSERT INTO sm.polkamarkt_trades
+         (market_id, trader, side, outcome, collateral, shares, fee, block, ts, hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [t.marketId, t.trader, t.side, t.outcome, t.collateral, t.shares, t.fee, t.block, t.ts, t.hash || null]
+    );
+}
+
+async function pmInsertClaim(c) {
+    await pool.query(
+        `INSERT INTO sm.polkamarkt_claims (market_id, account, kind, amount, block, ts)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [c.marketId, c.account, c.kind, c.amount, c.block, c.ts]
+    );
+}
+
+// Totals for KPI header in the Prediction Markets section.
+async function pmGetTotals() {
+    const r = await pool.query(`
+        SELECT
+          COUNT(*)                                              AS markets_total,
+          COUNT(*) FILTER (WHERE status = 'Open')               AS markets_active,
+          (SELECT COALESCE(SUM(collateral), 0) FROM sm.polkamarkt_trades) AS volume_total
+        FROM sm.polkamarkt_markets
+    `);
+    return {
+        markets: Number(r.rows[0].markets_total) || 0,
+        active: Number(r.rows[0].markets_active) || 0,
+        volume: Number(r.rows[0].volume_total) || 0,
+    };
+}
+
+// Paginated markets list for the main Markets tab.
+async function pmGetMarkets({ page = 1, limit = 25, status = null } = {}) {
+    const params = [];
+    const where = [];
+    if (status && status !== 'all') { params.push(status); where.push(`status = $${params.length}`); }
+    const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    params.push(limit, (page - 1) * limit);
+    const data = await pool.query(
+        `SELECT m.*, v.volume
+         FROM sm.polkamarkt_markets m
+         LEFT JOIN LATERAL (
+             SELECT COALESCE(SUM(collateral), 0) AS volume
+             FROM sm.polkamarkt_trades t WHERE t.market_id = m.market_id
+         ) v ON true
+         ${whereSql}
+         ORDER BY m.market_id DESC
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
+        params
+    );
+    const countParams = status && status !== 'all' ? [status] : [];
+    const countRes = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM sm.polkamarkt_markets ${whereSql}`,
+        countParams
+    );
+    const total = Number(countRes.rows[0].cnt) || 0;
+    return {
+        data: data.rows,
+        total,
+        page,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+}
+
+// Full detail of a market: metadata + recent trades + top positions +
+// probability history buckets.
+async function pmGetMarketDetail(marketId) {
+    const mRes = await pool.query(`SELECT * FROM sm.polkamarkt_markets WHERE market_id = $1`, [marketId]);
+    if (mRes.rows.length === 0) return null;
+    const market = mRes.rows[0];
+
+    const tradesRes = await pool.query(
+        `SELECT * FROM sm.polkamarkt_trades WHERE market_id = $1 ORDER BY ts DESC LIMIT 20`,
+        [marketId]
+    );
+
+    // Top positions: net collateral per trader (positive = long yes+no).
+    const topRes = await pool.query(
+        `SELECT
+            trader,
+            SUM(CASE WHEN side = 'Buy'  AND outcome = 'Yes' THEN shares      ELSE 0 END)
+          - SUM(CASE WHEN side = 'Sell' AND outcome = 'Yes' THEN shares      ELSE 0 END) AS yes_shares,
+            SUM(CASE WHEN side = 'Buy'  AND outcome = 'No'  THEN shares      ELSE 0 END)
+          - SUM(CASE WHEN side = 'Sell' AND outcome = 'No'  THEN shares      ELSE 0 END) AS no_shares,
+            SUM(CASE WHEN side = 'Buy'  THEN  collateral ELSE -collateral END) AS net_collateral
+         FROM sm.polkamarkt_trades
+         WHERE market_id = $1
+         GROUP BY trader
+         ORDER BY ABS(SUM(CASE WHEN side = 'Buy' THEN collateral ELSE -collateral END)) DESC
+         LIMIT 10`,
+        [marketId]
+    );
+
+    // Probability history — hourly buckets, prob_yes derived from cumulative
+    // shares. Cheap enough while data is small.
+    const probRes = await pool.query(
+        `SELECT
+            date_trunc('hour', to_timestamp(ts / 1000)) AS bucket,
+            SUM(CASE WHEN outcome = 'Yes' AND side = 'Buy'  THEN  shares ELSE 0 END) -
+            SUM(CASE WHEN outcome = 'Yes' AND side = 'Sell' THEN  shares ELSE 0 END) AS yes_delta,
+            SUM(CASE WHEN outcome = 'No'  AND side = 'Buy'  THEN  shares ELSE 0 END) -
+            SUM(CASE WHEN outcome = 'No'  AND side = 'Sell' THEN  shares ELSE 0 END) AS no_delta
+         FROM sm.polkamarkt_trades
+         WHERE market_id = $1
+         GROUP BY bucket
+         ORDER BY bucket`,
+        [marketId]
+    );
+
+    return {
+        market,
+        recentTrades: tradesRes.rows,
+        topPositions: topRes.rows,
+        probHistory: probRes.rows,
+    };
+}
+
+// User-scoped positions for Portfolio / wallet-drill tables.
+async function pmGetUserPositions(addr) {
+    const r = await pool.query(
+        `SELECT
+            t.market_id,
+            m.question,
+            m.status,
+            m.resolution,
+            SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares     ELSE 0 END) -
+            SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares     ELSE 0 END) AS yes_shares,
+            SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares     ELSE 0 END) -
+            SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares     ELSE 0 END) AS no_shares,
+            SUM(CASE WHEN t.side = 'Buy'  THEN  t.collateral ELSE -t.collateral END)         AS net_collateral
+         FROM sm.polkamarkt_trades t
+         JOIN sm.polkamarkt_markets m ON m.market_id = t.market_id
+         WHERE t.trader = $1
+         GROUP BY t.market_id, m.question, m.status, m.resolution
+         HAVING
+           SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) -
+           SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) > 0
+         OR
+           SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END) -
+           SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares ELSE 0 END) > 0
+         ORDER BY t.market_id DESC`,
+        [addr]
+    );
+    return r.rows;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Fee-burns live indexer helpers (added 2026-04-25, schema fee-burns rewrite)
+// ─────────────────────────────────────────────────────────────────────
+
+async function initFeeBurnsLiveSchema() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS sm.fee_burns_live (
+            block_height        BIGINT PRIMARY KEY,
+            ts                  BIGINT NOT NULL,
+            fees_paid_xor       NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            ref_paid_xor        NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            ref_redirected_xor  NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            remint_xor_burned   NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            remint_val_burned   NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            remint_kusd_burned  NUMERIC(40, 18) NOT NULL DEFAULT 0,
+            remint_tbcd_burned  NUMERIC(40, 18) NOT NULL DEFAULT 0
+        )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_fbl_ts ON sm.fee_burns_live (ts)`);
+}
+
+async function insertFeeBurnRow(row) {
+    await pool.query(
+        `INSERT INTO sm.fee_burns_live
+            (block_height, ts, fees_paid_xor, ref_paid_xor, ref_redirected_xor,
+             remint_xor_burned, remint_val_burned, remint_kusd_burned, remint_tbcd_burned)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (block_height) DO UPDATE SET
+             fees_paid_xor       = EXCLUDED.fees_paid_xor,
+             ref_paid_xor        = EXCLUDED.ref_paid_xor,
+             ref_redirected_xor  = EXCLUDED.ref_redirected_xor,
+             remint_xor_burned   = EXCLUDED.remint_xor_burned,
+             remint_val_burned   = EXCLUDED.remint_val_burned,
+             remint_kusd_burned  = EXCLUDED.remint_kusd_burned,
+             remint_tbcd_burned  = EXCLUDED.remint_tbcd_burned`,
+        [row.block_height, row.ts,
+         row.fees_paid_xor || 0, row.ref_paid_xor || 0, row.ref_redirected_xor || 0,
+         row.remint_xor_burned || 0, row.remint_val_burned || 0,
+         row.remint_kusd_burned || 0, row.remint_tbcd_burned || 0]
+    );
+}
+
+async function getFeeBurnsWindow(seconds) {
+    const since = seconds === 0 ? 0 : Date.now() - seconds * 1000;
+    const r = await pool.query(
+        `SELECT
+            COALESCE(SUM(fees_paid_xor),       0)::float8 AS fees_paid_xor,
+            COALESCE(SUM(ref_paid_xor),        0)::float8 AS ref_paid_xor,
+            COALESCE(SUM(ref_redirected_xor),  0)::float8 AS ref_redirected_xor,
+            COALESCE(SUM(remint_xor_burned),   0)::float8 AS remint_xor_burned,
+            COALESCE(SUM(remint_val_burned),   0)::float8 AS remint_val_burned,
+            COALESCE(SUM(remint_kusd_burned),  0)::float8 AS remint_kusd_burned,
+            COALESCE(SUM(remint_tbcd_burned),  0)::float8 AS remint_tbcd_burned,
+            COUNT(*)                                       AS rows,
+            COALESCE(MIN(ts), 0)                           AS min_ts,
+            COALESCE(MAX(ts), 0)                           AS max_ts
+         FROM sm.fee_burns_live
+         WHERE ts >= $1`,
+        [since]
+    );
+    return r.rows[0] || {};
+}
+
 module.exports = {
     initDB,
+    initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow,
+    initPolkamarktSchema,
+    pmInsertMarket, pmUpdateMarketStatus, pmInsertTrade, pmInsertClaim,
+    pmGetTotals, pmGetMarkets, pmGetMarketDetail, pmGetUserPositions,
     insertTransfer,
     getTransfers,
     getLatestTransfers,

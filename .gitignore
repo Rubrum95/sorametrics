@@ -1,17 +1,46 @@
-.env
+# Node
 node_modules/
-*.db
-*.db-wal
-*.db-shm
-backfill_state.json
+npm-debug.log*
+yarn-error.log*
 
-# Music player assets (deployed separately via SCP)
+# Local config & secrets
+.env
+.env.local
+.env.*.local
+
+# Databases (production state, not for git)
+*.db
+*.db-shm
+*.db-wal
+
+# PM2 logs & state
+*.log
+.pm2/
+
+# Backups (manual snapshots — both .bak.* and .bak-* variants)
+*.bak
+*.bak.*
+*.bak-*
+*.tmp
+*.swp
+
+# Backfill state files (regenerated on each run)
+backfill_state.json
+backfill_orderbook_state.json
+
+# Music player assets (large files, deployed separately via SCP)
 music/*.mp3
 music/*.wav
+music/*.flac
 
-# Backup files
-*.bak
-*.bak-*
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
-# Backfill state files
-backfill_orderbook_state.json
+# Project-private (not for public repo)
+CLAUDE.md
+tasks/
+.claude/
+.vps-snapshot/
