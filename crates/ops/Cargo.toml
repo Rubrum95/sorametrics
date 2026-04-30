@@ -1,0 +1,29 @@
+[package]
+name = "sorametrics-ops"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "SoraMetrics v33 admin / operations CLI (backfill, replay, migrate, decode-block)"
+
+[[bin]]
+name = "sorametrics-ops"
+path = "src/main.rs"
+
+[dependencies]
+sorametrics-core.workspace = true
+sorametrics-db.workspace = true
+sorametrics-substrate.workspace = true
+sorametrics-telemetry.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+subxt.workspace = true
+url.workspace = true
+sqlx.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.live_transfers (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            from_address, to_address, asset_id, amount,\n            usd_value\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8,\n            $9\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Numeric",
+        "Numeric"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "01e39fb61acfaf30bea3ca86fd31c101f975ab5a1fa566eaeaab75e003a7a6e7"
+}

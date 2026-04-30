@@ -1,0 +1,102 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/db",
+    "crates/telemetry",
+    "crates/substrate",
+    "crates/ingest",
+    "crates/api",
+    "crates/ops",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Rubrum95 <jtvr90@gmail.com>"]
+rust-version = "1.83"
+repository = "https://github.com/Rubrum95/sorametrics"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# Error handling
+thiserror = "1"
+anyhow = "1"
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+# Database
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "chrono",
+    "uuid",
+    "json",
+    "macros",
+    "migrate",
+    "rust_decimal",
+    "bigdecimal",
+] }
+# Crypto / encoding
+hex = "0.4"
+# Money / fixed-point (small values: USD prices, sub-1e28 amounts)
+rust_decimal = { version = "1", features = ["serde-with-arbitrary-precision"] }
+# Arbitrary-precision decimal for raw on-chain amounts. SORA pre-denomination
+# XOR balances exceed `rust_decimal::Decimal::MAX` (~7.9e28); BigDecimal has
+# no fixed bound. Maps to PostgreSQL `NUMERIC` natively via sqlx.
+bigdecimal = { version = "0.4", features = ["serde"] }
+num-bigint = "0.4"
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+# Substrate WS RPC client (lightweight, used by Phase 1.1 connection layer).
+jsonrpsee = { version = "0.24", default-features = false, features = [
+    "ws-client",
+    "client-ws-transport-tls",
+    "async-client",
+    "macros",
+] }
+# HTTP server framework for the query API.
+axum = { version = "0.7", features = ["macros"] }
+# Tower middleware (tracing, timeouts, rate-limit, cors).
+tower = { version = "0.5", features = ["util", "limit", "load-shed"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "timeout"] }
+# Substrate runtime client + codegen for typed events (Phase 1.2+).
+# `default` brings jsonrpsee + native target + substrate-compat config.
+subxt = { version = "0.38", default-features = false, features = [
+    "jsonrpsee",
+    "native",
+    "substrate-compat",
+] }
+# CLI args
+clap = { version = "4", features = ["derive", "env"] }
+# Dotenv loader (dev only — production uses PM2 env)
+dotenvy = "0.15"
+# Async stream helpers
+futures = "0.3"
+# URL parsing
+url = "2"
+# HTTP client (used by ops to fetch the asset whitelist from GitHub).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+# Internal crates
+sorametrics-core = { path = "crates/core" }
+sorametrics-db = { path = "crates/db" }
+sorametrics-telemetry = { path = "crates/telemetry" }
+sorametrics-substrate = { path = "crates/substrate" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS c FROM sm.live_transfers",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d289c3af142bc52709230a52b5c799f9593d2ee10efeaaef3048ae5318583b54"
+}

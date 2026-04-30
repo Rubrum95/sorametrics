@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT job_name, last_processed_block, last_updated_at, status, error_message\n        FROM sm.indexer_state\n        ORDER BY job_name\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "job_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "last_processed_block",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "last_updated_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "error_message",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7856264061d64959b1024e61c864bb9d0661417c1be230509173eeb0014424c3"
+}

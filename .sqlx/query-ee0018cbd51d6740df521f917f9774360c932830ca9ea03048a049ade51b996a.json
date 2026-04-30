@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.asset_registry (asset_id, symbol, name, decimals, logo, updated_at)\n            VALUES ($1, $2, $3, $4, $5, NOW())\n            ON CONFLICT (asset_id) DO UPDATE SET\n                symbol     = EXCLUDED.symbol,\n                name       = EXCLUDED.name,\n                decimals   = EXCLUDED.decimals,\n                logo       = EXCLUDED.logo,\n                updated_at = NOW()\n            RETURNING (xmax = 0) AS \"is_insert!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_insert!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int2",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ee0018cbd51d6740df521f917f9774360c932830ca9ea03048a049ade51b996a"
+}

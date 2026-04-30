@@ -1,0 +1,38 @@
+[package]
+name = "sorametrics-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "SoraMetrics v33 query API (axum)"
+
+[lib]
+name = "sorametrics_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sorametrics-api"
+path = "src/main.rs"
+
+[dependencies]
+sorametrics-core.workspace = true
+sorametrics-db.workspace = true
+sorametrics-telemetry.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+bigdecimal.workspace = true
+dotenvy.workspace = true
+clap.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }

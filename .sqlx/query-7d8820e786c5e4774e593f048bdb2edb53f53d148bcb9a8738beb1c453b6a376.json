@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS c FROM sm.live_bridges",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7d8820e786c5e4774e593f048bdb2edb53f53d148bcb9a8738beb1c453b6a376"
+}

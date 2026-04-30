@@ -1,0 +1,50 @@
+# Local dev stack for SoraMetrics v33.
+#
+# Usage:
+#   make dev-up         # start postgres+timescale and redis
+#   make dev-down       # stop and remove containers
+#   make dev-logs       # tail logs
+#
+# Connection strings (matching .env.example):
+#   DATABASE_URL=postgres://sorametrics:sorametrics_dev@localhost:5432/sorametrics_v33
+#   REDIS_URL=redis://localhost:6379
+#
+# Note: this is the dev stack only. Production deploys will reuse the
+# existing `sora_subsquid_db` container on the VPS.
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    container_name: sorametrics-v33-postgres
+    environment:
+      POSTGRES_USER: sorametrics
+      POSTGRES_PASSWORD: sorametrics_dev
+      POSTGRES_DB: sorametrics_v33
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sorametrics -d sorametrics_v33"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: sorametrics-v33-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  redis-data:

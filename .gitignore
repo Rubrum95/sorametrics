@@ -1,0 +1,33 @@
+# Rust
+target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Local docker volumes (in-place named volumes, normally fine but ignore just in case)
+pg-data/
+redis-data/
+
+# sqlx offline cache: COMMITTED (regenerated with `cargo sqlx prepare`).
+# Required for `cargo build` to typecheck queries without a live DB
+# (CI without postgres service, contributor first build, etc.).
+
+# Project-private (not for public repo)
+CLAUDE.md
+tasks/
+.claude/
+.vps-snapshot/

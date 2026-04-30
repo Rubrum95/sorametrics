@@ -1,0 +1,24 @@
+[package]
+name = "sorametrics-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+description = "PostgreSQL + TimescaleDB layer for SoraMetrics v33"
+
+[dependencies]
+sorametrics-core.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+serde.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+rust_decimal.workspace = true
+bigdecimal.workspace = true
+num-bigint.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
