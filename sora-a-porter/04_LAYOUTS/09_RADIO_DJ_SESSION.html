@@ -1278,32 +1278,66 @@
         item.addEventListener('dragend', () => item.classList.remove('is-dragging'));
       });
 
-      // drop targets: each .deck--a / .deck--b accepts queue items
-      ['a', 'b'].forEach((d) => {
-        const deck = document.querySelector('.deck--' + d);
-        if (!deck) return;
-        deck.addEventListener('dragenter', (e) => { e.preventDefault(); deck.classList.add('is-drop-target'); });
-        deck.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-        deck.addEventListener('dragleave', (e) => {
-          // only remove highlight when actually leaving (not when crossing child boundary)
-          if (!deck.contains(e.relatedTarget)) deck.classList.remove('is-drop-target');
-        });
-        deck.addEventListener('drop', (e) => {
-          e.preventDefault();
-          deck.classList.remove('is-drop-target');
-          const raw = e.dataTransfer.getData('application/x-sora-track') || e.dataTransfer.getData('text/plain');
-          if (!raw) return;
-          let payload; try { payload = JSON.parse(raw); } catch { return; }
-          loadTrackOnDeck(d, payload.src, payload.title, payload.family, true);
-          // mark queue item visually
-          document.querySelectorAll('.live-queue__item').forEach((i) => {
-            if (i.dataset.src === payload.src) {
-              document.querySelectorAll('.live-queue__item').forEach((x) => x.removeAttribute('data-status'));
-              i.setAttribute('data-status', 'playing');
-            }
-          });
+      // document-level drop routing — hit-tests the actual bounding rect of each deck.
+      // Avoids fragile event bubbling through SVG/inner children (waveform, transport buttons, disc).
+      const SORA_DRAG_MIME = 'application/x-sora-track';
+      let currentDropDeck = null;
+      function isSoraDrag(dt) {
+        if (!dt) return false;
+        const types = dt.types;
+        if (!types) return false;
+        for (let i = 0; i < types.length; i++) {
+          const t = String(types[i]).toLowerCase();
+          if (t === SORA_DRAG_MIME) return true;
+        }
+        return false;
+      }
+      function deckUnderPoint(x, y) {
+        for (const d of ['a', 'b']) {
+          const el = document.querySelector('.deck--' + d);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return d;
+        }
+        return null;
+      }
+      function clearDropHighlight() {
+        if (currentDropDeck) {
+          document.querySelector('.deck--' + currentDropDeck)?.classList.remove('is-drop-target');
+        }
+        currentDropDeck = null;
+      }
+      document.addEventListener('dragover', (e) => {
+        if (!isSoraDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const d = deckUnderPoint(e.clientX, e.clientY);
+        if (d !== currentDropDeck) {
+          clearDropHighlight();
+          if (d) {
+            document.querySelector('.deck--' + d)?.classList.add('is-drop-target');
+            currentDropDeck = d;
+          }
+        }
+      });
+      document.addEventListener('drop', (e) => {
+        if (!isSoraDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        const targetDeck = deckUnderPoint(e.clientX, e.clientY) || currentDropDeck;
+        clearDropHighlight();
+        if (!targetDeck) return;
+        const raw = e.dataTransfer.getData(SORA_DRAG_MIME) || e.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        let payload; try { payload = JSON.parse(raw); } catch { return; }
+        loadTrackOnDeck(targetDeck, payload.src, payload.title, payload.family, true);
+        document.querySelectorAll('.live-queue__item').forEach((i) => {
+          if (i.dataset.src === payload.src) {
+            document.querySelectorAll('.live-queue__item').forEach((x) => x.removeAttribute('data-status'));
+            i.setAttribute('data-status', 'playing');
+          }
         });
       });
+      document.addEventListener('dragend', clearDropHighlight);
 
       // ── performance timeline AB switch + playhead ──
       let timelineDeck = 'a';
