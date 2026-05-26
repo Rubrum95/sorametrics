@@ -289,7 +289,7 @@
       <aside class="dj__col dj__queue">
         <h2 class="dj__col-title">Live queue <span class="sub">5 ahead</span></h2>
         <div class="live-queue">
-          <div class="live-queue__item" data-status="playing" data-deck="a" role="button" tabindex="0">
+          <div class="live-queue__item" data-status="playing" data-deck="a" data-src="/music/SORA%27s%20Hill.mp3" data-title="Sora's Hill" data-family="Monumental Ascent" draggable="true" role="button" tabindex="0">
             <span class="live-queue__index">A</span>
             <div class="live-queue__meta">
               <span class="live-queue__title">Sora's Hill</span>
@@ -298,7 +298,7 @@
             <span class="live-queue__dur">06:33</span>
             <span class="live-queue__status">▶</span>
           </div>
-          <div class="live-queue__item" data-deck="b" role="button" tabindex="0">
+          <div class="live-queue__item" data-deck="b" data-src="/music/XOR%20Sacrifice.mp3" data-title="XOR Sacrifice" data-family="Signal Performance" draggable="true" role="button" tabindex="0">
             <span class="live-queue__index">B</span>
             <div class="live-queue__meta">
               <span class="live-queue__title">XOR Sacrifice</span>
@@ -307,7 +307,7 @@
             <span class="live-queue__dur">07:45</span>
             <span class="live-queue__status">Next</span>
           </div>
-          <div class="live-queue__item">
+          <div class="live-queue__item" data-deck="a" data-src="/music/SORA%20Rhapsody.mp3" data-title="SORA Rhapsody" data-family="Editorial Monument" draggable="true" role="button" tabindex="0">
             <span class="live-queue__index">3</span>
             <div class="live-queue__meta">
               <span class="live-queue__title">SORA Rhapsody</span>
@@ -315,18 +315,18 @@
             </div>
             <span class="live-queue__dur">07:18</span>
           </div>
-          <div class="live-queue__item">
+          <div class="live-queue__item" data-deck="b" data-src="/music/ONE.mp3" data-title="ONE" data-family="Sigil Sovereign" draggable="true" role="button" tabindex="0">
             <span class="live-queue__index">4</span>
             <div class="live-queue__meta">
-              <span class="live-queue__title">Sigil of Ascent</span>
+              <span class="live-queue__title">ONE</span>
               <span class="live-queue__family">Sigil Sovereign</span>
             </div>
             <span class="live-queue__dur">05:42</span>
           </div>
-          <div class="live-queue__item">
+          <div class="live-queue__item" data-deck="a" data-src="/music/Kotodama_Language.mp3" data-title="Kotodama Language" data-family="Archive Relic" draggable="true" role="button" tabindex="0">
             <span class="live-queue__index">5</span>
             <div class="live-queue__meta">
-              <span class="live-queue__title">Relic Frequency</span>
+              <span class="live-queue__title">Kotodama Language</span>
               <span class="live-queue__family">Archive Relic</span>
             </div>
             <span class="live-queue__dur">08:03</span>
@@ -1219,19 +1219,41 @@
         el.addEventListener('ended', () => syncDiscClass(d));
       });
 
-      // ── queue → deck click (items with data-deck route to A or B) ──
+      // ── queue → deck: click loads on data-deck default; drag overrides target deck ──
+      function loadTrackOnDeck(deck, src, title, family, autoplay) {
+        if (deck !== 'a' && deck !== 'b') return;
+        const el = deckEl(deck);
+        const wasPlaying = !el.paused;
+        ensureGraph(); ctx?.resume();
+        if (src && el.getAttribute('src') !== src) {
+          el.setAttribute('src', src);
+          el.load();
+        }
+        // update deck visible meta
+        const root = document.querySelector('.deck--' + deck);
+        const titleEl = root?.querySelector('.deck__title');
+        const familyEl = root?.querySelector('.deck__family');
+        const headFamilyLabel = root?.querySelector('.deck__head .label');
+        if (titleEl && title) titleEl.textContent = title.toUpperCase();
+        if (familyEl && family) familyEl.textContent = family;
+        if (headFamilyLabel && family) headFamilyLabel.textContent = 'Deck ' + deck.toUpperCase() + ' · ' + family;
+        if (autoplay || wasPlaying) {
+          el.play().then(() => activeButton(deck, 'play')).catch(() => {});
+        } else {
+          activeButton(deck, 'cue');
+        }
+      }
       document.querySelectorAll('.live-queue__item').forEach((item) => {
         const trigger = () => {
           const deck = item.dataset.deck;
-          if (deck && (deck === 'a' || deck === 'b')) {
+          const src = item.dataset.src;
+          const title = item.dataset.title;
+          const family = item.dataset.family;
+          if ((deck === 'a' || deck === 'b') && src) {
             document.querySelectorAll('.live-queue__item').forEach((i) => i.removeAttribute('data-status'));
             item.setAttribute('data-status', 'playing');
-            ensureGraph();
-            ctx?.resume();
-            const el = deckEl(deck);
-            el.play().then(() => activeButton(deck, 'play')).catch(() => {});
+            loadTrackOnDeck(deck, src, title, family, true);
           } else {
-            // visual-only: no audio source for items 3..5
             document.querySelectorAll('.live-queue__item').forEach((i) => i.removeAttribute('data-status'));
             item.setAttribute('data-status', 'cued');
           }
@@ -1239,6 +1261,47 @@
         item.addEventListener('click', trigger);
         item.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(); }
+        });
+        // HTML5 drag source
+        item.addEventListener('dragstart', (e) => {
+          if (!item.dataset.src) { e.preventDefault(); return; }
+          const payload = JSON.stringify({
+            src: item.dataset.src,
+            title: item.dataset.title || '',
+            family: item.dataset.family || '',
+          });
+          e.dataTransfer.setData('application/x-sora-track', payload);
+          e.dataTransfer.setData('text/plain', payload);
+          e.dataTransfer.effectAllowed = 'copy';
+          item.classList.add('is-dragging');
+        });
+        item.addEventListener('dragend', () => item.classList.remove('is-dragging'));
+      });
+
+      // drop targets: each .deck--a / .deck--b accepts queue items
+      ['a', 'b'].forEach((d) => {
+        const deck = document.querySelector('.deck--' + d);
+        if (!deck) return;
+        deck.addEventListener('dragenter', (e) => { e.preventDefault(); deck.classList.add('is-drop-target'); });
+        deck.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        deck.addEventListener('dragleave', (e) => {
+          // only remove highlight when actually leaving (not when crossing child boundary)
+          if (!deck.contains(e.relatedTarget)) deck.classList.remove('is-drop-target');
+        });
+        deck.addEventListener('drop', (e) => {
+          e.preventDefault();
+          deck.classList.remove('is-drop-target');
+          const raw = e.dataTransfer.getData('application/x-sora-track') || e.dataTransfer.getData('text/plain');
+          if (!raw) return;
+          let payload; try { payload = JSON.parse(raw); } catch { return; }
+          loadTrackOnDeck(d, payload.src, payload.title, payload.family, true);
+          // mark queue item visually
+          document.querySelectorAll('.live-queue__item').forEach((i) => {
+            if (i.dataset.src === payload.src) {
+              document.querySelectorAll('.live-queue__item').forEach((x) => x.removeAttribute('data-status'));
+              i.setAttribute('data-status', 'playing');
+            }
+          });
         });
       });
 
@@ -1271,6 +1334,40 @@
           }
         });
       });
+      // ── timeline scrub: click/drag on waves seeks the active deck ──
+      const waves = document.querySelector('.perf-timeline__waves');
+      if (waves) {
+        let scrubbing = false;
+        function seekAtX(clientX) {
+          const el = deckEl(timelineDeck);
+          if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+          const rect = waves.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+          el.currentTime = pct * el.duration;
+          paintPlayhead();
+        }
+        const startScrub = (e) => {
+          scrubbing = true;
+          waves.classList.add('is-scrubbing');
+          seekAtX(e.touches ? e.touches[0].clientX : e.clientX);
+          e.preventDefault();
+        };
+        const moveScrub = (e) => {
+          if (!scrubbing) return;
+          seekAtX(e.touches ? e.touches[0].clientX : e.clientX);
+          e.preventDefault();
+        };
+        const endScrub = () => {
+          if (scrubbing) waves.classList.remove('is-scrubbing');
+          scrubbing = false;
+        };
+        waves.addEventListener('mousedown', startScrub);
+        document.addEventListener('mousemove', moveScrub);
+        document.addEventListener('mouseup', endScrub);
+        waves.addEventListener('touchstart', startScrub, { passive: false });
+        document.addEventListener('touchmove', moveScrub, { passive: false });
+        document.addEventListener('touchend', endScrub);
+      }
 
       // ── pads (real synth one-shots with visual flash) ──
       document.querySelectorAll('.pad').forEach((pad) => {
@@ -1548,13 +1645,46 @@
     .analyzer { background: #05070D; border-radius: 2px; overflow: hidden; }
     .analyzer canvas { width: 100%; height: auto; display: block; }
 
-    /* ── live-queue item interactive (data-deck routes to deck) ── */
-    .live-queue__item[data-deck] { cursor: pointer; }
-    .live-queue__item[data-deck]:hover { background: rgba(200, 168, 90, 0.06); }
-    .live-queue__item[data-deck]:focus-visible {
+    /* ── live-queue item interactive (data-deck routes to deck; draggable to any deck) ── */
+    .live-queue__item[data-src] { cursor: grab; }
+    .live-queue__item[data-src]:hover { background: rgba(200, 168, 90, 0.06); }
+    .live-queue__item[data-src]:focus-visible {
       outline: 1px solid var(--gold-warm, #E6C275);
       outline-offset: -2px;
     }
+    .live-queue__item[data-src]:active { cursor: grabbing; }
+    .live-queue__item.is-dragging { opacity: 0.5; }
+
+    /* ── deck as drop target during drag ── */
+    .deck.is-drop-target {
+      outline: 2px dashed var(--gold-warm, #E6C275);
+      outline-offset: -4px;
+      box-shadow: 0 0 18px rgba(230, 194, 117, 0.25) inset;
+      position: relative;
+    }
+    .deck.is-drop-target::after {
+      content: 'Drop to load';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-sans);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold-warm, #E6C275);
+      background: rgba(5, 7, 13, 0.75);
+      padding: 6px 12px;
+      border: 1px solid var(--gold-warm, #E6C275);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    /* ── timeline scrub ── */
+    .perf-timeline__waves { cursor: ew-resize; }
+    .perf-timeline__waves.is-scrubbing { cursor: grabbing; }
+    .perf-timeline__waves.is-scrubbing .perf-timeline__playhead { transition: none; }
 
     /* ── performance timeline playhead ── */
     .perf-timeline__waves { position: relative; }
