@@ -121,9 +121,9 @@
             <span class="deck__title">SORA'S HILL</span>
             <span class="deck__family">Monumental Ascent · Track 01</span>
             <div class="deck__stats">
-              <span><span class="label">BPM</span> 128.0</span>
+              <span><span class="label">BPM</span> <span id="deck-a-bpm">128.0</span></span>
               <span><span class="label">KEY</span> 7A</span>
-              <span><span class="label">ELAPSED</span> 02:47</span>
+              <span><span class="label">ELAPSED</span> <span id="deck-a-elapsed">00:00</span></span>
             </div>
           </div>
         </div>
@@ -171,12 +171,12 @@
             <line x1="394" y1="2"  x2="394" y2="26"/>
           </g>
         </svg>
-        <div class="deck__transport">
-          <button type="button">Cue</button>
-          <button type="button" class="is-active">Sync</button>
-          <button type="button">Play</button>
-          <button type="button">Pause</button>
-          <button type="button">Hot cue · A</button>
+        <div class="deck__transport" data-deck="a">
+          <button type="button" data-action="cue">Cue</button>
+          <button type="button" data-action="sync" class="is-active">Sync</button>
+          <button type="button" data-action="play">Play</button>
+          <button type="button" data-action="pause">Pause</button>
+          <button type="button" data-action="hotcue">Hot cue · A</button>
         </div>
       </section>
 
@@ -188,10 +188,10 @@
         </header>
         <div class="master-meters">
           <div class="meter" aria-label="L meter">
-            <div class="meter__bar" style="height: 72%"></div>
+            <div class="meter__bar" id="meter-l" style="height: 0%"></div>
           </div>
           <div class="meter" aria-label="R meter">
-            <div class="meter__bar" style="height: 78%"></div>
+            <div class="meter__bar" id="meter-r" style="height: 0%"></div>
           </div>
         </div>
         <div style="font-family: var(--font-mono); font-size: 9px; color: var(--paper-mute); text-align: center; letter-spacing: 0.04em">+9 · +6 · +3 · 0 · −3 · −6 · −10 · −20 · −30</div>
@@ -221,9 +221,9 @@
             <span class="deck__title">XOR SACRIFICE</span>
             <span class="deck__family">Signal Performance</span>
             <div class="deck__stats">
-              <span><span class="label">BPM</span> 126.0</span>
+              <span><span class="label">BPM</span> <span id="deck-b-bpm">126.0</span></span>
               <span><span class="label">KEY</span> 8A</span>
-              <span><span class="label">ELAPSED</span> 06:21</span>
+              <span><span class="label">ELAPSED</span> <span id="deck-b-elapsed">00:00</span></span>
             </div>
           </div>
         </div>
@@ -271,12 +271,12 @@
             <line x1="394" y1="8"  x2="394" y2="20"/>
           </g>
         </svg>
-        <div class="deck__transport">
-          <button type="button">Cue</button>
-          <button type="button" class="is-active">Sync</button>
-          <button type="button">Play</button>
-          <button type="button">Pause</button>
-          <button type="button">Hot cue · B</button>
+        <div class="deck__transport" data-deck="b">
+          <button type="button" data-action="cue">Cue</button>
+          <button type="button" data-action="sync" class="is-active">Sync</button>
+          <button type="button" data-action="play">Play</button>
+          <button type="button" data-action="pause">Pause</button>
+          <button type="button" data-action="hotcue">Hot cue · B</button>
         </div>
       </section>
 
@@ -488,8 +488,8 @@
       <div class="dj-tool">
         <h2 class="dj-tool__title">Mixer</h2>
         <div class="mixer">
-          <div class="mixer-ch"><span class="mixer-ch__num">1</span><div class="fader"><div class="fader__handle" style="bottom: 60%"></div></div></div>
-          <div class="mixer-ch"><span class="mixer-ch__num">2</span><div class="fader"><div class="fader__handle" style="bottom: 75%"></div></div></div>
+          <div class="mixer-ch"><span class="mixer-ch__num">1</span><div class="fader" data-fader="a"><div class="fader__handle" style="bottom: 75%"></div></div></div>
+          <div class="mixer-ch"><span class="mixer-ch__num">2</span><div class="fader" data-fader="b"><div class="fader__handle" style="bottom: 75%"></div></div></div>
           <div class="mixer-ch"><span class="mixer-ch__num">3</span><div class="fader"><div class="fader__handle" style="bottom: 50%"></div></div></div>
           <div class="mixer-ch"><span class="mixer-ch__num">4</span><div class="fader"><div class="fader__handle" style="bottom: 40%"></div></div></div>
         </div>
@@ -498,8 +498,8 @@
       <!-- crossfader -->
       <div class="dj-tool">
         <h2 class="dj-tool__title">Crossfader</h2>
-        <div style="display:flex; flex-direction:column; gap: var(--space-2); align-items: center; justify-content: center; flex: 1">
-          <svg viewBox="0 0 64 64" style="width:48px; height:48px" aria-hidden="true">
+        <div style="display:flex; flex-direction:column; gap: var(--space-2); align-items: stretch; justify-content: center; flex: 1">
+          <svg viewBox="0 0 64 64" style="width:48px; height:48px; align-self:center" aria-hidden="true">
             <circle cx="32" cy="32" r="28" fill="none" stroke="#C8A85A" stroke-width="0.6"/>
             <circle cx="32" cy="32" r="20" fill="none" stroke="#C8A85A" stroke-width="0.4" opacity="0.7"/>
             <path d="M32 6v52M6 32h52" stroke="#C8A85A" stroke-width="0.3" opacity="0.5"/>
@@ -507,7 +507,7 @@
           </svg>
           <div class="crossfader">
             <span class="crossfader__label">A</span>
-            <div class="crossfader__bar"><div class="crossfader__handle"></div></div>
+            <div class="crossfader__bar" id="crossfader-bar" style="cursor: ew-resize; height: 8px"><div class="crossfader__handle" id="crossfader-handle" style="left: 50%"></div></div>
             <span class="crossfader__label">B</span>
           </div>
         </div>
@@ -622,35 +622,200 @@
     </div>
   </footer>
 
+  <audio id="audio-a" preload="metadata" src="/music/SORA%27s%20Hill.mp3" crossorigin="anonymous"></audio>
+  <audio id="audio-b" preload="metadata" src="/music/XOR%20Sacrifice.mp3" crossorigin="anonymous"></audio>
+
   <script src="../07_RUNTIME/sora-shell.js"></script>
   <script>
     (function () {
-      const onair = document.getElementById('onair-btn');
-      onair?.addEventListener('click', () => {
-        const pressed = onair.getAttribute('aria-pressed') === 'true';
-        onair.setAttribute('aria-pressed', String(!pressed));
-        onair.style.opacity = pressed ? '0.5' : '1';
+      // ── audio graph ──
+      const audioA = document.getElementById('audio-a');
+      const audioB = document.getElementById('audio-b');
+      let ctx, gainA, gainB, fxA, fxB, masterAnalyser, masterGain;
+      const state = {
+        crossfader: 0,           // -1 = full A, +1 = full B, 0 = both
+        fader: { a: 0.75, b: 0.75 },
+        onAir: true,
+        bpm: { a: 128.0, b: 126.0 },
+        hotCue: { a: 0, b: 0 },
+      };
+      const baseBPM = { a: 128.0, b: 126.0 };
+
+      function ensureGraph() {
+        if (ctx) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        ctx = new AC();
+        const srcA = ctx.createMediaElementSource(audioA);
+        const srcB = ctx.createMediaElementSource(audioB);
+        fxA = ctx.createGain(); fxB = ctx.createGain();
+        gainA = ctx.createGain(); gainB = ctx.createGain();
+        masterGain = ctx.createGain();
+        masterAnalyser = ctx.createAnalyser();
+        masterAnalyser.fftSize = 512;
+        srcA.connect(fxA).connect(gainA).connect(masterGain);
+        srcB.connect(fxB).connect(gainB).connect(masterGain);
+        masterGain.connect(masterAnalyser).connect(ctx.destination);
+        applyMix();
+        meterLoop();
+      }
+
+      // equal-power crossfade
+      function applyMix() {
+        if (!gainA || !gainB) return;
+        const x = (state.crossfader + 1) / 2;     // 0..1
+        const aGain = Math.cos(x * Math.PI / 2);  // 1 at left, 0 at right
+        const bGain = Math.sin(x * Math.PI / 2);  // 0 at left, 1 at right
+        const t = ctx.currentTime;
+        gainA.gain.setTargetAtTime(aGain * state.fader.a, t, 0.05);
+        gainB.gain.setTargetAtTime(bGain * state.fader.b, t, 0.05);
+        masterGain.gain.setTargetAtTime(state.onAir ? 1.0 : 0.0, t, 0.05);
+      }
+
+      // VU meter loop
+      const meterL = document.getElementById('meter-l');
+      const meterR = document.getElementById('meter-r');
+      let rafId;
+      function meterLoop() {
+        if (!masterAnalyser) return;
+        const buf = new Uint8Array(masterAnalyser.fftSize);
+        masterAnalyser.getByteTimeDomainData(buf);
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = Math.abs(buf[i] - 128) / 128;
+          if (v > peak) peak = v;
+        }
+        const pct = Math.min(100, peak * 140);
+        if (meterL) meterL.style.height = pct.toFixed(1) + '%';
+        if (meterR) meterR.style.height = (pct * 0.92).toFixed(1) + '%';
+        rafId = requestAnimationFrame(meterLoop);
+      }
+
+      // transport handlers per deck
+      function deckEl(d) { return d === 'a' ? audioA : audioB; }
+      function activeButton(deck, action) {
+        document.querySelectorAll(`.deck__transport[data-deck="${deck}"] button`).forEach((b) => b.classList.remove('is-active'));
+        document.querySelector(`.deck__transport[data-deck="${deck}"] button[data-action="${action}"]`)?.classList.add('is-active');
+      }
+      function fmt(s) {
+        if (!Number.isFinite(s) || s < 0) return '00:00';
+        const m = Math.floor(s / 60);
+        const r = Math.floor(s % 60);
+        return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+      }
+      function tickElapsed() {
+        const a = document.getElementById('deck-a-elapsed');
+        const b = document.getElementById('deck-b-elapsed');
+        if (a) a.textContent = fmt(audioA.currentTime);
+        if (b) b.textContent = fmt(audioB.currentTime);
+      }
+      audioA.addEventListener('timeupdate', tickElapsed);
+      audioB.addEventListener('timeupdate', tickElapsed);
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.deck__transport button');
+        if (!btn) return;
+        const deck = btn.closest('.deck__transport').dataset.deck;
+        const action = btn.dataset.action;
+        const el = deckEl(deck);
+        ensureGraph();
+        ctx?.resume();
+        activeButton(deck, action);
+        switch (action) {
+          case 'cue':
+            el.pause();
+            el.currentTime = state.hotCue[deck] || 0;
+            break;
+          case 'sync': {
+            // match BPM of the OTHER deck via playbackRate
+            const other = deck === 'a' ? 'b' : 'a';
+            const targetBPM = baseBPM[other];
+            const sourceBPM = baseBPM[deck];
+            el.playbackRate = targetBPM / sourceBPM;
+            state.bpm[deck] = targetBPM;
+            const lbl = document.getElementById('deck-' + deck + '-bpm');
+            if (lbl) lbl.textContent = targetBPM.toFixed(1);
+            break;
+          }
+          case 'play':
+            el.play().catch(() => {});
+            break;
+          case 'pause':
+            el.pause();
+            break;
+          case 'hotcue':
+            // first press stores, subsequent press jumps
+            if (state.hotCue[deck] === 0) state.hotCue[deck] = el.currentTime;
+            else el.currentTime = state.hotCue[deck];
+            break;
+        }
       });
 
+      // crossfader drag
+      const xBar = document.getElementById('crossfader-bar');
+      const xHandle = document.getElementById('crossfader-handle');
+      function setCrossfader(pos) {
+        state.crossfader = Math.max(-1, Math.min(1, pos));
+        if (xHandle) xHandle.style.left = ((state.crossfader + 1) * 50).toFixed(2) + '%';
+        ensureGraph();
+        applyMix();
+      }
+      function dragHandler(bar, onMove) {
+        let dragging = false;
+        const start = (e) => { dragging = true; onMove(e); e.preventDefault(); };
+        const move = (e) => { if (dragging) onMove(e); };
+        const end = () => { dragging = false; };
+        bar.addEventListener('mousedown', start);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
+        bar.addEventListener('touchstart', start, { passive: false });
+        document.addEventListener('touchmove', move, { passive: false });
+        document.addEventListener('touchend', end);
+      }
+      if (xBar) {
+        dragHandler(xBar, (e) => {
+          const rect = xBar.getBoundingClientRect();
+          const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+          const pos = (x / rect.width) * 2 - 1;
+          setCrossfader(pos);
+        });
+      }
+
+      // mixer faders drag (channel A + B)
+      document.querySelectorAll('.fader[data-fader]').forEach((fader) => {
+        const handle = fader.querySelector('.fader__handle');
+        const which = fader.dataset.fader;
+        dragHandler(fader, (e) => {
+          const rect = fader.getBoundingClientRect();
+          const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+          const v = Math.max(0, Math.min(1, 1 - y / rect.height));
+          state.fader[which] = v;
+          if (handle) handle.style.bottom = (v * 100).toFixed(1) + '%';
+          ensureGraph();
+          applyMix();
+        });
+      });
+
+      // ON AIR toggle
+      const onair = document.getElementById('onair-btn');
+      onair?.addEventListener('click', () => {
+        state.onAir = !state.onAir;
+        onair.setAttribute('aria-pressed', String(state.onAir));
+        onair.style.opacity = state.onAir ? '1' : '0.45';
+        ensureGraph();
+        applyMix();
+      });
+
+      // pads, timeline AB, queue items keep visual-only behavior
       document.querySelectorAll('.pad').forEach((pad) => {
         pad.addEventListener('click', () => pad.classList.toggle('is-active'));
       });
-
       document.querySelectorAll('.perf-timeline__ab button').forEach((btn) => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.perf-timeline__ab button').forEach((b) => b.classList.remove('is-active'));
           btn.classList.add('is-active');
         });
       });
-
-      document.querySelectorAll('.deck__transport button').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const parent = btn.closest('.deck__transport');
-          parent?.querySelectorAll('button').forEach((b) => b.classList.remove('is-active'));
-          btn.classList.add('is-active');
-        });
-      });
-
       document.querySelectorAll('.live-queue__item').forEach((item) => {
         item.addEventListener('click', () => {
           document.querySelectorAll('.live-queue__item').forEach((i) => i.removeAttribute('data-status'));
