@@ -1293,13 +1293,27 @@
         return false;
       }
       function deckUnderPoint(x, y) {
+        // 1) exact hit-test (point inside the deck card)
         for (const d of ['a', 'b']) {
           const el = document.querySelector('.deck--' + d);
           if (!el) continue;
           const r = el.getBoundingClientRect();
           if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return d;
         }
-        return null;
+        // 2) fallback: nearest deck by distance to its bounding rect — no cap, the drop always lands.
+        // Tie-breaker: horizontal proximity (decks are side-by-side). This makes the drop forgiving
+        // anywhere on the page: drop on the left half → deck A, right half → deck B.
+        let best = null, bestDist = Infinity;
+        for (const d of ['a', 'b']) {
+          const el = document.querySelector('.deck--' + d);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          const dx = Math.max(r.left - x, 0, x - r.right);
+          const dy = Math.max(r.top - y, 0, y - r.bottom);
+          const dist = Math.hypot(dx, dy);
+          if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        return best;
       }
       function clearDropHighlight() {
         if (currentDropDeck) {
@@ -1372,35 +1386,54 @@
       const waves = document.querySelector('.perf-timeline__waves');
       if (waves) {
         let scrubbing = false;
+        let scrubPointerId = null;
         function seekAtX(clientX) {
           const el = deckEl(timelineDeck);
-          if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+          if (!el) return;
           const rect = waves.getBoundingClientRect();
           const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-          el.currentTime = pct * el.duration;
-          paintPlayhead();
+          if (Number.isFinite(el.duration) && el.duration > 0) {
+            el.currentTime = pct * el.duration;
+            paintPlayhead();
+          } else {
+            // metadata not loaded — paint playhead at the click position anyway so user sees the target
+            const ph = document.getElementById('perf-playhead');
+            if (ph) ph.style.left = (pct * 100).toFixed(2) + '%';
+            // seek as soon as metadata arrives
+            const onLoaded = () => {
+              if (Number.isFinite(el.duration) && el.duration > 0) {
+                el.currentTime = pct * el.duration;
+                paintPlayhead();
+              }
+              el.removeEventListener('loadedmetadata', onLoaded);
+            };
+            el.addEventListener('loadedmetadata', onLoaded);
+          }
         }
-        const startScrub = (e) => {
+        const onPointerDown = (e) => {
           scrubbing = true;
+          scrubPointerId = e.pointerId;
+          try { waves.setPointerCapture(e.pointerId); } catch (_) {}
           waves.classList.add('is-scrubbing');
-          seekAtX(e.touches ? e.touches[0].clientX : e.clientX);
+          seekAtX(e.clientX);
           e.preventDefault();
         };
-        const moveScrub = (e) => {
+        const onPointerMove = (e) => {
+          if (!scrubbing || e.pointerId !== scrubPointerId) return;
+          seekAtX(e.clientX);
+          e.preventDefault();
+        };
+        const onPointerUp = (e) => {
           if (!scrubbing) return;
-          seekAtX(e.touches ? e.touches[0].clientX : e.clientX);
-          e.preventDefault();
-        };
-        const endScrub = () => {
-          if (scrubbing) waves.classList.remove('is-scrubbing');
           scrubbing = false;
+          waves.classList.remove('is-scrubbing');
+          try { waves.releasePointerCapture(e.pointerId); } catch (_) {}
+          scrubPointerId = null;
         };
-        waves.addEventListener('mousedown', startScrub);
-        document.addEventListener('mousemove', moveScrub);
-        document.addEventListener('mouseup', endScrub);
-        waves.addEventListener('touchstart', startScrub, { passive: false });
-        document.addEventListener('touchmove', moveScrub, { passive: false });
-        document.addEventListener('touchend', endScrub);
+        waves.addEventListener('pointerdown', onPointerDown);
+        waves.addEventListener('pointermove', onPointerMove);
+        waves.addEventListener('pointerup', onPointerUp);
+        waves.addEventListener('pointercancel', onPointerUp);
       }
 
       // ── pads (real synth one-shots with visual flash) ──
@@ -1716,9 +1749,17 @@
     }
 
     /* ── timeline scrub ── */
-    .perf-timeline__waves { cursor: ew-resize; }
+    .perf-timeline__waves {
+      cursor: ew-resize;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
     .perf-timeline__waves.is-scrubbing { cursor: grabbing; }
     .perf-timeline__waves.is-scrubbing .perf-timeline__playhead { transition: none; }
+    /* inner decorations don't capture clicks — let the parent receive pointerdown anywhere */
+    .perf-timeline__waves > svg,
+    .perf-timeline__waves .cue { pointer-events: none; }
 
     /* ── performance timeline playhead ── */
     .perf-timeline__waves { position: relative; }
