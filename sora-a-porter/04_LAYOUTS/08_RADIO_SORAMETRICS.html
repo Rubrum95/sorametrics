@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SORA-a-porter Radio — Signal · Resonance · Connection</title>
+  <meta name="description" content="A cultural station broadcasting from the frequency between art, sound, and the unseen. From anywhere to everywhere.">
+  <link rel="canonical" href="/sora-a-porter/radio">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-shell.css">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-radio.css">
+</head>
+<body data-family="signal-performance">
+
+  <!-- ── topbar ── -->
+  <header class="topbar" role="banner">
+    <div class="topbar__inner">
+      <a class="brand" href="01_SORA_A_PORTER_FIRST_LAYOUT.html" aria-label="SORA-a-porter home">
+        <svg class="brand__sigil" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1"/>
+          <circle cx="16" cy="16" r="9"  stroke="currentColor" stroke-width="0.8" opacity="0.7"/>
+          <circle cx="16" cy="16" r="4"  stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+          <line x1="16" y1="2"  x2="16" y2="30" stroke="currentColor" stroke-width="0.6"/>
+          <line x1="2"  y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="0.6"/>
+          <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>
+          <span class="brand__wordmark">SORA-A-PORTER</span>
+          <span class="brand__tagline">Music · Signal Culture · Ideas · Collectibles</span>
+        </span>
+      </a>
+
+      <button class="nav-hamburger" type="button" aria-label="Open navigation" aria-expanded="false" id="nav-hamburger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav__link" href="01_SORA_A_PORTER_FIRST_LAYOUT.html">Home</a>
+        <a class="nav__link" href="#explore">Explore</a>
+        <a class="nav__link" href="#collections">Collections</a>
+        <a class="nav__link" href="08_RADIO_SORAMETRICS.html" aria-current="page">Radio</a>
+        <a class="nav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+        <a class="nav__link" href="#posters">Posters</a>
+        <a class="nav__link" href="#memes">Memes</a>
+        <a class="nav__link" href="#about">About</a>
+      </nav>
+
+      <div class="utility">
+        <span class="utility__pill" aria-live="polite">
+          <span class="sr-only">Live signal</span>
+          Live signal
+        </span>
+        <button class="utility__icon" type="button" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+        </button>
+        <a class="utility__icon" href="08_RADIO_SORAMETRICS.html" aria-label="Tune in to RADIO">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11a7 7 0 0 1 14 0" stroke-linecap="round"/><path d="M8 11a4 4 0 0 1 8 0" stroke-linecap="round"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <button class="utility__icon" type="button" aria-label="Bag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8h14l-1 12H6Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="utility__icon" type="button" aria-label="Account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="9" r="4"/><path d="M5 21a7 7 0 0 1 14 0" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── radio sub-nav · STATION · DJ · COMPOSER · JOURNAL ── -->
+  <nav class="subnav" aria-label="Radio sub-navigation">
+    <div class="subnav__inner">
+      <a class="subnav__link" href="08_RADIO_SORAMETRICS.html" aria-current="page">Station</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="09_RADIO_DJ_SESSION.html">DJ Session</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="12_RADIO_COMPOSER.html">Composer</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+    </div>
+  </nav>
+
+  <main class="shell">
+
+    <!-- ── station hero · ceremonial · mid ── -->
+    <section class="station-hero" data-glow="mid">
+      <div class="station-hero__left">
+        <span class="station-hero__transmission">Transmission live</span>
+        <h1 class="station-hero__title">SORAMETRICS<br>RADIO</h1>
+        <span class="station-hero__subtitle">Signal · Resonance · Connection</span>
+        <p class="station-hero__lede">A cultural station broadcasting from the frequency between art, sound, and the unseen. From anywhere to everywhere.</p>
+
+        <div class="cta-cluster" role="group" aria-label="Station actions">
+          <button class="cta cta--primary" type="button" id="cta-listen">
+            <svg class="cta__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3.5v9l8-4.5z"/></svg>
+            Listen live
+          </button>
+          <button class="cta" type="button" id="cta-schedule">
+            <svg class="cta__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M2 6h12M5 1v3M11 1v3" stroke-linecap="round"/></svg>
+            View schedule
+          </button>
+          <button class="cta" type="button" id="cta-info">
+            <svg class="cta__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 11h.01" stroke-linecap="round"/></svg>
+            Station info
+          </button>
+        </div>
+      </div>
+
+      <div class="station-hero__art">
+        <img src="../assets/covers/sorametrics-hero.jpg" alt="Sorametrics — engineer-mystic in arc-lightning field, sacred geometry, twin antenna towers, Tesla portrait at center">
+      </div>
+
+      <div class="station-hero__right">
+        <span class="station-hero__subtitle" style="text-align:right">Station frequency</span>
+        <span class="station-hero__freq">7.83 <span style="color: var(--gold-bright)">△</span> Hz<small>SORA broadcast grid</small></span>
+
+        <svg class="station-hero__seal" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+          <circle cx="48" cy="48" r="44" stroke="currentColor" stroke-width="0.8"/>
+          <circle cx="48" cy="48" r="36" stroke="currentColor" stroke-width="0.5" opacity="0.7"/>
+          <circle cx="48" cy="48" r="26" stroke="currentColor" stroke-width="0.4" opacity="0.55"/>
+          <path d="M48 8v80M8 48h80M19 19l58 58M77 19 19 77" stroke="currentColor" stroke-width="0.4" opacity="0.5"/>
+          <polygon points="48,30 58,58 38,58" fill="currentColor" opacity="0.85"/>
+          <line x1="48" y1="28" x2="48" y2="58" stroke="#FFE9B0" stroke-width="0.4" opacity="0.8"/>
+          <circle cx="48" cy="48" r="3" fill="#0A0E1A"/>
+          <text x="48" y="78" text-anchor="middle" font-family="Inter, sans-serif" font-size="5.5" letter-spacing="2" fill="currentColor">SORA · 7.83 Hz</text>
+        </svg>
+
+        <div class="station-hero__stats" style="display:flex; flex-direction:column; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-3); font-family: var(--font-mono); font-size: 11px; color: var(--paper-mute); letter-spacing: 0.04em">
+          <div style="display:flex; gap: var(--space-3)"><span>Listeners</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">12,847</span></div>
+          <div style="display:flex; gap: var(--space-3)"><span>Signal</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">78%</span></div>
+          <div style="display:flex; gap: var(--space-3)"><span>Origin</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">Alicante</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── station body · now playing + transmission queue ── -->
+    <section class="station-body">
+
+      <div data-surface="signal" data-glow="mid" style="position:relative">
+        <div class="row__head" style="margin-bottom: var(--space-3)">
+          <h2 class="row__title">Now playing</h2>
+          <span class="meta meta--gold">Live broadcast</span>
+        </div>
+        <div class="now-playing">
+          <div class="now-playing__disc">
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+              <defs>
+                <radialGradient id="np-disc" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%"  stop-color="#1A2A4A"/>
+                  <stop offset="60%" stop-color="#0A0E1A"/>
+                  <stop offset="100%" stop-color="#05070D"/>
+                </radialGradient>
+                <radialGradient id="np-halo" cx="50%" cy="40%" r="30%">
+                  <stop offset="0%"  stop-color="#FFE9B0" stop-opacity="0.75"/>
+                  <stop offset="100%" stop-color="#FFE9B0" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <circle cx="100" cy="100" r="100" fill="url(#np-disc)"/>
+              <circle cx="100" cy="80"  r="60" fill="url(#np-halo)"/>
+              <g stroke="#C8A85A" stroke-width="0.4" fill="none" opacity="0.6">
+                <circle cx="100" cy="100" r="42"/>
+                <circle cx="100" cy="100" r="60"/>
+                <circle cx="100" cy="100" r="78"/>
+                <circle cx="100" cy="100" r="92"/>
+              </g>
+              <polygon points="100,52 80,124 120,124" fill="#0A0E1A" stroke="#E6C275" stroke-width="0.6"/>
+              <polygon points="100,68 86,124 114,124" fill="#1A2240"/>
+              <line x1="100" y1="52" x2="100" y2="124" stroke="#FFE9B0" stroke-width="0.5" opacity="0.7"/>
+              <circle cx="100" cy="58" r="2" fill="#FFE9B0"/>
+              <g fill="#E6C275" opacity="0.85">
+                <circle cx="60"  cy="80"  r="1.2"/>
+                <circle cx="140" cy="80"  r="1.2"/>
+                <circle cx="50"  cy="130" r="0.9"/>
+                <circle cx="150" cy="130" r="0.9"/>
+              </g>
+              <circle cx="100" cy="100" r="4" fill="#E3242D" opacity="0.85"/>
+            </svg>
+          </div>
+          <div class="now-playing__meta">
+            <span class="now-playing__title" id="np-title">SORA'S HILL</span>
+            <span class="now-playing__sub">SORA · Monumental Ascent · Track 01<span class="live">LIVE</span></span>
+            <svg class="now-playing__waveform" viewBox="0 0 800 40" preserveAspectRatio="none" aria-hidden="true">
+              <g stroke="#E3242D" stroke-width="1" stroke-linecap="round">
+                <line x1="2"   y1="20" x2="2"   y2="20"/>
+                <line x1="12"  y1="14" x2="12"  y2="26"/>
+                <line x1="22"  y1="10" x2="22"  y2="30"/>
+                <line x1="32"  y1="6"  x2="32"  y2="34"/>
+                <line x1="42"  y1="12" x2="42"  y2="28"/>
+                <line x1="52"  y1="8"  x2="52"  y2="32"/>
+                <line x1="62"  y1="14" x2="62"  y2="26"/>
+                <line x1="72"  y1="4"  x2="72"  y2="36"/>
+                <line x1="82"  y1="10" x2="82"  y2="30"/>
+                <line x1="92"  y1="14" x2="92"  y2="26"/>
+                <line x1="102" y1="6"  x2="102" y2="34"/>
+                <line x1="112" y1="12" x2="112" y2="28"/>
+                <line x1="122" y1="8"  x2="122" y2="32"/>
+                <line x1="132" y1="14" x2="132" y2="26"/>
+                <line x1="142" y1="10" x2="142" y2="30"/>
+                <line x1="152" y1="6"  x2="152" y2="34"/>
+                <line x1="162" y1="12" x2="162" y2="28"/>
+                <line x1="172" y1="8"  x2="172" y2="32"/>
+                <line x1="182" y1="14" x2="182" y2="26"/>
+                <line x1="192" y1="4"  x2="192" y2="36"/>
+                <line x1="202" y1="10" x2="202" y2="30"/>
+                <line x1="212" y1="14" x2="212" y2="26"/>
+                <line x1="222" y1="6"  x2="222" y2="34"/>
+                <line x1="232" y1="12" x2="232" y2="28"/>
+                <line x1="242" y1="8"  x2="242" y2="32"/>
+                <line x1="252" y1="14" x2="252" y2="26"/>
+                <line x1="262" y1="10" x2="262" y2="30"/>
+                <line x1="272" y1="6"  x2="272" y2="34"/>
+                <line x1="282" y1="12" x2="282" y2="28"/>
+                <line x1="292" y1="14" x2="292" y2="26"/>
+                <line x1="302" y1="8"  x2="302" y2="32"/>
+                <line x1="312" y1="4"  x2="312" y2="36"/>
+              </g>
+              <g stroke="#E3242D" stroke-width="1" stroke-linecap="round" opacity="0.55">
+                <line x1="322" y1="14" x2="322" y2="26"/>
+                <line x1="332" y1="10" x2="332" y2="30"/>
+                <line x1="342" y1="6"  x2="342" y2="34"/>
+                <line x1="352" y1="14" x2="352" y2="26"/>
+                <line x1="362" y1="12" x2="362" y2="28"/>
+                <line x1="372" y1="8"  x2="372" y2="32"/>
+                <line x1="382" y1="14" x2="382" y2="26"/>
+                <line x1="392" y1="10" x2="392" y2="30"/>
+                <line x1="402" y1="4"  x2="402" y2="36"/>
+                <line x1="412" y1="12" x2="412" y2="28"/>
+                <line x1="422" y1="14" x2="422" y2="26"/>
+                <line x1="432" y1="8"  x2="432" y2="32"/>
+                <line x1="442" y1="10" x2="442" y2="30"/>
+                <line x1="452" y1="14" x2="452" y2="26"/>
+                <line x1="462" y1="6"  x2="462" y2="34"/>
+                <line x1="472" y1="12" x2="472" y2="28"/>
+                <line x1="482" y1="14" x2="482" y2="26"/>
+                <line x1="492" y1="10" x2="492" y2="30"/>
+                <line x1="502" y1="14" x2="502" y2="26"/>
+              </g>
+              <g stroke="#E3242D" stroke-width="1" stroke-linecap="round" opacity="0.3">
+                <line x1="512" y1="14" x2="512" y2="26"/>
+                <line x1="522" y1="10" x2="522" y2="30"/>
+                <line x1="532" y1="6"  x2="532" y2="34"/>
+                <line x1="542" y1="14" x2="542" y2="26"/>
+                <line x1="552" y1="12" x2="552" y2="28"/>
+                <line x1="562" y1="8"  x2="562" y2="32"/>
+                <line x1="572" y1="14" x2="572" y2="26"/>
+                <line x1="582" y1="10" x2="582" y2="30"/>
+                <line x1="592" y1="14" x2="592" y2="26"/>
+                <line x1="602" y1="12" x2="602" y2="28"/>
+                <line x1="612" y1="8"  x2="612" y2="32"/>
+                <line x1="622" y1="14" x2="622" y2="26"/>
+                <line x1="632" y1="10" x2="632" y2="30"/>
+                <line x1="642" y1="14" x2="642" y2="26"/>
+                <line x1="652" y1="12" x2="652" y2="28"/>
+                <line x1="662" y1="8"  x2="662" y2="32"/>
+                <line x1="672" y1="14" x2="672" y2="26"/>
+                <line x1="682" y1="10" x2="682" y2="30"/>
+                <line x1="692" y1="14" x2="692" y2="26"/>
+                <line x1="702" y1="12" x2="702" y2="28"/>
+                <line x1="712" y1="14" x2="712" y2="26"/>
+                <line x1="722" y1="10" x2="722" y2="30"/>
+                <line x1="732" y1="14" x2="732" y2="26"/>
+                <line x1="742" y1="12" x2="742" y2="28"/>
+                <line x1="752" y1="14" x2="752" y2="26"/>
+                <line x1="762" y1="10" x2="762" y2="30"/>
+                <line x1="772" y1="14" x2="772" y2="26"/>
+                <line x1="782" y1="12" x2="782" y2="28"/>
+                <line x1="792" y1="14" x2="792" y2="26"/>
+              </g>
+            </svg>
+            <div class="now-playing__tags">
+              <span>320 kbps</span>
+              <span>Stereo signal</span>
+              <span class="tag--signal">Live broadcast</span>
+            </div>
+            <span class="now-playing__time" id="np-time">02:47 / 06:33</span>
+          </div>
+        </div>
+        <button class="now-playing__heart" type="button" aria-label="Favorite" aria-pressed="false" id="np-heart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div class="queue" data-surface="editorial" data-glow="low">
+        <div class="queue__head">
+          <h2 class="queue__title row__title">Transmission queue</h2>
+          <span class="emissions__sub">Live continuum</span>
+        </div>
+        <div class="queue__rail" data-list="queue"><a class="queue__viewall" href="#playlist">View full<br>playlist ›</a></div>
+      </div>
+    </section>
+
+    <!-- ── transmission memo ── -->
+    <section class="transmission-memo" aria-labelledby="memo-headline">
+      <svg class="transmission-memo__quill" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+        <path d="M8 40 L20 28 L34 14 C38 10 42 10 44 12 C46 14 46 18 42 22 L28 36 L16 40 Z" stroke-linejoin="round"/>
+        <line x1="20" y1="28" x2="14" y2="34" stroke-linecap="round"/>
+        <line x1="22" y1="26" x2="30" y2="34" stroke-linecap="round" opacity="0.6"/>
+      </svg>
+      <div class="transmission-memo__body">
+        <p class="transmission-memo__eyebrow">
+          <span>Transmission memo · Editorial log</span>
+          <span class="id">07.83 · Memo ID</span>
+        </p>
+        <h2 id="memo-headline" class="transmission-memo__headline">Between signal and silence</h2>
+        <p class="transmission-memo__prose">
+          Every frequency carries a memory. Every beat, a decision. We broadcast to those who still feel the world as vibration, who collect meaning, not just music.
+          <span class="closer">This is not background. This is transmission.</span>
+        </p>
+        <div class="transmission-memo__signature">
+          <div>
+            <span class="signer">SORA</span>
+            <span class="role">Founder &amp; Signal Keeper</span>
+          </div>
+          <span class="marker">● Live broadcast</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── signal emissions · related objects ── -->
+    <section class="emissions" aria-labelledby="emissions-title">
+      <div class="emissions__head">
+        <h2 class="emissions__title row__title" id="emissions-title">Signal emissions</h2>
+        <span class="emissions__sub">Related objects from this frequency</span>
+      </div>
+      <div class="emissions__rail" data-list="emissions"><a class="emissions__viewall" href="#all-objects">View all<br>objects ›</a></div>
+    </section>
+
+  </main>
+
+  <!-- ── station bottom player ── -->
+  <footer class="bottom-bar bottom-bar--station" role="contentinfo">
+    <div class="bottom-bar__inner">
+      <div class="bottom-bar__signal">
+        <svg class="sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M8 11a4 4 0 0 1 8 0"/><circle cx="12" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <div style="display:flex; flex-direction:column">
+          <span class="label--live">Live broadcast</span>
+          <span class="meta meta--gold" style="font-size:9px">SORA broadcast grid · Global transmission</span>
+        </div>
+      </div>
+
+      <div class="bottom-bar__center">
+        <div class="station-player">
+          <div class="station-player__mini">
+            <svg viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="18" fill="#0A0E1A"/>
+              <polygon points="18,10 14,28 22,28" fill="#C8A85A"/>
+            </svg>
+          </div>
+          <div class="station-player__meta">
+            <span class="station-player__title" id="player-title">SORA'S HILL</span>
+            <span class="station-player__sub">SORA · Monumental Ascent</span>
+          </div>
+          <div class="transport">
+            <button class="transport__btn" type="button" aria-label="Previous">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,6 6,18 18,6 18,18"/></svg>
+            </button>
+            <button class="transport__btn transport__btn--main" type="button" aria-label="Play/pause" id="player-play">
+              <svg class="icon-play" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3.5v9l8-4.5z"/></svg>
+              <svg class="icon-pause" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/></svg>
+            </button>
+            <button class="transport__btn" type="button" aria-label="Next">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,6 18,12 6,18"/><rect x="18" y="6" width="2" height="12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="station-player__right" style="justify-content:flex-end">
+        <span class="station-player__live">On air</span>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px">
+          <span class="station-player__freq">7.83 △ Hz</span>
+          <span class="station-player__strength">78% signal</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <audio id="station-audio" preload="metadata"></audio>
+
+  <script src="../07_RUNTIME/sora-shell.js"></script>
+  <script src="../07_RUNTIME/sora-catalog.js"></script>
+
+  <script>
+    (function () {
+      const audio = document.getElementById('station-audio');
+      const npTitle = document.getElementById('np-title');
+      const npTime = document.getElementById('np-time');
+      const playerTitle = document.getElementById('player-title');
+      const playBtn = document.getElementById('player-play');
+      const heart = document.getElementById('np-heart');
+      const listen = document.getElementById('cta-listen');
+
+      function fmt(s) {
+        if (!Number.isFinite(s) || s < 0) return '00:00';
+        const m = Math.floor(s / 60);
+        const r = Math.floor(s % 60);
+        return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+      }
+
+      function queueCards() { return document.querySelectorAll('.queue-card'); }
+
+      function setActiveCard(card) {
+        queueCards().forEach((c) => c.removeAttribute('data-status'));
+        card.setAttribute('data-status', 'playing');
+      }
+
+      function applyCard(card) {
+        const title = card.dataset.title;
+        const src = card.dataset.src || '';
+        const dur = card.dataset.dur || '06:33';
+        if (npTitle) npTitle.textContent = title;
+        if (playerTitle) playerTitle.textContent = title;
+        if (npTime) npTime.textContent = '00:00 / ' + dur;
+        if (src) { audio.src = src; audio.load(); }
+        else { audio.removeAttribute('src'); audio.load(); }
+      }
+
+      function syncPlayUI() {
+        if (!playBtn) return;
+        playBtn.classList.toggle('is-playing', !audio.paused);
+      }
+
+      // event delegation — works regardless of when cards are rendered
+      document.addEventListener('click', (e) => {
+        const card = e.target.closest('.queue-card');
+        if (!card) return;
+        setActiveCard(card);
+        applyCard(card);
+        if (card.dataset.src) audio.play().catch(() => {});
+      });
+
+      // initial load: wait until catalog rendered (or use existing cards if static)
+      function bootInitial() {
+        const initial = document.querySelector('.queue-card[data-status="playing"]') || document.querySelector('.queue-card');
+        if (initial) applyCard(initial);
+      }
+      document.querySelector('[data-list="queue"]')?.addEventListener('catalog:queue-rendered', bootInitial);
+      if (document.querySelector('.queue-card')) bootInitial();
+
+      heart?.addEventListener('click', () => {
+        const pressed = heart.getAttribute('aria-pressed') === 'true';
+        heart.setAttribute('aria-pressed', String(!pressed));
+      });
+
+      playBtn?.addEventListener('click', () => {
+        if (!audio.src) {
+          const c = document.querySelector('.queue-card[data-status="playing"]') || document.querySelector('.queue-card');
+          if (c?.dataset.src) applyCard(c);
+        }
+        if (audio.paused) audio.play().catch(() => {});
+        else audio.pause();
+      });
+
+      listen?.addEventListener('click', () => playBtn?.click());
+
+      audio.addEventListener('play', syncPlayUI);
+      audio.addEventListener('pause', syncPlayUI);
+      audio.addEventListener('timeupdate', () => {
+        const dur = audio.duration && Number.isFinite(audio.duration) ? audio.duration : 0;
+        if (npTime) npTime.textContent = fmt(audio.currentTime) + ' / ' + (dur ? fmt(dur) : '—:—');
+      });
+      audio.addEventListener('ended', () => {
+        const list = Array.from(queueCards());
+        const active = document.querySelector('.queue-card[data-status="playing"]');
+        const idx = active ? list.indexOf(active) : -1;
+        for (let i = idx + 1; i < list.length; i++) {
+          if (list[i].dataset.src) { list[i].click(); return; }
+        }
+      });
+    })();
+  </script>
+
+  <style>
+    body { padding-bottom: 96px; }
+    .transport__btn .icon-pause { display: none; }
+    .transport__btn.is-playing .icon-play { display: none; }
+    .transport__btn.is-playing .icon-pause { display: inline; }
+  </style>
+
+</body>
+</html>

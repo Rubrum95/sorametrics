@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "snapshot": "2026-05-26",
+
+  "rows": {
+    "sora": [
+      { "slug": "sora-alive",        "title": "SORA Alive",        "family": "Monumental Ascent",  "href": "#release-sora-alive",        "art": "sora-alive" },
+      { "slug": "sora-fridays",      "title": "SORA Fridays",      "family": "Signal Performance", "href": "#release-sora-fridays",      "art": "sora-fridays" },
+      { "slug": "dawn-is-coming",    "title": "Dawn Is Coming",    "family": "Monumental Ascent",  "href": "#release-dawn-is-coming",    "art": "dawn-is-coming" },
+      { "slug": "night-drive",       "title": "Night Drive",       "family": "Signal Performance", "href": "#release-night-drive",       "art": "night-drive" },
+      { "slug": "signal-of-love",    "title": "Signal of Love",    "family": "Monumental Ascent",  "href": "#release-signal-of-love",    "art": "signal-of-love" },
+      { "slug": "acoustic-sessions", "title": "Acoustic Sessions", "family": "Editorial Monument", "href": "#release-acoustic-sessions", "art": "acoustic-sessions" },
+      { "slug": "beats-breath",      "title": "Beats & Breath",    "family": "Signal Performance", "href": "#release-beats-breath",      "art": "beats-breath" },
+      { "slug": "one",               "title": "ONE",               "family": "Monumental Ascent",  "href": "#release-one",               "art": "one" }
+    ],
+    "tonswap": [
+      { "slug": "tonswap-pulse",     "title": "TONSWAP · Pulse",     "family": "Editorial Monument", "href": "#release-tonswap-pulse",     "art": "tonswap-pulse" },
+      { "slug": "tonswap-liquidity", "title": "TONSWAP · Liquidity", "family": "Editorial Monument", "href": "#release-tonswap-liquidity", "art": "tonswap-liquidity" },
+      { "slug": "tonswap-yield",     "title": "TONSWAP · Yield",     "family": "Editorial Monument", "href": "#release-tonswap-yield",     "art": "tonswap-yield" },
+      { "slug": "tonswap-flow",      "title": "TONSWAP · Flow State","family": "Editorial Monument", "href": "#release-tonswap-flow",      "art": "tonswap-flow" },
+      { "slug": "tonswap-nodes",     "title": "TONSWAP · Nodes",     "family": "Editorial Monument", "href": "#release-tonswap-nodes",     "art": "tonswap-nodes" },
+      { "slug": "tonswap-infinite",  "title": "TONSWAP · Infinite",  "family": "Editorial Monument", "href": "#release-tonswap-infinite",  "art": "tonswap-infinite" },
+      { "slug": "tonswap-vibes",     "title": "TONSWAP · Vibes",     "family": "Editorial Monument", "href": "#release-tonswap-vibes",     "art": "tonswap-vibes" },
+      { "slug": "tonswap-movement",  "title": "TONSWAP · Movement",  "family": "Editorial Monument", "href": "#release-tonswap-movement",  "art": "tonswap-movement" }
+    ],
+    "solswap": [
+      { "slug": "solswap-orbit",      "title": "SOLSWAP · Orbit",      "family": "Signal Performance", "href": "#release-solswap-orbit",      "art": "solswap-orbit" },
+      { "slug": "solswap-liquid-sun", "title": "SOLSWAP · Liquid Sun", "family": "Signal Performance", "href": "#release-solswap-liquid-sun", "art": "solswap-liquid-sun" },
+      { "slug": "solswap-defi",       "title": "SOLSWAP · Defi",       "family": "Editorial Monument", "href": "#release-solswap-defi",       "art": "solswap-defi" },
+      { "slug": "solswap-solar-wave", "title": "SOLSWAP · Solar Wave", "family": "Signal Performance", "href": "#release-solswap-solar-wave", "art": "solswap-solar-wave" },
+      { "slug": "solswap-eclipse",    "title": "SOLSWAP · Eclipse",    "family": "Sigil Sovereign",    "href": "#release-solswap-eclipse",    "art": "solswap-eclipse" },
+      { "slug": "solswap-community",  "title": "SOLSWAP · Community",  "family": "Editorial Monument", "href": "#release-solswap-community",  "art": "solswap-community" },
+      { "slug": "solswap-radiate",    "title": "SOLSWAP · Radiate",    "family": "Signal Performance", "href": "#release-solswap-radiate",    "art": "solswap-radiate" },
+      { "slug": "solswap-sunset",     "title": "SOLSWAP · Sunset",     "family": "Editorial Monument", "href": "#release-solswap-sunset",     "art": "solswap-sunset" }
+    ],
+    "memes": [
+      { "slug": "hodl-the-signal",        "title": "Hodl the Signal",       "family": "Archive Relic", "edition": "01 / 999", "href": "#meme-hodl-the-signal",       "art": "meme-hodl-the-signal" },
+      { "slug": "when-signal-hits",       "title": "When The Signal Hits",  "family": "Archive Relic", "edition": "02 / 999", "href": "#meme-when-signal-hits",      "art": "meme-when-signal-hits" },
+      { "slug": "ngmi-not-here",          "title": "NGMI? Not Here.",       "family": "Archive Relic", "edition": "03 / 999", "href": "#meme-ngmi-not-here",         "art": "meme-ngmi-not-here" },
+      { "slug": "i-yam-the-node",         "title": "I Yam The Node",        "family": "Archive Relic", "edition": "04 / 999", "href": "#meme-i-yam-the-node",        "art": "meme-i-yam-the-node" },
+      { "slug": "sleep-is-fud",           "title": "Sleep Is FUD",          "family": "Archive Relic", "edition": "05 / 999", "href": "#meme-sleep-is-fud",          "art": "meme-sleep-is-fud" },
+      { "slug": "stack-that-bag",         "title": "Stack That Bag",        "family": "Archive Relic", "edition": "06 / 999", "href": "#meme-stack-that-bag",        "art": "meme-stack-that-bag" },
+      { "slug": "decentralize-everything","title": "Decentralize Everything","family": "Archive Relic","edition": "07 / 999", "href": "#meme-decentralize-everything","art": "meme-decentralize-everything" },
+      { "slug": "very-early",             "title": "Very Early",            "family": "Archive Relic", "edition": "08 / 999", "href": "#meme-very-early",            "art": "meme-very-early" }
+    ]
+  },
+
+  "queue": [
+    { "slug": "soras-hill",       "title": "SORA'S HILL",       "family": "Monumental Ascent",  "duration": "06:33", "src": "/music/SORA%27s%20Hill.mp3",  "art": "queue-soras-hill",       "status": "playing", "label": "▶ Playing" },
+    { "slug": "xor-sacrifice",    "title": "XOR SACRIFICE",     "family": "Signal Performance", "duration": "07:45", "src": "/music/XOR%20Sacrifice.mp3",  "art": "queue-xor-sacrifice",    "label": "▶ Next" },
+    { "slug": "sora-rhapsody",    "title": "SORA RHAPSODY",     "family": "Editorial Monument", "duration": "07:18", "src": "/music/SORA%20Rhapsody.mp3",  "art": "queue-sora-rhapsody",    "label": "3" },
+    { "slug": "sigil-of-ascent",  "title": "SIGIL OF ASCENT",   "family": "Sigil Sovereign",    "duration": "05:42", "src": null,                          "art": "queue-sigil-of-ascent",  "label": "4" },
+    { "slug": "relic-frequency",  "title": "RELIC FREQUENCY",   "family": "Archive Relic",      "duration": "08:03", "src": null,                          "art": "queue-relic-frequency",  "label": "5", "archive": true }
+  ],
+
+  "emissions": [
+    { "slug": "soras-hill-medallion", "title": "Sora's Hill Medallion", "family": "Sigil Sovereign · Limited", "edition": "12 / 333", "href": "#object-medallion", "art": "emission-medallion" },
+    { "slug": "signal-capsule",       "title": "Signal Capsule 07.83",  "family": "Archive Relic · Capsule",   "edition": "94 / 999", "href": "#object-capsule",   "art": "emission-capsule",   "archive": true },
+    { "slug": "transmission-poster",  "title": "Transmission Poster",   "family": "Editorial Monument · Print","edition": "18 / 300", "href": "#object-poster",    "art": "emission-poster" },
+    { "slug": "frequency-key-01",     "title": "Frequency Key 01",      "family": "Sigil Sovereign · Key",     "edition": "7 / 111",  "href": "#object-key",       "art": "emission-key" },
+    { "slug": "xor-sacrifice-vinyl",  "title": "XOR Sacrifice Vinyl",   "family": "Signal Performance · LP",   "edition": "33 / 222", "href": "#object-vinyl",     "art": "emission-vinyl" }
+  ],
+
+  "journal": [
+    {
+      "slug": "episodio-2",
+      "number": "N° 02",
+      "published": "23 May 2026",
+      "duration": "06:16",
+      "family": "Editorial Monument",
+      "title_en": "Makoto Takemiya's tweetstorm",
+      "title_es": "El tweetstorm de Makoto Takemiya",
+      "summary_en": "Breakdown of the 4 articles Makoto Takemiya posted during the week of May 10, 2026.",
+      "summary_es": "Análisis de los 4 artículos publicados por Makoto Takemiya en la semana del 10 de mayo de 2026.",
+      "href": "11_JOURNAL_DETAIL.html?ep=episodio-2",
+      "art": "dispatch-tweetstorm",
+      "audio_en": "/news/media/episodio-2/en.mp3",
+      "audio_es": "/news/media/episodio-2/es.mp3"
+    },
+    {
+      "slug": "episodio-1",
+      "number": "N° 01",
+      "published": "23 May 2026",
+      "duration": "04:55",
+      "family": "Editorial Monument",
+      "title_en": "Why SORA Nexus exists",
+      "title_es": "Por qué SORA Nexus existe",
+      "summary_en": "The philosophical framework from Fisher 1939, Yamaguchi, and SORA's answer to the current monetary system.",
+      "summary_es": "Marco filosófico de Fisher 1939, Yamaguchi y la respuesta de SORA al sistema monetario actual.",
+      "href": "11_JOURNAL_DETAIL.html?ep=episodio-1",
+      "art": "dispatch-nexus",
+      "audio_en": "/news/media/episodio-1/en.mp3",
+      "audio_es": "/news/media/episodio-1/es.mp3"
+    }
+  ]
+}
