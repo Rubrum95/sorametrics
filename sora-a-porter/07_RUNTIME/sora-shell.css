@@ -325,6 +325,7 @@ body[data-family="bounded-anomaly"] {
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--paper-warm);
+  white-space: nowrap;
 }
 .brand__tagline {
   display: block;
@@ -334,6 +335,7 @@ body[data-family="bounded-anomaly"] {
   color: var(--paper-mute);
   margin-top: 2px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .nav {
@@ -693,7 +695,7 @@ body[data-family="bounded-anomaly"] {
 .nav-hamburger svg { width: 18px; height: 18px; }
 
 /* ── responsive shell ── */
-@media (max-width: 880px) {
+@media (max-width: 1100px) {
   :root {
     --shell-px: 20px;
     --topbar-height: 60px;
