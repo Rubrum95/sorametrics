@@ -3,15 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SORA-a-porter Journal — Transmissions in long form</title>
-  <meta name="description" content="Editorial dispatches, signed transmissions. From silence, the frequencies rise.">
-  <link rel="canonical" href="/sora-a-porter/journal">
+  <title>SORA-a-porter Posters — Editorial poster line</title>
+  <meta name="description" content="Editorial poster prints. Limited runs. Same family treatment as on screen — gold linework, nocturnal field, prestige paper.">
+  <link rel="canonical" href="/sora-a-porter/posters">
   <link rel="stylesheet" href="../07_RUNTIME/sora-shell.css">
   <link rel="stylesheet" href="../07_RUNTIME/sora-radio.css">
 </head>
 <body data-family="editorial-monument">
 
-  <!-- ── topbar ── -->
   <header class="topbar" role="banner">
     <div class="topbar__inner">
       <a class="brand" href="01_SORA_A_PORTER_FIRST_LAYOUT.html" aria-label="SORA-a-porter home">
@@ -38,8 +37,8 @@
         <a class="nav__link" href="16_EXPLORE.html">Explore</a>
         <a class="nav__link" href="15_COLLECTIONS.html">Collections</a>
         <a class="nav__link" href="08_RADIO_SORAMETRICS.html">Radio</a>
-        <a class="nav__link" href="10_JOURNAL_INDEX.html" aria-current="page">Journal</a>
-        <a class="nav__link" href="14_POSTERS.html">Posters</a>
+        <a class="nav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+        <a class="nav__link" href="14_POSTERS.html" aria-current="page">Posters</a>
         <a class="nav__link" href="13_MEMES.html">Memes</a>
         <a class="nav__link" href="17_ABOUT.html">About</a>
       </nav>
@@ -67,44 +66,38 @@
 
   <main class="shell">
 
-    <!-- ── journal hero ── -->
-    <section class="journal-hero">
+    <section class="page-hero">
       <div>
-        <p class="journal-hero__eyebrow">
+        <p class="page-hero__eyebrow">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
-            <path d="M5 19 L11 13 L17 7 C19 5 21 5 22 6 C23 7 23 9 21 11 L15 17 L8 19 Z" stroke-linejoin="round"/>
-            <line x1="11" y1="13" x2="8" y2="16" stroke-linecap="round"/>
+            <rect x="5" y="3" width="14" height="18" fill="none"/>
+            <line x1="5" y1="7" x2="19" y2="7" opacity="0.6"/>
           </svg>
-          Journal · Transmission archive
+          Posters · Editorial print line
         </p>
-        <h1 class="journal-hero__title">Between<br>signal and<br>silence.</h1>
-        <p class="journal-hero__lede">Editorial dispatches, signed transmissions. From silence, the frequencies rise. We broadcast to those who collect meaning, not just music.</p>
+        <h1 class="page-hero__title">Posters.</h1>
+        <p class="page-hero__lede">
+          Limited print runs of the cover universe. Each poster carries the same family treatment as on screen — gold linework, nocturnal field, prestige paper. Numbered, signed, bindable.
+        </p>
       </div>
 
-      <aside class="journal-hero__meta">
-        <div class="journal-hero__lang" role="group" aria-label="Language">
-          <button type="button" data-lang="en" class="is-active">EN</button>
-          <button type="button" data-lang="es">ES</button>
-        </div>
-        <div class="journal-hero__stats">
-          <span>Dispatches · <span class="val">02</span></span>
-          <span>Editorial cycle · <span class="val">2026 Q2</span></span>
-          <span>Signal Keeper · <span class="val">SORA</span></span>
-        </div>
+      <aside class="page-hero__stats">
+        <span>In print · <span class="val">08</span></span>
+        <span>Total runs · <span class="val">1,700</span></span>
+        <span>Cycle · <span class="val">2026 Q2</span></span>
+        <span>Family · <span class="val">Editorial Monument</span></span>
       </aside>
     </section>
 
-    <!-- ── dispatch grid ── -->
-    <section class="journal-grid" data-list="journal" aria-label="Dispatches"></section>
+    <section class="posters-grid" data-list="posters" aria-label="Poster prints"></section>
 
-    <p style="text-align: center; font-family: var(--font-sans); font-size: 10px; letter-spacing: var(--tracking-nav); text-transform: uppercase; color: var(--paper-mute); margin: var(--space-6) 0">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="0.8" style="display: inline; vertical-align: middle; margin: 0 var(--space-2)" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/></svg>
-      More dispatches transmitted soon
-    </p>
+    <aside class="page-footnote">
+      Posters are not merch. They are the cover universe rendered as paper: an editorial monument the listener can bind to a wall. Print specs, paper weight, and edition numbers carry through from the screen on purpose — the brand stays consistent off-browser.
+      <span class="signer">— SORA · Founder &amp; Signal Keeper</span>
+    </aside>
 
   </main>
 
-  <!-- ── persistent bottom bar ── -->
   <footer class="bottom-bar" role="contentinfo">
     <div class="bottom-bar__inner">
       <div class="bottom-bar__signal">
@@ -119,20 +112,6 @@
 
   <script src="../07_RUNTIME/sora-shell.js"></script>
   <script src="../07_RUNTIME/sora-catalog.js"></script>
-  <script>
-    (function () {
-      const langButtons = document.querySelectorAll('.journal-hero__lang button');
-
-      function setLang(lang) {
-        langButtons.forEach((b) => b.classList.toggle('is-active', b.dataset.lang === lang));
-        document.querySelectorAll('.dispatch__title').forEach((t) => { t.textContent = t.dataset[lang] || t.dataset.en; });
-        document.querySelectorAll('.dispatch__summary').forEach((s) => { s.textContent = s.dataset[lang] || s.dataset.en; });
-        document.documentElement.lang = lang;
-      }
-
-      langButtons.forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
-    })();
-  </script>
 
   <style>
     body { padding-bottom: calc(var(--bar-height) + 8px); }

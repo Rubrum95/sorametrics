@@ -1336,6 +1336,254 @@
   color: var(--gold-bright);
 }
 
+/* ── generic page hero · used by MEMES / POSTERS / COLLECTIONS / EXPLORE / ABOUT ── */
+.page-hero {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--space-7);
+  align-items: end;
+  margin: var(--space-7) 0 var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--gold-line);
+}
+@media (max-width: 880px) {
+  .page-hero { grid-template-columns: 1fr; }
+}
+.page-hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  margin-bottom: var(--space-3);
+}
+.page-hero__title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: clamp(48px, 6vw, 88px);
+  line-height: 0.95;
+  letter-spacing: 0.012em;
+  color: var(--paper-warm);
+  margin: 0 0 var(--space-3) 0;
+}
+.page-hero__lede {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.4;
+  color: var(--paper-cool);
+  max-width: 44ch;
+}
+.page-hero__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--paper-mute);
+  letter-spacing: 0.04em;
+}
+.page-hero__stats .val { color: var(--gold-bright); }
+@media (max-width: 880px) {
+  .page-hero__stats { align-items: flex-start; text-align: left; margin-top: var(--space-3); }
+}
+
+/* ── memes-grid · 4-col archive-relic detail grid ── */
+.memes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+  margin: var(--space-6) 0 var(--space-7);
+}
+@media (max-width: 1080px) { .memes-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .memes-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.card--detailed {
+  gap: var(--space-2);
+}
+.card--detailed .card__edition {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold-bright);
+  letter-spacing: 0.06em;
+}
+.card--detailed .card__title {
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+/* ── POSTERS · portrait grid · editorial monument ── */
+.posters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+  margin: var(--space-6) 0 var(--space-7);
+}
+@media (max-width: 1080px) { .posters-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .posters-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px)  { .posters-grid { grid-template-columns: 1fr; } }
+
+.poster-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  cursor: pointer;
+  transition: transform var(--motion-base) var(--ease-ritual);
+}
+.poster-card:hover { transform: translateY(-4px); }
+.poster-card__art {
+  aspect-ratio: 400 / 560;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(212, 168, 90, 0.55);
+  background: var(--ink-deepest);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.6);
+  transition: border-color var(--motion-base) var(--ease-ritual), box-shadow var(--motion-base) var(--ease-ritual);
+}
+.poster-card:hover .poster-card__art {
+  border-color: var(--gold-bright);
+  box-shadow: 0 20px 40px -10px rgba(212, 168, 90, 0.18);
+}
+.poster-card__art svg,
+.poster-card__art img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.poster-card__body { display: flex; flex-direction: column; gap: var(--space-2); }
+.poster-card__title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--paper-warm);
+  line-height: 1.2;
+  margin: 0;
+}
+.poster-card__release {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--gold-base);
+  margin: 0;
+}
+.poster-card__specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--gold-line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.poster-card__specs > div { display: flex; flex-direction: column; }
+.poster-card__specs .label {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+.poster-card__specs .val {
+  color: var(--paper-warm);
+}
+.poster-card__specs > div:last-child .val {
+  color: var(--gold-bright);
+}
+
+/* ── COLLECTIONS · capsule index · editorial monument ── */
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6);
+  margin: var(--space-6) 0 var(--space-7);
+}
+@media (max-width: 720px) { .collections-grid { grid-template-columns: 1fr; } }
+
+.collection-card {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(17,23,42,0.45) 0%, rgba(10,14,26,0.78) 100%);
+  cursor: pointer;
+  transition: border-color var(--motion-base) var(--ease-ritual), transform var(--motion-base) var(--ease-ritual), background var(--motion-base) var(--ease-ritual);
+}
+.collection-card:hover {
+  border-color: var(--gold-bright);
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(20,26,46,0.55) 0%, rgba(10,14,26,0.85) 100%);
+}
+@media (max-width: 600px) { .collection-card { grid-template-columns: 1fr; } }
+.collection-card__art {
+  aspect-ratio: 320 / 220;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gold-line);
+  background: var(--ink-deepest);
+  overflow: hidden;
+}
+.collection-card__art svg { width: 100%; height: 100%; display: block; }
+.collection-card__body { display: flex; flex-direction: column; gap: var(--space-2); }
+.collection-card__title {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: 0.012em;
+  color: var(--paper-warm);
+  margin: 0;
+}
+.collection-card__tagline {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--paper-cool);
+  margin: 0;
+}
+.collection-card__foot {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--gold-line);
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+/* ── page footnote · used by archive pages ── */
+.page-footnote {
+  margin: var(--space-7) 0 var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--gold-line);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--paper-cool);
+  max-width: 60ch;
+}
+.page-footnote .signer {
+  display: block;
+  margin-top: var(--space-3);
+  font-style: normal;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
 /* ── COMPOSER SESSION · editorial monument · low glow · authorship engine ── */
 .composer {
   display: grid;

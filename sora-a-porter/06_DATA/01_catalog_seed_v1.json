@@ -61,6 +61,114 @@
     { "slug": "xor-sacrifice-vinyl",  "title": "XOR Sacrifice Vinyl",   "family": "Signal Performance · LP",   "edition": "33 / 222", "href": "#object-vinyl",     "art": "emission-vinyl" }
   ],
 
+  "posters": [
+    {
+      "slug": "sorametrics-tesla",
+      "title": "Sorametrics · Tesla portrait",
+      "release": "SORAMETRICS",
+      "family": "Editorial Monument",
+      "format": "50 × 70 cm",
+      "print": "Giclée · 250 gsm matte",
+      "edition": "18 / 300",
+      "price": "€95",
+      "href": "#poster-sorametrics-tesla",
+      "art": "poster-sorametrics-tesla"
+    },
+    {
+      "slug": "frequency-shortwave",
+      "title": "Frequency · Multi-genre shortwave",
+      "release": "FREQUENCY",
+      "family": "Editorial Monument",
+      "format": "50 × 70 cm",
+      "print": "Offset · cream stock",
+      "edition": "47 / 500",
+      "price": "€70",
+      "href": "#poster-frequency-shortwave",
+      "art": "poster-frequency-shortwave"
+    },
+    {
+      "slug": "electric-sabbath",
+      "title": "Electric Sabbath · Instrumental",
+      "release": "ELECTRIC SABBATH",
+      "family": "Editorial Monument",
+      "format": "60 × 80 cm",
+      "print": "Giclée · 280 gsm",
+      "edition": "9 / 150",
+      "price": "€130",
+      "href": "#poster-electric-sabbath",
+      "art": "poster-electric-sabbath"
+    },
+    {
+      "slug": "world-band",
+      "title": "Sorametrics Radio Station · World-band",
+      "release": "WORLD BAND",
+      "family": "Editorial Monument",
+      "format": "70 × 100 cm",
+      "print": "Risograph · 4-color",
+      "edition": "62 / 250",
+      "price": "€120",
+      "href": "#poster-world-band",
+      "art": "poster-world-band"
+    },
+    {
+      "slug": "sora-alive-chains",
+      "title": "SORA Alive · Chains tunnel",
+      "release": "SORA ALIVE",
+      "family": "Monumental Ascent",
+      "format": "50 × 70 cm",
+      "print": "Foiled gold · matte",
+      "edition": "5 / 50",
+      "price": "€220",
+      "href": "#poster-sora-alive-chains",
+      "art": "poster-sora-alive"
+    },
+    {
+      "slug": "nexus-frequency",
+      "title": "Nexus Frequency",
+      "release": "NEXUS FREQUENCY",
+      "family": "Signal Performance",
+      "format": "50 × 70 cm",
+      "print": "Offset · signal field red",
+      "edition": "23 / 200",
+      "price": "€85",
+      "href": "#poster-nexus-frequency",
+      "art": "poster-nexus-frequency"
+    },
+    {
+      "slug": "undone-never-yours",
+      "title": "Undone · Never yours",
+      "release": "UNDONE",
+      "family": "Editorial Monument",
+      "format": "50 × 70 cm",
+      "print": "Giclée · 250 gsm",
+      "edition": "11 / 150",
+      "price": "€95",
+      "href": "#poster-undone",
+      "art": "poster-undone"
+    },
+    {
+      "slug": "sora-fridays-night-city",
+      "title": "SORA Fridays · Night city",
+      "release": "SORA FRIDAYS",
+      "family": "Signal Performance",
+      "format": "50 × 70 cm",
+      "print": "Offset · magenta-amber",
+      "edition": "38 / 300",
+      "price": "€70",
+      "href": "#poster-sora-fridays",
+      "art": "poster-sora-fridays"
+    }
+  ],
+
+  "collections": [
+    { "slug": "sora-originals",  "title": "SORA Originals",       "tagline": "The canon. Eight releases that govern every page that comes after.", "family": "Monumental Ascent",  "count": 8, "art": "collection-sora",     "href": "16_EXPLORE.html?row=sora" },
+    { "slug": "tonswap",         "title": "TONSWAP",              "tagline": "Partner ecosystem · cooler register. Liquidity, flow, nodes, signal pulse.",   "family": "Editorial Monument", "count": 8, "art": "collection-tonswap",  "href": "16_EXPLORE.html?row=tonswap" },
+    { "slug": "solswap",         "title": "SOLSWAP",              "tagline": "Partner ecosystem · warmer register. Orbit, eclipse, radiate.",                "family": "Signal Performance", "count": 8, "art": "collection-solswap",  "href": "16_EXPLORE.html?row=solswap" },
+    { "slug": "memes-archive",   "title": "Memes Archive",        "tagline": "Internet-era signal, paper-printed. Last row of the storefront, never first.","family": "Archive Relic",      "count": 8, "art": "collection-memes",    "href": "13_MEMES.html" },
+    { "slug": "tesla-series",    "title": "Tesla Series",         "tagline": "Engineer-mystic, arc-lightning field, cathedral mode.",                        "family": "Editorial Monument", "count": 4, "art": "collection-tesla",    "href": "#collection-tesla" },
+    { "slug": "founder-edits",   "title": "Founder Edits",        "tagline": "Hand-picked transmissions signed by SORA. Limited capsules.",                  "family": "Sigil Sovereign",    "count": 6, "art": "collection-founder",  "href": "#collection-founder" }
+  ],
+
   "journal": [
     {
       "slug": "episodio-2",

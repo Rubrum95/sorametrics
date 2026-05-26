@@ -202,6 +202,31 @@
     'emission-key': () => `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#0A0E1A"/><circle cx="32" cy="32" r="16" fill="none" stroke="#E6C275" stroke-width="1"/><circle cx="32" cy="32" r="10" fill="none" stroke="#E6C275" stroke-width="0.5" opacity="0.7"/><polygon points="26,32 32,24 38,32 32,40" fill="none" stroke="#E6C275" stroke-width="0.5" opacity="0.7"/><line x1="44" y1="44" x2="84" y2="84" stroke="#E6C275" stroke-width="2" stroke-linecap="round"/><rect x="68" y="68" width="6" height="3" fill="#E6C275" transform="rotate(45 71 70)"/><rect x="74" y="74" width="6" height="3" fill="#E6C275" transform="rotate(45 77 76)"/><text x="50" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="4" fill="#C8A85A" letter-spacing="2">KEY · 01</text></svg>`,
     'emission-vinyl': () => `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#1A0810"/><circle cx="50" cy="50" r="40" fill="#0A0510"/><g stroke="#3A0A14" stroke-width="0.3" fill="none" opacity="0.85"><circle cx="50" cy="50" r="36"/><circle cx="50" cy="50" r="32"/><circle cx="50" cy="50" r="28"/><circle cx="50" cy="50" r="24"/><circle cx="50" cy="50" r="20"/></g><circle cx="50" cy="50" r="12" fill="#E3242D"/><text x="50" y="48" text-anchor="middle" font-family="EB Garamond, serif" font-size="6" fill="#FFE9B0">XOR</text><text x="50" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="3.4" fill="#FFE9B0" letter-spacing="1">SACRIFICE</text><circle cx="50" cy="50" r="1.4" fill="#0A0510"/></svg>`,
 
+    // ── POSTERS · portrait-oriented poster art ──
+    'poster-sorametrics-tesla': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="pst-${rand()}" cx="50%" cy="40%" r="65%"><stop offset="0%" stop-color="#1A2240"/><stop offset="55%" stop-color="#080810"/><stop offset="100%" stop-color="#020207"/></radialGradient><radialGradient id="pst-halo-${rand()}" cx="50%" cy="38%" r="38%"><stop offset="0%" stop-color="#D4A85A" stop-opacity="0.5"/><stop offset="100%" stop-color="#D4A85A" stop-opacity="0"/></radialGradient><linearGradient id="pst-bolt-${rand()}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#9DC0FF" stop-opacity="0.85"/><stop offset="100%" stop-color="#3D5E94" stop-opacity="0.25"/></linearGradient></defs><rect width="400" height="560" fill="url(#pst-${rand(true)})"/><rect width="400" height="560" fill="url(#pst-halo-${rand(true)})"/><g stroke="#B08C44" stroke-width="0.4" fill="none" opacity="0.4"><circle cx="200" cy="220" r="60"/><circle cx="200" cy="220" r="100"/><circle cx="200" cy="220" r="140"/><circle cx="200" cy="220" r="180"/></g><g stroke="url(#pst-bolt-${rand(true)})" stroke-width="1.2" fill="none" stroke-linecap="round"><path d="M70 100 L130 140 L110 155 L170 180"/><path d="M330 100 L270 140 L290 155 L230 180"/><path d="M60 240 L120 258 L100 270 L160 290"/><path d="M340 240 L280 258 L300 270 L240 290"/></g><g transform="translate(200 220)"><ellipse cx="0" cy="-20" rx="32" ry="40" fill="#0A0E1A" stroke="#B08C44" stroke-width="0.4"/><path d="M-22 -42 Q0 -68 22 -42" fill="#1A2240"/><circle cx="-10" cy="-22" r="2" fill="#B08C44"/><circle cx="10" cy="-22" r="2" fill="#B08C44"/></g><text x="200" y="380" text-anchor="middle" font-family="EB Garamond, serif" font-size="42" fill="#D4A85A" letter-spacing="2">SORAMETRICS</text><text x="200" y="410" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#948B72" letter-spacing="3.4">SIGNAL · RESONANCE · CONNECTION</text><text x="200" y="500" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="3">FROM ANYWHERE · TO EVERYWHERE</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#B08C44" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-frequency-shortwave': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="560" fill="#1A1810"/><g stroke="#B08C44" stroke-width="0.3" fill="none" opacity="0.6"><circle cx="200" cy="240" r="50"/><circle cx="200" cy="240" r="100"/><circle cx="200" cy="240" r="150"/></g><line x1="200" y1="120" x2="200" y2="360" stroke="#B08C44" stroke-width="2"/><rect x="180" y="115" width="40" height="6" fill="#B08C44"/><rect x="185" y="360" width="30" height="10" fill="#B08C44"/><g fill="#3D5E94" opacity="0.6"><circle cx="100" cy="180" r="3"/><circle cx="300" cy="180" r="3"/></g><g fill="#9C5028" opacity="0.7"><circle cx="80" cy="280" r="3"/><circle cx="320" cy="280" r="3"/></g><text x="200" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#948B72" letter-spacing="4">SIGNAL FOR DREAMERS, ENGINEERS, LOVERS, STRANGERS</text><text x="200" y="430" text-anchor="middle" font-family="EB Garamond, serif" font-size="36" fill="#D4A85A" letter-spacing="3">FREQUENCY</text><text x="200" y="460" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#948B72" letter-spacing="3">MULTI-GENRE · WORLD BAND</text><text x="200" y="520" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="3">FROM ANYWHERE · TO EVERYWHERE</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#B08C44" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-electric-sabbath': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="es-bg-${rand()}" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#2A2A30"/><stop offset="100%" stop-color="#08080F"/></radialGradient></defs><rect width="400" height="560" fill="url(#es-bg-${rand(true)})"/><g stroke="#9DC0FF" stroke-width="1" stroke-linecap="round" opacity="0.7"><line x1="80" y1="120" x2="120" y2="200"/><line x1="320" y1="120" x2="280" y2="200"/></g><rect x="180" y="190" width="40" height="120" fill="none" stroke="#B08C44" stroke-width="0.6"/><circle cx="200" cy="220" r="14" fill="#D4A85A"/><line x1="200" y1="234" x2="200" y2="290" stroke="#D4A85A" stroke-width="1.5"/><text x="200" y="110" text-anchor="middle" font-family="EB Garamond, serif" font-size="36" fill="#D4A85A" letter-spacing="2.4">ELECTRIC</text><text x="200" y="148" text-anchor="middle" font-family="EB Garamond, serif" font-size="36" fill="#D4A85A" letter-spacing="2.4">SABBATH</text><text x="200" y="356" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#948B72" letter-spacing="3">INSTRUMENTAL · F MINOR · 132 BPM</text><g stroke="#B08C44" stroke-width="0.3" opacity="0.4"><line x1="80" y1="400" x2="320" y2="400"/></g><text x="80" y="430" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">1. IMPACT</text><text x="80" y="450" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">2. PULSE</text><text x="80" y="470" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">3. SPACE</text><text x="80" y="490" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">4. LAMENT</text><text x="240" y="430" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">5. BREATHE</text><text x="240" y="450" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">6. RETURN</text><text x="240" y="470" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">7. ASCENT</text><text x="240" y="490" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="2">8. SURGE</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#B08C44" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-world-band': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="560" fill="#3A1F10"/><g stroke="#D4A85A" stroke-width="0.4" fill="none" opacity="0.7"><circle cx="200" cy="240" r="40"/><circle cx="200" cy="240" r="80"/><circle cx="200" cy="240" r="120"/><circle cx="200" cy="240" r="160"/></g><line x1="200" y1="160" x2="200" y2="320" stroke="#D4A85A" stroke-width="2"/><rect x="190" y="155" width="20" height="6" fill="#D4A85A"/><rect x="184" y="320" width="32" height="12" fill="#D4A85A"/><rect x="180" y="332" width="40" height="20" fill="#D4A85A" opacity="0.55"/><text x="200" y="50" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#FFE9B0" letter-spacing="3.4">SIGNAL FOR DREAMERS, ENGINEERS, LOVERS, STRANGERS</text><text x="200" y="400" text-anchor="middle" font-family="EB Garamond, serif" font-size="34" fill="#FFE9B0" letter-spacing="3.4">SORAMETRICS</text><text x="200" y="425" text-anchor="middle" font-family="EB Garamond, serif" font-size="22" fill="#FFE9B0" letter-spacing="2">RADIO STATION</text><text x="200" y="460" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#E6A055" letter-spacing="3.4">INTERNATIONAL SHORTWAVE SERVICE</text><text x="200" y="478" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" fill="#FFE9B0" letter-spacing="4">WORLD BAND · 49 m</text><text x="80" y="520" font-family="Inter, sans-serif" font-size="7" fill="#E6A055" letter-spacing="2">FROM ANYWHERE</text><text x="320" y="520" text-anchor="end" font-family="Inter, sans-serif" font-size="7" fill="#E6A055" letter-spacing="2">TO EVERYWHERE</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#FFE9B0" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-sora-alive': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="sa-ign-${rand()}" cx="50%" cy="42%" r="38%"><stop offset="0%" stop-color="#FFD58A" stop-opacity="0.95"/><stop offset="55%" stop-color="#D4A85A" stop-opacity="0.55"/><stop offset="100%" stop-color="#020207" stop-opacity="0"/></radialGradient></defs><rect width="400" height="560" fill="#020207"/><rect width="400" height="560" fill="url(#sa-ign-${rand(true)})"/><g stroke="#B08C44" stroke-width="0.4" fill="none" opacity="0.7"><path d="M40 320 L200 250 L360 320"/><path d="M50 340 L200 270 L350 340"/><path d="M60 360 L200 290 L340 360"/></g><g stroke="#B08C44" stroke-width="0.8" fill="none" opacity="0.65"><path d="M30 320 Q50 240 70 320 Q90 250 110 320"/><path d="M290 320 Q310 250 330 320 Q350 240 370 320"/></g><circle cx="200" cy="240" r="4" fill="#FFE9B0"/><line x1="200" y1="230" x2="200" y2="260" stroke="#FFE9B0" stroke-width="0.5"/><text x="200" y="430" text-anchor="middle" font-family="EB Garamond, serif" font-size="48" fill="#FFE9B0" letter-spacing="4">SORA</text><text x="200" y="478" text-anchor="middle" font-family="EB Garamond, serif" font-style="italic" font-size="46" fill="#FFD58A">Alive</text><text x="200" y="516" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="3">DAWN IS COMING · OPEN YOUR EYES</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#B08C44" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-nexus-frequency': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="nx-bg-${rand()}" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#3B0F2A"/><stop offset="55%" stop-color="#1A0F1E"/><stop offset="100%" stop-color="#0A0510"/></radialGradient></defs><rect width="400" height="560" fill="url(#nx-bg-${rand(true)})"/><g stroke="#D4A85A" stroke-width="0.4" fill="none" opacity="0.55"><circle cx="200" cy="220" r="50"/><circle cx="200" cy="220" r="90"/><circle cx="200" cy="220" r="130"/></g><circle cx="200" cy="220" r="14" fill="#FFD58A"/><line x1="200" y1="234" x2="200" y2="320" stroke="#FFD58A" stroke-width="0.6"/><g fill="#1A0F1E"><ellipse cx="160" cy="370" rx="10" ry="20"/><ellipse cx="180" cy="372" rx="10" ry="22"/><ellipse cx="200" cy="370" rx="10" ry="20"/><ellipse cx="220" cy="372" rx="10" ry="22"/><ellipse cx="240" cy="370" rx="10" ry="20"/></g><text x="200" y="430" text-anchor="middle" font-family="EB Garamond, serif" font-size="34" fill="#D4A85A" letter-spacing="4">NEXUS</text><text x="200" y="468" text-anchor="middle" font-family="EB Garamond, serif" font-size="28" fill="#FF6E78" letter-spacing="3">FREQUENCY</text><text x="200" y="512" text-anchor="middle" font-family="Inter, sans-serif" font-size="8" fill="#948B72" letter-spacing="3">SORAMETRICS.ORG</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#D4A85A" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-undone': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="un-bg-${rand()}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1A1A2A"/><stop offset="100%" stop-color="#080810"/></linearGradient></defs><rect width="400" height="560" fill="url(#un-bg-${rand(true)})"/><g stroke="#948B72" stroke-width="0.4" opacity="0.4"><line x1="60" y1="180" x2="80" y2="200"/><line x1="80" y1="200" x2="100" y2="195"/><line x1="60" y1="220" x2="90" y2="240"/><line x1="320" y1="180" x2="340" y2="200"/><line x1="340" y1="200" x2="320" y2="195"/></g><g fill="#9DC0FF" opacity="0.3"><rect x="160" y="160" width="80" height="180"/></g><circle cx="200" cy="200" r="36" fill="#EFE5CC" opacity="0.85"/><circle cx="200" cy="220" r="30" fill="#EFE5CC" opacity="0.7"/><g stroke="#E3242D" stroke-width="0.6" fill="none" opacity="0.7"><line x1="330" y1="160" x2="345" y2="190"/></g><circle cx="345" cy="190" r="3" fill="#E3242D"/><text x="200" y="460" text-anchor="middle" font-family="EB Garamond, serif" font-size="44" fill="#EFE5CC" letter-spacing="2">Undone</text><text x="200" y="500" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#948B72" letter-spacing="4.4">NEVER YOURS</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#B08C44" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    'poster-sora-fridays': () => `<svg viewBox="0 0 400 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sf-sky-${rand()}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3B0F2A"/><stop offset="55%" stop-color="#1A0F1E"/><stop offset="100%" stop-color="#0A0510"/></linearGradient><radialGradient id="sf-pop-${rand()}" cx="50%" cy="50%" r="40%"><stop offset="0%" stop-color="#D4A85A" stop-opacity="0.65"/><stop offset="100%" stop-color="#C13A5C" stop-opacity="0"/></radialGradient></defs><rect width="400" height="560" fill="url(#sf-sky-${rand(true)})"/><rect width="400" height="560" fill="url(#sf-pop-${rand(true)})"/><g fill="#0A0510"><rect x="40" y="220" width="24" height="120"/><rect x="68" y="200" width="22" height="140"/><rect x="94" y="210" width="28" height="130"/><rect x="126" y="180" width="22" height="160"/><rect x="240" y="190" width="22" height="150"/><rect x="266" y="210" width="30" height="130"/><rect x="300" y="200" width="22" height="140"/><rect x="330" y="220" width="24" height="120"/></g><g stroke="#D4A85A" stroke-width="0.4" fill="none" opacity="0.55"><circle cx="200" cy="220" r="50"/><circle cx="200" cy="220" r="80"/></g><g fill="#1A0F1E"><ellipse cx="160" cy="380" rx="10" ry="20"/><ellipse cx="180" cy="382" rx="10" ry="22"/><ellipse cx="200" cy="380" rx="10" ry="20"/><ellipse cx="220" cy="382" rx="10" ry="22"/><ellipse cx="240" cy="380" rx="10" ry="20"/></g><text x="200" y="240" text-anchor="middle" font-family="EB Garamond, serif" font-size="40" fill="#D4A85A" letter-spacing="2.5">SORA</text><text x="200" y="290" text-anchor="middle" font-family="EB Garamond, serif" font-style="italic" font-size="36" fill="#FF6E78">Fridays</text><text x="200" y="450" text-anchor="middle" font-family="Inter, sans-serif" font-size="9" fill="#948B72" letter-spacing="3.4">MUSIC · PEOPLE · MOMENTUM</text><rect x="14" y="14" width="372" height="532" fill="none" stroke="#D4A85A" stroke-width="0.6" opacity="0.55"/></svg>`,
+
+    // ── COLLECTIONS · capsule covers ──
+    'collection-sora':    () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="cs-${rand()}" cx="50%" cy="50%" r="55%"><stop offset="0%" stop-color="#FFD58A" stop-opacity="0.45"/><stop offset="100%" stop-color="#020207" stop-opacity="0"/></radialGradient></defs><rect width="320" height="220" fill="#020207"/><rect width="320" height="220" fill="url(#cs-${rand(true)})"/><g stroke="#B08C44" stroke-width="0.4" fill="none" opacity="0.6"><circle cx="160" cy="110" r="40"/><circle cx="160" cy="110" r="60"/><circle cx="160" cy="110" r="80"/></g><circle cx="160" cy="110" r="6" fill="#D4A85A"/><text x="160" y="180" text-anchor="middle" font-family="EB Garamond, serif" font-size="22" fill="#D4A85A" letter-spacing="3">SORA</text><text x="160" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">ORIGINALS · 08</text></svg>`,
+    'collection-tonswap': () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="220" fill="#06101F"/><path d="M0 140 Q40 124 80 140 T160 140 T240 140 T320 140 L320 220 L0 220 Z" fill="#3D5E94" opacity="0.55"/><g stroke="#9DC0FF" stroke-width="0.5" fill="none" opacity="0.6"><circle cx="100" cy="90" r="3"/><circle cx="160" cy="78" r="3"/><circle cx="220" cy="92" r="3"/></g><text x="160" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#9DC0FF" letter-spacing="3.4">TONSWAP</text><text x="160" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">PARTNER ECOSYSTEM · 08</text></svg>`,
+    'collection-solswap': () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="220" fill="#1A0F08"/><defs><radialGradient id="csl-${rand()}" cx="50%" cy="55%" r="50%"><stop offset="0%" stop-color="#FFD58A"/><stop offset="40%" stop-color="#FFB870"/><stop offset="100%" stop-color="#1A0F08" stop-opacity="0"/></radialGradient></defs><circle cx="160" cy="120" r="58" fill="url(#csl-${rand(true)})"/><g stroke="#E6A055" stroke-width="0.4" opacity="0.55"><line x1="60" y1="170" x2="260" y2="170"/></g><text x="160" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#E6A055" letter-spacing="3.4">SOLSWAP</text><text x="160" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">PARTNER ECOSYSTEM · 08</text></svg>`,
+    'collection-memes':   () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="220" fill="#1A1810"/><rect x="14" y="14" width="292" height="192" fill="none" stroke="#948B72" stroke-width="0.4" stroke-dasharray="3 2"/><text x="160" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="22" font-weight="800" fill="#948B72">ARCHIVE</text><text x="160" y="138" text-anchor="middle" font-family="Inter, sans-serif" font-size="28" font-weight="800" fill="#D4A85A">RELIC</text><text x="160" y="180" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">MEMES · 08 CAPSULES</text></svg>`,
+    'collection-tesla':   () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="220" fill="#080810"/><g stroke="#9DC0FF" stroke-width="0.6" fill="none" opacity="0.7" stroke-linecap="round"><path d="M60 50 L100 80 L85 92 L120 110"/><path d="M260 50 L220 80 L235 92 L200 110"/></g><g stroke="#B08C44" stroke-width="0.4" fill="none" opacity="0.55"><circle cx="160" cy="110" r="40"/><circle cx="160" cy="110" r="70"/></g><ellipse cx="160" cy="95" rx="20" ry="26" fill="#0A0E1A" stroke="#B08C44" stroke-width="0.4"/><text x="160" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">TESLA SERIES · 04</text></svg>`,
+    'collection-founder': () => `<svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="220" fill="#020207"/><g stroke="#D4A85A" stroke-width="0.5" fill="none" opacity="0.8"><circle cx="160" cy="110" r="44"/><circle cx="160" cy="110" r="32"/></g><polygon points="160,80 175,130 145,130" fill="#D4A85A" opacity="0.85"/><text x="160" y="190" text-anchor="middle" font-family="EB Garamond, serif" font-style="italic" font-size="14" fill="#D4A85A">Founder Edits</text><text x="160" y="208" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#948B72" letter-spacing="3">06 LIMITED CAPSULES</text></svg>`,
+
     // ── JOURNAL dispatch covers ──
     'dispatch-tweetstorm': () => `<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="ep2-bg-${rand()}" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#1A2240"/><stop offset="55%" stop-color="#0A0E1A"/><stop offset="100%" stop-color="#05070D"/></radialGradient><radialGradient id="ep2-halo-${rand()}" cx="50%" cy="38%" r="32%"><stop offset="0%" stop-color="#E6C275" stop-opacity="0.5"/><stop offset="100%" stop-color="#E6C275" stop-opacity="0"/></radialGradient></defs><rect width="200" height="200" fill="url(#ep2-bg-${rand(true)})"/><rect width="200" height="200" fill="url(#ep2-halo-${rand(true)})"/><g stroke="#C8A85A" stroke-width="0.3" fill="none" opacity="0.5"><circle cx="100" cy="80" r="32"/><circle cx="100" cy="80" r="48"/><circle cx="100" cy="80" r="64"/></g><g stroke="#9DC0FF" stroke-width="0.5" fill="none" opacity="0.7"><path d="M50 60 L70 70 L60 78 L84 88"/><path d="M150 60 L130 70 L140 78 L116 88"/></g><text x="100" y="135" text-anchor="middle" font-family="EB Garamond, serif" font-size="11" fill="#E6C275" letter-spacing="2.2">DISPATCH</text><text x="100" y="155" text-anchor="middle" font-family="EB Garamond, serif" font-style="italic" font-size="22" fill="#FFE9B0">Tweetstorm</text><text x="100" y="178" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#BFB6A2" letter-spacing="2.6">SORA · MAY 2026 · 06:16</text></svg>`,
     'dispatch-nexus': () => `<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="ep1-sky-${rand()}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3A1F10"/><stop offset="55%" stop-color="#1A0F08"/><stop offset="100%" stop-color="#0A0510"/></linearGradient><radialGradient id="ep1-glow-${rand()}" cx="50%" cy="50%" r="44%"><stop offset="0%" stop-color="#FFB870" stop-opacity="0.45"/><stop offset="100%" stop-color="#1A0F08" stop-opacity="0"/></radialGradient></defs><rect width="200" height="200" fill="url(#ep1-sky-${rand(true)})"/><rect width="200" height="200" fill="url(#ep1-glow-${rand(true)})"/><g stroke="#E6A055" stroke-width="0.4" fill="none" opacity="0.6"><circle cx="100" cy="100" r="40"/><circle cx="100" cy="100" r="56"/><circle cx="100" cy="100" r="72"/></g><polygon points="100,72 84,116 116,116" fill="none" stroke="#E6C275" stroke-width="0.7"/><text x="100" y="148" text-anchor="middle" font-family="EB Garamond, serif" font-size="11" fill="#E6C275" letter-spacing="2.2">FOUNDING</text><text x="100" y="170" text-anchor="middle" font-family="EB Garamond, serif" font-style="italic" font-size="20" fill="#FFE9B0">Nexus</text><text x="100" y="190" text-anchor="middle" font-family="Inter, sans-serif" font-size="7" fill="#BFB6A2" letter-spacing="2.6">SORA · MAY 2026 · 04:55</text></svg>`,
@@ -256,9 +281,10 @@
     return parsed.documentElement;
   }
 
-  function renderRowCard(item) {
+  function renderRowCard(item, opts) {
+    const showEdition = opts && opts.showEdition && item.edition;
     const a = document.createElement('a');
-    a.className = 'card';
+    a.className = 'card' + (showEdition ? ' card--detailed' : '');
     a.href = item.href || '#';
     const art = document.createElement('div');
     art.className = 'card__art';
@@ -274,6 +300,12 @@
     meta.className = 'card__meta';
     meta.textContent = item.family;
     a.appendChild(meta);
+    if (showEdition) {
+      const ed = document.createElement('p');
+      ed.className = 'card__edition';
+      ed.textContent = 'N° ' + item.edition;
+      a.appendChild(ed);
+    }
     return a;
   }
 
@@ -353,6 +385,83 @@
     return a;
   }
 
+  function renderPosterCard(item) {
+    const a = document.createElement('a');
+    a.className = 'poster-card';
+    a.href = item.href || '#';
+
+    const art = document.createElement('div');
+    art.className = 'poster-card__art';
+    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
+    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    a.appendChild(art);
+
+    const body = document.createElement('div');
+    body.className = 'poster-card__body';
+
+    const title = document.createElement('h3');
+    title.className = 'poster-card__title';
+    title.textContent = item.title;
+    body.appendChild(title);
+
+    const release = document.createElement('p');
+    release.className = 'poster-card__release';
+    release.textContent = item.release + ' · ' + item.family;
+    body.appendChild(release);
+
+    const specs = document.createElement('div');
+    specs.className = 'poster-card__specs';
+    [['Format', item.format], ['Print', item.print], ['Edition', 'N° ' + item.edition], ['Price', item.price]].forEach(([k, v]) => {
+      const row = document.createElement('div');
+      const lbl = document.createElement('span');
+      lbl.className = 'label';
+      lbl.textContent = k;
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = v;
+      row.appendChild(lbl);
+      row.appendChild(val);
+      specs.appendChild(row);
+    });
+    body.appendChild(specs);
+
+    a.appendChild(body);
+    return a;
+  }
+
+  function renderCollectionCard(item) {
+    const a = document.createElement('a');
+    a.className = 'collection-card';
+    a.href = item.href || '#';
+
+    const art = document.createElement('div');
+    art.className = 'collection-card__art';
+    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
+    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    a.appendChild(art);
+
+    const body = document.createElement('div');
+    body.className = 'collection-card__body';
+
+    const title = document.createElement('h3');
+    title.className = 'collection-card__title';
+    title.textContent = item.title;
+    body.appendChild(title);
+
+    const tag = document.createElement('p');
+    tag.className = 'collection-card__tagline';
+    tag.textContent = item.tagline;
+    body.appendChild(tag);
+
+    const foot = document.createElement('p');
+    foot.className = 'collection-card__foot';
+    foot.textContent = item.family + ' · ' + item.count + ' items';
+    body.appendChild(foot);
+
+    a.appendChild(body);
+    return a;
+  }
+
   function renderDispatch(item, lang) {
     const a = document.createElement('a');
     a.className = 'dispatch';
@@ -427,9 +536,22 @@
     document.querySelectorAll('[data-row]').forEach((host) => {
       const rowName = host.dataset.row;
       const items = (data.rows && data.rows[rowName]) || [];
+      const showEdition = host.dataset.showEdition === 'true';
       const frag = document.createDocumentFragment();
-      items.forEach((item) => frag.appendChild(renderRowCard(item)));
+      items.forEach((item) => frag.appendChild(renderRowCard(item, { showEdition })));
       host.appendChild(frag);
+    });
+
+    // full catalog grid (explore page)
+    document.querySelectorAll('[data-list="all-releases"]').forEach((host) => {
+      const all = [];
+      ['sora','tonswap','solswap','memes'].forEach(rn => {
+        ((data.rows && data.rows[rn]) || []).forEach(it => all.push({ ...it, _row: rn }));
+      });
+      const frag = document.createDocumentFragment();
+      all.forEach((item) => frag.appendChild(renderRowCard(item, { showEdition: !!item.edition })));
+      host.appendChild(frag);
+      host.dispatchEvent(new CustomEvent('catalog:all-rendered', { detail: { items: all } }));
     });
 
     // queue
@@ -447,6 +569,22 @@
       const items = data.emissions || [];
       const frag = document.createDocumentFragment();
       items.forEach((item) => frag.appendChild(renderEmission(item)));
+      host.appendChild(frag);
+    });
+
+    // posters
+    document.querySelectorAll('[data-list="posters"]').forEach((host) => {
+      const items = data.posters || [];
+      const frag = document.createDocumentFragment();
+      items.forEach((item) => frag.appendChild(renderPosterCard(item)));
+      host.appendChild(frag);
+    });
+
+    // collections
+    document.querySelectorAll('[data-list="collections"]').forEach((host) => {
+      const items = data.collections || [];
+      const frag = document.createDocumentFragment();
+      items.forEach((item) => frag.appendChild(renderCollectionCard(item)));
       host.appendChild(frag);
     });
 
