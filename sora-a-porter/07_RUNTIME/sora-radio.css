@@ -2690,3 +2690,43 @@
     transform: none;
   }
 }
+
+/* ── status badge (whitepaper Manual 7 — runtime honesto) ──────────────────── */
+/* Shown over any item whose status is not "live". Whitepaper rule: el sistema
+   no debe reportar éxito falso. Si parcial, decir parcial. */
+.status-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 2px;
+  background: rgba(5, 7, 13, 0.78);
+  color: var(--paper-warm, #F4EBD9);
+  border: 1px solid rgba(244, 235, 217, 0.18);
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.status-badge--pre-live {
+  border-color: rgba(230, 194, 117, 0.45);
+  color: var(--gold-warm, #E6C275);
+}
+.status-badge--partial,
+.status-badge--review-ready,
+.status-badge--draft {
+  border-color: rgba(244, 235, 217, 0.25);
+  color: var(--paper-mute, #BFB6A2);
+}
+.status-badge--needs-rebuild,
+.status-badge--pending-canonical-path {
+  border-color: rgba(227, 36, 45, 0.35);
+  color: rgba(255, 110, 120, 0.95);
+}

@@ -4,24 +4,24 @@
 
   "rows": {
     "sora": [
-      { "slug": "sora-rhapsody",      "title": "SORA Rhapsody",      "family": "Editorial Monument", "href": "#release-sora-rhapsody",      "art": "sora-rhapsody",      "image": "sora-rhapsody",      "src": "/music/SORA%20Rhapsody.mp3" },
-      { "slug": "xor-raiders",        "title": "XOR Raiders",        "family": "Signal Performance", "href": "#release-xor-raiders",        "art": "xor-raiders-defend", "image": "xor-raiders-defend", "src": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" },
-      { "slug": "sora-aitai",         "title": "SORA Aitai",         "family": "Monumental Ascent",  "href": "#release-sora-aitai",         "art": "sora-aitai",         "image": "sora-aitai",         "src": "/music/SORA_Aitai.mp3" },
-      { "slug": "sccp",               "title": "SCCP",               "family": "Sigil Sovereign",    "href": "#release-sccp",               "art": "sccp",               "image": "sccp",               "src": "/music/SCCP.mp3" },
-      { "slug": "i23",                "title": "i23",                "family": "Sigil Sovereign",    "href": "#release-i23",                "art": "i23",                "image": "i23",                "src": "/music/i23.mp3" },
-      { "slug": "let-there-be-xor",   "title": "Let there be XOR",   "family": "Monumental Ascent",  "href": "#release-let-there-be-xor",   "art": "let-there-be-xor",   "image": "let-there-be-xor",   "src": "/music/Let%20there%20be%20XOR.mp3" },
-      { "slug": "cybersora-2",        "title": "CyberSORA 2",        "family": "Signal Performance", "href": "#release-cybersora-2",        "art": "cybersora-2",        "image": "cybersora-2",        "src": "/music/CyberSORA_2.mp3" },
-      { "slug": "pirates-tridente",   "title": "Pirates of the Tridente", "family": "Signal Performance", "href": "#release-pirates-tridente", "art": "pirates-of-the-tridente", "image": "pirates-of-the-tridente", "src": "/music/Pirates_of_the_Tridente.mp3" }
+      { "slug": "sora-rhapsody",      "title": "SORA Rhapsody",      "family": "Editorial Monument", "status": "live", "href": "#release-sora-rhapsody",      "art": "sora-rhapsody",          "image": "sora-rhapsody",         "src": "/music/SORA%20Rhapsody.mp3" },
+      { "slug": "xor-raiders",        "title": "XOR Raiders",        "family": "Signal Performance", "status": "live", "href": "#release-xor-raiders",        "art": "xor-raiders-defend",     "image": "xor-raiders-defend",    "src": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" },
+      { "slug": "sora-aitai",         "title": "SORA Aitai",         "family": "Monumental Ascent",  "status": "live", "href": "#release-sora-aitai",         "art": "sora-aitai",             "image": "sora-aitai",            "src": "/music/SORA_Aitai.mp3" },
+      { "slug": "sccp",               "title": "SCCP",               "family": "Sigil Sovereign",    "status": "live", "href": "#release-sccp",               "art": "sccp",                   "image": "sccp",                  "src": "/music/SCCP.mp3" },
+      { "slug": "i23",                "title": "i23",                "family": "Sigil Sovereign",    "status": "live", "href": "#release-i23",                "art": "i23",                    "image": "i23",                   "src": "/music/i23.mp3" },
+      { "slug": "let-there-be-xor",   "title": "Let there be XOR",   "family": "Monumental Ascent",  "status": "live", "href": "#release-let-there-be-xor",   "art": "let-there-be-xor",       "image": "let-there-be-xor",      "src": "/music/Let%20there%20be%20XOR.mp3" },
+      { "slug": "cybersora-2",        "title": "CyberSORA 2",        "family": "Signal Performance", "status": "live", "href": "#release-cybersora-2",        "art": "cybersora-2",            "image": "cybersora-2",           "src": "/music/CyberSORA_2.mp3" },
+      { "slug": "pirates-tridente",   "title": "Pirates of the Tridente", "family": "Signal Performance", "status": "live", "href": "#release-pirates-tridente", "art": "pirates-of-the-tridente", "image": "pirates-of-the-tridente", "src": "/music/Pirates_of_the_Tridente.mp3" }
     ],
     "memes": [
-      { "slug": "hodl-the-signal",        "title": "Hodl the Signal",       "family": "Archive Relic", "edition": "01 / 999", "href": "#meme-hodl-the-signal",       "art": "meme-hodl-the-signal" },
-      { "slug": "when-signal-hits",       "title": "When The Signal Hits",  "family": "Archive Relic", "edition": "02 / 999", "href": "#meme-when-signal-hits",      "art": "meme-when-signal-hits" },
-      { "slug": "ngmi-not-here",          "title": "NGMI? Not Here.",       "family": "Archive Relic", "edition": "03 / 999", "href": "#meme-ngmi-not-here",         "art": "meme-ngmi-not-here" },
-      { "slug": "i-yam-the-node",         "title": "I Yam The Node",        "family": "Archive Relic", "edition": "04 / 999", "href": "#meme-i-yam-the-node",        "art": "meme-i-yam-the-node" },
-      { "slug": "sleep-is-fud",           "title": "Sleep Is FUD",          "family": "Archive Relic", "edition": "05 / 999", "href": "#meme-sleep-is-fud",          "art": "meme-sleep-is-fud" },
-      { "slug": "stack-that-bag",         "title": "Stack That Bag",        "family": "Archive Relic", "edition": "06 / 999", "href": "#meme-stack-that-bag",        "art": "meme-stack-that-bag" },
-      { "slug": "decentralize-everything","title": "Decentralize Everything","family": "Archive Relic","edition": "07 / 999", "href": "#meme-decentralize-everything","art": "meme-decentralize-everything" },
-      { "slug": "very-early",             "title": "Very Early",            "family": "Archive Relic", "edition": "08 / 999", "href": "#meme-very-early",            "art": "meme-very-early" }
+      { "slug": "hodl-the-signal",        "title": "Hodl the Signal",        "family": "Archive Relic", "status": "partial", "href": "#meme-hodl-the-signal",        "art": "meme-hodl-the-signal" },
+      { "slug": "when-signal-hits",       "title": "When The Signal Hits",   "family": "Archive Relic", "status": "partial", "href": "#meme-when-signal-hits",       "art": "meme-when-signal-hits" },
+      { "slug": "ngmi-not-here",          "title": "NGMI? Not Here.",        "family": "Archive Relic", "status": "partial", "href": "#meme-ngmi-not-here",          "art": "meme-ngmi-not-here" },
+      { "slug": "i-yam-the-node",         "title": "I Yam The Node",         "family": "Archive Relic", "status": "partial", "href": "#meme-i-yam-the-node",         "art": "meme-i-yam-the-node" },
+      { "slug": "sleep-is-fud",           "title": "Sleep Is FUD",           "family": "Archive Relic", "status": "partial", "href": "#meme-sleep-is-fud",           "art": "meme-sleep-is-fud" },
+      { "slug": "stack-that-bag",         "title": "Stack That Bag",         "family": "Archive Relic", "status": "partial", "href": "#meme-stack-that-bag",         "art": "meme-stack-that-bag" },
+      { "slug": "decentralize-everything","title": "Decentralize Everything","family": "Archive Relic", "status": "partial", "href": "#meme-decentralize-everything","art": "meme-decentralize-everything" },
+      { "slug": "very-early",             "title": "Very Early",             "family": "Archive Relic", "status": "partial", "href": "#meme-very-early",             "art": "meme-very-early" }
     ]
   },
 
@@ -34,106 +34,21 @@
   ],
 
   "emissions": [
-    { "slug": "soras-hill-medallion", "title": "Sora's Hill Medallion", "family": "Sigil Sovereign · Limited", "edition": "12 / 333", "href": "#object-medallion", "art": "emission-medallion" },
-    { "slug": "signal-capsule",       "title": "Signal Capsule 07.83",  "family": "Archive Relic · Capsule",   "edition": "94 / 999", "href": "#object-capsule",   "art": "emission-capsule",   "archive": true },
-    { "slug": "transmission-poster",  "title": "Transmission Poster",   "family": "Editorial Monument · Print","edition": "18 / 300", "href": "#object-poster",    "art": "emission-poster" },
-    { "slug": "frequency-key-01",     "title": "Frequency Key 01",      "family": "Sigil Sovereign · Key",     "edition": "7 / 111",  "href": "#object-key",       "art": "emission-key" },
-    { "slug": "xor-sacrifice-vinyl",  "title": "XOR Sacrifice Vinyl",   "family": "Signal Performance · LP",   "edition": "33 / 222", "href": "#object-vinyl",     "art": "emission-vinyl" }
+    { "slug": "soras-hill-medallion", "title": "Sora's Hill Medallion", "family": "Sigil Sovereign · Limited", "status": "pending_canonical_path", "href": "#object-medallion", "art": "emission-medallion" },
+    { "slug": "signal-capsule",       "title": "Signal Capsule 07.83",  "family": "Archive Relic · Capsule",   "status": "pending_canonical_path", "href": "#object-capsule",   "art": "emission-capsule",   "archive": true },
+    { "slug": "transmission-poster",  "title": "Transmission Poster",   "family": "Editorial Monument · Print","status": "pending_canonical_path", "href": "#object-poster",    "art": "emission-poster" },
+    { "slug": "frequency-key-01",     "title": "Frequency Key 01",      "family": "Sigil Sovereign · Key",     "status": "pending_canonical_path", "href": "#object-key",       "art": "emission-key" },
+    { "slug": "xor-sacrifice-vinyl",  "title": "XOR Sacrifice Vinyl",   "family": "Signal Performance · LP",   "status": "pending_canonical_path", "href": "#object-vinyl",     "art": "emission-vinyl" }
   ],
 
   "posters": [
-    {
-      "slug": "kotodama-language",
-      "title": "Kotodama Language",
-      "release": "KOTODAMA",
-      "family": "Sigil Sovereign",
-      "format": "70 × 100 cm",
-      "print": "Giclée · 280 gsm matte",
-      "edition": "12 / 99",
-      "price": "€180",
-      "href": "#poster-kotodama-language",
-      "image": "kotodama-language",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "kotodama",
-      "title": "Kotodama",
-      "release": "KOTODAMA",
-      "family": "Sigil Sovereign",
-      "format": "70 × 100 cm",
-      "print": "Giclée · 280 gsm",
-      "edition": "8 / 99",
-      "price": "€180",
-      "href": "#poster-kotodama",
-      "image": "kotodama",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "one",
-      "title": "ONE",
-      "release": "ONE",
-      "family": "Monumental Ascent",
-      "format": "50 × 70 cm",
-      "print": "Foiled gold · matte",
-      "edition": "5 / 50",
-      "price": "€220",
-      "href": "#poster-one",
-      "image": "one",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "end-of-history",
-      "title": "The End of History",
-      "release": "THE END OF HISTORY",
-      "family": "Editorial Monument",
-      "format": "60 × 80 cm",
-      "print": "Giclée · 250 gsm",
-      "edition": "11 / 150",
-      "price": "€130",
-      "href": "#poster-end-of-history",
-      "image": "end-of-history-master",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "weight-of-the-word",
-      "title": "The Weight of the Word",
-      "release": "THE WEIGHT OF THE WORD",
-      "family": "Editorial Monument",
-      "format": "70 × 100 cm",
-      "print": "Risograph · 4-color",
-      "edition": "23 / 200",
-      "price": "€140",
-      "href": "#poster-weight-of-the-word",
-      "image": "weight-of-the-word",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "pirates-tridente",
-      "title": "Pirates of the Tridente",
-      "release": "PIRATES",
-      "family": "Signal Performance",
-      "format": "50 × 70 cm",
-      "print": "Offset · signal field red",
-      "edition": "18 / 300",
-      "price": "€85",
-      "href": "#poster-pirates-tridente",
-      "image": "pirates-of-the-tridente-master",
-      "downloadKind": "poster"
-    },
-    {
-      "slug": "twenty-what",
-      "title": "20-Twenty-What",
-      "release": "20-TWENTY-WHAT",
-      "family": "Archive Relic",
-      "format": "50 × 70 cm",
-      "print": "Offset · cream stock",
-      "edition": "47 / 500",
-      "price": "€70",
-      "href": "#poster-twenty-what",
-      "image": "twenty-what",
-      "downloadKind": "poster",
-      "archive": true
-    }
+    { "slug": "kotodama-language",  "title": "Kotodama Language",     "release": "KOTODAMA",            "family": "Sigil Sovereign",    "status": "pre-live", "href": "#poster-kotodama-language",  "image": "kotodama-language",              "downloadKind": "poster" },
+    { "slug": "kotodama",           "title": "Kotodama",              "release": "KOTODAMA",            "family": "Sigil Sovereign",    "status": "pre-live", "href": "#poster-kotodama",           "image": "kotodama",                       "downloadKind": "poster" },
+    { "slug": "one",                "title": "ONE",                   "release": "ONE",                 "family": "Monumental Ascent",  "status": "pre-live", "href": "#poster-one",                "image": "one",                            "downloadKind": "poster" },
+    { "slug": "end-of-history",     "title": "The End of History",    "release": "THE END OF HISTORY",  "family": "Editorial Monument", "status": "pre-live", "href": "#poster-end-of-history",     "image": "end-of-history-master",          "downloadKind": "poster" },
+    { "slug": "weight-of-the-word", "title": "The Weight of the Word","release": "THE WEIGHT OF THE WORD","family": "Editorial Monument","status": "pre-live", "href": "#poster-weight-of-the-word", "image": "weight-of-the-word",             "downloadKind": "poster" },
+    { "slug": "pirates-tridente",   "title": "Pirates of the Tridente","release": "PIRATES",            "family": "Signal Performance", "status": "pre-live", "href": "#poster-pirates-tridente",   "image": "pirates-of-the-tridente-master", "downloadKind": "poster" },
+    { "slug": "twenty-what",        "title": "20-Twenty-What",        "release": "20-TWENTY-WHAT",      "family": "Archive Relic",      "status": "pre-live", "href": "#poster-twenty-what",        "image": "twenty-what",                    "downloadKind": "poster", "archive": true }
   ],
 
   "collections": [

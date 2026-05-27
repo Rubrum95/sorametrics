@@ -324,6 +324,29 @@
     } else if (item.art && ART_TEMPLATES[item.art]) {
       container.appendChild(svgFrom(ART_TEMPLATES[item.art]()));
     }
+    if (item.status && item.status !== 'live' && item.status !== 'playing') {
+      container.appendChild(statusBadgeEl(item.status));
+    }
+  }
+
+  // Status badge (whitepaper Manual 7 — runtime honesto)
+  // Hidden for "live" and the legacy STATION queue "playing" label; shown otherwise.
+  const STATUS_LABELS = {
+    'pre-live': 'Pre-live',
+    'partial': 'Partial',
+    'review-ready': 'Review',
+    'content-ready': 'Content ready',
+    'needs_rebuild': 'Needs rebuild',
+    'pending_canonical_path': 'Provisional',
+    'draft': 'Draft',
+  };
+  function statusBadgeEl(status) {
+    const span = document.createElement('span');
+    span.className = 'status-badge status-badge--' + status.replace(/_/g, '-');
+    span.dataset.status = status;
+    span.textContent = STATUS_LABELS[status] || status;
+    span.title = 'Status: ' + status;
+    return span;
   }
 
   function renderRowCard(item, opts) {
@@ -344,7 +367,7 @@
     meta.className = 'card__meta';
     meta.textContent = item.family;
     a.appendChild(meta);
-    if (showEdition) {
+    if (showEdition && item.edition) {
       const ed = document.createElement('p');
       ed.className = 'card__edition';
       ed.textContent = 'N° ' + item.edition;
@@ -419,10 +442,12 @@
     f.textContent = item.family;
     a.appendChild(f);
 
-    const e = document.createElement('span');
-    e.className = 'emission__edition';
-    e.textContent = item.edition;
-    a.appendChild(e);
+    if (item.edition) {
+      const e = document.createElement('span');
+      e.className = 'emission__edition';
+      e.textContent = item.edition;
+      a.appendChild(e);
+    }
 
     return a;
   }
@@ -450,21 +475,28 @@
     release.textContent = item.release + ' · ' + item.family;
     body.appendChild(release);
 
-    const specs = document.createElement('div');
-    specs.className = 'poster-card__specs';
-    [['Format', item.format], ['Print', item.print], ['Edition', 'N° ' + item.edition], ['Price', item.price]].forEach(([k, v]) => {
-      const row = document.createElement('div');
-      const lbl = document.createElement('span');
-      lbl.className = 'label';
-      lbl.textContent = k;
-      const val = document.createElement('span');
-      val.className = 'val';
-      val.textContent = v;
-      row.appendChild(lbl);
-      row.appendChild(val);
-      specs.appendChild(row);
-    });
-    body.appendChild(specs);
+    const specRows = [];
+    if (item.format)  specRows.push(['Format', item.format]);
+    if (item.print)   specRows.push(['Print',  item.print]);
+    if (item.edition) specRows.push(['Edition', 'N° ' + item.edition]);
+    if (item.price)   specRows.push(['Price',  item.price]);
+    if (specRows.length) {
+      const specs = document.createElement('div');
+      specs.className = 'poster-card__specs';
+      specRows.forEach(([k, v]) => {
+        const row = document.createElement('div');
+        const lbl = document.createElement('span');
+        lbl.className = 'label';
+        lbl.textContent = k;
+        const val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = v;
+        row.appendChild(lbl);
+        row.appendChild(val);
+        specs.appendChild(row);
+      });
+      body.appendChild(specs);
+    }
 
     a.appendChild(body);
     return a;
