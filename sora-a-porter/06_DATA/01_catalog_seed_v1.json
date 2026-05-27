@@ -13,26 +13,6 @@
       { "slug": "cybersora-2",        "title": "CyberSORA 2",        "family": "Signal Performance", "href": "#release-cybersora-2",        "art": "cybersora-2",        "image": "cybersora-2",        "src": "/music/CyberSORA_2.mp3" },
       { "slug": "pirates-tridente",   "title": "Pirates of the Tridente", "family": "Signal Performance", "href": "#release-pirates-tridente", "art": "pirates-of-the-tridente", "image": "pirates-of-the-tridente", "src": "/music/Pirates_of_the_Tridente.mp3" }
     ],
-    "tonswap": [
-      { "slug": "tonswap-pulse",     "title": "TONSWAP · Pulse",     "family": "Editorial Monument", "href": "#release-tonswap-pulse",     "art": "tonswap-pulse" },
-      { "slug": "tonswap-liquidity", "title": "TONSWAP · Liquidity", "family": "Editorial Monument", "href": "#release-tonswap-liquidity", "art": "tonswap-liquidity" },
-      { "slug": "tonswap-yield",     "title": "TONSWAP · Yield",     "family": "Editorial Monument", "href": "#release-tonswap-yield",     "art": "tonswap-yield" },
-      { "slug": "tonswap-flow",      "title": "TONSWAP · Flow State","family": "Editorial Monument", "href": "#release-tonswap-flow",      "art": "tonswap-flow" },
-      { "slug": "tonswap-nodes",     "title": "TONSWAP · Nodes",     "family": "Editorial Monument", "href": "#release-tonswap-nodes",     "art": "tonswap-nodes" },
-      { "slug": "tonswap-infinite",  "title": "TONSWAP · Infinite",  "family": "Editorial Monument", "href": "#release-tonswap-infinite",  "art": "tonswap-infinite" },
-      { "slug": "tonswap-vibes",     "title": "TONSWAP · Vibes",     "family": "Editorial Monument", "href": "#release-tonswap-vibes",     "art": "tonswap-vibes" },
-      { "slug": "tonswap-movement",  "title": "TONSWAP · Movement",  "family": "Editorial Monument", "href": "#release-tonswap-movement",  "art": "tonswap-movement" }
-    ],
-    "solswap": [
-      { "slug": "solswap-orbit",      "title": "SOLSWAP · Orbit",      "family": "Signal Performance", "href": "#release-solswap-orbit",      "art": "solswap-orbit" },
-      { "slug": "solswap-liquid-sun", "title": "SOLSWAP · Liquid Sun", "family": "Signal Performance", "href": "#release-solswap-liquid-sun", "art": "solswap-liquid-sun" },
-      { "slug": "solswap-defi",       "title": "SOLSWAP · Defi",       "family": "Editorial Monument", "href": "#release-solswap-defi",       "art": "solswap-defi" },
-      { "slug": "solswap-solar-wave", "title": "SOLSWAP · Solar Wave", "family": "Signal Performance", "href": "#release-solswap-solar-wave", "art": "solswap-solar-wave" },
-      { "slug": "solswap-eclipse",    "title": "SOLSWAP · Eclipse",    "family": "Sigil Sovereign",    "href": "#release-solswap-eclipse",    "art": "solswap-eclipse" },
-      { "slug": "solswap-community",  "title": "SOLSWAP · Community",  "family": "Editorial Monument", "href": "#release-solswap-community",  "art": "solswap-community" },
-      { "slug": "solswap-radiate",    "title": "SOLSWAP · Radiate",    "family": "Signal Performance", "href": "#release-solswap-radiate",    "art": "solswap-radiate" },
-      { "slug": "solswap-sunset",     "title": "SOLSWAP · Sunset",     "family": "Editorial Monument", "href": "#release-solswap-sunset",     "art": "solswap-sunset" }
-    ],
     "memes": [
       { "slug": "hodl-the-signal",        "title": "Hodl the Signal",       "family": "Archive Relic", "edition": "01 / 999", "href": "#meme-hodl-the-signal",       "art": "meme-hodl-the-signal" },
       { "slug": "when-signal-hits",       "title": "When The Signal Hits",  "family": "Archive Relic", "edition": "02 / 999", "href": "#meme-when-signal-hits",      "art": "meme-when-signal-hits" },
@@ -158,8 +138,6 @@
 
   "collections": [
     { "slug": "sora-originals",  "title": "SORA Originals",       "tagline": "The canon. Eight releases that govern every page that comes after.", "family": "Monumental Ascent",  "count": 8, "art": "collection-sora",     "image": "sora-rhapsody",      "href": "16_EXPLORE.html?row=sora" },
-    { "slug": "tonswap",         "title": "TONSWAP",              "tagline": "Partner ecosystem · cooler register. Liquidity, flow, nodes, signal pulse.",   "family": "Editorial Monument", "count": 8, "art": "collection-tonswap",  "href": "16_EXPLORE.html?row=tonswap" },
-    { "slug": "solswap",         "title": "SOLSWAP",              "tagline": "Partner ecosystem · warmer register. Orbit, eclipse, radiate.",                "family": "Signal Performance", "count": 8, "art": "collection-solswap",  "href": "16_EXPLORE.html?row=solswap" },
     { "slug": "memes-archive",   "title": "Memes Archive",        "tagline": "Internet-era signal, paper-printed. Last row of the storefront, never first.","family": "Archive Relic",      "count": 8, "art": "collection-memes",    "href": "13_MEMES.html" },
     { "slug": "tesla-series",    "title": "Tesla Series",         "tagline": "Engineer-mystic, arc-lightning field, cathedral mode.",                        "family": "Editorial Monument", "count": 4, "art": "collection-tesla",    "image": "weight-of-the-word", "downloadKind": "poster", "href": "#collection-tesla" },
     { "slug": "founder-edits",   "title": "Founder Edits",        "tagline": "Hand-picked transmissions signed by SORA. Limited capsules.",                  "family": "Sigil Sovereign",    "count": 6, "art": "collection-founder",  "image": "kotodama-language",  "downloadKind": "poster", "href": "#collection-founder" }

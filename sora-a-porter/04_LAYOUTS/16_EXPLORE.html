@@ -136,7 +136,7 @@
 
       const params = new URLSearchParams(window.location.search);
       const row = params.get('row');
-      const familyByRow = { sora: 'Monumental Ascent', tonswap: 'Editorial Monument', solswap: 'Signal Performance' };
+      const familyByRow = { sora: 'Monumental Ascent', memes: 'Archive Relic' };
       if (row && familyByRow[row]) {
         document.querySelector('[data-list="all-releases"]')?.addEventListener('catalog:all-rendered', () => apply(familyByRow[row]));
       }
