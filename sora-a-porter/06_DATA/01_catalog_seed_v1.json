@@ -4,14 +4,14 @@
 
   "rows": {
     "sora": [
-      { "slug": "sora-alive",        "title": "SORA Alive",        "family": "Monumental Ascent",  "href": "#release-sora-alive",        "art": "sora-alive" },
-      { "slug": "sora-fridays",      "title": "SORA Fridays",      "family": "Signal Performance", "href": "#release-sora-fridays",      "art": "sora-fridays" },
-      { "slug": "dawn-is-coming",    "title": "Dawn Is Coming",    "family": "Monumental Ascent",  "href": "#release-dawn-is-coming",    "art": "dawn-is-coming" },
-      { "slug": "night-drive",       "title": "Night Drive",       "family": "Signal Performance", "href": "#release-night-drive",       "art": "night-drive" },
-      { "slug": "signal-of-love",    "title": "Signal of Love",    "family": "Monumental Ascent",  "href": "#release-signal-of-love",    "art": "signal-of-love" },
-      { "slug": "acoustic-sessions", "title": "Acoustic Sessions", "family": "Editorial Monument", "href": "#release-acoustic-sessions", "art": "acoustic-sessions" },
-      { "slug": "beats-breath",      "title": "Beats & Breath",    "family": "Signal Performance", "href": "#release-beats-breath",      "art": "beats-breath" },
-      { "slug": "one",               "title": "ONE",               "family": "Monumental Ascent",  "href": "#release-one",               "art": "one" }
+      { "slug": "sora-rhapsody",      "title": "SORA Rhapsody",      "family": "Editorial Monument", "href": "#release-sora-rhapsody",      "art": "sora-rhapsody",      "image": "sora-rhapsody",      "src": "/music/SORA%20Rhapsody.mp3" },
+      { "slug": "xor-raiders",        "title": "XOR Raiders",        "family": "Signal Performance", "href": "#release-xor-raiders",        "art": "xor-raiders-defend", "image": "xor-raiders-defend", "src": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" },
+      { "slug": "sora-aitai",         "title": "SORA Aitai",         "family": "Monumental Ascent",  "href": "#release-sora-aitai",         "art": "sora-aitai",         "image": "sora-aitai",         "src": "/music/SORA_Aitai.mp3" },
+      { "slug": "sccp",               "title": "SCCP",               "family": "Sigil Sovereign",    "href": "#release-sccp",               "art": "sccp",               "image": "sccp",               "src": "/music/SCCP.mp3" },
+      { "slug": "i23",                "title": "i23",                "family": "Sigil Sovereign",    "href": "#release-i23",                "art": "i23",                "image": "i23",                "src": "/music/i23.mp3" },
+      { "slug": "let-there-be-xor",   "title": "Let there be XOR",   "family": "Monumental Ascent",  "href": "#release-let-there-be-xor",   "art": "let-there-be-xor",   "image": "let-there-be-xor",   "src": "/music/Let%20there%20be%20XOR.mp3" },
+      { "slug": "cybersora-2",        "title": "CyberSORA 2",        "family": "Signal Performance", "href": "#release-cybersora-2",        "art": "cybersora-2",        "image": "cybersora-2",        "src": "/music/CyberSORA_2.mp3" },
+      { "slug": "pirates-tridente",   "title": "Pirates of the Tridente", "family": "Signal Performance", "href": "#release-pirates-tridente", "art": "pirates-of-the-tridente", "image": "pirates-of-the-tridente", "src": "/music/Pirates_of_the_Tridente.mp3" }
     ],
     "tonswap": [
       { "slug": "tonswap-pulse",     "title": "TONSWAP · Pulse",     "family": "Editorial Monument", "href": "#release-tonswap-pulse",     "art": "tonswap-pulse" },
@@ -46,11 +46,11 @@
   },
 
   "queue": [
-    { "slug": "soras-hill",       "title": "SORA'S HILL",       "family": "Monumental Ascent",  "duration": "06:33", "src": "/music/SORA%27s%20Hill.mp3",  "art": "queue-soras-hill",       "status": "playing", "label": "▶ Playing" },
-    { "slug": "xor-sacrifice",    "title": "XOR SACRIFICE",     "family": "Signal Performance", "duration": "07:45", "src": "/music/XOR%20Sacrifice.mp3",  "art": "queue-xor-sacrifice",    "label": "▶ Next" },
-    { "slug": "sora-rhapsody",    "title": "SORA RHAPSODY",     "family": "Editorial Monument", "duration": "07:18", "src": "/music/SORA%20Rhapsody.mp3",  "art": "queue-sora-rhapsody",    "label": "3" },
-    { "slug": "sigil-of-ascent",  "title": "SIGIL OF ASCENT",   "family": "Sigil Sovereign",    "duration": "05:42", "src": null,                          "art": "queue-sigil-of-ascent",  "label": "4" },
-    { "slug": "relic-frequency",  "title": "RELIC FREQUENCY",   "family": "Archive Relic",      "duration": "08:03", "src": null,                          "art": "queue-relic-frequency",  "label": "5", "archive": true }
+    { "slug": "sora-rhapsody",    "title": "SORA RHAPSODY",      "family": "Editorial Monument", "duration": "07:18", "src": "/music/SORA%20Rhapsody.mp3",                                  "art": "queue-sora-rhapsody",    "image": "sora-rhapsody",      "status": "playing", "label": "▶ Playing" },
+    { "slug": "xor-raiders",      "title": "XOR RAIDERS",        "family": "Signal Performance", "duration": "05:12", "src": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3", "art": "queue-xor-raiders",      "image": "xor-raiders-defend", "label": "▶ Next" },
+    { "slug": "sora-aitai",       "title": "SORA AITAI",         "family": "Monumental Ascent",  "duration": "06:24", "src": "/music/SORA_Aitai.mp3",                                       "art": "queue-sora-aitai",       "image": "sora-aitai",         "label": "3" },
+    { "slug": "i23",              "title": "i23",                "family": "Sigil Sovereign",    "duration": "04:47", "src": "/music/i23.mp3",                                              "art": "queue-i23",              "image": "i23",                "label": "4" },
+    { "slug": "let-there-be-xor", "title": "LET THERE BE XOR",   "family": "Monumental Ascent",  "duration": "07:02", "src": "/music/Let%20there%20be%20XOR.mp3",                           "art": "queue-let-there-be-xor", "image": "let-there-be-xor",   "label": "5" }
   ],
 
   "emissions": [
@@ -63,100 +63,96 @@
 
   "posters": [
     {
-      "slug": "sorametrics-tesla",
-      "title": "Sorametrics · Tesla portrait",
-      "release": "SORAMETRICS",
-      "family": "Editorial Monument",
-      "format": "50 × 70 cm",
-      "print": "Giclée · 250 gsm matte",
-      "edition": "18 / 300",
-      "price": "€95",
-      "href": "#poster-sorametrics-tesla",
-      "art": "poster-sorametrics-tesla"
-    },
-    {
-      "slug": "frequency-shortwave",
-      "title": "Frequency · Multi-genre shortwave",
-      "release": "FREQUENCY",
-      "family": "Editorial Monument",
-      "format": "50 × 70 cm",
-      "print": "Offset · cream stock",
-      "edition": "47 / 500",
-      "price": "€70",
-      "href": "#poster-frequency-shortwave",
-      "art": "poster-frequency-shortwave"
-    },
-    {
-      "slug": "electric-sabbath",
-      "title": "Electric Sabbath · Instrumental",
-      "release": "ELECTRIC SABBATH",
-      "family": "Editorial Monument",
-      "format": "60 × 80 cm",
-      "print": "Giclée · 280 gsm",
-      "edition": "9 / 150",
-      "price": "€130",
-      "href": "#poster-electric-sabbath",
-      "art": "poster-electric-sabbath"
-    },
-    {
-      "slug": "world-band",
-      "title": "Sorametrics Radio Station · World-band",
-      "release": "WORLD BAND",
-      "family": "Editorial Monument",
+      "slug": "kotodama-language",
+      "title": "Kotodama Language",
+      "release": "KOTODAMA",
+      "family": "Sigil Sovereign",
       "format": "70 × 100 cm",
-      "print": "Risograph · 4-color",
-      "edition": "62 / 250",
-      "price": "€120",
-      "href": "#poster-world-band",
-      "art": "poster-world-band"
+      "print": "Giclée · 280 gsm matte",
+      "edition": "12 / 99",
+      "price": "€180",
+      "href": "#poster-kotodama-language",
+      "image": "kotodama-language",
+      "downloadKind": "poster"
     },
     {
-      "slug": "sora-alive-chains",
-      "title": "SORA Alive · Chains tunnel",
-      "release": "SORA ALIVE",
+      "slug": "kotodama",
+      "title": "Kotodama",
+      "release": "KOTODAMA",
+      "family": "Sigil Sovereign",
+      "format": "70 × 100 cm",
+      "print": "Giclée · 280 gsm",
+      "edition": "8 / 99",
+      "price": "€180",
+      "href": "#poster-kotodama",
+      "image": "kotodama",
+      "downloadKind": "poster"
+    },
+    {
+      "slug": "one",
+      "title": "ONE",
+      "release": "ONE",
       "family": "Monumental Ascent",
       "format": "50 × 70 cm",
       "print": "Foiled gold · matte",
       "edition": "5 / 50",
       "price": "€220",
-      "href": "#poster-sora-alive-chains",
-      "art": "poster-sora-alive"
+      "href": "#poster-one",
+      "image": "one",
+      "downloadKind": "poster"
     },
     {
-      "slug": "nexus-frequency",
-      "title": "Nexus Frequency",
-      "release": "NEXUS FREQUENCY",
+      "slug": "end-of-history",
+      "title": "The End of History",
+      "release": "THE END OF HISTORY",
+      "family": "Editorial Monument",
+      "format": "60 × 80 cm",
+      "print": "Giclée · 250 gsm",
+      "edition": "11 / 150",
+      "price": "€130",
+      "href": "#poster-end-of-history",
+      "image": "end-of-history-master",
+      "downloadKind": "poster"
+    },
+    {
+      "slug": "weight-of-the-word",
+      "title": "The Weight of the Word",
+      "release": "THE WEIGHT OF THE WORD",
+      "family": "Editorial Monument",
+      "format": "70 × 100 cm",
+      "print": "Risograph · 4-color",
+      "edition": "23 / 200",
+      "price": "€140",
+      "href": "#poster-weight-of-the-word",
+      "image": "weight-of-the-word",
+      "downloadKind": "poster"
+    },
+    {
+      "slug": "pirates-tridente",
+      "title": "Pirates of the Tridente",
+      "release": "PIRATES",
       "family": "Signal Performance",
       "format": "50 × 70 cm",
       "print": "Offset · signal field red",
-      "edition": "23 / 200",
+      "edition": "18 / 300",
       "price": "€85",
-      "href": "#poster-nexus-frequency",
-      "art": "poster-nexus-frequency"
+      "href": "#poster-pirates-tridente",
+      "image": "pirates-of-the-tridente-master",
+      "downloadKind": "poster"
     },
     {
-      "slug": "undone-never-yours",
-      "title": "Undone · Never yours",
-      "release": "UNDONE",
-      "family": "Editorial Monument",
+      "slug": "twenty-what",
+      "title": "20-Twenty-What",
+      "release": "20-TWENTY-WHAT",
+      "family": "Archive Relic",
       "format": "50 × 70 cm",
-      "print": "Giclée · 250 gsm",
-      "edition": "11 / 150",
-      "price": "€95",
-      "href": "#poster-undone",
-      "art": "poster-undone"
-    },
-    {
-      "slug": "sora-fridays-night-city",
-      "title": "SORA Fridays · Night city",
-      "release": "SORA FRIDAYS",
-      "family": "Signal Performance",
-      "format": "50 × 70 cm",
-      "print": "Offset · magenta-amber",
-      "edition": "38 / 300",
+      "print": "Offset · cream stock",
+      "edition": "47 / 500",
       "price": "€70",
-      "href": "#poster-sora-fridays",
-      "art": "poster-sora-fridays"
+      "href": "#poster-twenty-what",
+      "image": "twenty-what",
+      "downloadKind": "poster",
+      "archive": true
     }
   ],
 

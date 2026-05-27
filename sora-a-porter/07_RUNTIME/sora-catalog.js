@@ -281,6 +281,51 @@
     return parsed.documentElement;
   }
 
+  // ── cover image helpers ──
+  // For tracks/albums: web @ assets/covers/web/{slug}.webp, full @ assets/covers/full/{slug}.png
+  // For posters:      web @ assets/posters/web/{slug}.webp, master @ assets/posters/master/{slug}.png
+  const DOWNLOAD_ICON_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="13.5" x2="13" y2="13.5" stroke-linecap="round"/></svg>';
+  function coverPaths(slug, kind) {
+    const isPoster = kind === 'poster';
+    const folder = isPoster ? 'posters' : 'covers';
+    const fullDir = isPoster ? 'master' : 'full';
+    return {
+      web: '../assets/' + folder + '/web/' + slug + '.webp',
+      full: '../assets/' + folder + '/' + fullDir + '/' + slug + '.png',
+    };
+  }
+  function coverImageEl(slug, alt, kind) {
+    const paths = coverPaths(slug, kind);
+    const img = document.createElement('img');
+    img.className = 'cover-img';
+    img.src = paths.web;
+    img.alt = alt || '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    return img;
+  }
+  function downloadButtonEl(slug, alt, kind) {
+    const a = document.createElement('a');
+    a.className = 'cover-download';
+    a.href = coverPaths(slug, kind).full;
+    a.setAttribute('download', slug + '.png');
+    a.setAttribute('aria-label', 'Download high-resolution ' + (alt || slug));
+    a.title = 'Download high-resolution';
+    a.appendChild(svgFrom(DOWNLOAD_ICON_SVG));
+    a.addEventListener('click', (e) => e.stopPropagation());
+    return a;
+  }
+  // Fills the given art container with either a real cover image (+ download button) or the SVG template
+  function fillArt(container, item, kind) {
+    if (item.image) {
+      container.classList.add('has-cover');
+      container.appendChild(coverImageEl(item.image, item.title, kind === 'poster' ? 'poster' : 'cover'));
+      container.appendChild(downloadButtonEl(item.image, item.title, kind === 'poster' ? 'poster' : 'cover'));
+    } else if (item.art && ART_TEMPLATES[item.art]) {
+      container.appendChild(svgFrom(ART_TEMPLATES[item.art]()));
+    }
+  }
+
   function renderRowCard(item, opts) {
     const showEdition = opts && opts.showEdition && item.edition;
     const a = document.createElement('a');
@@ -289,8 +334,7 @@
     const art = document.createElement('div');
     art.className = 'card__art';
     if (item.archive || (item.family || '').includes('Archive')) art.dataset.surface = 'archive';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    fillArt(art, item, 'cover');
     a.appendChild(art);
     const title = document.createElement('p');
     title.className = 'card__title';
@@ -328,8 +372,7 @@
     const art = document.createElement('div');
     art.className = 'queue-card__art';
     if (item.archive) art.dataset.surface = 'archive';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    fillArt(art, item, 'cover');
     btn.appendChild(art);
 
     const t = document.createElement('span');
@@ -363,8 +406,7 @@
     const art = document.createElement('div');
     art.className = 'emission__art';
     if (item.archive) art.dataset.surface = 'archive';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    fillArt(art, item, 'cover');
     a.appendChild(art);
 
     const t = document.createElement('span');
@@ -392,8 +434,7 @@
 
     const art = document.createElement('div');
     art.className = 'poster-card__art';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    fillArt(art, item, item.downloadKind === 'poster' ? 'poster' : 'cover');
     a.appendChild(art);
 
     const body = document.createElement('div');
@@ -469,8 +510,7 @@
 
     const cover = document.createElement('div');
     cover.className = 'dispatch__cover';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) cover.appendChild(svgFrom(svgHtml));
+    fillArt(cover, item, 'cover');
     a.appendChild(cover);
 
     const body = document.createElement('div');
