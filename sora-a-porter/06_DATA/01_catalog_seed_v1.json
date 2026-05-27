@@ -33,14 +33,6 @@
     { "slug": "let-there-be-xor", "title": "LET THERE BE XOR",   "family": "Monumental Ascent",  "duration": "07:02", "src": "/music/Let%20there%20be%20XOR.mp3",                           "art": "queue-let-there-be-xor", "image": "let-there-be-xor",   "label": "5" }
   ],
 
-  "emissions": [
-    { "slug": "soras-hill-medallion", "title": "Sora's Hill Medallion", "family": "Sigil Sovereign · Limited", "status": "pending_canonical_path", "href": "#object-medallion", "art": "emission-medallion" },
-    { "slug": "signal-capsule",       "title": "Signal Capsule 07.83",  "family": "Archive Relic · Capsule",   "status": "pending_canonical_path", "href": "#object-capsule",   "art": "emission-capsule",   "archive": true },
-    { "slug": "transmission-poster",  "title": "Transmission Poster",   "family": "Editorial Monument · Print","status": "pending_canonical_path", "href": "#object-poster",    "art": "emission-poster" },
-    { "slug": "frequency-key-01",     "title": "Frequency Key 01",      "family": "Sigil Sovereign · Key",     "status": "pending_canonical_path", "href": "#object-key",       "art": "emission-key" },
-    { "slug": "xor-sacrifice-vinyl",  "title": "XOR Sacrifice Vinyl",   "family": "Signal Performance · LP",   "status": "pending_canonical_path", "href": "#object-vinyl",     "art": "emission-vinyl" }
-  ],
-
   "posters": [
     { "slug": "kotodama-language",  "title": "Kotodama Language",     "release": "KOTODAMA",            "family": "Sigil Sovereign",    "status": "pre-live", "href": "#poster-kotodama-language",  "image": "kotodama-language",              "downloadKind": "poster" },
     { "slug": "kotodama",           "title": "Kotodama",              "release": "KOTODAMA",            "family": "Sigil Sovereign",    "status": "pre-live", "href": "#poster-kotodama",           "image": "kotodama",                       "downloadKind": "poster" },
