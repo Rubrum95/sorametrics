@@ -477,8 +477,7 @@
 
     const art = document.createElement('div');
     art.className = 'collection-card__art';
-    const svgHtml = ART_TEMPLATES[item.art] ? ART_TEMPLATES[item.art]() : '';
-    if (svgHtml) art.appendChild(svgFrom(svgHtml));
+    fillArt(art, item, item.downloadKind === 'poster' ? 'poster' : 'cover');
     a.appendChild(art);
 
     const body = document.createElement('div');

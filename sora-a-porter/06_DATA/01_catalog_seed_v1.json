@@ -157,12 +157,12 @@
   ],
 
   "collections": [
-    { "slug": "sora-originals",  "title": "SORA Originals",       "tagline": "The canon. Eight releases that govern every page that comes after.", "family": "Monumental Ascent",  "count": 8, "art": "collection-sora",     "href": "16_EXPLORE.html?row=sora" },
+    { "slug": "sora-originals",  "title": "SORA Originals",       "tagline": "The canon. Eight releases that govern every page that comes after.", "family": "Monumental Ascent",  "count": 8, "art": "collection-sora",     "image": "sora-rhapsody",      "href": "16_EXPLORE.html?row=sora" },
     { "slug": "tonswap",         "title": "TONSWAP",              "tagline": "Partner ecosystem · cooler register. Liquidity, flow, nodes, signal pulse.",   "family": "Editorial Monument", "count": 8, "art": "collection-tonswap",  "href": "16_EXPLORE.html?row=tonswap" },
     { "slug": "solswap",         "title": "SOLSWAP",              "tagline": "Partner ecosystem · warmer register. Orbit, eclipse, radiate.",                "family": "Signal Performance", "count": 8, "art": "collection-solswap",  "href": "16_EXPLORE.html?row=solswap" },
     { "slug": "memes-archive",   "title": "Memes Archive",        "tagline": "Internet-era signal, paper-printed. Last row of the storefront, never first.","family": "Archive Relic",      "count": 8, "art": "collection-memes",    "href": "13_MEMES.html" },
-    { "slug": "tesla-series",    "title": "Tesla Series",         "tagline": "Engineer-mystic, arc-lightning field, cathedral mode.",                        "family": "Editorial Monument", "count": 4, "art": "collection-tesla",    "href": "#collection-tesla" },
-    { "slug": "founder-edits",   "title": "Founder Edits",        "tagline": "Hand-picked transmissions signed by SORA. Limited capsules.",                  "family": "Sigil Sovereign",    "count": 6, "art": "collection-founder",  "href": "#collection-founder" }
+    { "slug": "tesla-series",    "title": "Tesla Series",         "tagline": "Engineer-mystic, arc-lightning field, cathedral mode.",                        "family": "Editorial Monument", "count": 4, "art": "collection-tesla",    "image": "weight-of-the-word", "downloadKind": "poster", "href": "#collection-tesla" },
+    { "slug": "founder-edits",   "title": "Founder Edits",        "tagline": "Hand-picked transmissions signed by SORA. Limited capsules.",                  "family": "Sigil Sovereign",    "count": 6, "art": "collection-founder",  "image": "kotodama-language",  "downloadKind": "poster", "href": "#collection-founder" }
   ],
 
   "journal": [
