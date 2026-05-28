@@ -2730,3 +2730,104 @@
   border-color: rgba(227, 36, 45, 0.35);
   color: rgba(255, 110, 120, 0.95);
 }
+
+/* ── Global Transmission · JSD F1 canonical station identity panel ─────────── */
+.global-transmission {
+  margin: var(--space-5) 0 var(--space-6);
+  padding: var(--space-5) var(--space-5);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, rgba(13,10,7,0.92) 0%, rgba(5,7,13,0.96) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.global-transmission::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(230, 194, 117, 0.06), transparent 60%);
+  pointer-events: none;
+}
+.global-transmission__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-4);
+  position: relative;
+}
+.global-transmission__eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+.global-transmission__state {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--paper-mute);
+  letter-spacing: 0.04em;
+}
+.global-transmission__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  position: relative;
+}
+.gt-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border-left: 2px solid rgba(200, 168, 90, 0.18);
+}
+.gt-metric--factual {
+  border-left-color: var(--gold-warm, #E6C275);
+}
+.gt-metric__label {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-nav);
+  text-transform: uppercase;
+  color: var(--paper-mute);
+}
+.gt-metric__value {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--paper-warm);
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+.gt-metric__note {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(244, 235, 217, 0.45);
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.gt-metric--factual .gt-metric__value {
+  color: var(--gold-warm, #E6C275);
+}
+.gt-metric--factual .gt-metric__note {
+  color: rgba(230, 194, 117, 0.55);
+}
+.global-transmission__statement {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--paper-warm);
+  letter-spacing: 0.01em;
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(200, 168, 90, 0.18);
+  position: relative;
+}
+@media (max-width: 880px) {
+  .global-transmission__grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
+  .gt-metric__value { font-size: 20px; }
+  .global-transmission__statement { font-size: 12px; }
+}

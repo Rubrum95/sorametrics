@@ -123,12 +123,19 @@
           <text x="48" y="78" text-anchor="middle" font-family="Inter, sans-serif" font-size="5.5" letter-spacing="2" fill="currentColor">SORA · 7.83 Hz</text>
         </svg>
 
-        <div class="station-hero__stats" style="display:flex; flex-direction:column; gap: var(--space-2); align-items: flex-end; margin-top: var(--space-3); font-family: var(--font-mono); font-size: 11px; color: var(--paper-mute); letter-spacing: 0.04em">
-          <div style="display:flex; gap: var(--space-3)"><span>Listeners</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">12,847</span></div>
-          <div style="display:flex; gap: var(--space-3)"><span>Signal</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">78%</span></div>
-          <div style="display:flex; gap: var(--space-3)"><span>Origin</span><span style="color: var(--gold-bright); min-width: 64px; text-align: right">Alicante</span></div>
-        </div>
       </div>
+    </section>
+
+    <!-- ── Global Transmission · canonical station identity panel (JSD F1 module "now") ── -->
+    <section class="global-transmission" aria-labelledby="gt-title">
+      <header class="global-transmission__head">
+        <span class="global-transmission__eyebrow" id="gt-title">Global Transmission</span>
+        <span class="global-transmission__state">Live · From anywhere · To everywhere</span>
+      </header>
+      <div class="global-transmission__grid" data-list="station-metrics"></div>
+      <p class="global-transmission__statement">
+        A station as governed field. Signal becomes architecture. Music, product, and myth share one transmission surface.
+      </p>
     </section>
 
     <!-- ── station body · now playing + transmission queue ── -->
@@ -368,6 +375,48 @@
 
   <script src="../07_RUNTIME/sora-shell.js"></script>
   <script src="../07_RUNTIME/sora-catalog.js"></script>
+  <script src="../07_RUNTIME/sora-radio-validator.js"></script>
+
+  <script>
+    /* JSD F1 — Station Home v1 payload loader + Global Transmission renderer.
+       Closes Metrics Gate (#8): every symbolic metric ships its 'station state'
+       note next to the value, so the storefront never claims false telemetry. */
+    (async function () {
+      const PAYLOAD_URL = '../06_DATA/radio_station_payload_v1.json';
+      let payload;
+      try {
+        const res = await fetch(PAYLOAD_URL);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        payload = await res.json();
+      } catch (e) {
+        console.error('[F1] payload fetch failed:', e);
+        return;
+      }
+      const validator = window.SORA_RADIO_VALIDATOR;
+      if (validator) {
+        const result = await validator.validate(payload, { checkPaths: false });
+        if (!result.ok) console.error('[F1] payload invalid:', result.errors);
+        else console.info('[F1] payload OK · ' + result.summary);
+      }
+      const grid = document.querySelector('.global-transmission__grid');
+      if (!grid || !Array.isArray(payload.stationMetrics)) return;
+      payload.stationMetrics.forEach((m) => {
+        const cell = document.createElement('div');
+        cell.className = 'gt-metric' + (m.kind === 'factual' ? ' gt-metric--factual' : ' gt-metric--symbolic');
+        const label = document.createElement('span');
+        label.className = 'gt-metric__label';
+        label.textContent = m.label;
+        const value = document.createElement('span');
+        value.className = 'gt-metric__value';
+        value.textContent = m.valueDisplay;
+        const note = document.createElement('span');
+        note.className = 'gt-metric__note';
+        note.textContent = m.note || (m.kind === 'symbolic' ? 'Station state · symbolic' : 'Verified');
+        cell.append(label, value, note);
+        grid.appendChild(cell);
+      });
+    })();
+  </script>
 
   <script>
     (function () {
