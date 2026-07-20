@@ -130,6 +130,35 @@ function eventsFor(e) {
 
 function capFirst(s) { return s[0].toUpperCase() + s.slice(1); }
 
+// Adaptive fee format. SORA's xorless model makes swap fees tiny (~0.00009 XOR),
+// so a flat 4-decimal display would round them to "0.0001". Scale decimals to
+// magnitude instead — never scientific notation.
+function fmtFee(x) {
+  if (x == null || !Number.isFinite(x)) return '—';
+  const a = Math.abs(x);
+  const d = a >= 1 ? 4 : a >= 0.01 ? 5 : a >= 0.0001 ? 6 : 8;
+  return x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+// Renders the real fee for an expanded row from the shared blockFees entry the
+// table already fetched (keyed by block). bf = { totalXor, totalUsd, rows }.
+// rows===1 → that fee is exactly this extrinsic's. rows>1 → the block had several
+// fee-paying txs, shown as a block total. undefined = loading, falsy = not indexed.
+function ExtFee({ bf, signed }) {
+  const t = useT();
+  if (!signed) return <div className="muted tiny">{t('ext.feeUnsigned', 'Extrinsic no firmado · sin coste')}</div>;
+  if (bf === undefined) return <div className="muted tiny">{t('ext.feeLoading', 'Cargando fee…')}</div>;
+  if (!bf || !bf.totalXor) return <div className="muted tiny">{t('ext.feeNotIndexed', 'Fee aún no indexada para este bloque.')}</div>;
+  const xorPrice = (typeof window !== 'undefined' && window.TOKEN_PRICES && window.TOKEN_PRICES.XOR) || 0;
+  const usd = bf.totalUsd > 0 ? bf.totalUsd : (xorPrice ? bf.totalXor * xorPrice : 0);
+  return (
+    <div className="ext-fee-list">
+      <div className="ext-fee-total"><span>{bf.rows > 1 ? t('ext.feeBlockTotal', 'Fee total del bloque') : t('ext.feePaid', 'Fee pagada')}</span><span className="num">{fmtFee(bf.totalXor)} XOR{usd > 0 ? ` · $${usd.toFixed(4)}` : ''}</span></div>
+      {bf.rows > 1 && <div className="muted tiny" style={{marginTop:4}}>{t('ext.feeBlockNote', 'Este bloque tuvo {n} transacciones con coste.').replace('{n}', bf.rows)}</div>}
+    </div>
+  );
+}
+
 function ExtrinsicsSection({ tweaks }) {
   const t = useT();
   const { open } = useDrill();
@@ -147,7 +176,8 @@ function ExtrinsicsSection({ tweaks }) {
   const [expanded, setExpanded] = useState(null);
   const [palletOpen, setPalletOpen] = useState(false);
   const [palletList, setPalletList] = useState(PALLETS);
-  const [networkOverview, setNetworkOverview] = useState(null);
+  const [ext24h, setExt24h] = useState(null);   // { total, success, failed, successRate, topPallet, topPalletCount }
+  const [fees24h, setFees24h] = useState(null);  // [{ type, total_xor, total_usd }]
 
   // Pick up search-palette handoff. The palette stashes identifiers on window
   // rather than re-rendering through React state; we consume them once.
@@ -197,12 +227,19 @@ function ExtrinsicsSection({ tweaks }) {
     return () => { cancelled = true; };
   }, []);
 
-  // Real network stats for KPIs.
+  // Real network-wide KPIs: 24h extrinsic count + success + top pallet from the
+  // dedicated endpoint, and 24h fee totals from /stats/fees. Both are computed
+  // server-side over the full window, not over the page the table happens to show.
   useEffect(() => {
     let cancelled = false;
-    const pull = () => fetch('/stats/overview').then(r => r.ok ? r.json() : null).then(j => {
-      if (!cancelled) setNetworkOverview(j);
-    }).catch(() => {});
+    const pull = () => {
+      fetch('/stats/extrinsics-24h').then(r => r.ok ? r.json() : null).then(j => {
+        if (!cancelled && j) setExt24h(j);
+      }).catch(() => {});
+      fetch('/stats/fees?timeframe=1d').then(r => r.ok ? r.json() : null).then(j => {
+        if (!cancelled && Array.isArray(j)) setFees24h(j);
+      }).catch(() => {});
+    };
     pull();
     const id = setInterval(pull, 60_000);
     return () => { cancelled = true; clearInterval(id); };
@@ -247,7 +284,6 @@ function ExtrinsicsSection({ tweaks }) {
       pallet: e.section,
       method: e.method,
       caller: e.signer,
-      feeXor: 0, // prod /extrinsics endpoint doesn't include per-ext fee; derived in a later phase
       block: e.block,
       idx: e.extrinsic_index,
       ok: e.success === 1 || e.success === true,
@@ -256,8 +292,31 @@ function ExtrinsicsSection({ tweaks }) {
       failReason: e.error_msg || null,
       argsJson: e.args_json,
       eventsJson: e.events_json,
+      // The listing has no fee column. Only signed extrinsics pay a fee
+      // (unsigned: heartbeats, timestamps, unsigned election submissions cost
+      // nothing). The real fee is resolved per block below into blockFees.
+      signed: !!e.signer && e.signer !== 'System' && e.signer !== 'Unsigned',
     }));
   }, [raw]);
+
+  // Real per-block fees for the signed rows on screen. live_fees/mv_fees index
+  // the runtime's TransactionFeePaid keyed by block, and live_fees stays within
+  // ~100 blocks of the head — so recent rows resolve too (events_json is null for
+  // recent blocks, so the per-block table is the working source). One batched
+  // request for all signed blocks on the page. blockFees[block] = {totalXor,totalUsd,rows};
+  // rows===1 → exact fee for that block's single signed extrinsic.
+  const [blockFees, setBlockFees] = useState(undefined);
+  useEffect(() => {
+    const blocks = [...new Set(items.filter(x => x.signed).map(x => x.block))];
+    if (blocks.length === 0) { setBlockFees({}); return; }
+    let cancelled = false;
+    setBlockFees(undefined);  // loading
+    fetch('/history/extrinsic-fees?blocks=' + blocks.join(','))
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setBlockFees(j || {}); })
+      .catch(() => { if (!cancelled) setBlockFees({}); });
+    return () => { cancelled = true; };
+  }, [items]);
 
   // re-render for "ago"
   const [, setTick] = useState(0);
@@ -278,25 +337,46 @@ function ExtrinsicsSection({ tweaks }) {
   const curPage = Math.min(page, totalPages);
   const visible = filtered;
 
+  // KPIs are network-wide over the last 24h (from /stats/extrinsics-24h and
+  // /stats/fees), with a graceful fallback to the loaded page only while those
+  // endpoints are still loading. Avg fee = total 24h fees ÷ 24h extrinsic count.
   const stats = useMemo(() => {
+    const fees24Total = Array.isArray(fees24h)
+      ? fees24h.reduce((s, r) => s + (Number(r.total_xor) || 0), 0) : 0;
+    const fees24Usd = Array.isArray(fees24h)
+      ? fees24h.reduce((s, r) => s + (Number(r.total_usd) || 0), 0) : 0;
+    if (ext24h) {
+      const avgFee = ext24h.total ? fees24Total / ext24h.total : 0;
+      return {
+        total: ext24h.total,
+        successRate: ext24h.successRate != null ? ext24h.successRate.toFixed(1) : '—',
+        failed: ext24h.failed,
+        avgFee,
+        avgFeeUsd: ext24h.total ? fees24Usd / ext24h.total : 0,
+        feesKnown: Array.isArray(fees24h),
+        topPallet: ext24h.topPallet || '—',
+        topPalletCount: ext24h.topPalletCount || 0,
+        windowed: true,
+      };
+    }
+    // Fallback: page-level until the 24h endpoint responds.
     const total = items.length;
     const ok = items.filter(x => x.ok).length;
-    const fee = items.reduce((s, x) => s + x.feeXor, 0);
     const palletCounts = {};
     items.forEach(x => palletCounts[x.pallet] = (palletCounts[x.pallet] || 0) + 1);
     const topPallet = Object.entries(palletCounts).sort((a,b) => b[1] - a[1])[0];
-    // Prefer network-wide totals from /stats/overview when available.
-    const netTotal = Number(networkOverview?.network?.extrinsicsCount) || total;
-    const netAvgFee = Number(networkOverview?.network?.avgFee) || (total ? fee / total : 0);
     return {
-      total: netTotal,
-      success: total ? (ok / total * 100).toFixed(1) : '0.0',
+      total,
+      successRate: total ? (ok / total * 100).toFixed(1) : '—',
       failed: total - ok,
-      avgFee: netAvgFee,
+      avgFee: 0,
+      avgFeeUsd: 0,
+      feesKnown: false,
       topPallet: topPallet ? topPallet[0] : '—',
       topPalletCount: topPallet ? topPallet[1] : 0,
+      windowed: false,
     };
-  }, [items, networkOverview]);
+  }, [items, ext24h, fees24h]);
 
   const copyTx = (hash) => { navigator.clipboard?.writeText(hash); };
 
@@ -305,7 +385,7 @@ function ExtrinsicsSection({ tweaks }) {
       <PageHeader title={t('extrinsics.title')} sub={t('extrinsics.sub')}>
         <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> {t('btn.streaming')}</span>
         <ExportCsvButton section="extrinsics"
-          headers={['Time','Block','Index','Hash','Pallet','Method','Caller','Fee','Status']}
+          headers={['Time','Block','Index','Hash','Pallet','Method','Caller','Status']}
           rows={filtered.map(r => ({
             Time: new Date(r.ts).toISOString(),
             Block: r.block,
@@ -314,7 +394,6 @@ function ExtrinsicsSection({ tweaks }) {
             Pallet: r.pallet,
             Method: r.method,
             Caller: r.caller,
-            Fee: r.feeXor,
             Status: r.ok ? 'success' : ('failed: ' + (r.failReason || '')),
           }))}/>
       </PageHeader>
@@ -323,22 +402,22 @@ function ExtrinsicsSection({ tweaks }) {
         <div className="stat-card">
           <span className="stat-label">Extrinsics · 24h</span>
           <span className="stat-value num">{stats.total.toLocaleString()}</span>
-          <span className="stat-sub">network-wide</span>
+          <span className="stat-sub">{stats.windowed ? 'network-wide · 24h' : 'loading…'}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Success Rate</span>
-          <span className="stat-value num" style={{color: '#6EE7B7'}}>{stats.success}%</span>
-          <span className="stat-sub">{stats.failed} failed in sample</span>
+          <span className="stat-label">Success Rate · 24h</span>
+          <span className="stat-value num" style={{color: '#6EE7B7'}}>{stats.successRate}%</span>
+          <span className="stat-sub">{stats.failed.toLocaleString()} failed · 24h</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Avg Fee</span>
-          <span className="stat-value num">{stats.avgFee.toFixed(4)}<span style={{fontSize: 16, color:'var(--fg-2)', marginLeft: 6}}>XOR</span></span>
-          <span className="stat-sub">derived from sample</span>
+          <span className="stat-label">Avg Fee · 24h</span>
+          <span className="stat-value num">{stats.feesKnown ? stats.avgFee.toFixed(4) : '—'}<span style={{fontSize: 16, color:'var(--fg-2)', marginLeft: 6}}>XOR</span></span>
+          <span className="stat-sub">{stats.feesKnown ? '$' + stats.avgFeeUsd.toFixed(4) + ' · per extrinsic' : 'loading…'}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Top Pallet</span>
+          <span className="stat-label">Top Pallet · 24h</span>
           <span className="stat-value" style={{fontSize: 20, color: PALLET_COLORS[stats.topPallet] || 'var(--fg-0)'}}>{stats.topPallet}</span>
-          <span className="stat-sub">{stats.topPalletCount.toLocaleString()} calls · in view</span>
+          <span className="stat-sub">{stats.topPalletCount.toLocaleString()} calls · 24h</span>
         </div>
       </div>
 
@@ -471,8 +550,21 @@ function ExtrinsicsSection({ tweaks }) {
                       </div>
                     </td>
                     <td data-label={t('col.fee')} style={{textAlign:'right'}}>
-                      <div className="num" style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{e.feeXor.toFixed(4)} XOR</div>
-                      <div className="muted tiny num">${(e.feeXor * 0.072).toFixed(4)}</div>
+                      {(() => {
+                        // Unsigned → free. Signed + block has exactly one fee row →
+                        // that IS this extrinsic's fee. Loading → "…". Multiple fees
+                        // in the block or not indexed → "—" (drawer shows detail).
+                        if (!e.signed) return <div className="muted tiny" title={t('ext.feeUnsigned', 'Extrinsic no firmado · sin coste')}>—</div>;
+                        if (blockFees === undefined) return <div className="muted tiny num" style={{opacity:0.5}}>…</div>;
+                        const bf = blockFees[e.block];
+                        if (bf && bf.rows === 1 && bf.totalXor > 0) {
+                          const xp = (window.TOKEN_PRICES && window.TOKEN_PRICES.XOR) || 0;
+                          const usd = bf.totalUsd > 0 ? bf.totalUsd : (xp ? bf.totalXor * xp : 0);
+                          return <><div className="num" style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{fmtFee(bf.totalXor)} XOR</div>
+                            {usd > 0 && <div className="muted tiny num">${usd.toFixed(4)}</div>}</>;
+                        }
+                        return <div className="muted tiny" title={bf ? t('ext.feeAmbiguous', 'Varias transacciones con coste en este bloque — despliega para el detalle') : t('ext.feeOnExpand', 'Fee no disponible para este extrinsic')}>—</div>;
+                      })()}
                     </td>
                     <td data-label={t('col.status')} style={{textAlign:'center'}}>
                       {e.ok
@@ -480,7 +572,7 @@ function ExtrinsicsSection({ tweaks }) {
                         : <span className="status-pill err" title="Failed">✗</span>}
                     </td>
                     <td style={{paddingRight: 20, textAlign:'center'}}>
-                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, fee:e.feeXor, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title="Más Info">↗</button>
+                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title="Más Info">↗</button>
                       <span className={'ext-caret' + (expanded === e.id ? ' open' : '')} style={{marginLeft: 6}}>▾</span>
                     </td>
                   </tr>
@@ -511,14 +603,8 @@ function ExtrinsicsSection({ tweaks }) {
                                   </div>
                                 ))}
                               </div>
-                              <div className="ext-detail-label" style={{marginTop: 16}}>Fee Breakdown</div>
-                              <div className="ext-fee-list">
-                                <div><span>Gas fee</span><span className="num">{(e.feeXor * 0.78).toFixed(4)} XOR</span></div>
-                                <div><span>Tip</span><span className="num">{(e.feeXor * 0.03).toFixed(4)} XOR</span></div>
-                                <div><span>Treasury</span><span className="num">{(e.feeXor * 0.12).toFixed(4)} XOR</span></div>
-                                <div><span>Reserved</span><span className="num">{(e.feeXor * 0.07).toFixed(4)} XOR</span></div>
-                                <div className="ext-fee-total"><span>Total</span><span className="num">{e.feeXor.toFixed(4)} XOR</span></div>
-                              </div>
+                              <div className="ext-detail-label" style={{marginTop: 16}}>{t('ext.txFee', 'Fee de la transacción')}</div>
+                              <ExtFee bf={blockFees === undefined ? undefined : blockFees[e.block]} signed={e.signed}/>
                             </div>
                           </div>
                         </div>

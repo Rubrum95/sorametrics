@@ -128,6 +128,55 @@ async function main() {
     await api.isReady;
     log('API ready');
 
+    // Catch-up phase: fill the gap between last_live_block and current tip.
+    // Without this, any blocks that elapsed while the indexer was down
+    // (RPC timeout, restart, WS drop) are silently lost — backfill only
+    // goes downward from tip, never upward to fill recent gaps.
+    try {
+        const tipNow = (await api.rpc.chain.getHeader()).number.toNumber();
+        const lastLive = Number(getState.get('live_last_block')?.value || '0');
+        if (lastLive > 0 && tipNow > lastLive) {
+            const gap = tipNow - lastLive;
+            log(`Catch-up: from ${lastLive + 1} to ${tipNow} (${gap} blocks)`);
+            const CATCHUP_CONCURRENCY = parseInt(process.env.CATCHUP_CONCURRENCY || '8');
+            const blocks = [];
+            for (let n = lastLive + 1; n <= tipNow; n++) blocks.push(n);
+            let i = 0, processed = 0, errors = 0;
+            async function catchupWorker() {
+                while (true) {
+                    const myIdx = i++;
+                    if (myIdx >= blocks.length) return;
+                    const n = blocks[myIdx];
+                    try {
+                        const c = await processBlock(api, n);
+                        // Don't update live_last_block per-block here — the live
+                        // subscription may race ahead while we backfill the gap.
+                        // We set live_last_block once at end of catch-up.
+                        processed++;
+                        if (c > 0) log(`catchup block ${n}: ${c} preimage event(s)`);
+                        if (processed % 1000 === 0) log(`Catch-up progress: ${processed}/${blocks.length}`);
+                    } catch (e) {
+                        errors++;
+                        log(`catchup block ${n} error: ${e.message}`);
+                    }
+                }
+            }
+            const workers = [];
+            for (let w = 0; w < CATCHUP_CONCURRENCY; w++) workers.push(catchupWorker());
+            await Promise.all(workers);
+            // Advance live_last_block, but never regress (live subscription may
+            // have moved ahead during catch-up).
+            const cur = Number(getState.get('live_last_block')?.value || '0');
+            const newVal = Math.max(cur, tipNow);
+            setState.run('live_last_block', String(newVal));
+            log(`Catch-up complete: processed=${processed} errors=${errors}, live_last_block=${newVal}`);
+        } else {
+            log(`Catch-up skipped: lastLive=${lastLive} tipNow=${tipNow}`);
+        }
+    } catch (e) {
+        log(`Catch-up phase failed: ${e.message} — continuing with live subscription`);
+    }
+
     // Live subscription
     api.rpc.chain.subscribeNewHeads(async (header) => {
         const n = header.number.toNumber();

@@ -598,7 +598,7 @@ function PortfolioSection({ tweaks }) {
           block is invisible until Polkamarkt goes live. */}
       {wallets.length > 0 && wallets.map(w => (
         window.PolkamarktPositions
-          ? <window.PolkamarktPositions key={'pm-' + w.addr} addr={w.addr} title={'Predictions · ' + (w.alias || fmt.addr(w.addr, 6, 4))}/>
+          ? <window.PolkamarktPositions key={'pm-' + w.addr} addr={w.addr} title={'Polkamarkt · ' + (w.alias || fmt.addr(w.addr, 6, 4))}/>
           : null
       ))}
 

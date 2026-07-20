@@ -12,129 +12,128 @@ async function fetchJson(url) {
   }
 }
 
+// Animated Sankey-style fee-flow diagram (4.8.6 model). Each fee splits into
+// flows whose band thickness is proportional to its real share; particles ride
+// each band via SVG animateMotion. Pure SVG — no DOM-manipulated embers.
 function Furnace({ token, liveSpeed, motion, feeFlow }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (motion === 'none' || !ref.current) return;
-    const interval = setInterval(() => {
-      const el = document.createElement('div');
-      el.className = 'ember';
-      const left = 50 + (Math.random() - 0.5) * 24;
-      const dx = (Math.random() - 0.5) * 120;
-      const dur = 1.6 + Math.random() * 1.8;
-      el.style.left = left + '%';
-      el.style.setProperty('--dx', dx + 'px');
-      el.style.setProperty('--dur', dur + 's');
-      ref.current && ref.current.appendChild(el);
-      setTimeout(() => el.remove(), dur * 1000);
-    }, 260 / (liveSpeed || 1));
-    return () => clearInterval(interval);
-  }, [liveSpeed, motion]);
+  const speed = Math.max(0.4, Number(liveSpeed) || 1);
+  const animate = motion !== 'none';
 
-  const tk = TOKENS[token];
+  // Real distribution from /burns/fee-flow (4.8.6 keys). Fall back to the
+  // theoretical 4.8.6 split (no-referrer case) until live data lands.
+  const dist = feeFlow?.distribution || {};
+  const hasLive = ['xorBurn', 'valStaking', 'valBurn', 'referrer'].some(k => Number(dist[k]) > 0);
+  const flowDefs = [
+    { key: 'xorBurn',    label: 'XOR Burn',       color: '#E5243B', kind: 'burn' },
+    { key: 'valStaking', label: '→ VAL · Staking', color: '#7DD3FC', kind: 'node' },
+    { key: 'referrer',   label: 'Referrer',        color: '#8B7FD9', kind: 'node' },
+    { key: 'valBurn',    label: 'VAL Burn',         color: '#F5B041', kind: 'burn' },
+  ];
+  const fallback = { xorBurn: 60.0, valStaking: 25.4, referrer: 11.8, valBurn: 2.8 };
+  const flows = flowDefs
+    .map(f => ({ ...f, v: hasLive ? (Number(dist[f.key]) || 0) : fallback[f.key] }))
+    .filter(f => f.v > 0);
+  const total = flows.reduce((s, f) => s + f.v, 0) || 1;
+
+  const totalXor = Number(feeFlow?.totalXorFees);
+  const totalLabel = Number.isFinite(totalXor) && totalXor > 0
+    ? (totalXor < 1 ? totalXor.toFixed(4) : totalXor.toFixed(2)) + ' XOR'
+    : 'per 100 XOR';
+
+  // Layout: source (left) → split node (center) → N destinations (right).
+  const SPLIT_X = 250, SPLIT_Y = 140;
+  const DEST_X = 470;
+  const top = 44, bottom = 236;
+  const gap = flows.length > 1 ? (bottom - top) / (flows.length - 1) : 0;
+
   return (
-    <div className="furnace-wrap" ref={ref} style={{ ['--tok-color']: tk.color, ['--tok-glow']: tk.glow }}>
+    <div className="furnace-wrap" style={{ ['--tok-color']: TOKENS[token]?.color }}>
       <svg className="fee-flow-svg" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
         <defs>
-          <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor={tk.color} stopOpacity="0.1"/>
-            <stop offset="100%" stopColor={tk.color} stopOpacity="0.9"/>
+          <linearGradient id="ff-in" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#E5243B" stopOpacity="0.15"/>
+            <stop offset="100%" stopColor="#E5243B" stopOpacity="0.85"/>
           </linearGradient>
-          <radialGradient id="coreGrad">
+          <radialGradient id="ff-split">
             <stop offset="0%" stopColor="#FFD166"/>
-            <stop offset="40%" stopColor={tk.color}/>
-            <stop offset="100%" stopColor={tk.dark} stopOpacity="0"/>
+            <stop offset="55%" stopColor="#E5243B"/>
+            <stop offset="100%" stopColor="#8B0000" stopOpacity="0"/>
           </radialGradient>
+          {flows.map(f => (
+            <linearGradient key={f.key} id={`ff-${f.key}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={f.color} stopOpacity="0.55"/>
+              <stop offset="100%" stopColor={f.color} stopOpacity={f.kind === 'burn' ? '0.05' : '0.85'}/>
+            </linearGradient>
+          ))}
         </defs>
-        {/* Source node (left) — aggregate XOR fees collected since last remint.
-            The xor-fee pallet pools all fees (swap, transfer, extrinsic, bridge)
-            into a single XOR bucket; they are not broken down by origin in the
-            on-chain distribution event. */}
-        {(() => {
-          const total = Number(feeFlow?.totalXorFees);
-          const totalLabel = Number.isFinite(total) && total > 0
-            ? total.toFixed(total < 1 ? 4 : 2) + ' XOR'
-            : '—';
+
+        {/* Source node */}
+        <rect x="14" y={SPLIT_Y - 24} width="150" height="48" rx="10" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.12)"/>
+        <text x="28" y={SPLIT_Y - 4} className="flow-label">XOR fees in</text>
+        <text x="28" y={SPLIT_Y + 15} className="flow-sub">{totalLabel}</text>
+
+        {/* Inflow band + particles */}
+        <path id="ff-inflow" d={`M164 ${SPLIT_Y} L ${SPLIT_X} ${SPLIT_Y}`} stroke="url(#ff-in)" strokeWidth="10" fill="none" strokeLinecap="round"/>
+        {animate && [0, 1, 2].map(i => (
+          <circle key={i} r="3.2" fill="#FF6B5A">
+            <animateMotion dur={`${1.6 / speed}s`} begin={`${i * 0.5}s`} repeatCount="indefinite"
+              path={`M164 ${SPLIT_Y} L ${SPLIT_X} ${SPLIT_Y}`}/>
+          </circle>
+        ))}
+
+        {/* Split core */}
+        <circle cx={SPLIT_X} cy={SPLIT_Y} r="22" fill="url(#ff-split)">
+          {animate && <animate attributeName="r" values="20;25;20" dur={`${2.4 / speed}s`} repeatCount="indefinite"/>}
+        </circle>
+        <circle cx={SPLIT_X} cy={SPLIT_Y} r="9" fill="#FFE08A">
+          {animate && <animate attributeName="opacity" values="0.65;1;0.65" dur={`${1.3 / speed}s`} repeatCount="indefinite"/>}
+        </circle>
+
+        {/* Output bands — thickness ∝ share, particles ride each band */}
+        {flows.map((f, i) => {
+          const pct = (f.v / total) * 100;
+          const destY = flows.length === 1 ? SPLIT_Y : top + i * gap;
+          const sw = Math.max(2.5, Math.min(34, (pct / 100) * 80));
+          const d = `M${SPLIT_X} ${SPLIT_Y} C ${SPLIT_X + 90} ${SPLIT_Y}, ${DEST_X - 90} ${destY}, ${DEST_X} ${destY}`;
+          const pdur = (1.4 + (1 - pct / 100) * 1.8) / speed; // higher share → faster particles
+          const nParticles = pct > 30 ? 4 : pct > 10 ? 2 : 1;
           return (
-            <g className="flow-node">
-              <rect x="10" y={140-22} width="150" height="44" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)"/>
-              <text x="22" y={140 - 6} className="flow-label">Total XOR Fees</text>
-              <text x="22" y={140 + 12} className="flow-sub">{totalLabel}</text>
-              <path d="M160 140 C 240 140, 260 140, 330 140"
-                stroke="url(#flowGrad)" strokeWidth="2" fill="none"
-                strokeDasharray="4 4">
-                <animate attributeName="stroke-dashoffset" from="0" to="-16" dur={(1.2/liveSpeed)+'s'} repeatCount="indefinite"/>
-              </path>
+            <g key={f.key}>
+              <path d={d} stroke={`url(#ff-${f.key})`} strokeWidth={sw} fill="none" strokeLinecap="round" opacity="0.9"/>
+              {animate && Array.from({ length: nParticles }).map((_, p) => (
+                <circle key={p} r={f.kind === 'burn' ? 2.6 : 3} fill={f.color}>
+                  <animateMotion dur={`${pdur}s`} begin={`${p * (pdur / nParticles)}s`} repeatCount="indefinite" path={d}/>
+                  {f.kind === 'burn' && <animate attributeName="opacity" values="1;1;0" dur={`${pdur}s`} begin={`${p * (pdur / nParticles)}s`} repeatCount="indefinite"/>}
+                </circle>
+              ))}
+              {/* Destination marker: ring for staking/referrer, spark for burn */}
+              {f.kind === 'node'
+                ? <circle cx={DEST_X} cy={destY} r="5" fill="none" stroke={f.color} strokeWidth="2"/>
+                : <circle cx={DEST_X} cy={destY} r="4" fill={f.color}>{animate && <animate attributeName="opacity" values="1;0.3;1" dur={`${1.1 / speed}s`} repeatCount="indefinite"/>}</circle>}
+              <text x={DEST_X + 14} y={destY - 2} className="flow-label">{f.label}</text>
+              <text x={DEST_X + 14} y={destY + 14} className="flow-sub" style={{ fill: f.color }}>{pct.toFixed(1)}%</text>
             </g>
           );
-        })()}
-
-        {/* Furnace core */}
-        <circle cx="400" cy="140" r="60" fill="url(#coreGrad)">
-          <animate attributeName="r" values="58;66;58" dur="2.4s" repeatCount="indefinite"/>
-        </circle>
-        <circle cx="400" cy="140" r="30" fill="#FFD166" opacity="0.8">
-          <animate attributeName="opacity" values="0.6;1;0.6" dur="1.2s" repeatCount="indefinite"/>
-        </circle>
-        <text x="400" y="144" textAnchor="middle" fill="white" fontWeight="900" fontSize="11" style={{letterSpacing: '0.15em'}}>FURNACE</text>
-
-        {/* Output labels — canonical xor-fee weights 10:20:50:5 (Referrer:XOR:VAL:KUSD).
-            When the /burns/fee-flow endpoint is reachable we replace the static
-            weights with the live distribution ratios. */}
-        {(() => {
-          const dist = feeFlow?.distribution || {};
-          const hasLive = Object.values(dist).some(v => typeof v === 'number' && v > 0);
-          // Fold valPathway + valBurn — pathway is just the intermediate XOR→VAL swap
-          // preceding the burn, not a separate destination.
-          const raw = hasLive
-            ? {
-                xor: Number(dist.xorBurn) || 0,
-                val: (Number(dist.valBurn) || 0) + (Number(dist.valPathway) || 0),
-                kusd: (Number(dist.kusdBuyback) || 0) + (Number(dist.tbcdBuyback) || 0),
-                ref: Number(dist.referrer) || 0,
-              }
-            // Fallback: runtime-configured weights, see pallets/xor-fee in sora2-network.
-            : { xor: 20, val: 50, kusd: 5, ref: 10 };
-          const sum = raw.xor + raw.val + raw.kusd + raw.ref || 1;
-          const fmt = (v) => ((v / sum) * 100).toFixed(1) + '%';
-          const outputs = [
-            { y: 30,  label: 'VAL Burn',       val: fmt(raw.val) },
-            { y: 100, label: 'XOR Burn',       val: fmt(raw.xor) },
-            { y: 180, label: 'Referrer',       val: fmt(raw.ref) },
-            { y: 250, label: 'KUSD Buy-back',  val: fmt(raw.kusd) },
-          ];
-          return outputs.map((n, i) => (
-            <g key={i}>
-              <path d={`M460 140 C 520 140, 520 ${n.y}, 560 ${n.y}`}
-                stroke={tk.color} strokeWidth="1.6" fill="none" opacity="0.7"
-                strokeDasharray="4 4">
-                <animate attributeName="stroke-dashoffset" from="0" to="-16" dur={(1.2/liveSpeed)+'s'} repeatCount="indefinite"/>
-              </path>
-              <text x="555" y={n.y - 3} textAnchor="end" className="flow-label">{n.label}</text>
-              <text x="555" y={n.y + 12} textAnchor="end" className="flow-sub">{n.val}</text>
-            </g>
-          ));
-        })()}
+        })}
       </svg>
     </div>
   );
 }
 
-function BurnChart({ token, type, motion }) {
+function BurnChart({ token, type, series }) {
   const tk = TOKENS[token];
-  // Cumulative-ish burn curve
-  const data = useMemo(() => {
-    const rand = seededRand(token.charCodeAt(0) * 17);
-    const pts = [];
-    let v = 1000;
-    for (let i = 0; i < 60; i++) {
-      v += rand() * 80 + 10;
-      pts.push(v);
-    }
-    return pts;
-  }, [token]);
+  // Real cumulative burn curve from the indexer (/burns/series). No synthetic data.
+  const data = useMemo(() => (series || []).map(p => p.cumulative), [series]);
 
   const W = 560, H = 200, pad = 8;
+  if (series === null) {
+    return <div className="chart-wrap" style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,color:'var(--fg-2)',fontSize:13}}>Cargando…</div>;
+  }
+  if (data.length < 2) {
+    return <div className="chart-wrap" style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,color:'var(--fg-2)',fontSize:13,textAlign:'center',padding:'0 24px'}}>
+      Esperando histórico del indexer · {token} burns reales por día (se llena con el tiempo).
+    </div>;
+  }
   const { line, area } = areaPath(data, W, H, pad);
 
   return (
@@ -178,6 +177,10 @@ function BurnSection({ tweaks }) {
   const [stats, setStats] = useState(null);
   const [feeFlow, setFeeFlow] = useState(null);
   const [holdersData, setHoldersData] = useState(null);
+  const [burnSeries, setBurnSeries] = useState(null);
+  const [refWindow, setRefWindow] = useState('24h');
+  const [refData, setRefData] = useState(null);
+  const [priceData, setPriceData] = useState(null);
 
   const shareLink = async () => {
     try {
@@ -195,9 +198,11 @@ function BurnSection({ tweaks }) {
   // Fetch /burns/* whenever the selected token changes.
   useEffect(() => {
     let cancelled = false;
-    setStats(null); setHoldersData(null);
+    setStats(null); setHoldersData(null); setBurnSeries(null); setPriceData(null);
     fetchJson('/burns/stats/' + token).then(j => { if (!cancelled) setStats(j); });
     fetchJson('/burns/holders/' + token).then(j => { if (!cancelled) setHoldersData(j); });
+    fetchJson('/burns/series/' + token + '?days=30').then(j => { if (!cancelled) setBurnSeries(j?.points || []); });
+    fetchJson('/burns/supply/' + token).then(j => { if (!cancelled) setPriceData(j); });
     return () => { cancelled = true; };
   }, [token]);
 
@@ -209,6 +214,17 @@ function BurnSection({ tweaks }) {
     const id = setInterval(pull, 30_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
+
+  // Referral activity (XOR only) — paid to referrers vs redirected-to-burn, per timeframe.
+  useEffect(() => {
+    if (token !== 'XOR') return;
+    let cancelled = false;
+    setRefData(null);
+    const pull = () => fetchJson('/stats/fee-burns-live?window=' + refWindow).then(j => { if (!cancelled) setRefData(j); });
+    pull();
+    const id = setInterval(pull, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [token, refWindow]);
 
   // Seed heroVal from the stats for the selected timeframe.
   useEffect(() => {
@@ -266,7 +282,9 @@ function BurnSection({ tweaks }) {
   const d7 = (stats && stats.stats && stats.stats['7d'] && stats.stats['7d'].totalBurned) || 0;
   const d30 = (stats && stats.stats && stats.stats['30d'] && stats.stats['30d'].totalBurned) || 0;
   const usd24 = (stats && stats.stats && stats.stats['24h'] && stats.stats['24h'].totalBurnedUsd) || 0;
-  const price = d24 > 0 ? usd24 / d24 : 0;
+  // Real market price (same source as Tokens section: tokenPrices via /burns/supply).
+  // Fallback to the burn-implied price only if the real one is unavailable.
+  const price = (priceData && priceData.price > 0) ? priceData.price : (d24 > 0 ? usd24 / d24 : 0);
 
   return (
     <div style={{ ['--tok-color']: tk.color, ['--tok-glow']: tk.glow, ['--tok-dark']: tk.dark, ['--tok-grad']: tk.grad }}>
@@ -286,7 +304,8 @@ function BurnSection({ tweaks }) {
           <div className="burn-title-row">
             <div className="card-title"><span className="dot"/> Total {token} Burned</div>
             <div className="burn-token-selector">
-              {Object.keys(TOKENS).slice(0, 5).map(t => {
+              {/* 4.8.6: KUSD & TBCD no longer burn via fees (kusd weight = 0, TBCD out of the fee model). */}
+              {['XOR', 'VAL', 'PSWAP'].map(t => {
                 const T = TOKENS[t];
                 const active = t === token;
                 return (
@@ -320,6 +339,52 @@ function BurnSection({ tweaks }) {
             <div className="bstat"><div className="l">Price</div><div className="v">{price > 0 ? '$' + price.toFixed(price < 1 ? 4 : 2) : '—'}</div><div className="d">from 24h burn</div></div>
             <div className="bstat"><div className="l">Holders</div><div className="v">{holdersData ? holdersData.totalHolders.toLocaleString() : '—'}</div><div className="d">{holdersData ? 'total' : 'loading…'}</div></div>
           </div>
+
+          {/* Referral activity (XOR only) — real per-timeframe split: paid to referrers
+              vs redirected to XOR burn when no referrer. 4.8.6: redirect burns XOR (not KUSD). */}
+          {token === 'XOR' && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title"><span className="dot"/> {t('burn.referral.title')}</div>
+                <div className="segmented" style={{transform:'scale(0.9)', transformOrigin:'right'}}>
+                  {['6h','24h','7d','30d'].map(w => (
+                    <button key={w} className={refWindow === w ? 'active' : ''} onClick={() => setRefWindow(w)}>{w}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="card-body">
+                {refData && refData.referrer ? (() => {
+                  const paid = Number(refData.referrer.paidXor) || 0;
+                  const redirected = Number(refData.referrer.redirectedToKusdXor) || 0;
+                  const totalRef = paid + redirected;
+                  const paidPct = totalRef > 0 ? (paid / totalRef) * 100 : 0;
+                  return (
+                    <>
+                      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:12}}>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('burn.referral.paid')}</div>
+                          <div className="num" style={{fontSize:20, fontWeight:700, color:'#8B7FD9'}}>{fmt.num(paid, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
+                          <div className="muted tiny" style={{fontSize:10}}>{t('burn.referral.paidSub')}</div>
+                        </div>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('burn.referral.redirected')}</div>
+                          <div className="num" style={{fontSize:20, fontWeight:700, color:'#E5243B'}}>{fmt.num(redirected, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
+                          <div className="muted tiny" style={{fontSize:10}}>{t('burn.referral.redirectedSub')}</div>
+                        </div>
+                      </div>
+                      {totalRef > 0 && (
+                        <div style={{height:6, borderRadius:3, overflow:'hidden', display:'flex', background:'rgba(255,255,255,0.06)'}}>
+                          <div style={{width: paidPct + '%', background:'#8B7FD9'}}/>
+                          <div style={{width: (100 - paidPct) + '%', background:'#E5243B'}}/>
+                        </div>
+                      )}
+                      <div className="muted tiny" style={{marginTop:8, fontSize:10}}>{t('burn.referral.note')}</div>
+                    </>
+                  );
+                })() : <div className="muted tiny" style={{padding:'8px 0'}}>Cargando…</div>}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar: chart + holders */}
@@ -336,7 +401,7 @@ function BurnSection({ tweaks }) {
               </div>
             </div>
             <div className="card-body">
-              <BurnChart token={token} type={chartType} motion={tweaks.motion}/>
+              <BurnChart token={token} type={chartType} series={burnSeries}/>
             </div>
           </div>
 
@@ -379,19 +444,13 @@ function BurnSection({ tweaks }) {
               </div>
               <div className="card-body">
                 {(() => {
-                  // Real distribution lives under feeFlow.distribution — the root
-                  // object also has metadata fields (totalXorFees, supplies, etc.)
-                  // that must NOT be treated as flow destinations. Pallet xor-fee
-                  // (sora2-network runtime) splits by weights 10:20:50:5 between
-                  // Referrer : XOR-burn : VAL-burn : KUSD-buyback, with a small
-                  // TBCD-buyback sliver; valPathway = XOR used to swap for VAL.
                   const dist = feeFlow?.distribution || {};
                   const entries = Object.entries(dist)
                     .filter(([, v]) => typeof v === 'number' && v > 0)
                     .sort((a, b) => b[1] - a[1]);
                   const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
-                  const palette = { xorBurn:'#E5243B', valBurn:'#F5B041', valPathway:'#FCD34D', kusdBuyback:'#60A5FA', tbcdBuyback:'#10B981', referrer:'#8B7FD9' };
-                  const label   = { xorBurn:'XOR burn', valBurn:'VAL burn', valPathway:'VAL pathway (XOR→VAL)', kusdBuyback:'KUSD buy-back', tbcdBuyback:'TBCD buy-back', referrer:'Referrer' };
+                  const palette = { xorBurn:'#E5243B', valStaking:'#7DD3FC', valBurn:'#F5B041', referrer:'#8B7FD9', kusdBuyback:'#60A5FA', unallocated:'#6B7280' };
+                  const label   = { xorBurn:'XOR burn', valStaking:'→ VAL · staking', valBurn:'VAL burn', referrer:'Referrer', kusdBuyback:'KUSD buy-back', unallocated:'Unallocated' };
                   if (entries.length === 0) return <div className="muted tiny">Sin datos de fee flow.</div>;
                   return entries.map(([k, v]) => {
                     const pct = (v / total) * 100;

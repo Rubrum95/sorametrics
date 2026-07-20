@@ -6,7 +6,7 @@ const cors = require('cors');
 const https = require('https');
 const BigNumber = require('bignumber.js');
 const { initApi, getActiveEndpoint } = require('./blockchain');
-const { initDB, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, getBurnStatsFromChain, getSupplySnapshotDelta, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd, getWalletInfo, getExportData, updatePriceHistory, initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow, initPolkamarktSchema, pmInsertMarket, pmUpdateMarketStatus, pmInsertTrade, pmInsertClaim, pmGetTotals, pmGetMarkets, pmGetMarketDetail, pmGetUserPositions } = require('./db_pg');
+const { initDB, getAssetIdToInfo, insertTransfer, getTransfers, getLatestTransfers, insertSwap, getSwaps, getLatestSwaps, getCandles, getPriceChange, getSparkline, getTotalStats, insertBridge, getFilteredStats, insertFee, fixFeeDenomFactor, getFeeStats, getFeeStatsMainOnly, getFeeTrend, getWalletBridges, getLatestBridges, getLpVolume, insertLiquidityEvent, getTransferVolume, getPoolActivity, getNetworkTrend, getTopAccumulators, getNetworkStats, getMarketTrends, getTopTokens, getStablecoinStats, getLiquidityEvents, insertExtrinsic, getLatestExtrinsics, getExtrinsicSections, getExtrinsicsByAddress, getExtrinsicDetail, insertOrderBookEvent, getLatestOrderBookEvents, getOrderBookByAddress, upsertIdentityBatch, getIdentities, getAllCachedIdentities, insertSupplySnapshot, getSupplyHistory, getLatestSupplySnapshot, getBurnStats, getBurnStatsFromChain, getSupplySnapshotDelta, purgeSupplySnapshotsForSymbol, lookupExtrinsicUsdValue, globalSearch, getSwapVolumeUsd, getWalletInfo, getExportData, updatePriceHistory, initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow, getFeeBurnsSeries, initPolkamarktSchema, pmInsertMarket, pmUpdateMarketStatus, pmReconcileMarketStatus, pmInsertTrade, pmInsertClaim, pmInsertBuyback, pmGetBuybackStats, pmListBuybacks, pmInsertBurn, pmGetBurnStats, pmGetTotals, pmGetMarkets, pmGetMarketDetail, pmGetUserPositions, initNewsSchema, newsInsertEpisode, newsListEpisodes, initValStakingRewardsSchema, insertValStakingReward, getValStakingNetworkTotals, getValStakingPerValidator, getValStakingTopDestinations, getValStakingForDestination, getClaimedValStakingPairs, getValXorRateWindows, getPriceSeries, getExtrinsicStats24h, getFeesByBlocks } = require('./db_pg');
 const { startFeeBurnsIndexer } = require("./fee_burns_indexer");
 const { Pool: _PgPool } = require("pg");
 const { ApiPromise: _ApiPromise, WsProvider: _WsProvider } = require("@polkadot/api");
@@ -149,6 +149,7 @@ app.use((req, res, next) => {
     const p = req.path;
     const isStatic = ALLOWED_STATIC.has(p)
         || (p.startsWith('/music/') && !p.includes('..'))
+        || (p.startsWith('/news/media/') && !p.includes('..'))
         // v6 JSX modules (e.g. /js/intelligence.jsx). Tight regex to prevent
         // traversal and only allow leaf .jsx files under /js/.
         || /^\/js\/[a-zA-Z0-9_.-]+\.jsx$/.test(p)
@@ -157,6 +158,14 @@ app.use((req, res, next) => {
     if (isStatic) return express.static(__dirname)(req, res, next);
     next();
 });
+
+// --- SITE ANALYTICS (meta-analytics: visits/sections/sessions, sm.site_*) ---
+try {
+    app.use('/analytics', require('./analytics/routes'));
+    console.log('✅ /analytics router mounted');
+} catch (e) {
+    console.error('analytics router mount failed:', e.message);
+}
 
 // --- MINAMOTO API ROUTER (mn schema, isolated from sm.* / SORA v2) ---
 try {
@@ -175,14 +184,33 @@ try {
 app.get('/music/list', (req, res) => {
     const musicDir = path.join(__dirname, 'music');
     try {
-        const files = fs.readdirSync(musicDir)
+        // Canonical metadata (title/cover/artist/duration per audio file)
+        // shipped alongside the audio as manifest.json. Optional: files absent
+        // from it fall back to a filename-derived title and a stem-matched
+        // cover, so dropping a bare .mp3 in still works.
+        let manifest = {};
+        try { manifest = JSON.parse(fs.readFileSync(path.join(musicDir, 'manifest.json'), 'utf8')); } catch (_) {}
+        const all = fs.readdirSync(musicDir);
+        const covers = new Set(all.filter(f => /\.(webp|png|jpe?g)$/i.test(f)));
+        const stemCover = (stem) => ['.webp', '.png', '.jpg', '.jpeg']
+            .map(e => stem + e).find(c => covers.has(c)) || null;
+        const playlist = all
             .filter(f => f.toLowerCase().endsWith('.mp3'))
-            .sort();
-        const playlist = files.map(f => ({
-            title: f.replace(/\.mp3$/i, '').replace(/_/g, ' ').trim(),
-            artist: 'SoraMetrics Radio',
-            src: '/music/' + encodeURIComponent(f)
-        }));
+            .sort()
+            .map(f => {
+                const meta = manifest[f] || {};
+                const stem = f.replace(/\.mp3$/i, '');
+                // Fallback title: strip a leading "NN_" track-number prefix.
+                const fallbackTitle = stem.replace(/^\d{2}_/, '').replace(/_/g, ' ').trim();
+                const cover = (meta.cover && covers.has(meta.cover)) ? meta.cover : stemCover(stem);
+                return {
+                    title: meta.title || fallbackTitle,
+                    artist: meta.artist || 'SoraMetrics Radio',
+                    src: '/music/' + encodeURIComponent(f),
+                    cover: cover ? '/music/' + encodeURIComponent(cover) : null,
+                    dur: Number.isFinite(meta.dur) ? meta.dur : null,
+                };
+            });
         res.json(playlist);
     } catch (e) {
         res.json([]);
@@ -429,6 +457,124 @@ let api = null;
 let ASSETS = [];
 let tokenPrices = {};
 let holdersCache = {};
+
+// Live pipeline state — populated by storage subscribers + 30s ring buffer.
+// Endpoint /staking/rewards/live reads from this in-memory state (zero node load).
+const pipelineState = {
+    xorToVal: '0',
+    xorToBuyBack: '0',
+    valStakingEraReward: null,   // { era, value } or null pre-4.8.6
+    valBucketPrevEra: null,      // { era, value } — previous era's final bucket (context)
+    unassignedValStakingReward: '0',
+    activeEra: null,
+    bestBlock: null,
+    lastUpdate: 0,
+    history: [],                  // [{ts, xorToVal, valStakingEraReward}]  capped at 60 samples (30 min @ 30s)
+};
+let pipelineUnsubs = [];
+let pipelineSnapshotTimer = null;
+let pipelineEraSubKey = null;     // remember which era we subscribed to, to re-sub on era change
+
+async function startPipelineSubscriber() {
+    if (!api?.query?.xorFee) {
+        console.warn('[pipeline] xorFee pallet not present — subscriber skipped');
+        return;
+    }
+    // Clean previous subscriptions in case of reconnect.
+    pipelineUnsubs.forEach(u => { try { u(); } catch {} });
+    pipelineUnsubs = [];
+    if (pipelineSnapshotTimer) { clearInterval(pipelineSnapshotTimer); pipelineSnapshotTimer = null; }
+
+    // 1. xorToVal — always present.
+    try {
+        const u = await api.query.xorFee.xorToVal((v) => {
+            pipelineState.xorToVal = v.toString();
+            pipelineState.lastUpdate = Date.now();
+        });
+        pipelineUnsubs.push(u);
+    } catch (e) { console.error('[pipeline] xorToVal sub failed:', e.message); }
+
+    // 2. xorToBuyBack — present in 4.8.x runtimes.
+    try {
+        const u = await api.query.xorFee.xorToBuyBack((v) => {
+            pipelineState.xorToBuyBack = v.toString();
+            pipelineState.lastUpdate = Date.now();
+        });
+        pipelineUnsubs.push(u);
+    } catch (e) { console.error('[pipeline] xorToBuyBack sub failed:', e.message); }
+
+    // 3. valStakingEraReward[activeEra] — only post-4.8.6.
+    if (api.query.xorFee.valStakingEraReward) {
+        await subscribeValBucketForCurrentEra();
+    }
+
+    // 4. unassignedValStakingReward — only post-4.8.6.
+    if (api.query.xorFee.unassignedValStakingReward) {
+        try {
+            const u = await api.query.xorFee.unassignedValStakingReward((v) => {
+                pipelineState.unassignedValStakingReward = v.toString();
+                pipelineState.lastUpdate = Date.now();
+            });
+            pipelineUnsubs.push(u);
+        } catch (e) { console.error('[pipeline] unassignedValStakingReward sub failed:', e.message); }
+    }
+
+    // 5. New-heads watcher — keep activeEra+bestBlock fresh, re-subscribe bucket when era changes.
+    try {
+        const u = await api.rpc.chain.subscribeNewHeads(async (header) => {
+            pipelineState.bestBlock = header.number.toNumber();
+            try {
+                const ae = (await api.query.staking.activeEra()).unwrap().index.toNumber();
+                if (ae !== pipelineState.activeEra) {
+                    pipelineState.activeEra = ae;
+                    if (api.query.xorFee.valStakingEraReward) await subscribeValBucketForCurrentEra();
+                }
+            } catch {}
+        });
+        pipelineUnsubs.push(u);
+    } catch (e) { console.error('[pipeline] newHeads sub failed:', e.message); }
+
+    // 6. Ring buffer snapshot every 30s (60 samples = 30 min).
+    // Each sample is tagged with its era so the bucket sparkline can filter to the
+    // active era only (mixing eras would draw an artificial drop at era rollover).
+    pipelineSnapshotTimer = setInterval(() => {
+        pipelineState.history.push({
+            ts: Date.now(),
+            xorToVal: pipelineState.xorToVal,
+            valStakingEraReward: pipelineState.valStakingEraReward?.value || null,
+            era: pipelineState.valStakingEraReward?.era ?? null,
+        });
+        if (pipelineState.history.length > 60) pipelineState.history.shift();
+    }, 30_000);
+
+    console.log('[pipeline] live subscribers active');
+}
+
+async function subscribeValBucketForCurrentEra() {
+    try {
+        const ae = (await api.query.staking.activeEra()).unwrap().index.toNumber();
+        if (pipelineEraSubKey === ae) return; // already subscribed
+        // Tear down previous era sub if any (it's the last element of pipelineUnsubs we tagged)
+        // (Simpler approach: keep separate handle.)
+        if (pipelineState._eraUnsub) { try { pipelineState._eraUnsub(); } catch {} }
+        const u = await api.query.xorFee.valStakingEraReward(ae, (v) => {
+            pipelineState.valStakingEraReward = { era: ae, value: v.toString() };
+            pipelineState.lastUpdate = Date.now();
+        });
+        pipelineState._eraUnsub = u;
+        pipelineEraSubKey = ae;
+        // Reset sparkline history on era rollover so the chart only shows the
+        // active era (no artificial 356→0 drop when the era changes).
+        pipelineState.history = [];
+        // Read the previous era's final bucket once (it's historical, no longer grows).
+        if (ae > 0) {
+            try {
+                const prev = await api.query.xorFee.valStakingEraReward(ae - 1);
+                pipelineState.valBucketPrevEra = { era: ae - 1, value: prev.toString() };
+            } catch { pipelineState.valBucketPrevEra = null; }
+        }
+    } catch (e) { console.error('[pipeline] era bucket sub failed:', e.message); }
+}
 let currentDenomFactor = '1'; // XOR denomination factor (cumulative, queried on-chain)
 const CACHE_DURATION = 5 * 60 * 1000;
 
@@ -541,20 +687,13 @@ async function getTokenTotalSupply(symbol) {
     try {
         let totalSupply = null;
 
-        // XOR special: MOF returns 1e18, CoinGecko returns 1e41, on-chain returns 1e36.
-        // All are in post-denomination units (6 repackaging events, factor 10^38).
-        // Only CoinGecko market cap ($785K) + DEX price ($4.98) give human-readable supply.
-        if (symbol === 'XOR') {
+        // XOR: 1 XOR = 1 XOR. Real on-chain total issuance (balances.totalIssuance / 1e18),
+        // which matches the MOF figure. No CoinGecko, no denomination unpacking.
+        if (symbol === 'XOR' && api && api.query.balances?.totalIssuance) {
             try {
-                const xorMarket = await fetchXorMarketData();
-                const dexPrice = tokenPrices['XOR'] || 0;
-                // Derive supply from market cap / price (most reliable)
-                if (xorMarket.cgMarketCap && dexPrice > 0) {
-                    totalSupply = xorMarket.cgMarketCap / dexPrice;
-                } else if (xorMarket.cgMarketCap && xorMarket.cgPrice && xorMarket.cgPrice > 0) {
-                    totalSupply = xorMarket.cgMarketCap / xorMarket.cgPrice;
-                }
-            } catch (e) { /* CoinGecko unavailable */ }
+                const issuance = await withTimeout(api.query.balances.totalIssuance());
+                totalSupply = new BigNumber(issuance.toString().replace(/,/g, '')).div('1e18').toNumber();
+            } catch (e) { /* on-chain query failed */ }
         }
 
         // For non-XOR (or XOR if CoinGecko failed): use MOF API
@@ -2067,6 +2206,34 @@ app.get('/history/extrinsic-sections', rateLimit(10, 60000), async (req, res) =>
     }
 });
 
+// Real network-wide extrinsic KPIs over a rolling 24h window (count, success
+// rate, top pallet) — feeds the Extrinsics page header so it stops showing the
+// current page size as if it were the 24h total.
+app.get('/stats/extrinsics-24h', rateLimit(30, 60000), async (req, res) => {
+    try {
+        res.json(await getExtrinsicStats24h());
+    } catch (e) {
+        console.error('Error /stats/extrinsics-24h:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Real per-block fees for ?blocks=a,b,c. The extrinsics listing has no fee
+// column, but live_fees/mv_fees carry the real TransactionFeePaid per block —
+// so the table can show the actual fee for the (single) signed extrinsic in
+// each block. Returns { [block]: { totalXor, totalUsd, rows } }.
+app.get('/history/extrinsic-fees', rateLimit(60, 60000), async (req, res) => {
+    try {
+        const blocks = String(req.query.blocks || '').split(',')
+            .map(s => parseInt(s.trim())).filter(Number.isFinite).slice(0, 100);
+        if (blocks.length === 0) return res.json({});
+        res.json(await getFeesByBlocks(blocks));
+    } catch (e) {
+        console.error('Error /history/extrinsic-fees:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // USD value lookup for an extrinsic (cross-table search)
 app.get('/lookup/usd-value/:extrinsicId', rateLimit(30, 60000), async (req, res) => {
     const exId = req.params.extrinsicId;
@@ -2576,15 +2743,22 @@ app.get('/stats/header', rateLimit(30, 60000), async (req, res) => {
 // Live fee config read from chain storage. Cached 60s so every page load
 // doesn't hammer the WS node. Exposes the two multipliers (congestion +
 // governance-set), the current remint accumulators, RemintPeriod, and real
-// paymentInfo samples per extrinsic class. SORA fees are flat per class
+// fee-details samples per extrinsic class. SORA fees are flat per class
 // (transfer = swap = 0.1 XOR currently, bridge = 1 XOR) — NOT linear in
 // weight, confirmed by live probe. The governance multiplier changes via
 // runtime upgrade / council motion so the widget can show it explicitly.
+//
+// Runtime 4.8.3 (spec 124+) introduced a non-zero TransactionByteFee
+// (0.0000001 XOR/byte). It's a `pub const` in common/src/weights.rs, NOT
+// exposed via api.consts.transactionPayment, so we hardcode it gated by
+// specVersion. queryFeeDetails decomposes the partial fee into base /
+// length / adjustedWeight so the frontend can show what each component
+// contributes (the length component is new in 4.8.3, was zero before).
 let _feeConfigCache = { ts: 0, data: null };
-// Lowered from 60s → 15s so the buy-burn buckets in the Network Fees
-// widget reset visibly within ~15s of the on-chain cycle, instead of
-// lagging up to a minute behind the live countdown.
 const FEE_CONFIG_TTL = 15_000;
+// Hardcoded — runtime constants in common/src/weights.rs not exposed
+// via metadata. Bumped automatically by gating on specVersion.
+const TRANSACTION_BYTE_FEE_BY_SPEC = (sv) => sv >= 124 ? 1e-7 : 0;
 async function computeFeeConfig() {
     const api = await initApi();
     const XOR = '0x0200000000000000000000000000000000000000000000000000000000000000';
@@ -2601,12 +2775,30 @@ async function computeFeeConfig() {
         api.query.xorFee.xorToBuyBack(),
         api.rpc.chain.getHeader(),
     ]);
+    const specVersion = api?.runtimeVersion?.specVersion?.toNumber?.() ?? 0;
+    const transactionByteFee = TRANSACTION_BYTE_FEE_BY_SPEC(specVersion);
 
+    // We can't decompose the inclusion fee client-side: SORA routes most
+    // calls through XorFee::CustomFees, which bypasses the standard
+    // TransactionPayment path. queryFeeDetails returns inclusionFee=null
+    // for custom-fee calls. So we report the total (paymentInfo) plus
+    // the byte size, and let the UI show the TransactionByteFee constant
+    // separately. The standard path applies len × TransactionByteFee but
+    // ONLY for non-custom extrinsics (governance, staking, etc.).
     const sample = async (buildTx) => {
         try {
-            const info = await buildTx().paymentInfo(dummy);
-            const j = info.toJSON();
-            return { fee: hexToXor(j.partialFee), weightRefTime: Number(j.weight.refTime) || 0, class: j.class };
+            const tx = buildTx();
+            const callHex = tx.toHex();
+            const len = (callHex.length - 2) / 2; // bytes
+            const info = await tx.paymentInfo(dummy);
+            const ij = info.toJSON();
+            return {
+                fee: hexToXor(ij.partialFee),
+                weightRefTime: Number(ij.weight.refTime) || 0,
+                class: ij.class,
+                lenBytes: len,
+                hypotheticalLenFee: len * transactionByteFee, // what the standard path WOULD add
+            };
         } catch (e) { return null; }
     };
     const samples = {};
@@ -2626,11 +2818,13 @@ async function computeFeeConfig() {
     }
 
     return {
+        specVersion,
         nextFeeMultiplier: big(nfm),
         xorFeeMultiplier: big(xfm),
         xorToValXor: big(xorToVal),
         xorToBuyBackXor: big(xorToBuyBack),
         remintPeriodBlocks: Number(remintPeriod.toString()) || 0,
+        transactionByteFee,
         samples,
         asOfBlock: Number(head.number.toString()) || 0,
         asOfTs: Date.now(),
@@ -2662,7 +2856,7 @@ app.get('/stats/fee-config', rateLimit(30, 60000), async (req, res) => {
 //   referrer.paidXor           sum of ReferrerRewarded amounts
 //   referrer.redirectedToKusdXor  amount that fell through (no referrer)
 //                                 and was redirected to the KUSD bucket
-//   burns.{xor,val,kusd,tbcd}  amounts burned, in each token natives
+//   burns.{xor,val,kusd}       amounts burned, in each token natives
 //   weights                    runtime weights used for the period
 //
 // "live" mode is handled fully on the frontend from /stats/fee-config
@@ -2675,6 +2869,7 @@ const FEE_BURNS_WINDOWS = {
     "6h":  21600,
     "24h": 86400,
     "7d": 604800,
+    "30d": 2592000,
 };
 
 app.get("/stats/fee-burns-live", rateLimit(60, 60000), async (req, res) => {
@@ -2690,9 +2885,11 @@ app.get("/stats/fee-burns-live", rateLimit(60, 60000), async (req, res) => {
             return res.json(cached.data);
         }
         const sums = await getFeeBurnsWindow(seconds);
-        // Runtime weights — 4.7.x: 10/20/50/20=100; 4.8.x: 10/20/50/5=85.
+        // Runtime weights — 4.7.x: 10/20/50/20=100; 4.8.2-4.8.4: 10/20/50/5=85; 4.8.6: 10/35/40/0=85.
         const sv = api?.runtimeVersion?.specVersion?.toNumber?.() ?? 0;
-        const weights = sv >= 120
+        const weights = sv >= 128
+            ? { ref: 10, xor: 35, val: 40, kusd: 0,  total: 85 }
+            : sv >= 120
             ? { ref: 10, xor: 20, val: 50, kusd: 5,  total: 85 }
             : { ref: 10, xor: 20, val: 50, kusd: 20, total: 100 };
         const data = {
@@ -2712,7 +2909,6 @@ app.get("/stats/fee-burns-live", rateLimit(60, 60000), async (req, res) => {
                 xor:  Number(sums.remint_xor_burned)  || 0,
                 val:  Number(sums.remint_val_burned)  || 0,
                 kusd: Number(sums.remint_kusd_burned) || 0,
-                tbcd: Number(sums.remint_tbcd_burned) || 0,
             },
             blocks:  Number(sums.rows)   || 0,
             firstTs: Number(sums.min_ts) || 0,
@@ -2814,21 +3010,86 @@ app.get('/mof/qty/:symbol', rateLimit(60, 60000), async (req, res) => {
 
 
 // --- governance/preimage/* + scheduler/agenda + /block/:n + getPreimageDb ---
+// SORA's preimage pallet exposes TWO storage maps depending on pallet version:
+//   - statusFor          (v1 API, legacy)        body fields: deposit, count, len
+//   - requestStatusFor   (v2 API, current)       body fields: maybeTicket, count, maybeLen
+// Bytes presence is authoritative ONLY via preimageFor((hash, len)) — the
+// status maps carry metadata, not the actual call payload. Reading just
+// statusFor like the old code did caused false "missing preimage" alerts for
+// every v2-pallet preimage on chain (e.g. runtime 4.8.6 enactment 2026-05-28).
+async function readPreimageState(hash, knownLen) {
+    if (!api || !api.query.preimage) return null;
+    let kind = null;
+    let body = {};
+    if (api.query.preimage.requestStatusFor) {
+        try {
+            const st = await withTimeout(api.query.preimage.requestStatusFor(hash), 5000);
+            if (st && !st.isNone) {
+                const j = st.unwrap().toJSON();
+                if (j && typeof j === 'object') {
+                    kind = Object.keys(j)[0];
+                    body = j[kind] && typeof j[kind] === 'object' ? j[kind] : {};
+                }
+            }
+        } catch {}
+    }
+    if (!kind && api.query.preimage.statusFor) {
+        try {
+            const st = await withTimeout(api.query.preimage.statusFor(hash), 5000);
+            if (st && !st.isNone) {
+                const j = st.unwrap().toJSON();
+                if (j && typeof j === 'object') {
+                    kind = Object.keys(j)[0];
+                    body = j[kind] && typeof j[kind] === 'object' ? j[kind] : {};
+                }
+            }
+        } catch {}
+    }
+    const len = body.len ?? body.maybeLen ?? knownLen ?? null;
+    let bytesAvailable = false;
+    if (len != null && api.query.preimage.preimageFor) {
+        try {
+            const pf = await withTimeout(api.query.preimage.preimageFor([hash, len]), 5000);
+            bytesAvailable = !!(pf && pf.isSome);
+        } catch {}
+    }
+    const ticket = body.deposit || body.ticket || body.maybeTicket || null;
+    return {
+        status: kind,
+        len,
+        count: body.count ?? null,
+        depositor: Array.isArray(ticket) ? ticket[0] : null,
+        deposit: Array.isArray(ticket) && ticket[1] !== undefined ? ticket[1] : null,
+        bytesAvailable
+    };
+}
+
 app.get("/governance/preimages", rateLimit(10, 60000), async (req, res) => {
     try {
         if (!api) return res.json({ error: "API not connected" });
-        if (!api.query.preimage || !api.query.preimage.statusFor) {
+        const hasOld = !!(api.query.preimage && api.query.preimage.statusFor);
+        const hasNew = !!(api.query.preimage && api.query.preimage.requestStatusFor);
+        if (!hasOld && !hasNew) {
             return res.json({ preimages: [], identities: {} });
         }
-        const entries = await withTimeout(api.query.preimage.statusFor.entries());
+        const seen = new Map();
+        async function enumerate(storage) {
+            const entries = await withTimeout(storage.entries());
+            for (const [key, statusOpt] of entries) {
+                if (!statusOpt || statusOpt.isNone) continue;
+                const hash = key.args[0].toHex();
+                if (seen.has(hash)) continue;
+                const raw = statusOpt.unwrap().toJSON();
+                const kind = raw && typeof raw === 'object' ? Object.keys(raw)[0] : null;
+                const body = kind && raw[kind] && typeof raw[kind] === 'object' ? raw[kind] : {};
+                seen.set(hash, { kind, body });
+            }
+        }
+        if (hasNew) await enumerate(api.query.preimage.requestStatusFor);
+        if (hasOld) await enumerate(api.query.preimage.statusFor);
         const preimages = [];
         const addresses = new Set();
-        for (const [key, statusOpt] of entries) {
-            if (!statusOpt || statusOpt.isNone) continue;
-            const hash = key.args[0].toHex();
-            const raw = statusOpt.unwrap().toJSON();
-            const kind = raw && typeof raw === 'object' ? Object.keys(raw)[0] : null;
-            const body = kind && raw[kind] && typeof raw[kind] === 'object' ? raw[kind] : {};
+        for (const [hash, { kind, body }] of seen) {
             const statusName = kind ? (kind[0].toUpperCase() + kind.slice(1)) : 'Unknown';
             const ticket = body.deposit || body.ticket || body.maybeTicket || null;
             const depositor = Array.isArray(ticket) ? ticket[0] : null;
@@ -2837,7 +3098,7 @@ app.get("/governance/preimages", rateLimit(10, 60000), async (req, res) => {
             preimages.push({
                 hash,
                 status: statusName,
-                len: body.len ?? null,
+                len: body.len ?? body.maybeLen ?? null,
                 count: body.count ?? null,
                 depositor,
                 deposit: deposit !== null ? String(deposit) : null
@@ -2936,26 +3197,19 @@ app.get("/governance/scheduler/agenda", rateLimit(10, 60000), async (req, res) =
             }
         }
 
-        // Check preimage availability for all referenced lookup hashes
+        // Check preimage availability for all referenced lookup hashes.
+        // Uses readPreimageState which queries both pallet APIs (v1 statusFor +
+        // v2 requestStatusFor) and validates bytes presence with preimageFor.
+        // Passing lookupLen lets preimageFor work even if metadata is missing.
+        const lenByHash = {};
+        for (const r of rawList) {
+            if (r.lookupHash && r.lookupLen != null) lenByHash[r.lookupHash] = r.lookupLen;
+        }
         const hashStatus = {};
         for (const h of missingHashes) {
             try {
-                const st = await withTimeout(api.query.preimage.statusFor(h), 5000);
-                if (st && !st.isNone) {
-                    const json = st.unwrap().toJSON();
-                    const kind = json && typeof json === 'object' ? Object.keys(json)[0] : null;
-                    const body = kind ? json[kind] : {};
-                    const ticket = body.deposit || body.ticket || body.maybeTicket || null;
-                    hashStatus[h] = {
-                        status: kind,
-                        len: body.len ?? null,
-                        count: body.count ?? null,
-                        depositor: Array.isArray(ticket) ? ticket[0] : null,
-                        bytesAvailable: !!body.len
-                    };
-                } else {
-                    hashStatus[h] = { status: 'none', bytesAvailable: false };
-                }
+                const state = await readPreimageState(h, lenByHash[h]);
+                hashStatus[h] = state || { status: 'none', bytesAvailable: false };
             } catch { hashStatus[h] = { status: 'error', bytesAvailable: false }; }
         }
 
@@ -3017,14 +3271,220 @@ app.get("/block/:n", rateLimit(600, 60000), async (req, res) => {
         // Map events per extrinsic (phase)
         const extrinsicEvents = new Array(extrinsics.length).fill(null).map(() => []);
         const inherentEvents = [];
+
+        // ── Enrichment helpers ──────────────────────────────────────────
+        // Decode a Substrate DispatchError shape into { section, name, docs }.
+        // Accepts:
+        //   { module: { index, error } }   — toJSON convention (lower-case)
+        //   { Module: { index, error } }   — enum-style
+        //   { BadOrigin: null }, "CannotLookup"  — simple variants
+        const decodeDispatchError = (err) => {
+            try {
+                if (!err) return null;
+                if (typeof err === 'string') return { section: null, name: err, docs: '' };
+                if (typeof err !== 'object') return null;
+                const mod = err.module || err.Module;
+                if (mod && mod.index != null && mod.error != null) {
+                    const meta = archive.registry.findMetaError({
+                        index: archive.registry.createType('u8', mod.index),
+                        error: archive.registry.createType('Bytes', mod.error).toU8a(true)
+                    });
+                    return {
+                        section: meta.section,
+                        name: meta.name,
+                        docs: (meta.docs || []).map(d => String(d).trim()).filter(Boolean).join(' ')
+                    };
+                }
+                // Token / Arithmetic / Other simple-enum errors:
+                //   { Token: 'BelowMinimum' }, { Arithmetic: 'Overflow' }, etc.
+                const k = Object.keys(err).find(x => x !== 'module' && x !== 'Module');
+                if (k) {
+                    const sub = err[k];
+                    return { section: null, name: typeof sub === 'string' ? `${k}.${sub}` : k, docs: '' };
+                }
+            } catch (_) {}
+            return null;
+        };
+
+        // Walk any value tree and return the first DispatchError-like found.
+        // Handles Result<_, DispatchError> shapes ({ Err: <...> }) and direct
+        // DispatchError shapes nested anywhere — covers BatchInterrupted,
+        // ItemFailed, ProxyExecuted, MultisigExecuted, scheduler.Dispatched, etc.
+        const findEmbeddedError = (obj) => {
+            if (!obj || typeof obj !== 'object') return null;
+            if ('Err' in obj) {
+                const dec = decodeDispatchError(obj.Err);
+                if (dec) return dec;
+            }
+            if (obj.module || obj.Module) {
+                const dec = decodeDispatchError(obj);
+                if (dec) return dec;
+            }
+            for (const v of Array.isArray(obj) ? obj : Object.values(obj)) {
+                const sub = findEmbeddedError(v);
+                if (sub) return sub;
+            }
+            return null;
+        };
+
+        // Format a u128 (or u64/u32) raw value with the given decimals.
+        // Accepts hex string ("0x…"), number, or BigInt-coercible string.
+        const formatTokenAmount = (raw, decimals) => {
+            if (raw == null) return null;
+            let bn;
+            try {
+                if (typeof raw === 'string') bn = BigInt(raw.startsWith('0x') ? raw : raw);
+                else bn = BigInt(raw);
+            } catch { return null; }
+            if (bn === 0n) return '0';
+            const neg = bn < 0n; const abs = neg ? -bn : bn;
+            const div = 10n ** BigInt(decimals);
+            const intPart = (abs / div).toString();
+            const fracDigits = (abs % div).toString().padStart(decimals, '0');
+            const fracTrimmed = fracDigits.replace(/0+$/, '').slice(0, 6);
+            const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return (neg ? '-' : '') + grouped + (fracTrimmed ? '.' + fracTrimmed : '');
+        };
+
+        // Sections whose Balance fields are unambiguously XOR (the native
+        // balances pallet on SORA tracks XOR; everything else is multi-asset
+        // and the symbol must be inferred from a sibling AssetId field).
+        const XOR_NATIVE_SECTIONS = new Set([
+            'balances', 'xorFee', 'transactionPayment', 'staking', 'session'
+        ]);
+
+        // Per-event enrichment: walks all fields once, then resolves Balance
+        // tickers using sibling AssetId fields (or falls back to XOR for
+        // native sections). Returns array of decoded field descriptors.
+        const enrichEventFields = (record) => {
+            const sec = String(record.event.section || '');
+            const fields = record.event.meta?.fields || [];
+            const data = record.event.data;
+            const registry = getAssetIdToInfo();
+
+            // SORA AssetId32 toJSON()s as { code: "0x…" } (a wrapped 32-byte
+            // hex), but other multi-asset enums (T::CurrencyId in `tokens.*`)
+            // serialize as plain hex strings or as enum-shaped objects like
+            // { Token: 'XOR' }. Normalize all of those to a registry key.
+            const normalizeAssetIdJson = (v) => {
+                if (v == null) return null;
+                if (typeof v === 'string') return v.toLowerCase();
+                if (typeof v === 'object') {
+                    if (typeof v.code === 'string') return v.code.toLowerCase();
+                    // CurrencyId enum: { Token: 'XOR' } — caller must resolve
+                    // by symbol; we can't without a symbol→info map handy, so
+                    // we return the inner string for caller to handle.
+                    const k = Object.keys(v)[0];
+                    if (k && typeof v[k] === 'string') return v[k];
+                }
+                return null;
+            };
+
+            // Helper: resolve a registry entry from an AssetId/CurrencyId
+            // value (handles { code: '0x…' }, plain hex string, or enum like
+            // { Token: 'XOR' }).
+            const resolveAssetInfo = (rawJson) => {
+                const idKey = normalizeAssetIdJson(rawJson);
+                if (!idKey) return null;
+                let info = registry[idKey];
+                if (!info) {
+                    const upper = idKey.toUpperCase();
+                    for (const [, v] of Object.entries(registry)) {
+                        if (v.symbol && v.symbol.toUpperCase() === upper) { info = v; break; }
+                    }
+                }
+                return info || null;
+            };
+
+            // Pass 1: collect every AssetId/CurrencyId resolved value, in
+            // order. Events like liquidityProxy.Exchange have 2 assets + 2
+            // balances and we want to pair them positionally.
+            const assetSequence = [];      // ordered list of resolved {symbol, decimals}
+            for (let i = 0; i < data.length; i++) {
+                const tn = (fields[i]?.typeName?.toString() || '').toLowerCase();
+                if (/(asset.?id|technicalassetid|currency.?id)/.test(tn)) {
+                    let info = null;
+                    try { info = resolveAssetInfo(data[i].toJSON()); } catch {}
+                    assetSequence.push(info);
+                }
+            }
+            // Default ticker = first resolved asset (for events with 1 asset
+            // and 1 balance). For multi-balance events we pair positionally:
+            // the k-th Balance uses the k-th AssetId (capped at the last).
+            const defaultAsset = assetSequence.find(a => a) || null;
+            let siblingTicker = defaultAsset?.symbol || null;
+            let siblingDecimals = defaultAsset?.decimals || 18;
+            const isXorNative = XOR_NATIVE_SECTIONS.has(sec);
+
+            const decoded = [];
+            let balanceSlot = 0;  // counter for positional Balance↔AssetId pairing
+            for (let i = 0; i < data.length; i++) {
+                const field = fields[i];
+                const typeName = (field?.typeName?.toString() || '').toLowerCase();
+                const fieldName = field?.name?.toString() || null;
+                let raw;
+                try { raw = data[i].toJSON(); } catch { raw = null; }
+                let human = null;
+
+                if (/balance|^u128$/.test(typeName) && raw != null) {
+                    let ticker, decimals;
+                    if (isXorNative) {
+                        ticker = 'XOR'; decimals = 18;
+                    } else {
+                        // Pair the k-th Balance with the k-th AssetId (or
+                        // fall back to the default if we ran out).
+                        const paired = assetSequence[balanceSlot] || defaultAsset;
+                        ticker = paired?.symbol || siblingTicker || null;
+                        decimals = paired?.decimals || siblingDecimals;
+                        balanceSlot++;
+                    }
+                    const formatted = formatTokenAmount(raw, decimals);
+                    if (formatted != null) human = ticker ? `${formatted} ${ticker}` : formatted;
+                } else if (/(asset.?id|technicalassetid|currency.?id)/.test(typeName) && raw) {
+                    const info = resolveAssetInfo(raw);
+                    if (info) human = info.symbol;
+                } else if (typeName.includes('weight') && raw && typeof raw === 'object' && raw.refTime != null) {
+                    const ms = Number(raw.refTime) / 1e9;
+                    human = `${ms.toFixed(2)}ms · ${raw.proofSize}b`;
+                } else if (typeName.includes('dispatcherror') || typeName.includes('dispatchresult')) {
+                    const dec = findEmbeddedError(raw);
+                    if (dec) human = `${dec.section ? dec.section + '.' : ''}${dec.name}${dec.docs ? ' — ' + dec.docs : ''}`;
+                }
+
+                decoded.push({
+                    name: fieldName,
+                    type: field?.type?.toString() || null,
+                    typeName: field?.typeName?.toString() || null,
+                    value: raw,
+                    human
+                });
+            }
+            return decoded;
+        };
+
         events.forEach((record, idx) => {
             const phase = record.phase;
+            const dataJson = record.event.data.toJSON();
+
+            // Per-field decoded view (amounts, asset IDs, weights, etc.).
+            // Resolves Balance tickers using sibling AssetId field when present.
+            let decoded = [];
+            try { decoded = enrichEventFields(record); } catch (_) {}
+
+            // Embedded error (covers any event whose data tree contains a
+            // DispatchError — ExtrinsicFailed, BatchInterrupted, ProxyExecuted,
+            // MultisigExecuted, scheduler.Dispatched, etc.).
+            const embeddedError = findEmbeddedError(dataJson);
+
             const evOut = {
                 index: idx,
                 section: record.event.section,
                 method: record.event.method,
-                data: record.event.data.toJSON()
+                data: dataJson,
+                decoded
             };
+            if (embeddedError) evOut.decodedError = embeddedError;
+
             if (phase && phase.isApplyExtrinsic) {
                 const ei = phase.asApplyExtrinsic.toNumber();
                 if (extrinsicEvents[ei]) extrinsicEvents[ei].push(evOut); else inherentEvents.push(evOut);
@@ -3401,8 +3861,8 @@ app.get("/governance/preimages/indexed", rateLimit(5, 60000), async (req, res) =
                     try { decoded = decodeProposal(archive.createType('Call', bytes)); } catch {}
                     let stillOnChain = false;
                     try {
-                        const st = await withTimeout(api.query.preimage.statusFor(hash));
-                        stillOnChain = !!(st && !st.isNone);
+                        const state = await readPreimageState(hash, (bytes.length - 2) / 2);
+                        stillOnChain = !!(state && state.status);
                     } catch {}
                     notes.push({
                         block: row.block,
@@ -3621,6 +4081,172 @@ function pmUnavailable() {
     };
 }
 
+// --- spec-130 live market pricing (DynamicPariMutuel) ----------------------
+// The 4.8.8 rewrite exposes polkamarktAPI.marketState(id), returning the implied
+// probability + marginal prices per market. We surface it so the UI shows the
+// REAL market probability instead of the collateral split (which reads ~100%
+// when one side is thin). Per-market cache, short TTL — markets move per trade.
+const PM_STATE_TTL = 20 * 1000;
+const pmStateCache = new Map(); // id -> { ts, state }
+
+// Parse a polkadot-js toJSON numeric (small → JS number, big → "0x…" hex string)
+// into a BigInt. Used for on-chain Balance/share fields.
+function pmToBig(x) {
+    if (x == null) return 0n;
+    if (typeof x === 'number') return BigInt(Math.trunc(x));
+    try { return BigInt(String(x)); } catch { return 0n; }
+}
+
+function pmRuntimeApiReady() {
+    return !!(api && api.call && api.call.polkamarktAPI && api.call.polkamarktAPI.marketState);
+}
+
+async function pmGetLiveStates(ids) {
+    const now = Date.now();
+    const out = {};
+    const stale = [];
+    for (const id of ids) {
+        const c = pmStateCache.get(id);
+        if (c && now - c.ts < PM_STATE_TTL) out[id] = c.state;
+        else stale.push(id);
+    }
+    if (stale.length && pmRuntimeApiReady()) {
+        await Promise.all(stale.map(async (id) => {
+            try {
+                const r = await api.call.polkamarktAPI.marketState(id);
+                const j = r && r.toJSON ? r.toJSON() : null;
+                if (j) {
+                    const state = {
+                        mechanism: j.mechanism != null ? String(j.mechanism) : null,
+                        impliedYesBps: Number(j.impliedYesProbabilityBps) || 0,
+                        impliedNoBps: Number(j.impliedNoProbabilityBps) || 0,
+                        marginalYesBps: Number(j.marginalYesPriceBps) || 0,
+                        marginalNoBps: Number(j.marginalNoPriceBps) || 0,
+                        dpmCollateral: pmToBig(j.dpmCollateral).toString(),
+                        virtualDepth: pmToBig(j.virtualDepth).toString(),
+                    };
+                    pmStateCache.set(id, { ts: now, state });
+                    out[id] = state;
+                }
+            } catch (e) { /* leave this market without live state */ }
+        }));
+    }
+    return out;
+}
+
+// Enrich a market detail with per-trader P&L, creator commission, and liquidity
+// providers — all read from the spec-130 on-chain storage. Mutates `detail`.
+//   · Open/Locked: positions from chain (marketPositions); value = shares marked
+//     at the implied probability (a share redeems 1 KUSD iff its outcome wins).
+//   · Resolved:   chain zeroes positions, so use our event-sourced trades; value
+//     = winning shares × 1 KUSD (payout).
+//   · Cancelled:  collateral refunded → value = paid, pnl = 0.
+async function pmEnrichMarketDetail(marketId, detail, liveState) {
+    if (!detail || !detail.market) return;
+    const q = api.query.polkamarkt;
+    const market = detail.market;
+    const status = String(market.status || '');
+    const resolution = market.resolution;
+    const iy = BigInt(liveState ? liveState.impliedYesBps : 0);
+    const ino = BigInt(liveState ? liveState.impliedNoBps : 0);
+
+    // creator commission accrued (trade fees routed to the market creator)
+    try {
+        const fees = (await q.marketCreatorFees(marketId)).toString();
+        detail.creator = { address: market.creator, feesRaw: pmToBig(fees).toString(), feeBps: 50 };
+    } catch (e) { console.error('[pm] creator fees read:', e.message); }
+
+    // liquidity providers + pool size
+    try {
+        let providers = [];
+        if (q.liquidityPositions) {
+            const lps = await q.liquidityPositions.entries(marketId);
+            providers = lps.map(([k, v]) => {
+                const j = v.toJSON ? v.toJSON() : {};
+                return {
+                    account: k.args[1].toString(),
+                    shares: pmToBig(j.shares ?? j.lpShares).toString(),
+                    contributed: pmToBig(j.collateralContributed ?? j.contributed).toString(),
+                };
+            });
+        }
+        let totals = null;
+        if (q.liquidityPositionTotals) {
+            const t = (await q.liquidityPositionTotals(marketId)).toJSON() || {};
+            totals = {
+                totalShares: pmToBig(t.totalShares).toString(),
+                totalContributed: pmToBig(t.totalCollateralContributed).toString(),
+            };
+        }
+        detail.liquidity = {
+            providers, totals,
+            dpmCollateral: liveState ? liveState.dpmCollateral : null,
+            seed: market.seed_liquidity != null ? String(market.seed_liquidity) : '0',
+        };
+    } catch (e) { console.error('[pm] liquidity read:', e.message); }
+
+    // per-trader positions + P&L
+    try {
+        let rows = [];
+        if (status === 'Open' || status === 'Locked') {
+            const entries = await q.marketPositions.entries(marketId);
+            for (const [k, v] of entries) {
+                const j = v.toJSON ? v.toJSON() : {};
+                const yes = pmToBig(j.yesShares), no = pmToBig(j.noShares), paid = pmToBig(j.netCollateralPaid);
+                const value = (yes * iy + no * ino) / 10000n; // mark at implied probability
+                rows.push({ trader: k.args[1].toString(), yes_shares: yes.toString(), no_shares: no.toString(),
+                            paid: paid.toString(), value: value.toString(), pnl: (value - paid).toString(), basis: 'mark' });
+            }
+        } else {
+            // Resolved/Cancelled: chain positions are zeroed → use our trades history.
+            for (const p of (detail.topPositions || [])) {
+                const yes = pmToBig(p.yes_shares), no = pmToBig(p.no_shares), paid = pmToBig(p.net_collateral);
+                let value, basis;
+                if (status === 'Resolved') {
+                    value = resolution === 'Yes' ? yes : (resolution === 'No' ? no : 0n); basis = 'settled';
+                } else { value = paid; basis = 'refunded'; } // Cancelled → refund
+                rows.push({ trader: p.trader, yes_shares: yes.toString(), no_shares: no.toString(),
+                            paid: paid.toString(), value: value.toString(), pnl: (value - paid).toString(), basis });
+            }
+        }
+        rows.sort((a, b) => (BigInt(a.paid) < BigInt(b.paid) ? 1 : -1));
+        detail.positions = rows.slice(0, 12);
+    } catch (e) { console.error('[pm] positions/pnl read:', e.message); }
+}
+
+// Reconcile market lifecycle (status / resolution / mechanism) from on-chain
+// truth. The 4.8.8 migration changed statuses via LegacyMarketMigrated and the
+// weekly governance batch resolves markets without always firing the events our
+// live indexer keys on — so we periodically read the canonical state and fix any
+// drift. Cheap: a handful of markets.
+async function pmReconcileMarketsFromChain() {
+    if (!pmAvailable()) return;
+    try {
+        const entries = await api.query.polkamarkt.markets.entries();
+        let changed = 0;
+        for (const [key, val] of entries) {
+            const id = Number(key.args[0].toString());
+            const m = val && val.toJSON ? val.toJSON() : null;
+            if (!m) continue;
+            const status = m.status != null ? String(m.status) : null;
+            const mechanism = m.mechanism != null ? String(m.mechanism) : null;
+            let resolution = null;
+            if (status === 'Resolved' && api.query.polkamarkt.marketResolution) {
+                try {
+                    const rOpt = await api.query.polkamarkt.marketResolution(id);
+                    const rj = rOpt && rOpt.toJSON ? rOpt.toJSON() : null;
+                    if (rj != null) resolution = String(rj);
+                } catch (_) {}
+            }
+            const n = await pmReconcileMarketStatus(id, { status, resolution, mechanism });
+            if (n > 0) changed += 1;
+        }
+        if (changed > 0) console.log(`🔧 Polkamarkt reconcile: ${changed} market(s) synced from chain`);
+    } catch (e) {
+        console.error('[pm] reconcile error:', e.message);
+    }
+}
+
 app.get('/polkamarkt/state', rateLimit(30, 60000), async (req, res) => {
     try {
         if (!pmAvailable()) return res.json(pmUnavailable());
@@ -3639,6 +4265,22 @@ app.get('/polkamarkt/markets', rateLimit(30, 60000), async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 25, 100);
         const status = req.query.status || null;
         const result = await pmGetMarkets({ page, limit, status });
+        // Enrich each row with live DPM state so the bar shows the real implied
+        // probability, not the collateral split. Best-effort: serve without it
+        // if the runtime API call fails.
+        try {
+            const ids = result.data.map(m => Number(m.market_id));
+            const states = await pmGetLiveStates(ids);
+            for (const m of result.data) {
+                const s = states[Number(m.market_id)];
+                if (!s) continue;
+                m.implied_yes_bps = s.impliedYesBps;
+                m.implied_no_bps = s.impliedNoBps;
+                m.marginal_yes_bps = s.marginalYesBps;
+                m.marginal_no_bps = s.marginalNoBps;
+                if (!m.mechanism && s.mechanism) m.mechanism = s.mechanism;
+            }
+        } catch (_) { /* no live pricing this round */ }
         res.json(result);
     } catch (e) {
         console.error('Error /polkamarkt/markets:', e.message);
@@ -3653,6 +4295,17 @@ app.get('/polkamarkt/market/:id', rateLimit(30, 60000), async (req, res) => {
         if (!pmAvailable()) return res.json({ ...pmUnavailable(), data: null });
         const detail = await pmGetMarketDetail(id);
         if (!detail) return res.status(404).json({ error: 'Market not found' });
+        try {
+            const s = (await pmGetLiveStates([id]))[id];
+            if (s && detail.market) {
+                detail.market.implied_yes_bps = s.impliedYesBps;
+                detail.market.implied_no_bps = s.impliedNoBps;
+                detail.market.marginal_yes_bps = s.marginalYesBps;
+                detail.market.marginal_no_bps = s.marginalNoBps;
+                if (!detail.market.mechanism && s.mechanism) detail.market.mechanism = s.mechanism;
+            }
+            await pmEnrichMarketDetail(id, detail, s);
+        } catch (e) { console.error('[pm] market detail enrich:', e.message); }
         res.json({ available: true, ...detail });
     } catch (e) {
         console.error('Error /polkamarkt/market/:id:', e.message);
@@ -3669,6 +4322,44 @@ app.get('/polkamarkt/positions/:addr', rateLimit(30, 60000), async (req, res) =>
         res.json({ available: true, positions });
     } catch (e) {
         console.error('Error /polkamarkt/positions:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/news/episodes', rateLimit(60, 60000), async (req, res) => {
+    try {
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+        const rows = await newsListEpisodes({ limit, offset });
+        res.json({ episodes: rows, total: rows.length });
+    } catch (e) {
+        console.error('Error /news/episodes:', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+app.get('/polkamarkt/buybacks', rateLimit(30, 60000), async (req, res) => {
+    try {
+        if (!pmAvailable()) return res.json({ ...pmUnavailable(), pending: '0', stats: null, history: [] });
+        const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 10));
+
+        let pendingKusd = '0';
+        try {
+            const v = await api.query.polkamarkt.pendingXorBuybackCollateral();
+            pendingKusd = v.toString();
+        } catch (e) {
+            console.warn('[/polkamarkt/buybacks] pendingXorBuybackCollateral read failed:', e.message);
+        }
+
+        const [stats, history, burns] = await Promise.all([
+            pmGetBuybackStats(),
+            pmListBuybacks({ limit }),
+            pmGetBurnStats(),
+        ]);
+
+        res.json({ available: true, pendingKusd, stats, history, burns });
+    } catch (e) {
+        console.error('Error /polkamarkt/buybacks:', e.message);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -3713,6 +4404,27 @@ app.get('/stats/fees/trend', rateLimit(20, 60000), async (req, res) => {
 
 const VALID_BURN_SYMBOL = /^(XOR|VAL|PSWAP|TBCD|KUSD)$/i;
 
+// Real burn time-series for the cumulative chart (per-day, from the indexer).
+// Returns cumulative burned amount of the requested token. Empty array until
+// the indexer accumulates enough days. No synthetic data.
+app.get('/burns/series/:symbol', rateLimit(30, 60000), async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+    if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
+    const days = Math.min(parseInt(req.query.days) || 30, 90);
+    try {
+        const key = { XOR: 'xor', VAL: 'val', KUSD: 'kusd', TBCD: 'tbcd' }[symbol];
+        // PSWAP burns via a different pallet (pswap-distribution), not indexed here.
+        if (!key) return res.json({ symbol, points: [], note: 'not tracked by fee-burns indexer' });
+        const daily = await getFeeBurnsSeries(days);
+        let cum = 0;
+        const points = daily.map(d => { cum += d[key] || 0; return { ts: d.ts, daily: d[key] || 0, cumulative: cum }; });
+        res.json({ symbol, days, points });
+    } catch (e) {
+        console.error('[burns/series]', e.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 app.get('/burns/supply/:symbol', rateLimit(20, 60000), async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
     if (!VALID_BURN_SYMBOL.test(symbol)) return res.status(400).json({ error: 'Invalid symbol' });
@@ -3720,28 +4432,9 @@ app.get('/burns/supply/:symbol', rateLimit(20, 60000), async (req, res) => {
     try {
         const supply = await getTokenTotalSupply(symbol);
         const price = tokenPrices[symbol] || 0;
+        // 1 XOR = 1 XOR — supply is the real on-chain total issuance (matches MOF).
+        // No CoinGecko, no denomination unpacking.
         const response = { symbol, totalSupply: supply, price, marketCap: (supply || 0) * price };
-
-        // XOR special case: include CoinGecko market data + Ethereum supply
-        // On-chain price ($5 from illiquid pool) × MOF supply (1e18) = absurd market cap.
-        // CoinGecko provides realistic market data.
-        if (symbol === 'XOR') {
-            const xorMarket = await fetchXorMarketData();
-            response.xorMarket = {
-                cgPrice: xorMarket.cgPrice,
-                cgMarketCap: xorMarket.cgMarketCap,
-                ethSupply: xorMarket.ethSupply,
-                denominationFactor: xorMarket.denominationFactor,
-                note: 'XOR has undergone multiple denomination events. MOF supply is post-denomination.'
-            };
-            // Override market cap with CoinGecko value if available
-            if (xorMarket.cgMarketCap) {
-                response.marketCap = xorMarket.cgMarketCap;
-            }
-            if (xorMarket.cgPrice) {
-                response.cgPrice = xorMarket.cgPrice;
-            }
-        }
 
         res.json(response);
     } catch (e) {
@@ -3851,55 +4544,57 @@ app.get('/burns/fee-flow', rateLimit(20, 60000), async (req, res) => {
         let totalXor = 0;
         feeStats.forEach(row => { totalXor += parseFloat(row.total_xor) || 0; });
 
-        // SORA fee distribution model (verified from sora2-network source)
+        const sv = api?.runtimeVersion?.specVersion?.toNumber?.() ?? 0;
+
+        // Fee distribution model. Real runtime constants:
+        //   4.8.6 (spec>=128): ref 10 / xor 35 / val 40 / kusd 0  (total 85)
+        //                      RemintXorBurnPercent 40%, RemintKusdBuyBackPercent 0%, VAL_BURN_PERCENT 10%
+        //   <=4.8.4: ref 10 / xor 20 / val 50 / kusd 5            (total 85)
+        let distribution, weights;
+        if (sv >= 128) {
+            const W = { ref: 10, xor: 35, val: 40, kusd: 0, total: 85 };
+            const REMINT_XOR_BURN = 0.40;   // RemintXorBurnPercent — 40% of the VAL bucket is burnt as XOR
+            const VAL_BURN_PCT = 0.10;       // VAL_BURN_PERCENT — 10% of swapped VAL burnt, 90% to stakers
+            const referrer      = totalXor * (W.ref / W.total);            // to referrer, or burnt as XOR if none
+            const xorBurnDirect = totalXor * (W.xor / W.total);            // burnt as XOR directly on each fee
+            const xorToValBucket = totalXor * (W.val / W.total);           // queued for VAL buy-back at remint
+            const xorBurnRemint = xorToValBucket * REMINT_XOR_BURN;        // 40% of bucket burnt as XOR at remint
+            const xorToVal      = xorToValBucket * (1 - REMINT_XOR_BURN);  // 60% swapped to VAL
+            const valStaking    = xorToVal * (1 - VAL_BURN_PCT);           // 90% of VAL → stakers (NOT burnt)
+            const valBurn       = xorToVal * VAL_BURN_PCT;                 // 10% of VAL burnt
+            distribution = {
+                xorBurn:    xorBurnDirect + xorBurnRemint,   // total XOR burnt (direct + remint)
+                valStaking,                                   // XOR-equiv routed to staking rewards
+                valBurn,                                      // XOR-equiv of VAL burnt (10%)
+                referrer,                                     // to referrer (or burnt if no referrer)
+            };
+            weights = W;
+        } else {
+            // Legacy <=4.8.4 model (KUSD buy-back still active)
+            const kusdWeight = 0.05;
+            const valSlice = totalXor * 0.50;
+            const xorBurnExtra = valSlice * 0.01;
+            const valSliceAfterXorBurn = valSlice - xorBurnExtra;
+            distribution = {
+                xorBurn:     totalXor * 0.20 + xorBurnExtra,
+                valBurn:     valSliceAfterXorBurn * 0.61,
+                kusdBuyback: valSliceAfterXorBurn * 0.39 + totalXor * kusdWeight,
+                referrer:    totalXor * 0.10,
+            };
+            weights = { ref: 10, xor: 20, val: 50, kusd: 5, total: 85 };
+        }
+
         const flow = {
+            specVersion: sv,
             totalXorFees: totalXor,
-            distribution: {
-                xorBurn: totalXor * 0.20,
-                valPathway: totalXor * 0.50,
-                valBurn: totalXor * 0.50 * 0.60,
-                kusdBuyback: (totalXor * 0.50 * 0.39) + (totalXor * 0.20),
-                tbcdBuyback: totalXor * 0.50 * 0.01,
-                referrer: totalXor * 0.10
-            },
+            distribution,
+            weights,
             supplies: {}
         };
 
         for (const sym of Object.keys(BURN_TOKENS)) {
             flow.supplies[sym] = await getTokenTotalSupply(sym);
         }
-
-        // VAL remint percentage — real-time from on-chain timeSinceGenesis
-        // This tells us what % of burned VAL gets reminted as staking rewards
-        try {
-            flow.valRemintPercentage = await getValRemintPercentage();
-        } catch (e) {
-            flow.valRemintPercentage = 35.5; // fallback
-        }
-
-        // PSWAP swap fee data — 0.3% of all DEX swap volume goes to PSWAP burn mechanism
-        // BurnRate started at 10%, increases ~0.0357%/day, capped at 65% (reached ~mid-2025).
-        // LP share = 1 - BurnRate = 35%. This is permanent — no mechanism to disable.
-        try {
-            const swapVolumeUsd = await getSwapVolumeUsd(startTime);
-            const estimatedFees = swapVolumeUsd * 0.003;
-            flow.pswapFlow = {
-                totalSwapVolumeUsd24h: swapVolumeUsd,
-                estimatedFeesUsd: estimatedFees,
-                burnRate: 65 // BurnRate capped at 65% (burn+vesting+buyback), 35% to LPs
-            };
-        } catch (e) {
-            flow.pswapFlow = { totalSwapVolumeUsd24h: 0, estimatedFeesUsd: 0, burnRate: 65 };
-        }
-
-        // Include CoinGecko market cap for XOR context
-        const xorMarket = await fetchXorMarketData();
-        if (xorMarket.cgMarketCap) {
-            flow.xorMarketCap = xorMarket.cgMarketCap;
-        }
-
-        // Denomination factor for frontend unpacked XOR display
-        flow.denomFactor = currentDenomFactor;
 
         res.json(flow);
     } catch (e) {
@@ -4054,10 +4749,28 @@ async function startApp() {
     // activates later via runtime upgrade the indexer picks up from there.
     await initPolkamarktSchema().catch(e => console.error('[pm] schema init failed:', e.message));
     await initFeeBurnsLiveSchema().catch(e => console.error('[fee-burns] schema init failed:', e.message));
+    await initNewsSchema().catch(e => console.error('[news] schema init failed:', e.message));
+    await initValStakingRewardsSchema().catch(e => console.error('[val-staking-rewards] schema init failed:', e.message));
+    try {
+        const _saDb = require('./analytics/db');
+        const _saPresence = require('./analytics/presence');
+        await _saDb.initSchema();
+        _saDb.startFlushLoop();
+        _saPresence.startSweepLoop();
+        setInterval(() => _saDb.rollupAndPrune().catch(() => {}), 6 * 3600 * 1000);
+        console.log('✅ site analytics schema + loops started');
+    } catch (e) { console.error('[analytics] init failed:', e.message); }
     await loadOfficialWhitelist();
     resolveBurnTokenIds();
     api = await initApi();
     startFeeBurnsIndexer(api, { insertFeeBurnRow });
+    startPipelineSubscriber().catch(e => console.error('[pipeline] subscriber failed:', e.message));
+
+    // Polkamarkt: sync market lifecycle (status/resolution/mechanism) from chain
+    // on boot, then periodically. Catches statuses the 4.8.8 migration set
+    // without firing the events our live indexer keys on.
+    setTimeout(() => pmReconcileMarketsFromChain().catch(() => {}), 8000);
+    setInterval(() => pmReconcileMarketsFromChain().catch(() => {}), 5 * 60 * 1000);
 
     // Initialize denomination factor from on-chain + fix legacy fees with missing denom_factor
     await updateDenomFactor();
@@ -4091,8 +4804,11 @@ async function startApp() {
             }
         }
     }
-    // Pre-warm supply cache from DB so first requests don't return null
+    // Pre-warm supply cache from DB so first requests don't return null.
+    // XOR is skipped — its supply now comes from on-chain (balances.totalIssuance,
+    // 1 XOR = 1 XOR) on demand, not from stale CoinGecko-derived snapshots.
     for (const sym of Object.keys(BURN_TOKENS)) {
+        if (sym === 'XOR') continue;
         try {
             const snap = await getLatestSupplySnapshot(sym);
             if (snap && snap.total_supply) {
@@ -4406,19 +5122,6 @@ async function startApp() {
             })();
         }
 
-        // --- POLKAMARKT (prediction market) EVENTS ---
-        // Event shapes (from pallets/polkamarkt/src/lib.rs):
-        //   MarketCreated(market_id, seed_liquidity)
-        //   TradeExecuted(market_id, trader, side, outcome, collateral, shares, fee)
-        //   MarketLocked(market_id)
-        //   MarketResolved(market_id, outcome)
-        //   MarketCancelled(market_id)
-        //   MarketClaimed(market_id, trader, payout)
-        //   CreatorFeesClaimed(market_id, creator, amount)
-        //   CreatorLiquidityClaimed(market_id, creator, amount)
-        //   MarketBondLockReleased(market_id, creator, amount)
-        // When the pallet is not present (current runtime 119), this block is
-        // a no-op: `allEvents.filter` returns empty and nothing gets called.
         const pmEvents = allEvents.filter(({ event }) => event.section === 'polkamarkt');
         if (pmEvents.length > 0) {
             // Resolve ts once for the whole block — cheaper than per event.
@@ -4434,13 +5137,13 @@ async function startApp() {
                     try {
                         if (method === 'MarketCreated') {
                             // Hydrate market metadata from chain storage (question, oracle,
-                            // source, opengov link). That requires api.query.polkamarkt.*
-                            // which we've already confirmed present (events were emitted).
+                            // source, mechanism). Requires api.query.polkamarkt.* — present,
+                            // since the pallet just emitted the event we're handling.
                             const marketId = Number(raw[0]);
                             const seedLiquidity = raw[1];
                             let question = null, oracle = null, resolutionSource = null;
                             let creator = 'Unknown', closeBlock = 0, collateralAsset = '', conditionId = 0;
-                            let opengov = {};
+                            let mechanism = null, status = 'Open';
                             try {
                                 const mOpt = await api.query.polkamarkt.markets(marketId);
                                 if (mOpt && mOpt.isSome !== false) {
@@ -4448,7 +5151,16 @@ async function startApp() {
                                     creator = String(m.creator || 'Unknown');
                                     conditionId = Number(m.conditionId ?? m.condition_id ?? 0);
                                     closeBlock = Number(m.closeBlock ?? m.close_block ?? 0);
-                                    collateralAsset = String(m.collateralAsset ?? m.collateral_asset ?? '');
+                                    // 4.8.8: MigratedLegacy | DynamicPariMutuel.
+                                    mechanism = m.mechanism != null ? String(m.mechanism) : null;
+                                    if (m.status != null) status = String(m.status);
+                                    // collateralAsset is an AssetId32 — toJSON gives { code: '0x…' },
+                                    // not a string. String() on the object yields "[object Object]";
+                                    // extract the inner code (same shape as tokens.Transfer assetId).
+                                    const _ca = m.collateralAsset ?? m.collateral_asset;
+                                    collateralAsset = (_ca && typeof _ca === 'object')
+                                        ? String(_ca.code ?? _ca.address ?? _ca.assetId ?? '')
+                                        : String(_ca ?? '');
                                 }
                                 const cOpt = await api.query.polkamarkt.conditions(conditionId);
                                 if (cOpt) {
@@ -4461,27 +5173,14 @@ async function startApp() {
                                     oracle = hex2str(c?.oracle) || null;
                                     resolutionSource = hex2str(c?.resolutionSource ?? c?.resolution_source) || null;
                                 }
-                                const ogOpt = await api.query.polkamarkt.opengovConditions(conditionId).catch(() => null);
-                                if (ogOpt) {
-                                    const og = ogOpt.toJSON ? ogOpt.toJSON() : null;
-                                    if (og) {
-                                        opengov = {
-                                            opengovNetwork: String(og.network || og.relay_network || 'Polkadot'),
-                                            opengovParachain: Number(og.parachainId ?? og.parachain_id) || null,
-                                            opengovTrack: Number(og.trackId ?? og.track_id) || null,
-                                            opengovReferendum: Number(og.referendumIndex ?? og.referendum_index) || null,
-                                        };
-                                    }
-                                }
                             } catch (_) { /* best-effort hydration */ }
                             await pmInsertMarket({
                                 marketId, conditionId, creator, closeBlock, collateralAsset,
-                                seedLiquidity, status: 'Open',
-                                question, oracle, resolutionSource,
-                                ...opengov,
+                                seedLiquidity, status,
+                                question, oracle, resolutionSource, mechanism,
                                 block: blockNumber, ts: blockTs,
                             });
-                            console.log(`🎲 Polkamarkt Market #${marketId} created by ${creator.slice(0, 10)}…`);
+                            console.log(`🎲 Polkamarkt Market #${marketId} (${mechanism || '?'}) created by ${creator.slice(0, 10)}…`);
                         } else if (method === 'TradeExecuted') {
                             await pmInsertTrade({
                                 marketId: Number(raw[0]),
@@ -4517,27 +5216,77 @@ async function startApp() {
                                 amount: raw[2],
                                 block: blockNumber, ts: blockTs,
                             });
-                        } else if (method === 'CreatorLiquidityClaimed') {
-                            await pmInsertClaim({
-                                marketId: Number(raw[0]),
-                                account: raw[1],
-                                kind: 'creator_liquidity',
-                                amount: raw[2],
-                                block: blockNumber, ts: blockTs,
+                        } else if (method === 'LegacyMarketMigrated') {
+                            // 4.8.8 migration stamped a final status on each legacy market
+                            // (Resolved / Cancelled / …). This is how #0/#1 changed state
+                            // WITHOUT a MarketResolved/Cancelled event — handle it explicitly.
+                            // resolution (Yes/No) is filled by the periodic chain reconcile.
+                            await pmReconcileMarketStatus(Number(raw[0]), {
+                                status: String(raw[1]),
+                                mechanism: 'MigratedLegacy',
                             });
-                        } else if (method === 'MarketBondLockReleased') {
-                            await pmInsertClaim({
-                                marketId: Number(raw[0]),
-                                account: raw[1],
-                                kind: 'bond_released',
-                                amount: raw[2],
-                                block: blockNumber, ts: blockTs,
+                            console.log(`🔁 Polkamarkt LegacyMarketMigrated #${raw[0]} → ${raw[1]}`);
+                        } else if (method === 'MarketEmergencyCancelled') {
+                            await pmUpdateMarketStatus(Number(raw[0]), 'Cancelled', null, blockNumber, blockTs);
+                        } else if (method === 'DpmResidualBurned') {
+                            await pmInsertBurn({
+                                block: blockNumber, ts: blockTs, hash: extHash,
+                                marketId: Number(raw[0]), kind: 'dpm_residual', amount: raw[1],
                             });
+                            console.log(`🔥 Polkamarkt DpmResidualBurned #${raw[0]} · ${raw[1]}`);
+                        } else if (method === 'LegacyMigrationResidualRouted') {
+                            await pmInsertBurn({
+                                block: blockNumber, ts: blockTs, hash: extHash,
+                                marketId: null, kind: 'legacy_migration_residual', amount: raw[0],
+                            });
+                        } else if (method === 'XorBuybackSwept') {
+                            await pmInsertBuyback({
+                                block: blockNumber,
+                                ts: blockTs,
+                                hash: extHash,
+                                kusdSpent: raw[0],
+                                xorBurned: raw[1],
+                            });
+                            console.log(`🔥 Polkamarkt XorBuybackSwept · KUSD=${raw[0]} XOR_burned=${raw[1]}`);
                         }
-                        // MarketSeeded / GovernanceBonded / HollarRouted / XorBuybackSwept are
-                        // informational — no action needed for v1 of the UI.
                     } catch (e) {
                         console.error(`polkamarkt.${method} handler error:`, e.message);
+                    }
+                }
+            })();
+        }
+
+        // VAL staking rewards (4.8.6+ feature). Silently no-op while the event
+        // does not exist in the runtime metadata; starts indexing the instant
+        // runtime upgrade introduces `xorFee.ValStakingRewardPaid`.
+        const vsrEvents = allEvents.filter(({ event }) =>
+            event.section === 'xorFee' && event.method === 'ValStakingRewardPaid'
+        );
+        if (vsrEvents.length > 0) {
+            const blockTs = new Date();
+            const blockHashHex = blockHash.toHex();
+            (async () => {
+                for (const rec of vsrEvents) {
+                    try {
+                        const d = rec.event.data;
+                        // Event signature: (stash, dest, era, page, amount)
+                        const stash = d[0].toString();
+                        const dest = d[1].toString();
+                        const era = d[2].toNumber();
+                        const page = d[3].toNumber();
+                        const amount = d[4].toString();
+                        await insertValStakingReward({
+                            era, page,
+                            validator_stash: stash,
+                            destination: dest,
+                            amount,
+                            block_num: blockNumber,
+                            block_hash: blockHashHex,
+                            ts: blockTs,
+                        });
+                        console.log(`💎 ValStakingRewardPaid era=${era} page=${page} stash=${stash.slice(0,12)} dest=${dest.slice(0,12)} amount=${amount}`);
+                    } catch (e) {
+                        console.error('ValStakingRewardPaid insert error:', e.message);
                     }
                 }
             })();
@@ -5627,7 +6376,11 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
         const prefs = await withTimeout(api.query.staking.validators.multi(validatorAddresses), 15000);
 
         const eraStakerKeys = validatorAddresses.map(addr => [eraIndex, addr]);
-        const exposures = await withTimeout(api.query.staking.erasStakers.multi(eraStakerKeys), 45000);
+        // erasStakers is deprecated (post-paging pallet_staking). Use overview + clipped fallback.
+        const [overviews, clippedFallback] = await Promise.all([
+            withTimeout(api.query.staking.erasStakersOverview.multi(eraStakerKeys), 30000),
+            withTimeout(api.query.staking.erasStakersClipped.multi(eraStakerKeys), 30000)
+        ]);
 
         const identities = await attachIdentities(validatorAddresses);
 
@@ -5655,14 +6408,24 @@ app.get("/staking/validators", rateLimit(10, 60000), async (req, res) => {
         const xorPrice = tokenPrices['XOR'] || 0;
         const validators = validatorAddresses.map((addr, i) => {
             const pref = prefs[i].toJSON();
-            const exposure = exposures[i].toJSON();
+
+            let totalStakeRaw = '0';
+            let ownStakeRaw = '0';
+            let othersCount = 0;
+            if (overviews[i].isSome) {
+                const ov = overviews[i].unwrap();
+                totalStakeRaw = ov.total.toString();
+                ownStakeRaw = ov.own.toString();
+                othersCount = ov.nominatorCount.toNumber();
+            } else {
+                const c = clippedFallback[i].toJSON();
+                totalStakeRaw = c.total || '0';
+                ownStakeRaw = c.own || '0';
+                othersCount = c.others ? c.others.length : 0;
+            }
 
             const commissionPerbill = pref.commission || 0;
             const commissionPercent = (commissionPerbill / 1_000_000_000 * 100).toFixed(2);
-
-            const totalStakeRaw = exposure.total || '0';
-            const ownStakeRaw = exposure.own || '0';
-            const othersCount = exposure.others ? exposure.others.length : 0;
 
             const totalStake = new BigNumber(String(totalStakeRaw).replace(/,/g, '')).div('1e18');
             const ownStake = new BigNumber(String(ownStakeRaw).replace(/,/g, '')).div('1e18');
@@ -5700,12 +6463,19 @@ app.get("/staking/network", rateLimit(15, 60000), async (req, res) => {
             return res.json(networkStakingCache.data);
         }
 
-        const [activeEraOpt, currentEraOpt, sessionIndex, bestHeader, finalizedHash] = await Promise.all([
+        const [activeEraOpt, currentEraOpt, sessionIndex, bestHeader, finalizedHash,
+               sessionValidators, validatorCountTarget, intentCounter,
+               minNomBondRaw, minValBondRaw] = await Promise.all([
             withTimeout(api.query.staking.activeEra()),
             withTimeout(api.query.staking.currentEra()),
             withTimeout(api.query.session.currentIndex()),
             withTimeout(api.rpc.chain.getHeader()),
             withTimeout(api.rpc.chain.getFinalizedHead()),
+            withTimeout(api.query.session.validators()),
+            withTimeout(api.query.staking.validatorCount()),
+            withTimeout(api.query.staking.counterForValidators()),
+            withTimeout(api.query.staking.minNominatorBond()),
+            withTimeout(api.query.staking.minValidatorBond()),
         ]);
 
         const activeEra = activeEraOpt.unwrap();
@@ -5718,41 +6488,96 @@ app.get("/staking/network", rateLimit(15, 60000), async (req, res) => {
         const finalizedHeader = await withTimeout(api.rpc.chain.getHeader(finalizedHash));
         const finalizedBlock = finalizedHeader.number.toNumber();
 
-        const sessionsPerEra = api.consts.staking.sessionsPerEra ? api.consts.staking.sessionsPerEra.toNumber() : 6;
-        const expectedBlockTime = api.consts.babe.expectedBlockTime ? api.consts.babe.expectedBlockTime.toNumber() : 6000;
+        const sessionsPerEra = api.consts.staking.sessionsPerEra?.toNumber?.() || 6;
+        const epochDurationBlocks = api.consts.babe.epochDuration?.toNumber?.() || 600;
+        const expectedBlockTime = api.consts.babe.expectedBlockTime?.toNumber?.() || 6000;
+        const bondingDurationEras = api.consts.staking.bondingDuration?.toNumber?.() || 28;
 
-        let sessionProgress = 0;
-        let eraProgress = 0;
+        const eraSeconds = (sessionsPerEra * epochDurationBlocks * expectedBlockTime) / 1000;
+        const epochSeconds = (epochDurationBlocks * expectedBlockTime) / 1000;
+        const unbondingDays = (bondingDurationEras * eraSeconds) / 86400;
+
+        let sessionProgress = 0, eraProgress = 0, epochProgress = 0;
         try {
             const eraSessionStart = await withTimeout(api.query.staking.erasStartSessionIndex(eraIndex));
             const eraStartSession = eraSessionStart.isSome ? eraSessionStart.unwrap().toNumber() : 0;
             sessionProgress = currentSession - eraStartSession;
             eraProgress = parseFloat((sessionProgress / sessionsPerEra * 100).toFixed(1));
+            const blocksIntoSession = bestBlock % epochDurationBlocks;
+            epochProgress = parseFloat((blocksIntoSession / epochDurationBlocks * 100).toFixed(1));
         } catch (e) { /* ignore */ }
 
-        let totalIssuance = null, totalStaked = null;
+        let totalIssuance = null, totalStaked = null, stakingRatio = null;
         try {
             const [issuanceRaw, erasTotalStakeRaw] = await Promise.all([
                 withTimeout(api.query.balances.totalIssuance()),
                 withTimeout(api.query.staking.erasTotalStake(eraIndex))
             ]);
-            totalIssuance = new BigNumber(issuanceRaw.toString()).div('1e18').toNumber();
-            totalStaked = new BigNumber(erasTotalStakeRaw.toString()).div('1e18').toNumber();
+            // Keep as string to avoid Number precision loss above 2^53
+            totalIssuance = new BigNumber(issuanceRaw.toString()).div('1e18').toFixed(2);
+            totalStaked = new BigNumber(erasTotalStakeRaw.toString()).div('1e18').toFixed(2);
+            if (parseFloat(totalIssuance) > 0) {
+                stakingRatio = ((parseFloat(totalStaked) / parseFloat(totalIssuance)) * 100).toFixed(4);
+            }
         } catch (e) { /* ignore */ }
 
-        let validatorCount = 0;
+        // Find last era with non-zero validator reward (scan back up to historyDepth)
+        let lastRewardEra = null, lastRewardAmount = null;
         try {
-            const vals = await withTimeout(api.query.session.validators());
-            validatorCount = vals.length;
+            const historyDepth = api.consts.staking.historyDepth?.toNumber?.() ?? 84;
+            const erasToScan = [];
+            for (let e = eraIndex - 1; e >= Math.max(0, eraIndex - historyDepth); e--) erasToScan.push(e);
+            const rewards = await withTimeout(api.query.staking.erasValidatorReward.multi(erasToScan), 30000);
+            for (let i = 0; i < erasToScan.length; i++) {
+                if (rewards[i].isSome) {
+                    const v = rewards[i].unwrap();
+                    if (!v.isZero()) {
+                        lastRewardEra = erasToScan[i];
+                        lastRewardAmount = new BigNumber(v.toString()).div('1e18').toFixed(2);
+                        break;
+                    }
+                }
+            }
         } catch (e) { /* ignore */ }
+
+        const xorPrice = tokenPrices['XOR'] || 0;
+        const activeValidatorsCount = sessionValidators.length;
+        const targetCount = validatorCountTarget.toNumber();
+        const intentCount = intentCounter.toNumber();
+        const waitingValidators = Math.max(0, intentCount - activeValidatorsCount);
+
+        const eraStartedAgo = eraStart ? `${Math.floor((Date.now() - eraStart) / 60000)} min ago` : '';
+        const epochDurationLabel = epochSeconds >= 3600
+            ? `${(epochSeconds / 3600).toFixed(1)}h`
+            : `${(epochSeconds / 60).toFixed(0)}min`;
 
         const result = {
+            // Legacy fields (kept for backwards compat with other consumers)
             activeEra: eraIndex, currentEra, eraStart,
             sessionIndex: currentSession, sessionsPerEra, sessionProgress, eraProgress,
             expectedBlockTime, bestBlock, finalizedBlock,
-            totalIssuance, totalStaked,
-            stakingRatio: totalIssuance && totalStaked ? ((totalStaked / totalIssuance) * 100).toFixed(2) : null,
-            validatorCount, avgBlockTime: expectedBlockTime / 1000
+            totalIssuance, totalStaked, stakingRatio,
+            validatorCount: activeValidatorsCount, avgBlockTime: expectedBlockTime / 1000,
+
+            // Fields the Staking Network Info UI consumes
+            era: eraIndex,
+            totalStake: totalStaked,
+            totalStakeUsd: totalStaked && xorPrice ? (parseFloat(totalStaked) * xorPrice).toFixed(2) : null,
+            epochProgress: epochProgress + '%',
+            epochsPerEra: sessionsPerEra,
+            epochDuration: epochDurationLabel,
+            activeValidators: activeValidatorsCount,
+            waitingValidators,
+            validatorTarget: targetCount,
+            minNominatorBond: new BigNumber(minNomBondRaw.toString()).div('1e18').toFixed(4),
+            minValidatorBond: new BigNumber(minValBondRaw.toString()).div('1e18').toFixed(4),
+            lastRewardEra,
+            lastRewardAmount,
+            idealStakeRate: null, // SORA EraPayout=() → no standard inflation curve
+            currentInflation: 0,  // EraPayout=() → 0 XOR minted per era
+            unbondingDays: parseFloat(unbondingDays.toFixed(1)),
+            unbondingEras: bondingDurationEras,
+            eraStartedAgo,
         };
 
         networkStakingCache = { data: result, ts: Date.now() };
@@ -5760,6 +6585,400 @@ app.get("/staking/network", rateLimit(15, 60000), async (req, res) => {
     } catch (e) {
         console.error("Error /staking/network:", e.message);
         res.json({ error: e.message });
+    }
+});
+
+// Live pipeline endpoint — serves from in-memory state populated by storage subscribers.
+// Zero load on the node per request. Frontend polls every 30s.
+// Token price comparison tool: aligned historical price series for up to 4 tokens.
+// ?assets=<assetId>,<assetId>  &window=7d|30d|90d|365d|all   (assetIds are 0x… hex)
+// Real data from sm.price_history only. Cached 5 min (history changes slowly).
+const _priceSeriesCache = new Map(); // key = `${assets}|${window}` -> { data, ts }
+app.get('/tools/price-series', rateLimit(60, 60000), async (req, res) => {
+    try {
+        const assets = String(req.query.assets || '').split(',').map(s => s.trim()).filter(s => /^0x[0-9a-fA-F]{64}$/.test(s)).slice(0, 4);
+        const window = ['7d', '30d', '90d', '365d', 'all'].includes(req.query.window) ? req.query.window : '30d';
+        if (assets.length === 0) return res.status(400).json({ error: 'no valid asset ids (expect 0x… 64-hex, comma-separated)' });
+        const key = `${assets.join(',')}|${window}`;
+        const hit = _priceSeriesCache.get(key);
+        if (hit && Date.now() - hit.ts < 300000) return res.json(hit.data);
+        const data = await getPriceSeries(assets, window);
+        _priceSeriesCache.set(key, { data, ts: Date.now() });
+        res.json(data);
+    } catch (e) {
+        console.error('Error /tools/price-series:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/staking/rewards/live', rateLimit(120, 60000), (req, res) => {
+    const remintPeriod = api?.query?.xorFee?.remintPeriod ? 100 : 100; // const default; could read on boot
+    const blocksSinceLastRemint = null; // could derive from event subscriber; left null for now
+    res.json({
+        xorToVal: pipelineState.xorToVal,
+        xorToBuyBack: pipelineState.xorToBuyBack,
+        valStakingEraReward: pipelineState.valStakingEraReward,
+        valBucketPrevEra: pipelineState.valBucketPrevEra,
+        unassignedValStakingReward: pipelineState.unassignedValStakingReward,
+        activeEra: pipelineState.activeEra,
+        bestBlock: pipelineState.bestBlock,
+        lastUpdate: pipelineState.lastUpdate,
+        remintPeriod,
+        blocksSinceLastRemint,
+        history: pipelineState.history,
+        xorPrice: tokenPrices['XOR'] || 0,
+        valPrice: tokenPrices['VAL'] || 0,
+    });
+});
+
+// Real-data only. Reads on-chain state + indexed VAL payouts from sm.val_staking_rewards.
+// Returns 0/null when no data exists. No estimations, no projections.
+let rewardsCache = { data: null, ts: 0 };
+const REWARDS_TTL = 60_000; // 1 min
+
+app.get("/staking/rewards", rateLimit(15, 60000), async (req, res) => {
+    try {
+        if (!api) return res.json({ error: "API not connected" });
+        const now = Date.now();
+        if (rewardsCache.data && now - rewardsCache.ts < REWARDS_TTL) {
+            return res.json(rewardsCache.data);
+        }
+
+        const activeEra = (await withTimeout(api.query.staking.activeEra())).unwrap();
+        const eraIndex = activeEra.index.toNumber();
+        const historyDepth = api.consts.staking.historyDepth?.toNumber?.() ?? 84;
+        const sessionsPerEra = api.consts.staking.sessionsPerEra?.toNumber?.() ?? 6;
+        const epochDurationBlocks = api.consts.babe.epochDuration?.toNumber?.() ?? 600;
+        const blockTimeMs = api.consts.babe.expectedBlockTime?.toNumber?.() ?? 6000;
+        const eraSeconds = (sessionsPerEra * epochDurationBlocks * blockTimeMs) / 1000;
+
+        // 1. Network totals from indexed events (real, may be all zero pre-enactment).
+        const networkTotals = await getValStakingNetworkTotals().catch(e => {
+            console.warn('[rewards] networkTotals failed:', e.message);
+            return {};
+        });
+
+        // 2. Per-validator from indexed events (real).
+        const indexedPerValidator = await getValStakingPerValidator().catch(() => []);
+        const indexedMap = new Map(indexedPerValidator.map(r => [r.validator_stash, r]));
+
+        // 3. Active validator set + their on-chain context (real).
+        const validators = (await withTimeout(api.query.session.validators())).map(v => v.toString());
+        const eraStakerKeys = validators.map(addr => [eraIndex, addr]);
+        const [overviews, clippedFallback, prefsAll, bondedList] = await Promise.all([
+            withTimeout(api.query.staking.erasStakersOverview.multi(eraStakerKeys), 30000),
+            withTimeout(api.query.staking.erasStakersClipped.multi(eraStakerKeys), 30000),
+            withTimeout(api.query.staking.validators.multi(validators), 15000),
+            withTimeout(api.query.staking.bonded.multi(validators), 15000),
+        ]);
+        const controllers = bondedList.map((b, i) => b.isSome ? b.unwrap().toString() : validators[i]);
+        const ledgers = await withTimeout(api.query.staking.ledger.multi(controllers), 15000);
+
+        // 4. Reward points across the FULL claimable window (HistoryDepth, ~84 eras = 21 days),
+        // so outstanding/pending covers ALL claimable VAL, not just the last 30.
+        const recentEras = [];
+        for (let e = eraIndex - 1; e >= Math.max(0, eraIndex - historyDepth); e--) recentEras.push(e);
+        const rewardPointsByEra = await withTimeout(
+            api.query.staking.erasRewardPoints.multi(recentEras),
+            45000
+        );
+
+        // 4b. Network totals — REAL on-chain only. No CoinGecko/MOF.
+        // balances.totalIssuance / 10^18 = the real supply post-denomination (matches MOF).
+        // For SORA v2 this returns ~9.99×10^17 XOR — large because the treasury holds
+        // ~99.99% of supply in legitimate post-denomination units (verified with user).
+        let xorSupplyOnchain = null;
+        let totalStakedRaw = null;
+        try {
+            const [issuanceRaw, stakedRaw] = await Promise.all([
+                withTimeout(api.query.balances.totalIssuance(), 10000),
+                withTimeout(api.query.staking.erasTotalStake(eraIndex), 10000),
+            ]);
+            xorSupplyOnchain = new BigNumber(issuanceRaw.toString()).div(new BigNumber(10).pow(18)).toNumber();
+            totalStakedRaw = stakedRaw.toString();
+        } catch (e) { console.warn('[rewards] on-chain network totals failed:', e.message); }
+
+        // 5. Pending VAL bucket per era (only exists post-4.8.6). null arrays otherwise.
+        let valBucketCurrent = null;
+        let valBucketUnassigned = null;
+        let bucketByEra = null; // Map<era, BigInt> for outstanding calc, only when storage exists
+        const erasWithBucket = []; // eras that actually carry VAL (post-4.8.6) — the only claimable ones
+        if (api.query.xorFee?.valStakingEraReward) {
+            try {
+                const b = await api.query.xorFee.valStakingEraReward(eraIndex);
+                valBucketCurrent = b.toString();
+            } catch {}
+            // Pull buckets for the full HistoryDepth window; keep only eras with VAL.
+            try {
+                const buckets = await withTimeout(api.query.xorFee.valStakingEraReward.multi(recentEras), 45000);
+                bucketByEra = new Map();
+                recentEras.forEach((e, i) => {
+                    const raw = buckets[i].toString();
+                    if (raw !== '0') { bucketByEra.set(e, BigInt(raw)); erasWithBucket.push(e); }
+                });
+            } catch {}
+        }
+        if (api.query.xorFee?.unassignedValStakingReward) {
+            try {
+                const u = await api.query.xorFee.unassignedValStakingReward();
+                valBucketUnassigned = u.toString();
+            } catch {}
+        }
+
+        // Per-validator claimed pages — only for eras that carry VAL (the only ones that
+        // can yield a payout). Avoids querying claimedRewards for all 84×N eras.
+        let claimedByValidatorEra = new Map(); // key = `${validator}:${era}` -> Set<page>
+        try {
+            const claimKeys = [];
+            for (const e of erasWithBucket) {
+                for (const v of validators) claimKeys.push([e, v]);
+            }
+            // batching: 200 at a time
+            const CHUNK = 200;
+            for (let i = 0; i < claimKeys.length; i += CHUNK) {
+                const slice = claimKeys.slice(i, i + CHUNK);
+                const rows = await withTimeout(api.query.staking.claimedRewards.multi(slice), 30000);
+                rows.forEach((row, j) => {
+                    const [era, val] = slice[j];
+                    const pages = row.toJSON();
+                    if (Array.isArray(pages) && pages.length > 0) {
+                        claimedByValidatorEra.set(`${val}:${era}`, new Set(pages));
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('[rewards] claimedRewards bulk failed:', e.message);
+        }
+
+        // Also fold in eras the INDEXER already saw paid (sm.val_staking_rewards). The local node's
+        // staking.claimedRewards lags behind chain head, so a just-claimed era can still look pending
+        // for a while; the indexer records the payout the moment it lands. Union of both = no stale
+        // "pending" after a claim, and no false "claimed" (indexer only has real ValStakingRewardPaid).
+        try {
+            const indexedClaimed = await getClaimedValStakingPairs();
+            for (const key of indexedClaimed) {
+                if (!claimedByValidatorEra.has(key)) {
+                    const [val, era] = key.split(':');
+                    claimedByValidatorEra.set(`${val}:${era}`, new Set([0]));
+                }
+            }
+        } catch (e) {
+            console.warn('[rewards] indexed claimed merge failed:', e.message);
+        }
+
+        // Per-(validator,era) exposure (own/total) for the eras that carry VAL, so ownOutstanding
+        // uses THAT era's own/total — not the current era's (the stake can change era to era).
+        // One .multi batch keyed `${val}:${era}`. Commission goes in full (single-page validators),
+        // so we don't need the paged exposure here. Verified to the wei vs on-chain payout (era 7211).
+        const exposureByValidatorEra = new Map(); // -> { own, total } as BigInt
+        try {
+            const expKeys = [];
+            for (const e of erasWithBucket) {
+                for (const v of validators) expKeys.push([e, v]);
+            }
+            const CHUNK = 200;
+            for (let i = 0; i < expKeys.length; i += CHUNK) {
+                const slice = expKeys.slice(i, i + CHUNK);
+                const ovs = await withTimeout(api.query.staking.erasStakersOverview.multi(slice), 30000);
+                slice.forEach(([era, val], j) => {
+                    if (!ovs[j].isSome) return;
+                    const o = ovs[j].unwrap();
+                    exposureByValidatorEra.set(`${val}:${era}`, {
+                        own: BigInt(o.own.toString()),
+                        total: BigInt(o.total.toString()),
+                    });
+                });
+            }
+        } catch (e) {
+            console.warn('[rewards] erasStakersOverview bulk failed:', e.message);
+        }
+
+        const xorPrice = tokenPrices['XOR'] || 0;
+        const valPrice = tokenPrices['VAL'] || 0;
+
+        // Direct VAL→XOR exchange rate from the DEX (how many XOR for 1 VAL) — the
+        // honest ratio for "is claiming worth it" since fee is XOR and reward is VAL.
+        // No USD detour. One quote per request (cached 60s by the endpoint cache).
+        let valToXorRate = null;
+        try {
+            if (api.rpc?.liquidityProxy?.quote) {
+                const VAL_ID = '0x0200040000000000000000000000000000000000000000000000000000000000';
+                const rawIn = (10n ** 12n).toString(); // 0.000001 VAL (18 dec)
+                const q = await withTimeout(api.rpc.liquidityProxy.quote(0, VAL_ID, XOR_ID, rawIn, 'WithDesiredInput', [], 'Disabled'));
+                const out = q.toJSON()?.amount;
+                if (out != null) valToXorRate = Number(BigInt(out)) / 1e12; // (out/1e18)/0.000001
+            }
+        } catch (e) { /* DEX quote unavailable → null */ }
+
+        // Pre-compute total reward points per era for outstanding/yield calculations.
+        const totalPointsByEra = new Map();
+        recentEras.forEach((era, k) => {
+            totalPointsByEra.set(era, rewardPointsByEra[k].total.toNumber());
+        });
+
+        // Per-validator rows, combining real on-chain + indexed real payouts.
+        const perValidator = validators.map((addr, i) => {
+            // Exposure (current era)
+            let own = '0', total = '0', nominators = 0;
+            if (overviews[i].isSome) {
+                const ov = overviews[i].unwrap();
+                own = ov.own.toString();
+                total = ov.total.toString();
+                nominators = ov.nominatorCount.toNumber();
+            } else {
+                const c = clippedFallback[i].toJSON();
+                own = c.own || '0';
+                total = c.total || '0';
+                nominators = c.others ? c.others.length : 0;
+            }
+            // Commission (current prefs)
+            const prefs = prefsAll[i].toJSON();
+            const commissionPerbill = prefs.commission || 0;
+            const commission = commissionPerbill / 1_000_000_000;
+            // Sum reward points over last 30 eras (real)
+            let totalPts = 0, erasProduced = 0;
+            const accId = api.registry.createType('AccountId', addr);
+            for (let k = 0; k < rewardPointsByEra.length; k++) {
+                const rp = rewardPointsByEra[k];
+                rp.individual.forEach((value, key) => {
+                    if (key.toString() === addr) {
+                        const pts = value.toNumber();
+                        if (pts > 0) { totalPts += pts; erasProduced++; }
+                    }
+                });
+            }
+            const avgPtsPerEra = erasProduced > 0 ? Math.round(totalPts / erasProduced) : 0;
+            // Last claim from ledger.legacyClaimedRewards (on-chain).
+            let lastClaimEra = null;
+            const l = ledgers[i];
+            if (l && l.isSome) {
+                const claimed = l.unwrap().legacyClaimedRewards.map(e => e.toNumber());
+                if (claimed.length > 0) lastClaimEra = Math.max(...claimed);
+            }
+            // Indexed real payouts for this validator (post-enactment data).
+            const ix = indexedMap.get(addr) || { total_amount: '0', payout_count: 0, era_count: 0, last_era: null, last_ts: null };
+            // If indexed shows a more recent era than legacy, prefer it.
+            const lastEraFinal = ix.last_era != null && (lastClaimEra == null || ix.last_era > lastClaimEra)
+                ? ix.last_era : lastClaimEra;
+            const lastTsFinal = ix.last_ts
+                ? new Date(ix.last_ts).toISOString()
+                : (lastEraFinal != null ? new Date(Date.now() - (eraIndex - lastEraFinal) * eraSeconds * 1000).toISOString() : null);
+
+            // VAL outstanding (real): sum over recent eras where validator earned points
+            // AND has unclaimed pages AND bucket exists. Pre-4.8.6: bucketByEra=null → 0.
+            //   valOutstandingRaw         = total payout pending (validator + nominators)
+            //   ownOutstandingRaw         = only what the VALIDATOR collects (commission + own-exposure share)
+            //   pendingErasCount          = number of unclaimed eras → each needs 1 payout_stakers call
+            // Each payout_stakers costs ~0.01 XOR (measured on-chain), so reclaiming N eras
+            // costs N × 0.01 XOR. That's the "cost rises with pending eras" the user cares about.
+            let valOutstandingRaw = 0n;
+            let ownOutstandingRaw = 0n;
+            let pendingErasCount = 0;
+            if (bucketByEra) {
+                const commPerbill = BigInt(Math.round(commission * 1_000_000_000));
+                for (let k = 0; k < recentEras.length; k++) {
+                    const era = recentEras[k];
+                    const bucket = bucketByEra.get(era);
+                    if (!bucket) continue;
+                    const totalPts = totalPointsByEra.get(era) || 0;
+                    if (totalPts === 0) continue;
+                    let myPts = 0;
+                    rewardPointsByEra[k].individual.forEach((value, key) => {
+                        if (key.toString() === addr) myPts = value.toNumber();
+                    });
+                    if (myPts === 0) continue;
+                    // Has this era been claimed already?
+                    const claimedSet = claimedByValidatorEra.get(`${addr}:${era}`);
+                    if (claimedSet && claimedSet.size > 0) continue; // simplification: any page claimed = era done
+                    // validator total payout for the era (pre-commission split)
+                    const t = (bucket * BigInt(myPts)) / BigInt(totalPts);
+                    valOutstandingRaw += t;
+                    pendingErasCount++;
+                    // What the validator's own stash keeps — matches the runtime
+                    // (xor_fee_impls.rs:pay_val_staking_reward) for single-page validators (all of
+                    // SORA, ≤256 nominators): commission in full + own-exposure share of the rest.
+                    //   commission = comm·t
+                    //   staking    = own/total × (t − comm·t)
+                    // The runtime scales commission by page_total()/total, but page_total() INCLUDES
+                    // own, so for 1 page it equals total → factor 1 → full commission. VERIFIED to
+                    // the wei against the real on-chain ValStakingRewardPaid (era 7211: 14.592738…266
+                    // == formula, diff 0). Uses each era's own/total (not the current era's).
+                    const exp = exposureByValidatorEra.get(`${addr}:${era}`);
+                    const eOwn = exp ? exp.own : BigInt(own);
+                    const eTotal = exp ? exp.total : BigInt(total);
+                    const commT = t * commPerbill / 1_000_000_000n;
+                    const leftover = t - commT;
+                    if (eTotal > 0n) {
+                        ownOutstandingRaw += commT + (leftover * eOwn / eTotal);
+                    }
+                }
+            }
+
+            // Nominator yield rate per XOR. Computed on the MOST RECENT era that actually
+            // carries VAL (erasWithBucket[0]) — NOT the in-progress era, which is empty most
+            // of the time (filled in bursts at remint) and not in recentEras anyway.
+            // Formula: (1 - c) * T / total_stake, where T = (myPts / totalPts) * bucket.
+            let yieldRateNominatorPerXorPerEra = null;
+            if (erasWithBucket.length > 0 && BigInt(total) > 0n) {
+                const yieldEra = erasWithBucket[0]; // recentEras is desc → first with bucket = most recent
+                const yIdx = recentEras.indexOf(yieldEra);
+                const totalPtsY = totalPointsByEra.get(yieldEra) || 0;
+                if (yIdx >= 0 && totalPtsY > 0) {
+                    let myPtsY = 0;
+                    rewardPointsByEra[yIdx].individual.forEach((value, key) => {
+                        if (key.toString() === addr) myPtsY = value.toNumber();
+                    });
+                    const bucketY = bucketByEra.get(yieldEra);
+                    if (bucketY && myPtsY > 0) {
+                        const tRaw = (bucketY * BigInt(myPtsY)) / BigInt(totalPtsY);
+                        const commPerbill = BigInt(Math.round(commission * 1_000_000_000));
+                        const leftoverRaw = tRaw - (tRaw * commPerbill / 1_000_000_000n);
+                        yieldRateNominatorPerXorPerEra = (leftoverRaw * 1_000_000_000_000n / BigInt(total)).toString();
+                    }
+                }
+            }
+
+            return {
+                address: addr,
+                commission,
+                own, total, nominators,
+                avgRewardPointsPerEra: avgPtsPerEra,
+                erasProducedRecent: erasProduced,
+                lastClaimEra: lastEraFinal,
+                lastClaimTs: lastTsFinal,
+                indexedTotalValReceived: ix.total_amount,    // raw 18-dec string
+                indexedPayoutCount: ix.payout_count,
+                indexedErasCovered: ix.era_count,
+                valOutstanding: valOutstandingRaw.toString(),       // raw 18-dec total pending (validator + noms)
+                ownOutstanding: ownOutstandingRaw.toString(),       // raw 18-dec — only what the validator keeps
+                pendingErasCount,                                    // unclaimed eras → payout_stakers calls needed
+                yieldRateNominatorPerXorPerEra,                      // string * 1e12 ratio, or null
+            };
+        });
+
+        const result = {
+            era: eraIndex,
+            historyDepth,
+            eraSeconds,
+            xorPrice,
+            valPrice,
+            valToXorRate,                                  // XOR per 1 VAL, direct from DEX (null if unavailable)
+            valToXorRateWindows: await getValXorRateWindows().catch(() => null), // {h24,d7,d30}:{min,max} from price_history
+            valBucketCurrentEra: valBucketCurrent,        // null pre-4.8.6
+            valBucketUnassigned: valBucketUnassigned,      // null pre-4.8.6
+            valBurnPercent: 0.10,                          // 4.8.6: 10% of bucket is burnt-and-not-redistributed
+            xorTotalSupply: xorSupplyOnchain,              // SORA v2 native XOR supply, on-chain only (balances.totalIssuance / 10^28)
+            totalStaked: totalStakedRaw,                    // raw 18-dec string (needs /1e18)
+            networkTotals,                                  // {all,h6,h12,h24,d3,d6,d30,d90,d180,d365}
+            topDestinations: await getValStakingTopDestinations(10).catch(() => []),
+            validators: perValidator,
+        };
+
+        rewardsCache = { data: result, ts: Date.now() };
+        res.json(result);
+    } catch (e) {
+        console.error('Error /staking/rewards:', e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 

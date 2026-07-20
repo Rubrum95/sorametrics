@@ -653,7 +653,7 @@ function FeeWeekly() {
   // Prices for all tokens we display in the burn breakdown so we can
   // convert the backend's XOR-equivalent burn amounts into each token's
   // native units (e.g. 0.5 XOR worth of VAL → 50 VAL given current price).
-  const [prices, setPrices] = useState({ xor: 0, val: 0, kusd: 0, tbcd: 0 });
+  const [prices, setPrices] = useState({ xor: 0, val: 0, kusd: 0 });
   const [weekly, setWeekly] = useState(null); // optional: 7d vs prev 7d trend
   // Burn breakdown selector + fetched data. 'live' uses on-chain
   // accumulators (current cycle); other values hit /stats/fee-burns
@@ -680,10 +680,6 @@ function FeeWeekly() {
       fetch('/stats/fees/trend?timeframe=30d').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (feeCfg) setCfg(feeCfg);
-    // Pull prices for the 4 tokens we render in the burn breakdown.
-    // limit=50 is generous so VAL/KUSD/TBCD all show up in the response;
-    // backend returns them sorted by something (volume?) — we filter by
-    // symbol regardless of order.
     fetch('/tokens?timeframe=24h&limit=50').then(r => r.ok ? r.json() : null).then(j => {
       const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
       const pick = (sym) => Number(arr.find(tok => tok.symbol === sym)?.price) || 0;
@@ -691,7 +687,6 @@ function FeeWeekly() {
         xor:  pick('XOR'),
         val:  pick('VAL'),
         kusd: pick('KUSD'),
-        tbcd: pick('TBCD'),
       });
     }).catch(() => {});
     const buckets = Array.isArray(trend) ? trend : [];
@@ -758,10 +753,10 @@ function FeeWeekly() {
     : '…';
   const xorPrice = prices.xor || 0;
   const classes = cfg ? [
-    { id: 'transfer', label: tt('intel.fees.classTransfer', 'Transfer'), fee: cfg.samples?.transfer?.fee },
-    { id: 'swap',     label: tt('intel.fees.classSwap', 'Swap'),         fee: cfg.samples?.swap?.fee },
-    { id: 'bridge',   label: tt('intel.fees.classBridge', 'Bridge'),     fee: cfg.samples?.bridge?.fee },
-  ] : [];
+    { id: 'transfer', label: tt('intel.fees.classTransfer', 'Transfer'), s: cfg.samples?.transfer },
+    { id: 'swap',     label: tt('intel.fees.classSwap', 'Swap'),         s: cfg.samples?.swap     },
+    { id: 'bridge',   label: tt('intel.fees.classBridge', 'Bridge'),     s: cfg.samples?.bridge   },
+  ].map(c => ({ ...c, fee: c.s?.fee, lenBytes: c.s?.lenBytes })) : [];
 
   // Acumuladores: 0 = ya se distribuyó en el último remint. Lo decimos
   // explícitamente para que "0 XOR" no genere la duda "¿y el remint qué?".
@@ -772,7 +767,11 @@ function FeeWeekly() {
       {!cfg && <div className="muted tiny">{tt('common.loading', 'Loading…')}</div>}
       {cfg && (
         <>
-          {/* Flat-per-class fees. Swap == Transfer despite 18× weight diff. */}
+          {/* Flat-per-class fees. Swap == Transfer despite 18× weight diff.
+              These are SORA custom fees (XorFee pallet) — the runtime
+              TransactionByteFee added in 4.8.3 does NOT touch them; it
+              only applies to non-custom extrinsics (governance, staking,
+              etc.) routed through the standard TransactionPayment path. */}
           <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10, marginBottom:12}}>
             {classes.map(c => (
               <div key={c.id}>
@@ -783,6 +782,11 @@ function FeeWeekly() {
                 <div className="muted tiny num">
                   {c.fee != null && xorPrice > 0 ? '≈ $' + (c.fee * xorPrice).toFixed(2) : '—'}
                 </div>
+                {c.lenBytes > 0 && (
+                  <div className="muted tiny" style={{fontSize:9, opacity:0.55, marginTop:2}}>
+                    {c.lenBytes} {tt('intel.fees.bytes', 'bytes')}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -809,15 +813,19 @@ function FeeWeekly() {
               The two on-chain buckets that fill between random_remint
               cycles. Countdown removed because the cycle is probabilistic
               (T::Randomness inside on_initialize). */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:11, marginBottom:14}}>
+          {/* 4.8.6: the KUSD buy-back bucket (xorToBuyBack) is deprecated and killed by
+              the xor-fee v3 migration. Only show it if it still carries a legacy balance. */}
+          <div style={{display:'grid', gridTemplateColumns: cfg.xorToBuyBackXor > 0 ? '1fr 1fr' : '1fr', gap:8, fontSize:11, marginBottom:14}}>
             <div>
-              <div className="muted tiny">{tt('intel.fees.accumVal', 'Queued → VAL buy-burn')}</div>
+              <div className="muted tiny">{tt('intel.fees.accumVal', 'Queued → VAL (swap)')}</div>
               <div className="num">{cfg.xorToValXor.toFixed(4)} XOR</div>
             </div>
-            <div>
-              <div className="muted tiny">{tt('intel.fees.accumPswap', 'Queued → KUSD buy-burn')}</div>
-              <div className="num">{cfg.xorToBuyBackXor.toFixed(4)} XOR</div>
-            </div>
+            {cfg.xorToBuyBackXor > 0 && (
+              <div>
+                <div className="muted tiny">{tt('intel.fees.accumPswap', 'Queued → KUSD (legacy)')}</div>
+                <div className="num">{cfg.xorToBuyBackXor.toFixed(4)} XOR</div>
+              </div>
+            )}
           </div>
 
           {/* Burn from network fees — counts from when the live indexer
@@ -890,26 +898,20 @@ function FeeWeekly() {
               const xorPrice  = prices.xor  || 0;
               const valPrice  = prices.val  || 0;
               const kusdPrice = prices.kusd || 1;
-              const tbcdPrice = prices.tbcd || 0;
-              // burnData.burns are in NATIVE units (already converted by
-              // the indexer from on-chain assets.Burn events).
               const xorAmt  = Number(burnData.burns?.xor)  || 0;
               const valAmt  = Number(burnData.burns?.val)  || 0;
               const kusdAmt = Number(burnData.burns?.kusd) || 0;
-              const tbcdAmt = Number(burnData.burns?.tbcd) || 0;
               // Total USD of all burns combined.
               const totalUsd =
                 xorAmt  * xorPrice  +
                 valAmt  * valPrice  +
-                kusdAmt * kusdPrice +
-                tbcdAmt * tbcdPrice;
+                kusdAmt * kusdPrice;
               const pctOf = (usd) => totalUsd > 0 ? (usd / totalUsd) * 100 : 0;
 
               const rows = [
                 { sym:'XOR',  pct:pctOf(xorAmt  * xorPrice),  native:xorAmt,  unit:'XOR'  },
                 { sym:'VAL',  pct:pctOf(valAmt  * valPrice),  native:valAmt,  unit:'VAL'  },
                 { sym:'KUSD', pct:pctOf(kusdAmt * kusdPrice), native:kusdAmt, unit:'KUSD' },
-                { sym:'TBCD', pct:pctOf(tbcdAmt * tbcdPrice), native:tbcdAmt, unit:'TBCD' },
               ];
 
               const totalFees = Number(burnData.fees?.totalXor) || 0;

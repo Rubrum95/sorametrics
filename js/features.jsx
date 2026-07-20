@@ -72,6 +72,48 @@ function openWalletDetails(addr, alias) {
   return false;
 }
 
+// Copy text to the clipboard, with a fallback for insecure contexts where
+// navigator.clipboard is unavailable. Returns true on success.
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    return true;
+  } catch { return false; }
+}
+
+// Valid sub-tab ids inside WalletDetailsModal — used to validate the ?wtab=
+// deep-link param so a shared link can land on the section the sharer viewed.
+const WALLET_SUBTABS = ['assets', 'swaps', 'transfers', 'bridges', 'liquidity', 'staking', 'predict', 'extrinsics', 'info'];
+
+// Build the shareable deep-link for a wallet at a given sub-tab, derived from
+// the current URL so the active section (?tab=) and origin are preserved.
+function walletDeepLink(addr, subtab) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('address', addr);
+  url.searchParams.set('wtab', subtab);
+  return url.toString();
+}
+
+// Strip the wallet deep-link params from the address bar (on modal close) so a
+// refresh doesn't reopen it. replaceState → no history entry.
+function clearWalletDeepLink() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('address') || url.searchParams.has('wtab')) {
+      url.searchParams.delete('address');
+      url.searchParams.delete('wtab');
+      window.history.replaceState({}, '', url.toString());
+    }
+  } catch (_) {}
+}
+
 // Wraps the app. Renders a singleton WalletDetailsModal that any section
 // can open via openWalletDetails(addr). If the addr isn't in the wallet
 // store, we fetch /balance/:addr on-the-fly so the Assets tab has data.
@@ -85,9 +127,27 @@ function WalletDetailsProvider({ children }) {
     // Drain any wallet that openWalletDetails buffered before we mounted.
     // Happens on deep-link entry where a child section's mount effect calls
     // openWalletDetails before this provider's effect has run.
+    let opened = false;
     if (window.__SM_WALLET_PENDING__) {
       setExternal(window.__SM_WALLET_PENDING__);
       delete window.__SM_WALLET_PENDING__;
+      opened = true;
+    }
+    // Deep-link entry: open the wallet from ?address=<SS58> on ANY section,
+    // not just Balance. The modal reads ?wtab= to land on the right sub-tab.
+    // This is what makes a shared wallet URL reopen the modal everywhere.
+    if (!opened) {
+      try {
+        const addr = new URLSearchParams(window.location.search).get('address');
+        if (addr) {
+          setExternal({
+            addr,
+            alias: addr.length > 14 ? addr.slice(0, 8) + '…' + addr.slice(-4) : addr,
+            id: 'external-' + addr,
+            kind: 'watch',
+          });
+        }
+      } catch (_) {}
     }
     return () => { if (window.__SM_WALLET_DETAILS__) delete window.__SM_WALLET_DETAILS__; };
   }, []);
@@ -119,7 +179,7 @@ function WalletDetailsProvider({ children }) {
   return (
     <>
       {children}
-      <WalletDetailsModal wallet={wallet} open={!!wallet} onClose={() => setExternal(null)}/>
+      <WalletDetailsModal wallet={wallet} open={!!wallet} onClose={() => { setExternal(null); clearWalletDeepLink(); }}/>
     </>
   );
 }
@@ -313,8 +373,8 @@ function WalletProvider({ children }) {
     return loadLS('sm.watched', INITIAL_WATCHED);
   });
   const [balances, setBalances] = useState(() => ({})); // addr → tokens[]
-  useEffect(() => saveLS('sm.wallets', wallets), [wallets]);
-  useEffect(() => saveLS('sm.watched', watched), [watched]);
+  useEffect(() => { saveLS('sm.wallets', wallets); window.refreshAliasMap?.(); }, [wallets]);
+  useEffect(() => { saveLS('sm.watched', watched); window.refreshAliasMap?.(); }, [watched]);
 
   // Pull real balances from prod for all addresses (wallets + watched).
   // Refreshes every 60s + on mount / wallet-list change.
@@ -844,6 +904,37 @@ function TinyTokLogo({ sym, logo, size = 18 }) {
 // Renders the 4 history sub-tabs inside WalletDetailsModal. Each row shape
 // differs between endpoints; we render prod-style cells with real token
 // logos + a consistent "block + time" left column.
+// Inline hash chip with copy. Used in WalletHistoryTable extrinsics rows where
+// the surrounding modal table has no native hash column.
+function HashChip({ hash }) {
+  const [copied, setCopied] = useState(false);
+  if (!hash) return null;
+  const isHex = hash.startsWith('0x') && hash.length >= 18;
+  const short = isHex ? `${hash.slice(0, 10)}…${hash.slice(-6)}` : hash;
+  const onCopy = (ev) => {
+    ev.stopPropagation();
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(hash);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+  return (
+    <span style={{display:'inline-flex', alignItems:'center', gap: 4}}
+          onClick={(ev) => ev.stopPropagation()}>
+      <code className="num" title={hash}
+            style={{fontSize: 10, padding:'2px 6px', borderRadius: 4,
+                    background:'rgba(255,255,255,0.02)', border:'1px solid var(--border)',
+                    color:'var(--fg-1)'}}>{short}</code>
+      <button onClick={onCopy} title="Copiar hash"
+              style={{width: 22, height: 22, padding: 0, background:'transparent',
+                      border:'1px solid transparent', borderRadius: 4, cursor:'pointer',
+                      color: copied ? 'var(--accent)' : 'var(--fg-3)', fontSize: 12,
+                      display:'inline-flex', alignItems:'center', justifyContent:'center'}}>
+        {copied ? '✓' : '⎘'}
+      </button>
+    </span>
+  );
+}
+
 function WalletHistoryTable({ kind, rows }) {
   if (rows === null) return <div className="muted">Cargando {kind}…</div>;
   if (!rows || rows.length === 0) return <div className="muted tiny">Sin {kind} recientes para esta cartera.</div>;
@@ -896,15 +987,18 @@ function WalletHistoryTable({ kind, rows }) {
             );
           } else if (kind === 'extrinsics') {
             detail = (
-              <div style={{display:'flex', alignItems:'center', gap: 8}}>
-                <span style={{fontFamily:'JetBrains Mono', fontSize: 12}}>
-                  <span style={{color:'#EC4899'}}>{r.section}</span>
-                  <span style={{color:'var(--fg-3)'}}>::</span>
-                  <span>{r.method}</span>
-                </span>
-                {r.success === 1 || r.success === true
-                  ? <span className="tag ok tiny">✓</span>
-                  : <span className="tag err tiny">✗</span>}
+              <div style={{display:'flex', flexDirection:'column', gap: 4, alignItems:'flex-start'}}>
+                <div style={{display:'flex', alignItems:'center', gap: 8, flexWrap:'wrap'}}>
+                  <span style={{fontFamily:'JetBrains Mono', fontSize: 12}}>
+                    <span style={{color:'#EC4899'}}>{r.section}</span>
+                    <span style={{color:'var(--fg-3)'}}>::</span>
+                    <span>{r.method}</span>
+                  </span>
+                  {r.success === 1 || r.success === true
+                    ? <span className="tag ok tiny">✓</span>
+                    : <span className="tag err tiny">✗</span>}
+                </div>
+                {r.hash && <HashChip hash={r.hash}/>}
               </div>
             );
           }
@@ -1201,13 +1295,29 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   const [alias, setAlias] = useState('');
   const [confirmRm, setConfirmRm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const [subtab, setSubtab] = useState('assets');
   const [identity, setIdentity] = useState(null); // { display, email, twitter, web, discord }
   const wallets = useWallets();
   const toast = useToast();
 
   useEffect(() => { if (wallet) setAlias(wallet.alias); }, [wallet?.alias]);
-  useEffect(() => { setConfirmRm(false); setSubtab('assets'); setIdentity(null); }, [wallet?.addr, open]);
+  useEffect(() => {
+    setConfirmRm(false);
+    setIdentity(null);
+    // Land on the sub-tab from the deep-link (?wtab=) only when the URL's
+    // ?address= matches the wallet being opened — i.e. a genuine shared link.
+    // A normal row click (different/absent address param) resets to Assets.
+    let initial = 'assets';
+    try {
+      const p = new URLSearchParams(window.location.search);
+      if (wallet?.addr && p.get('address') === wallet.addr) {
+        const w = p.get('wtab');
+        if (w && WALLET_SUBTABS.includes(w)) initial = w;
+      }
+    } catch (_) {}
+    setSubtab(initial);
+  }, [wallet?.addr, open]);
 
   // Fetch on-chain identity (pallet Identity) so the modal shows Subscan-style
   // display name + verification links, matching v1 behaviour.
@@ -1249,6 +1359,16 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   // Reset the single-shot caches when opening a different wallet.
   useEffect(() => { setLiquidity(null); setStaking(null); setInfo(null); }, [addr]);
 
+  // Keep the address bar in sync with the open wallet + active sub-tab so the
+  // URL is always a ready-to-share deep-link (?address=<SS58>&wtab=<subtab>).
+  // Cleared on close by the provider's onClose → clearWalletDeepLink().
+  useEffect(() => {
+    if (!open || !addr) return;
+    try {
+      window.history.replaceState({}, '', walletDeepLink(addr, subtab));
+    } catch (_) {}
+  }, [open, addr, subtab]);
+
   if (!wallet) return null;
 
   // Real token breakdown from prod GET /balance/:addr. Shape per token:
@@ -1287,23 +1407,22 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   );
 
   const copyAddr = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(wallet.addr);
-      } else {
-        // Fallback when clipboard API is unavailable (insecure context, etc.)
-        const ta = document.createElement('textarea');
-        ta.value = wallet.addr;
-        ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-      }
+    if (await copyToClipboard(wallet.addr)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
       toast?.push?.('Dirección copiada', 'ok');
-    } catch (e) {
+    } else {
+      toast?.push?.('No se pudo copiar', 'err');
+    }
+  };
+  // Copy a shareable deep-link to this wallet at the current sub-tab. Opening
+  // it reopens the modal (with tokens + all sections) on the same section.
+  const shareLink = async () => {
+    if (await copyToClipboard(walletDeepLink(wallet.addr, subtab))) {
+      setShared(true);
+      setTimeout(() => setShared(false), 1600);
+      toast?.push?.('Enlace copiado', 'ok');
+    } else {
       toast?.push?.('No se pudo copiar', 'err');
     }
   };
@@ -1381,6 +1500,9 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
               <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={copyAddr} title="Copiar dirección">
                 {copied ? '✓ Copiado' : '⎘ Copiar'}
               </button>
+              <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={shareLink} title="Copiar enlace a esta wallet">
+                {shared ? '✓ Enlace copiado' : '🔗 Compartir'}
+              </button>
               {identity?.display && identity.display !== wallet.alias && <span>· alias: {wallet.alias}</span>}
             </div>
             {(identity?.twitter || identity?.web || identity?.email || identity?.discord) && (
@@ -1404,7 +1526,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
           ['bridges',    'Bridges'],
           ['liquidity',  'Liquidity'],
           ['staking',    'Staking'],
-          ['predict',    'Predictions'],
+          ['predict',    'Polkamarkt'],
           ['extrinsics', 'Extrinsics'],
           ['info',       'Info'],
         ].map(([id, lbl]) => (

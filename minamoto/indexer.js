@@ -77,7 +77,8 @@ async function jobNetworkState() {
 
 async function jobBlocks() {
     // Pull first page (newest); upsert keeps it idempotent.
-    const r = await torii.getExplorerBlocks(1, 20);
+    // Iroha rc2 Torii caps reliable pages at 7 (cursor store drops continuations).
+    const r = await torii.getExplorerBlocks(1, 7);
     let upserts = 0;
     for (const b of (r.items || [])) {
         await db.upsertBlock(b);
@@ -135,7 +136,7 @@ async function jobTransactionsBackfill() {
 }
 
 async function jobTransactions() {
-    const r = await torii.getExplorerTransactions(1, 50);
+    const r = await torii.getExplorerTransactions(1, 7);
     let upserts = 0;
     for (const tx of (r.items || [])) {
         // tx.block may be missing for pending; skip those
@@ -268,7 +269,7 @@ async function jobClaimsResolveV2() {
 
 async function jobInstructions() {
     // Pull first page (newest) for incremental indexing.
-    const r = await torii.getExplorerInstructions(1, 50);
+    const r = await torii.getExplorerInstructions(1, 7);
     let upserts = 0;
     for (const isi of (r.items || [])) {
         await db.upsertInstruction({
@@ -324,30 +325,22 @@ async function jobInstructionsBackfill() {
 }
 
 async function jobPeers() {
-    const list = await torii.getPeers();
-    if (!Array.isArray(list)) return { upserts: 0, deactivated: 0 };
+    // Iroha rc2 dropped /peers; connected peers now come from the per-source
+    // telemetry as bare public keys (no ip:port). Collect the distinct set.
+    const sources = await torii.getPeersInfo();
+    if (!Array.isArray(sources)) return { upserts: 0, deactivated: 0 };
+    const pubkeys = new Set();
+    for (const s of sources) {
+        for (const pk of (s.connected_peers || [])) pubkeys.add(pk);
+    }
+    const list = [...pubkeys];
     let upserts = 0;
-    for (const m of list) {
-        // multiaddr format: ea01<pubkey-hex>@<ip>:<port>
-        const at = m.indexOf('@');
-        let publicKey = null, ip = null, port = null;
-        if (at !== -1) {
-            publicKey = m.slice(0, at);
-            const tail = m.slice(at + 1);
-            const colon = tail.lastIndexOf(':');
-            if (colon !== -1) {
-                ip = tail.slice(0, colon);
-                port = parseInt(tail.slice(colon + 1), 10) || null;
-            } else {
-                ip = tail;
-            }
-        }
-        await db.upsertPeer({ multiaddr: m, public_key: publicKey, ip_address: ip, port });
+    for (const pk of list) {
+        await db.upsertPeer({ multiaddr: pk, public_key: pk, ip_address: null, port: null });
         upserts++;
     }
-    // Mark anyone that vanished from the current Torii response as inactive,
-    // so the UI doesn't keep showing disconnected peers as "Active". Truth
-    // = current /peers response, not history.
+    // Mark anyone that vanished from the current response as inactive, so the
+    // UI doesn't keep showing disconnected peers as "Active". Truth = now.
     const deactivated = await db.deactivateStalePeers(list);
     return { upserts, deactivated };
 }

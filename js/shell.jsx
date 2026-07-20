@@ -33,6 +33,7 @@ const NAV_GROUPS = [
       { id: 'pulse',     key: 'nav.pulse',       icon: 'pulse',  count: 'LIVE', countKey: 'common.live' },
       { id: 'intel',     key: 'nav.intelligence',icon: 'bolt' },
       { id: 'studio',    key: 'nav.studio',      icon: 'music' },
+      { id: 'news',      key: 'nav.news',        icon: 'pulse' },
     ],
   },
   {
@@ -66,6 +67,7 @@ const NAV_GROUPS = [
     titleKey: 'nav.toolsGroup',
     items: [
       { id: 'tools', key: 'nav.tools', icon: 'bolt' },
+      { id: 'metrics', key: 'nav.metrics', icon: 'pulse' },
     ],
   },
 ];

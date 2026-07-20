@@ -1,23 +1,65 @@
-/* global React, fmt, TOKENS, FAKE_ADDRS, IDENTITIES, seededRand, useDrill, useT, ExportCsvButton, useIdentity, KpiGrid */
+/* global React, fmt, TOKENS, FAKE_ADDRS, IDENTITIES, seededRand, useDrill, useT, ExportCsvButton, useIdentity, useIdentitySource, SourceTag, KpiGrid */
 const { useState, useEffect, useMemo, useRef } = React;
 
-// Account cell used in the swaps/transfers/bridges tables. Shows the on-chain
-// identity name (if set) above the short address, plus the gradient avatar.
-// Clicking opens the wallet drill with the full SS58 address — not the name.
+// Account cell used in the swaps/transfers/bridges tables. Shows the resolved
+// name (user alias > on-chain identity > technical account) above the short
+// address, with a gradient avatar. Two-zone click pattern:
+//   · Name → copies the SS58 address to the clipboard (brief "Copiado" flash).
+//   · Address → opens the wallet drill.
+// When no name is resolved, the address row stays clickable for the drill.
 function AccountCell({ addr, size = 22 }) {
   const name = useIdentity(addr);
-  const handleClick = (ev) => {
+  const source = useIdentitySource(addr);
+  const openWallet = (ev) => {
     ev.stopPropagation();
     if (addr) window.openWalletDetails?.(addr, name || null);
   };
+  const copyAddr = (ev) => {
+    ev.stopPropagation();
+    if (!addr) return;
+    const el = ev.currentTarget;
+    const done = () => {
+      if (el.getAttribute('data-copy-flash') === '1') return;
+      el.setAttribute('data-copy-flash', '1');
+      const orig = el.textContent;
+      el.textContent = '✓ Copiado';
+      setTimeout(() => { el.textContent = orig; el.removeAttribute('data-copy-flash'); }, 1100);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(addr).then(done, done);
+    else {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = addr; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        done();
+      } catch {}
+    }
+  };
   return (
-    <div className="clickable" style={{display:'flex', alignItems:'center', gap:8, minWidth: 0, cursor:'pointer'}}
-         title={addr ? addr + (name ? ' · ' + name : '') : undefined}
-         onClick={handleClick}>
+    <div style={{display:'flex', alignItems:'center', gap:8, minWidth: 0}}
+         title={addr ? addr + (name ? ' · ' + name : '') : undefined}>
       <div style={{width:size,height:size,borderRadius:'50%',background:'linear-gradient(135deg,#7B5B90,#4A3566)',flexShrink:0}}/>
       <div style={{flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25}}>
-        {name && <span style={{fontSize: 12, fontWeight: 700, color:'var(--fg-0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{name}</span>}
-        <span className="muted tiny num" style={{whiteSpace:'nowrap', textDecoration:'underline dotted', textUnderlineOffset: 2}}>{fmt.addr(addr, 5, 4)}</span>
+        {name && (
+          <div style={{display:'flex', alignItems:'center', gap:4}}>
+            <span
+              style={{fontSize: 12, fontWeight: 700, color:'var(--fg-0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor:'pointer'}}
+              title={'Copiar dirección · ' + addr}
+              onClick={copyAddr}>
+              {name}
+            </span>
+            {window.SourceTag && <window.SourceTag source={source}/>}
+          </div>
+        )}
+        <span
+          className="muted tiny num"
+          style={{whiteSpace:'nowrap', textDecoration:'underline dotted', textUnderlineOffset: 2, cursor:'pointer'}}
+          title={'Abrir wallet · ' + addr}
+          onClick={openWallet}>
+          {fmt.addr(addr, 5, 4)}
+        </span>
       </div>
     </div>
   );

@@ -129,6 +129,10 @@ function DrillBody({ row }) {
     case 'holder':   return <HolderDetail r={row}/>;
     case 'validator':return <ValidatorDetail r={row}/>;
     case 'bridge':   return <BridgeDetail r={row}/>;
+    // Polkamarkt market detail lives in polkamarkt.jsx (exported to window) so
+    // that section stays self-contained; fall back to the generic dump if it
+    // hasn't loaded yet.
+    case 'polkamarkt': return window.PolkamarktDrill ? <window.PolkamarktDrill market={row}/> : <DefaultDetail r={row}/>;
     default:         return <DefaultDetail r={row}/>;
   }
 }
@@ -316,7 +320,47 @@ function BlockDetail({ r }) {
                           {evs.length === 0 ? (
                             <div className="muted tiny">Sin eventos.</div>
                           ) : (
-                            <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(evs, null, 2)}</pre>
+                            <>
+                              {(() => {
+                                // Surface every decoded dispatch error in this
+                                // extrinsic's events. Captures ExtrinsicFailed,
+                                // BatchInterrupted, ProxyExecuted, MultisigExecuted,
+                                // scheduler.Dispatched (failed scheduled call),
+                                // utility.ItemFailed, etc. — anything whose data
+                                // tree contained a DispatchError shape.
+                                const errEvs = evs.filter(ev => ev.decodedError);
+                                if (errEvs.length === 0) return null;
+                                return errEvs.map((ev, k) => {
+                                  const de = ev.decodedError;
+                                  const label = de.section ? `${de.section}.${de.name}` : de.name;
+                                  return (
+                                    <div key={k} style={{
+                                      margin:'4px 0 8px', padding:'8px 10px',
+                                      background:'rgba(220,38,38,0.12)',
+                                      border:'1px solid rgba(220,38,38,0.4)',
+                                      borderRadius:6, fontSize:11
+                                    }}>
+                                      <div style={{fontWeight:700, color:'#fca5a5', fontFamily:'JetBrains Mono'}}>
+                                        ✗ {label}
+                                        <span className="muted tiny" style={{marginLeft:8, fontWeight:400}}>in {ev.section}.{ev.method}</span>
+                                      </div>
+                                      {de.docs && <div style={{marginTop:2, color:'var(--fg-2)'}}>{de.docs}</div>}
+                                    </div>
+                                  );
+                                });
+                              })()}
+                              {/*
+                                Per-field decoded view (amounts/assets/weights)
+                                stays available in the API response (`decoded`
+                                key on each event) but is intentionally NOT
+                                rendered here. Block events page is for raw
+                                technical inspection — formatted swap views
+                                live in the swaps/transfers sections. Only
+                                error decoding (the red badge above) is
+                                surfaced as a clarification.
+                              */}
+                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(evs, null, 2)}</pre>
+                            </>
                           )}
                         </td>
                       </tr>

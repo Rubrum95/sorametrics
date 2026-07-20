@@ -2,15 +2,15 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<title>SoraMetrics — Choose Network</title>
+<title>SoraMetrics — Choose your path</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Real-time analytics for the SORA networks. Pick a chain to enter the dashboard.">
+<meta name="description" content="Real-time analytics for the SORA ecosystem. Three destinations, one dashboard.">
 <meta name="theme-color" content="#9B1B30">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Serif+JP:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg-0:#07070a; --bg-1:#0e0e13; --bg-2:#15151c;
@@ -21,7 +21,7 @@
     --border-strong:rgba(255,255,255,0.16);
     --grad-v2:  linear-gradient(135deg, #FF4E3C 0%, #E5243B 50%, #9B1B30 100%);
     --grad-mn:  linear-gradient(135deg, #7B2D5B 0%, #7B5B90 50%, #C8A0B8 100%);
-    --grad-rainbow: linear-gradient(120deg, #fff 0%, #C8A0B8 25%, #7B5B90 50%, #FF4E3C 75%, #fff 100%);
+    --grad-sh:  linear-gradient(135deg, #14B8A6 0%, #0EA5E9 60%, #6366F1 100%);
     --t-fast: 200ms cubic-bezier(.2,.8,.2,1);
     --t:      400ms cubic-bezier(.2,.8,.2,1);
     --t-slow: 800ms cubic-bezier(.2,.8,.2,1);
@@ -42,7 +42,7 @@
     background:
       radial-gradient(1400px 900px at 12% -10%, rgba(229,36,59,0.10), transparent 60%),
       radial-gradient(1100px 800px at 88% 110%, rgba(123,91,144,0.10), transparent 60%),
-      radial-gradient(1600px 1100px at 50% 50%, rgba(229,36,59,0.025), transparent 60%),
+      radial-gradient(900px 600px at 50% 50%, rgba(20,184,166,0.05), transparent 60%),
       #07070a;
   }
   .bg-grid {
@@ -69,8 +69,8 @@
     animation: float2 28s ease-in-out infinite alternate;
   }
   .bg-glow-3 {
-    width: 540px; height: 540px; left: 50%; top: 60%; transform: translate(-50%, -50%);
-    background: radial-gradient(circle, #E5243B, transparent 70%);
+    width: 540px; height: 540px; left: 50%; top: 65%; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, #14B8A6, transparent 70%);
     opacity: 0.06; animation: pulse 9s ease-in-out infinite;
   }
   @keyframes float1 { from { transform: translate(0, 0); } to { transform: translate(80px, 50px); } }
@@ -86,15 +86,19 @@
 
   /* ---------------------- topbar ---------------------- */
   .topbar {
-    width: 100%; max-width: 1280px; margin: 0 auto;
+    width: 100%; max-width: 1320px; margin: 0 auto;
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
     padding-bottom: 12px;
   }
   .brand { display: flex; align-items: center; gap: 12px; color: var(--fg-0); font-weight: 700; letter-spacing: -0.01em; }
   .brand-mark {
-    width: 32px; height: 32px; border-radius: 9px; background: var(--grad-v2);
-    box-shadow: 0 0 24px rgba(229,36,59,0.30), 0 1px 0 rgba(255,255,255,0.12) inset;
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, #1a1018, #0e0a10);
+    border: 1px solid rgba(229,36,59,0.30);
+    box-shadow: 0 0 24px rgba(229,36,59,0.20), 0 1px 0 rgba(255,255,255,0.06) inset;
+    display: grid; place-items: center; padding: 4px;
   }
+  .brand-mark svg { width: 100%; height: 100%; display: block; }
   .brand .name { font-size: 16px; }
   .brand .name .accent {
     background: var(--grad-v2); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
@@ -110,7 +114,7 @@
 
   /* ---------------------- hero ---------------------- */
   .hero {
-    width: 100%; max-width: 1100px; margin: 80px auto 0; text-align: center;
+    width: 100%; max-width: 1100px; margin: 64px auto 0; text-align: center;
     animation: fadeInUp 800ms cubic-bezier(.2,.8,.2,1) backwards;
   }
   @keyframes fadeInUp {
@@ -126,19 +130,19 @@
     content: ''; width: 32px; height: 1px; background: linear-gradient(90deg, transparent, var(--fg-3), transparent);
   }
   h1 {
-    margin: 0 0 18px; font-size: clamp(44px, 7vw, 96px); font-weight: 900;
+    margin: 0 0 18px; font-size: clamp(40px, 6.4vw, 84px); font-weight: 900;
     letter-spacing: -0.04em; line-height: 1.0;
-    background: linear-gradient(120deg, #fff 0%, #E0C8D5 35%, #C8A0B8 60%, #7B5B90 100%);
+    background: linear-gradient(120deg, #fff 0%, #E0C8D5 30%, #C8A0B8 55%, #7B5B90 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
   .lede {
-    color: var(--fg-2); font-size: clamp(15px, 1.4vw, 18px); max-width: 680px; margin: 0 auto;
+    color: var(--fg-2); font-size: clamp(15px, 1.4vw, 18px); max-width: 720px; margin: 0 auto;
     line-height: 1.6;
   }
 
   /* ---------------------- cross-chain ticker ---------------------- */
   .ticker {
-    width: 100%; max-width: 1280px; margin: 56px auto 0;
+    width: 100%; max-width: 1320px; margin: 48px auto 0;
     padding: 14px 24px; border-radius: 18px;
     background: linear-gradient(90deg, rgba(229,36,59,0.06), rgba(123,91,144,0.10), rgba(229,36,59,0.06));
     border: 1px solid rgba(160,98,176,0.20);
@@ -159,14 +163,15 @@
 
   /* ---------------------- cards ---------------------- */
   .grid {
-    width: 100%; max-width: 1280px; margin: 36px auto 56px;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+    width: 100%; max-width: 1320px; margin: 32px auto 48px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
   }
-  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; gap: 22px; margin: 24px auto 36px; } }
+  @media (max-width: 1180px) { .grid { grid-template-columns: 1fr 1fr; } .card-sh { grid-column: 1 / -1; max-width: 640px; margin: 0 auto; width: 100%; } }
+  @media (max-width:  720px) { .grid { grid-template-columns: 1fr; gap: 18px; } .card-sh { grid-column: auto; max-width: none; } }
 
   .card {
     position: relative; display: flex; flex-direction: column;
-    padding: 36px 32px 30px; border-radius: 28px;
+    padding: 28px 26px 24px; border-radius: 24px;
     background: rgba(20, 20, 28, 0.55);
     border: 1px solid var(--border);
     cursor: pointer; text-decoration: none; color: inherit;
@@ -176,111 +181,142 @@
     will-change: transform;
     animation: fadeInUp 800ms 200ms cubic-bezier(.2,.8,.2,1) backwards;
   }
-  .card:nth-child(2) { animation-delay: 300ms; }
+  .card:nth-child(2) { animation-delay: 280ms; }
+  .card:nth-child(3) { animation-delay: 360ms; }
   .card::before {
-    content: ''; position: absolute; inset: 0; border-radius: 28px;
+    content: ''; position: absolute; inset: 0; border-radius: 24px;
     background: var(--card-grad); opacity: 0; transition: opacity var(--t);
     pointer-events: none; z-index: 0;
   }
   .card::after {
-    /* Subtle inner highlight on top edge */
     content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
     pointer-events: none; z-index: 1;
   }
   .card:hover {
-    transform: translateY(-8px);
+    transform: translateY(-6px);
     border-color: var(--border-strong);
     box-shadow:
-      0 40px 100px -32px rgba(0,0,0,0.7),
+      0 32px 80px -28px rgba(0,0,0,0.7),
       0 0 0 1px rgba(255,255,255,0.04) inset,
-      0 0 80px -20px var(--card-glow);
+      0 0 60px -18px var(--card-glow);
   }
-  .card:hover::before { opacity: 0.10; }
-  .card:active { transform: translateY(-4px); }
+  .card:hover::before { opacity: 0.08; }
+  .card:active { transform: translateY(-3px); }
   .card > * { position: relative; z-index: 1; }
 
   .card-v2 { --card-grad: var(--grad-v2); --card-accent: #E5243B; --card-glow: rgba(229,36,59,0.30); }
   .card-mn { --card-grad: var(--grad-mn); --card-accent: #A062B0; --card-glow: rgba(160,98,176,0.30); }
+  .card-sh { --card-grad: var(--grad-sh); --card-accent: #14B8A6; --card-glow: rgba(20,184,166,0.30); }
+
+  /* Disabled / coming soon: still hoverable for the lift but no nav. */
+  .card.disabled { cursor: default; }
+  .card.disabled:hover { transform: translateY(-3px); }
 
   .card-head {
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 22px;
   }
   .card-icon {
-    width: 64px; height: 64px; border-radius: 18px;
+    width: 58px; height: 58px; border-radius: 16px;
     background: var(--card-grad);
-    box-shadow: 0 12px 36px -8px var(--card-accent), 0 1px 0 rgba(255,255,255,0.18) inset;
-    display: grid; place-items: center; color: white; font-weight: 900; font-size: 26px; letter-spacing: -0.02em;
+    box-shadow: 0 10px 30px -8px var(--card-accent), 0 1px 0 rgba(255,255,255,0.18) inset;
+    display: grid; place-items: center; color: white;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .card-icon svg { width: 60%; height: 60%; display: block; }
+  .card-icon .kanji {
+    font-family: 'Noto Serif JP', 'Yu Mincho', serif;
+    font-weight: 900; font-size: 32px; line-height: 1;
+    color: #fff; letter-spacing: 0;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.18);
   }
   .card-badges { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
   .card-badge {
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
-    padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg-2);
-    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 5px 9px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg-2);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
   }
   .card-badge.live { color: #10B981; border-color: rgba(16,185,129,0.30); }
   .card-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
   .card-badge.tech { color: var(--card-accent); border-color: rgba(255,255,255,0.10); background: rgba(255,255,255,0.02); }
+  .card-badge.soon {
+    color: #FBBF24; border-color: rgba(251,191,36,0.36); background: rgba(251,191,36,0.06);
+  }
+  .card-badge.soon .dot { background: #FBBF24; box-shadow: 0 0 10px rgba(251,191,36,0.6); animation: blink 2s ease-in-out infinite; }
 
   .card-title {
-    font-size: 38px; font-weight: 800; letter-spacing: -0.025em; color: var(--fg-0); margin: 0 0 8px;
+    font-size: 30px; font-weight: 800; letter-spacing: -0.025em; color: var(--fg-0); margin: 0 0 6px;
+    line-height: 1.1;
   }
   .card-subtitle {
-    font-size: 14px; color: var(--card-accent); font-weight: 600; margin: 0 0 14px; letter-spacing: 0.02em;
+    font-size: 13px; color: var(--card-accent); font-weight: 600; margin: 0 0 12px; letter-spacing: 0.02em;
   }
   .card-sub {
-    color: var(--fg-2); font-size: 14px; line-height: 1.6; margin: 0 0 26px;
+    color: var(--fg-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 20px;
   }
 
   /* feature pills */
   .features {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 26px;
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 22px;
   }
   .feature {
-    font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    font-size: 10.5px; padding: 4px 9px; border-radius: 6px;
     background: rgba(255,255,255,0.04); color: var(--fg-2);
     border: 1px solid rgba(255,255,255,0.06);
     font-weight: 500; letter-spacing: 0.02em;
   }
 
   .card-stats {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
-    margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border);
   }
   .stat-k {
-    color: var(--fg-3); font-size: 10.5px; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 6px;
+    color: var(--fg-3); font-size: 9.5px; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 5px;
     font-weight: 600;
   }
   .stat-v {
-    color: var(--fg-0); font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--fg-0); font-size: 19px; font-weight: 700; letter-spacing: -0.02em;
     font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    line-height: 1.1;
   }
   .stat-v.loading { color: var(--fg-3); }
 
+  /* SoraShop "Q3 2026" placeholder reads as future state, not data. */
+  .card-stats.placeholder .stat-v { color: var(--fg-2); font-size: 16px; }
+
   .card-cta {
-    display: inline-flex; align-items: center; gap: 12px; margin-top: 26px;
-    padding: 14px 24px; border-radius: 14px;
+    display: inline-flex; align-items: center; gap: 10px; margin-top: 20px;
+    padding: 12px 20px; border-radius: 12px;
     background: var(--card-grad); color: white;
-    font-weight: 700; font-size: 14px; letter-spacing: -0.005em;
+    font-weight: 700; font-size: 13px; letter-spacing: -0.005em;
     width: fit-content;
-    box-shadow: 0 12px 32px -10px var(--card-accent);
+    box-shadow: 0 10px 28px -10px var(--card-accent);
     transition: transform var(--t), box-shadow var(--t);
   }
-  .card:hover .card-cta { transform: translateX(6px); box-shadow: 0 16px 40px -10px var(--card-accent); }
+  .card:hover .card-cta { transform: translateX(5px); box-shadow: 0 14px 36px -10px var(--card-accent); }
   .card-cta svg { transition: transform var(--t); }
   .card:hover .card-cta svg { transform: translateX(3px); }
+  /* Disabled CTA: neutral, no arrow translate. */
+  .card.disabled .card-cta {
+    background: rgba(255,255,255,0.05); color: var(--fg-2);
+    box-shadow: none; border: 1px solid var(--border-strong);
+    cursor: default;
+  }
+  .card.disabled:hover .card-cta { transform: none; box-shadow: none; }
+  .card.disabled:hover .card-cta svg { transform: none; }
 
   /* ---------------------- combined stats strip ---------------------- */
   .combined-stats {
-    width: 100%; max-width: 1280px; margin: 0 auto 56px;
+    width: 100%; max-width: 1320px; margin: 0 auto 48px;
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
     border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
     background: var(--border);
-    animation: fadeInUp 800ms 400ms cubic-bezier(.2,.8,.2,1) backwards;
+    animation: fadeInUp 800ms 440ms cubic-bezier(.2,.8,.2,1) backwards;
   }
   @media (max-width: 760px) { .combined-stats { grid-template-columns: repeat(2, 1fr); } }
   .combined-stat {
-    padding: 22px 20px; background: rgba(15, 15, 20, 0.85);
+    padding: 20px 18px; background: rgba(15, 15, 20, 0.85);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   }
   .combined-stat .k {
@@ -288,7 +324,7 @@
     margin-bottom: 8px;
   }
   .combined-stat .v {
-    color: var(--fg-0); font-size: 28px; font-weight: 800; letter-spacing: -0.025em;
+    color: var(--fg-0); font-size: 26px; font-weight: 800; letter-spacing: -0.025em;
     font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
   }
   .combined-stat .sub {
@@ -297,7 +333,7 @@
 
   /* ---------------------- footer ---------------------- */
   footer {
-    width: 100%; max-width: 1280px; margin: auto auto 0; padding-top: 28px;
+    width: 100%; max-width: 1320px; margin: auto auto 0; padding-top: 24px;
     border-top: 1px solid var(--border);
     color: var(--fg-3); font-size: 12px;
     display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
@@ -324,7 +360,13 @@
   <div class="page">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-mark" aria-hidden="true">
+          <!-- SORA mark (cross / cane sword) -->
+          <svg viewBox="0 0 226.1 226.1" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#E3242D" d="M43.9,112.9V94.3h59.8V75.2H43.9V56.7h138.2v18.6h-59.8v19.1h59.8v18.6h-59.8l60.1,89.4 c26.6-20.7,43.7-53,43.7-89.3C226.1,50.6,175.5,0,113.1,0C50.6,0,0,50.6,0,113.1c0,36.3,17.1,68.6,43.7,89.3l60.1-89.4 C103.8,112.9,43.9,112.9,43.9,112.9z"/>
+            <path fill="#E3242D" d="M59.2,212.5c16,8.7,34.3,13.6,53.8,13.6c19.5,0,37.8-4.9,53.8-13.6l-53.8-80.2L59.2,212.5z"/>
+          </svg>
+        </div>
         <span class="name"><span class="accent">Sora</span>Metrics</span>
       </div>
       <div class="meta" id="status">
@@ -334,11 +376,11 @@
     </header>
 
     <main class="hero" role="main">
-      <div class="eyebrow">Two networks · One dashboard</div>
-      <h1>Choose your network</h1>
+      <div class="eyebrow">Three destinations · One ecosystem</div>
+      <h1>Choose your path</h1>
       <p class="lede">
-        Real-time on-chain analytics for the SORA ecosystem. Pick the chain you want to explore —
-        production data is live in either path, and cross-chain XOR migrations are stitched between them.
+        Real-time on-chain analytics for the SORA ecosystem. The Substrate mainnet, the Iroha 3 Nexus,
+        and the on-chain marketplace coming next. Cross-chain XOR migrations are stitched between them.
       </p>
     </main>
 
@@ -356,10 +398,16 @@
       </div>
     </section>
 
-    <section class="grid" aria-label="Networks">
+    <section class="grid" aria-label="Destinations">
       <a class="card card-v2" href="/sorav2" aria-label="Open SORA v2 dashboard">
         <div class="card-head">
-          <div class="card-icon" aria-hidden="true">v2</div>
+          <div class="card-icon" aria-hidden="true">
+            <!-- Real SORA mark scaled inside the gradient tile -->
+            <svg viewBox="0 0 226.1 226.1" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+              <path d="M43.9,112.9V94.3h59.8V75.2H43.9V56.7h138.2v18.6h-59.8v19.1h59.8v18.6h-59.8l60.1,89.4 c26.6-20.7,43.7-53,43.7-89.3C226.1,50.6,175.5,0,113.1,0C50.6,0,0,50.6,0,113.1c0,36.3,17.1,68.6,43.7,89.3l60.1-89.4 C103.8,112.9,43.9,112.9,43.9,112.9z"/>
+              <path d="M59.2,212.5c16,8.7,34.3,13.6,53.8,13.6c19.5,0,37.8-4.9,53.8-13.6l-53.8-80.2L59.2,212.5z"/>
+            </svg>
+          </div>
           <div class="card-badges">
             <span class="card-badge live"><span class="dot"></span>Production</span>
             <span class="card-badge tech">Substrate</span>
@@ -372,27 +420,28 @@
           NPoS staking and the ecosystem of tokens, pools and burns that built SORA today.
         </p>
         <div class="features">
-          <span class="feature">PolkaSwap pools</span>
+          <span class="feature">PolkaSwap</span>
           <span class="feature">Hashi v2 bridges</span>
           <span class="feature">Governance</span>
           <span class="feature">Staking</span>
           <span class="feature">Burns</span>
-          <span class="feature">XOR / VAL / KUSD</span>
         </div>
         <div class="card-stats">
-          <div><div class="stat-k">Tokens</div><div class="stat-v loading" id="v2-tokens">—</div></div>
-          <div><div class="stat-k">Pools</div><div class="stat-v loading" id="v2-pools">—</div></div>
-          <div><div class="stat-k">Block</div><div class="stat-v loading" id="v2-block">—</div></div>
+          <div><div class="stat-k">Vol · 24h</div><div class="stat-v loading" id="v2-vol">—</div></div>
+          <div><div class="stat-k">Signers</div><div class="stat-v loading" id="v2-users">—</div></div>
+          <div><div class="stat-k">Txs · 24h</div><div class="stat-v loading" id="v2-txs">—</div></div>
         </div>
         <span class="card-cta">
-          Open SORA v2 dashboard
+          Open SORA v2
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
       </a>
 
       <a class="card card-mn" href="/minamoto" aria-label="Open SORA Minamoto dashboard">
         <div class="card-head">
-          <div class="card-icon" aria-hidden="true">源</div>
+          <div class="card-icon" aria-hidden="true">
+            <span class="kanji">源</span>
+          </div>
           <div class="card-badges">
             <span class="card-badge live"><span class="dot"></span>Mainnet live</span>
             <span class="card-badge tech">Iroha 3 · Nexus</span>
@@ -409,7 +458,6 @@
           <span class="feature">Data Spaces</span>
           <span class="feature">ZK Halo2</span>
           <span class="feature">AMX cross-DS</span>
-          <span class="feature">Oracle TWAP</span>
           <span class="feature">RWAs</span>
         </div>
         <div class="card-stats">
@@ -418,22 +466,62 @@
           <div><div class="stat-k">Block</div><div class="stat-v loading" id="mn-block">—</div></div>
         </div>
         <span class="card-cta">
-          Open Minamoto dashboard
+          Open Minamoto
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
       </a>
+
+      <div class="card card-sh disabled" role="article" aria-label="SoraShop — coming soon">
+        <div class="card-head">
+          <div class="card-icon" aria-hidden="true">
+            <!-- Shopping bag / market icon -->
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 7.5L5.4 18.7a2 2 0 0 0 2 1.6h9.2a2 2 0 0 0 2-1.6L20.5 7.5H3.5z"/>
+              <path d="M8.5 7.5V5.5a3.5 3.5 0 1 1 7 0v2"/>
+              <circle cx="9" cy="12" r="0.9" fill="#fff" stroke="none"/>
+              <circle cx="15" cy="12" r="0.9" fill="#fff" stroke="none"/>
+            </svg>
+          </div>
+          <div class="card-badges">
+            <span class="card-badge soon"><span class="dot"></span>Coming soon</span>
+            <span class="card-badge tech">On-chain</span>
+          </div>
+        </div>
+        <h2 class="card-title">SoraShop</h2>
+        <p class="card-subtitle">Marketplace on the Nexus</p>
+        <p class="card-sub">
+          On-chain marketplace settling natively in XOR over Iroha 3. Listings, escrow,
+          reputation and disputes wired into the Nexus — no off-chain payment rail.
+        </p>
+        <div class="features">
+          <span class="feature">XOR-native</span>
+          <span class="feature">On-chain escrow</span>
+          <span class="feature">Disputes</span>
+          <span class="feature">Reputation</span>
+          <span class="feature">Listings</span>
+        </div>
+        <div class="card-stats placeholder">
+          <div><div class="stat-k">Listings</div><div class="stat-v">—</div></div>
+          <div><div class="stat-k">Sellers</div><div class="stat-v">—</div></div>
+          <div><div class="stat-k">Target</div><div class="stat-v">Soon</div></div>
+        </div>
+        <span class="card-cta" aria-disabled="true">
+          Stay tuned
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.4"/></svg>
+        </span>
+      </div>
     </section>
 
     <section class="combined-stats" aria-label="Combined ecosystem stats">
       <div class="combined-stat">
-        <div class="k">XOR supply on Minamoto</div>
-        <div class="v" id="xor-supply">—</div>
-        <div class="sub">all sources combined</div>
+        <div class="k">Cross-chain XOR migrated</div>
+        <div class="v" id="xor-migrated">—</div>
+        <div class="sub">verified v2 → Minamoto burns</div>
       </div>
       <div class="combined-stat">
-        <div class="k">Cross-chain migrated</div>
-        <div class="v" id="xor-migrated">—</div>
-        <div class="sub">verified on-chain v2 burns</div>
+        <div class="k">Migration recipients</div>
+        <div class="v" id="cs-recipients">—</div>
+        <div class="sub">unique addresses</div>
       </div>
       <div class="combined-stat">
         <div class="k">Minamoto accounts</div>
@@ -459,7 +547,6 @@
   </div>
 
   <script>
-    // ----- formatters -----
     function setText(id, v) { const el = document.getElementById(id); if (el && v != null) el.textContent = v; }
     function setStat(id, v) {
       const el = document.getElementById(id);
@@ -475,6 +562,14 @@
       if (x >= 1_000_000)     return (x / 1_000_000).toFixed(2) + 'M';
       if (x >= 1_000)         return (x / 1_000).toFixed(1) + 'k';
       return String(Math.round(x));
+    }
+    function fmtUsd(n) {
+      const x = Number(n);
+      if (!Number.isFinite(x)) return '—';
+      if (x >= 1_000_000) return '$' + (x / 1_000_000).toFixed(2) + 'M';
+      if (x >= 1_000)     return '$' + (x / 1_000).toFixed(1) + 'k';
+      if (x >= 1)         return '$' + x.toFixed(0);
+      return '$' + x.toFixed(2);
     }
     function fmtXor(s) {
       if (s == null) return '—';
@@ -498,7 +593,6 @@
       return Math.round(sec / 86400) + 'd';
     }
 
-    // Animated counter — eases to the target.
     function animateNumber(el, target, formatter) {
       if (!el) return;
       formatter = formatter || (x => String(x));
@@ -518,25 +612,26 @@
       requestAnimationFrame(tick);
     }
 
-    // ----- v2 stats -----
+    // ----- v2 stats: use the fields /stats/overview actually returns -----
     fetch('/stats/overview', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (!d) return;
-        if (d.tokensCount != null) {
-          const el = document.getElementById('v2-tokens');
+        if (!d || !d.network) return;
+        const n = d.network;
+        if (n.volume != null) {
+          const el = document.getElementById('v2-vol');
           el.classList.remove('loading');
-          animateNumber(el, d.tokensCount, fmt);
+          animateNumber(el, n.volume, fmtUsd);
         }
-        if (d.poolsCount != null) {
-          const el = document.getElementById('v2-pools');
+        if (n.users != null) {
+          const el = document.getElementById('v2-users');
           el.classList.remove('loading');
-          animateNumber(el, d.poolsCount, fmt);
+          animateNumber(el, n.users, fmt);
         }
-        if (d.lastBlock != null) {
-          const el = document.getElementById('v2-block');
+        if (n.txCount != null) {
+          const el = document.getElementById('v2-txs');
           el.classList.remove('loading');
-          animateNumber(el, d.lastBlock, x => '#' + fmt(x));
+          animateNumber(el, n.txCount, fmt);
         }
       })
       .catch(() => {});
@@ -547,8 +642,8 @@
       .then(d => {
         if (!d || !d.state) return;
         const s = d.state;
-        if (s.domains != null) { setStat('mn-domains', fmt(s.domains)); }
-        if (s.peers != null)   { setStat('mn-peers', fmt(s.peers)); }
+        if (s.domains != null) setStat('mn-domains', fmt(s.domains));
+        if (s.peers != null)   setStat('mn-peers', fmt(s.peers));
         if (s.block_height != null) {
           const el = document.getElementById('mn-block');
           el.classList.remove('loading');
@@ -559,7 +654,7 @@
       })
       .catch(() => {});
 
-    // ----- cross-chain (combined) -----
+    // ----- cross-chain (ticker + combined) -----
     fetch('/api/minamoto/cross-chain/stats', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -569,15 +664,7 @@
         setText('cc-recipients', d.unique_recipients != null ? fmt(d.unique_recipients) : '0');
         setText('cc-last', d.last_claim_at ? relative(d.last_claim_at) + ' ago' : '—');
         setText('xor-migrated', fmtXor(d.total_xor_claimed));
-      })
-      .catch(() => {});
-
-    // ----- xor total supply on Minamoto -----
-    fetch('/api/minamoto/asset/xor%23universal', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!d) return;
-        setText('xor-supply', fmtXor(d.total_quantity));
+        setText('cs-recipients', d.unique_recipients != null ? fmt(d.unique_recipients) : '0');
       })
       .catch(() => {});
   </script>

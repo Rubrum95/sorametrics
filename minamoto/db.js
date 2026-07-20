@@ -630,6 +630,131 @@ async function getCrossChainStats() {
     return r.rows[0];
 }
 
+// listPendingCrossChainBurns — surface every Sora v2 burn that emitted
+// the `soraNexusXorClaim` system.remark, regardless of whether the
+// Soramitsu operator has minted the corresponding XOR on Minamoto yet.
+//
+// Returns a chronologically sorted list with:
+//   - v2 side: tx hash, block, signer, timestamp, amount in user units
+//   - decoded recipient I105 (parsed from the system.remark JSON via
+//     PostgreSQL's `convert_from + jsonb` pipeline so the frontend
+//     receives ready-to-render katakana strings)
+//   - status flag: 'claimed' if a corresponding mn.transactions row
+//     carries the same sora_v2_claim_tx_hash; 'pending' otherwise
+//   - claim hash + block on Minamoto when claimed
+//
+// We restrict to bursts after `since_block` (configurable, default
+// 25_867_650 = the bridge's bootstrap block hardcoded in the live
+// SoraMetrics widget) to avoid dragging in pre-bridge noise. Caller can
+// scope further with a status filter ('pending' / 'claimed' / 'all').
+async function listPendingCrossChainBurns({
+    status = 'all',
+    sinceBlock = 25867650,
+    limit = 100,
+} = {}) {
+    // Resolve the timestamp of the current Minamoto chain's block #1.
+    // Burns from Sora v2 emitted BEFORE this point belong to a previous
+    // (wiped) Minamoto chain — their claim records are gone. The XOR
+    // value of those claims may have been preserved via the genesis
+    // premint snapshot mechanism, but the cryptographic link to the v2
+    // burn no longer exists on chain. We surface them as a distinct
+    // `pre_reset` state so the UI doesn't misleadingly imply they are
+    // "still pending" — there is nothing left to process for them on
+    // the current chain.
+    const genesisRow = await getPool().query(
+        `SELECT created_at FROM mn.blocks WHERE height = 1 LIMIT 1`
+    );
+    const currentGenesisAt = genesisRow.rows[0] && genesisRow.rows[0].created_at;
+
+    const params = [sinceBlock, limit];
+    let statusFilter = '';
+    if (status === 'pending') {
+        // claim not on chain AND burned after current chain genesis
+        statusFilter = currentGenesisAt
+            ? `AND mn_t.hash IS NULL AND TO_TIMESTAMP(he.timestamp) >= $${params.length + 1}`
+            : `AND mn_t.hash IS NULL`;
+        if (currentGenesisAt) params.push(currentGenesisAt);
+    } else if (status === 'claimed') {
+        statusFilter = `AND mn_t.hash IS NOT NULL`;
+    } else if (status === 'pre_reset') {
+        statusFilter = currentGenesisAt
+            ? `AND mn_t.hash IS NULL AND TO_TIMESTAMP(he.timestamp) < $${params.length + 1}`
+            : `AND 1=0`; // no current chain → no pre-reset filter possible
+        if (currentGenesisAt) params.push(currentGenesisAt);
+    }
+    // 'all' → no filter beyond `since_block`.
+
+    const sql = `
+        SELECT
+            he.id                                AS v2_tx_hash,
+            he.block_height                      AS v2_block,
+            he.address                           AS v2_signer,
+            TO_TIMESTAMP(he.timestamp)           AS v2_at,
+            (burn_call.data->>'amount')::NUMERIC AS raw_amount,
+            (
+                convert_from(
+                    decode(substring(remark_call.data->>'remark', 3), 'hex'),
+                    'UTF8'
+                )::jsonb
+            )->>'recipient'                       AS recipient_i105,
+            mn_t.hash                            AS mn_tx_hash,
+            mn_t.block_height                    AS mn_block,
+            mn_t.created_at                      AS mn_at
+        FROM history_element he
+        JOIN history_element_call burn_call
+            ON burn_call.history_element_id = he.id
+           AND burn_call.module = 'assets'
+           AND burn_call.method = 'burn'
+        JOIN history_element_call remark_call
+            ON remark_call.history_element_id = he.id
+           AND remark_call.module = 'system'
+           AND remark_call.method = 'remark'
+           AND remark_call.data->>'remark' LIKE '0x7b%736f72614e65787573586f72436c61696d%'
+        LEFT JOIN mn.transactions mn_t
+            ON mn_t.sora_v2_claim_tx_hash = he.id
+        WHERE he.block_height >= $1
+          ${statusFilter}
+        ORDER BY he.block_height DESC
+        LIMIT $2
+    `;
+    const r = await getPool().query(sql, params);
+
+    // Classify each row into one of three states. The genesis cutoff is
+    // an inclusive lower bound: burns at exactly the genesis timestamp
+    // are treated as post-reset (they could have been processed by the
+    // current chain's first block batch).
+    const cutoff = currentGenesisAt ? new Date(currentGenesisAt).getTime() : null;
+
+    return r.rows.map((row) => {
+        const v2AtMs = row.v2_at ? new Date(row.v2_at).getTime() : null;
+        let state;
+        if (row.mn_tx_hash) {
+            state = 'claimed';
+        } else if (cutoff != null && v2AtMs != null && v2AtMs < cutoff) {
+            state = 'pre_reset';
+        } else {
+            state = 'pending';
+        }
+
+        return {
+            v2_tx_hash: row.v2_tx_hash,
+            v2_block: row.v2_block,
+            v2_signer: row.v2_signer,
+            v2_at: row.v2_at,
+            amount_xor: row.raw_amount != null
+                ? (Number(row.raw_amount) / 1e18).toString()
+                : null,
+            recipient_i105: row.recipient_i105,
+            mn_tx_hash: row.mn_tx_hash ? Buffer.from(row.mn_tx_hash).toString('hex') : null,
+            mn_block: row.mn_block,
+            mn_at: row.mn_at,
+            state,
+            // Backwards-compatible boolean kept for old consumers.
+            claimed: state === 'claimed',
+        };
+    });
+}
+
 async function getCrossChainTimeseries(hours = 168) {
     const r = await getPool().query(
         `SELECT date_trunc('hour', t.created_at) AS bucket,
@@ -973,7 +1098,7 @@ async function upsertInstruction(i) {
         i.block,
         i.authority,
         i.kind,
-        i.payload || {},
+        (i.payload && typeof i.payload === 'object') ? i.payload : { encoded: i.payload ?? null },
         i.transaction_status,
         i.created_at,
     ]);
@@ -1029,6 +1154,9 @@ async function listInstructionKinds() {
 
 async function insertMetricsSamples(samples, ts) {
     if (!samples || samples.length === 0) return 0;
+    // Drop histogram *_bucket from persistence (~62% of rows, lowest value in our UI which plots raw series; _sum/_count kept). Live /prometheus/parsed still shows them.
+    samples = samples.filter(s => !/_bucket$/.test(s.name));
+    if (samples.length === 0) return 0;
     const stamp = ts || new Date();
     // Bulk insert with multi-row VALUES — chunked to avoid hitting parameter limits.
     const CHUNK = 500;
@@ -1530,6 +1658,7 @@ module.exports = {
     updateTransactionMetadata, listClaimsToEnrich,
     lookupV2BurnExtrinsic, updateTransactionV2Side, listClaimsMissingV2Resolution,
     listClaims, getCrossChainStats, getCrossChainTimeseries, getXorMintHistory,
+    listPendingCrossChainBurns,
     upsertAccount, listAccounts, getAccountsStats,
     upsertDomain, listDomains, getDomainsStats,
     upsertAsset, listAssets,

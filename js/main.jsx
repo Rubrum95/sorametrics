@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Sidebar, Topbar, BurnSection, PulseSection, PortfolioSection, SwapsSection, ExtrinsicsSection, TransfersSection, BridgesSection, OrderBookSection, PoolsSection, TokensSection, HoldersSection, StakingSection, GovSection, BalanceSection, IntelligenceSection, PolkamarktSection, ToolsSection, MusicStudioSection, XorMigrationSection, StudioProvider, TweaksPanel, Petals, DrillProvider, LangProvider, ToastProvider, WalletProvider, WalletDetailsProvider, GlobalSearchProvider */
+/* global React, ReactDOM, Sidebar, Topbar, BurnSection, PulseSection, PortfolioSection, SwapsSection, ExtrinsicsSection, TransfersSection, BridgesSection, OrderBookSection, PoolsSection, TokensSection, HoldersSection, StakingSection, GovSection, BalanceSection, IntelligenceSection, PolkamarktSection, ToolsSection, MusicStudioSection, NewsSection, XorMigrationSection, StudioProvider, TweaksPanel, Petals, DrillProvider, LangProvider, ToastProvider, WalletProvider, WalletDetailsProvider, GlobalSearchProvider */
 const { useState, useEffect, useCallback } = React;
 
 const SECTION_COMPONENTS = {
@@ -19,7 +19,9 @@ const SECTION_COMPONENTS = {
   intel: 'IntelligenceSection',
   polkamarkt: 'PolkamarktSection',
   tools: 'ToolsSection',
+  metrics: 'MetricsSection',
   studio: 'MusicStudioSection',
+  news: 'NewsSection',
   xormig: 'XorMigrationSection',
 };
 
@@ -51,6 +53,7 @@ function App() {
         window.history.replaceState({}, '', url.toString());
       }
     } catch (_) {}
+    try { if (window.__SM_TRACK__) window.__SM_TRACK__.section(section); } catch (_) {}
   }, [section]);
 
   useEffect(() => {

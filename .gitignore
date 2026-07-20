@@ -28,10 +28,12 @@ yarn-error.log*
 backfill_state.json
 backfill_orderbook_state.json
 
-# Music player assets (large files, deployed separately via SCP)
-music/*.mp3
-music/*.wav
-music/*.flac
+# Media assets (large files, deployed separately via SCP)
+music/
+news/
+
+# Runtime state
+.squid_watchdog_state
 
 # Editor / OS
 .DS_Store
@@ -44,3 +46,7 @@ CLAUDE.md
 tasks/
 .claude/
 .vps-snapshot/
+
+# Local working copies (not part of this repo)
+sorametrics v6/
+sorametrics-v33 (proyecto sorametrics rust)/

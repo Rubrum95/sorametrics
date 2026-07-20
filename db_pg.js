@@ -28,6 +28,10 @@ let _logoCache = {};
 // In-memory symbol→asset_id cache for price lookups
 let _symbolToAssetId = {};
 
+// Reverse map asset_id (lowercase hex) → { symbol, decimals } for event
+// enrichment in /block/:n. Populated alongside _symbolToAssetId.
+let _assetIdToInfo = {};
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -143,10 +147,17 @@ async function initDB() {
         for (const r of logos.rows) _logoCache[r.symbol] = r.logo;
         console.log(`[db_pg] Logo cache loaded: ${Object.keys(_logoCache).length} entries`);
 
-        // Load symbol -> asset_id cache (for price lookups)
-        const symbols = await client.query("SELECT symbol, asset_id FROM sm.asset_registry");
+        // Load symbol -> asset_id cache (for price lookups) and the reverse
+        // asset_id -> { symbol, decimals } map (used to enrich block events).
+        const symbols = await client.query("SELECT symbol, asset_id, decimals FROM sm.asset_registry");
         _symbolToAssetId = {};
-        for (const r of symbols.rows) _symbolToAssetId[r.symbol] = r.asset_id;
+        _assetIdToInfo = {};
+        for (const r of symbols.rows) {
+            _symbolToAssetId[r.symbol] = r.asset_id;
+            const idLower = String(r.asset_id || '').toLowerCase();
+            if (idLower) _assetIdToInfo[idLower] = { symbol: r.symbol, decimals: Number(r.decimals) || 18 };
+        }
+        console.log(`[db_pg] Asset registry loaded: ${Object.keys(_symbolToAssetId).length} symbols`);
     } finally {
         client.release();
     }
@@ -224,10 +235,43 @@ async function refreshMVs(mvList, label) {
         await client.query(`SET statement_timeout = ${PG_CONFIG.statement_timeout || 30000}`).catch(() => {});
         client.release();
     }
-    // Only truncate live tables for successfully refreshed MVs
+    // Only truncate live tables for successfully refreshed MVs.
+    // GUARD: a REFRESH "succeeds" even when subsquid is stalled (it just re-runs
+    // the MV query over a frozen history_element). Truncating live_* in that case
+    // permanently drops the only copy of recent rows (the WS indexer buffer),
+    // since the MV never absorbed them. Only truncate when subsquid has caught up
+    // close to the newest row buffered in the live table.
+    const SQUID_LAG_TOLERANCE_BLOCKS = 300; // ~30 min of 6s blocks
+    let squidHeight = null;
+    try {
+        const r = await pool.query('SELECT height FROM squid_processor.status LIMIT 1');
+        squidHeight = Number(r.rows[0] && r.rows[0].height);
+    } catch (e) {
+        console.error(`[db_pg] TRUNCATE guard: cannot read squid status (${e.message}); keeping all live_* this cycle`);
+    }
     for (const mv of refreshed) {
         const live = MV_TO_LIVE[mv];
-        if (live) await pool.query(`TRUNCATE ${live}`).catch(() => {});
+        if (!live) continue;
+        if (squidHeight == null || !Number.isFinite(squidHeight)) continue; // fail-safe: keep live data
+        try {
+            const lr = await pool.query(`SELECT COALESCE(MAX(block), 0) AS maxb FROM ${live}`);
+            const liveMaxBlock = Number(lr.rows[0] && lr.rows[0].maxb || 0);
+            if (liveMaxBlock - squidHeight > SQUID_LAG_TOLERANCE_BLOCKS) {
+                console.warn(`[db_pg] SKIP TRUNCATE ${live}: subsquid behind (squid=${squidHeight}, live_max_block=${liveMaxBlock}); keeping ${live} so frontend serves it via UNION`);
+                continue;
+            }
+            if (live === 'sm.live_bridges') {
+                // Subsquid only indexes ethBridge.transferToSidechain → only
+                // Ethereum reaches mv_bridges. Hashi v2 (Substrate / Parachain
+                // / TON) lives exclusively in live_bridges; truncating would
+                // permanently drop those rows.
+                await pool.query(`DELETE FROM ${live} WHERE network = 'Ethereum'`);
+            } else {
+                await pool.query(`TRUNCATE ${live}`);
+            }
+        } catch (e) {
+            console.error(`[db_pg] TRUNCATE guard ${live} skipped on error: ${e.message}`);
+        }
     }
     if (refreshed.length > 0) {
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
@@ -623,6 +667,20 @@ const _approxCountCache = {};
 const APPROX_COUNT_TTL = 30000;
 const MAX_OFFSET = 500000; // Cap OFFSET to prevent deep pagination timeouts
 
+// Reprocessed blocks (WS reconnect / PM2 restart, no ON CONFLICT on live_*) insert byte-identical rows differing only by the Date.now() insert `timestamp`. Collapse those; legit multi-leg rows differ in amount/symbol → kept.
+function dedupeLiveRows(rows) {
+    const seen = new Set();
+    const out = [];
+    for (const r of rows) {
+        const { timestamp, ...chain } = r;
+        const k = JSON.stringify(chain);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(r);
+    }
+    return out;
+}
+
 // Generic paginated query helper
 async function paginatedQuery(mvName, liveName, cols, where, params, orderBy, page, limit, mapFn) {
     const isUnfiltered = !where || where.trim() === '';
@@ -670,7 +728,7 @@ async function paginatedQuery(mvName, liveName, cols, where, params, orderBy, pa
             `SELECT ${cols} FROM sm.${liveName} ${where} ORDER BY ${orderBy}`,
             params
         );
-        const liveRows = liveRes.rows;
+        const liveRows = dedupeLiveRows(liveRes.rows);
 
         if (offset < liveRows.length) {
             // Page overlaps live data — merge live + MV
@@ -847,7 +905,7 @@ async function getLatestExtrinsics(page = 1, limit = 25, section = null, timesta
             `SELECT ${EXT_COLS} FROM sm.live_extrinsics ${where} ORDER BY timestamp DESC`,
             params
         );
-        const liveRows = liveRes.rows;
+        const liveRows = dedupeLiveRows(liveRes.rows);
         const needed = limit + offset - liveRows.length;
 
         if (needed > 0) {
@@ -1801,6 +1859,9 @@ async function initPolkamarktSchema() {
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_markets_status ON sm.polkamarkt_markets(status)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_markets_creator ON sm.polkamarkt_markets(creator)`);
+        // 4.8.8 (spec 130) rewrite: every market carries a settlement mechanism
+        // (MigratedLegacy | DynamicPariMutuel). Added idempotently on existing tables.
+        await client.query(`ALTER TABLE sm.polkamarkt_markets ADD COLUMN IF NOT EXISTS mechanism TEXT`);
 
         // Every TradeExecuted event (buy / sell, yes / no). We do NOT
         // aggregate ahead of time — the prob-over-time sparkline is
@@ -1837,6 +1898,35 @@ async function initPolkamarktSchema() {
             )
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_claims_account ON sm.polkamarkt_claims(account)`);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.polkamarkt_buybacks (
+                id            BIGSERIAL PRIMARY KEY,
+                block         INTEGER NOT NULL,
+                ts            BIGINT  NOT NULL,
+                hash          TEXT,
+                kusd_spent    NUMERIC(60) NOT NULL,
+                xor_burned    NUMERIC(60) NOT NULL
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_buybacks_ts ON sm.polkamarkt_buybacks(ts DESC)`);
+
+        // DPM residual + legacy-migration residual burns (4.8.8). Distinct from
+        // the XOR buyback sweep: these are collateral burned/routed by the new
+        // pari-mutuel settlement, recorded so burn metrics stay complete.
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.polkamarkt_burns (
+                id         BIGSERIAL PRIMARY KEY,
+                block      INTEGER NOT NULL,
+                ts         BIGINT  NOT NULL,
+                hash       TEXT,
+                market_id  BIGINT,
+                kind       TEXT NOT NULL,          -- 'dpm_residual' | 'legacy_migration_residual'
+                amount     NUMERIC(60) NOT NULL
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_pm_burns_ts ON sm.polkamarkt_burns(ts DESC)`);
+
         console.log('[db_pg] polkamarkt schema ready');
     } catch (e) {
         console.error('[db_pg] polkamarkt schema init error:', e.message);
@@ -1845,19 +1935,97 @@ async function initPolkamarktSchema() {
     }
 }
 
+async function initNewsSchema() {
+    const client = await pool.connect();
+    try {
+        // Migration: an earlier session created sm.radio_episodes. Rename to
+        // news_episodes if found so existing data is preserved.
+        await client.query(`
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT 1 FROM information_schema.tables
+                           WHERE table_schema='sm' AND table_name='radio_episodes')
+                   AND NOT EXISTS (SELECT 1 FROM information_schema.tables
+                                   WHERE table_schema='sm' AND table_name='news_episodes')
+                THEN
+                    EXECUTE 'ALTER TABLE sm.radio_episodes RENAME TO news_episodes';
+                    EXECUTE 'ALTER INDEX IF EXISTS sm.idx_radio_published RENAME TO idx_news_published';
+                END IF;
+            END $$;
+        `);
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS sm.news_episodes (
+                slug          TEXT PRIMARY KEY,
+                published_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                title_es      TEXT NOT NULL,
+                title_en      TEXT NOT NULL,
+                summary_es    TEXT,
+                summary_en    TEXT,
+                cover_path    TEXT NOT NULL,
+                audio_path_es TEXT NOT NULL,
+                audio_path_en TEXT NOT NULL,
+                video_path_es TEXT,
+                video_path_en TEXT,
+                duration_s    INTEGER,
+                source_url    TEXT,
+                tags          TEXT[]
+            )
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_news_published ON sm.news_episodes(published_at DESC)`);
+        console.log('[db_pg] news schema ready');
+    } catch (e) {
+        console.error('[db_pg] news schema init error:', e.message);
+    } finally {
+        client.release();
+    }
+}
+
+async function newsInsertEpisode(ep) {
+    await pool.query(
+        `INSERT INTO sm.news_episodes
+         (slug, title_es, title_en, summary_es, summary_en,
+          cover_path, audio_path_es, audio_path_en, video_path_es, video_path_en,
+          duration_s, source_url, tags)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (slug) DO UPDATE SET
+            title_es=EXCLUDED.title_es, title_en=EXCLUDED.title_en,
+            summary_es=EXCLUDED.summary_es, summary_en=EXCLUDED.summary_en,
+            cover_path=EXCLUDED.cover_path,
+            audio_path_es=EXCLUDED.audio_path_es, audio_path_en=EXCLUDED.audio_path_en,
+            video_path_es=EXCLUDED.video_path_es, video_path_en=EXCLUDED.video_path_en,
+            duration_s=EXCLUDED.duration_s, source_url=EXCLUDED.source_url, tags=EXCLUDED.tags`,
+        [ep.slug, ep.titleEs, ep.titleEn, ep.summaryEs, ep.summaryEn,
+         ep.coverPath, ep.audioPathEs, ep.audioPathEn, ep.videoPathEs, ep.videoPathEn,
+         ep.durationS, ep.sourceUrl, ep.tags || []]
+    );
+}
+
+async function newsListEpisodes({ limit = 50, offset = 0 } = {}) {
+    const r = await pool.query(
+        `SELECT slug, published_at, title_es, title_en, summary_es, summary_en,
+                cover_path, audio_path_es, audio_path_en, video_path_es, video_path_en,
+                duration_s, source_url, tags
+         FROM sm.news_episodes
+         ORDER BY published_at DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+    );
+    return r.rows;
+}
+
 async function pmInsertMarket(m) {
     await pool.query(
         `INSERT INTO sm.polkamarkt_markets
          (market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,
           status, question, oracle, resolution_source,
           opengov_network, opengov_parachain, opengov_track, opengov_referendum,
-          created_at_block, created_at_ts)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          created_at_block, created_at_ts, mechanism)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          ON CONFLICT (market_id) DO NOTHING`,
         [m.marketId, m.conditionId, m.creator, m.closeBlock, m.collateralAsset, m.seedLiquidity,
          m.status || 'Open', m.question, m.oracle, m.resolutionSource,
          m.opengovNetwork, m.opengovParachain, m.opengovTrack, m.opengovReferendum,
-         m.block, m.ts]
+         m.block, m.ts, m.mechanism || null]
     );
 }
 
@@ -1870,6 +2038,45 @@ async function pmUpdateMarketStatus(marketId, status, resolution, block, ts) {
          WHERE market_id = $1`,
         [marketId, status, resolution || null, block, ts]
     );
+}
+
+// Reconcile a market's lifecycle fields from on-chain truth. Unlike
+// pmUpdateMarketStatus (event-driven, stamps resolved_at from the event block),
+// this is called by the periodic chain reconcile and only fills status /
+// resolution / mechanism — it never invents a resolved_at it doesn't know.
+// Returns rowCount > 0 only when a provided value actually differed.
+async function pmReconcileMarketStatus(marketId, { status = null, resolution = null, mechanism = null } = {}) {
+    // Cast params to ::text — when a value is null Postgres can't infer the
+    // parameter type from COALESCE/IS DISTINCT context ("could not determine
+    // data type of parameter"). node --check won't catch this (SQL in a string).
+    const r = await pool.query(
+        `UPDATE sm.polkamarkt_markets
+         SET status     = COALESCE($2::text, status),
+             resolution = COALESCE($3::text, resolution),
+             mechanism  = COALESCE($4::text, mechanism)
+         WHERE market_id = $1
+           AND ( ($2::text IS NOT NULL AND status     IS DISTINCT FROM $2::text)
+              OR ($3::text IS NOT NULL AND resolution IS DISTINCT FROM $3::text)
+              OR ($4::text IS NOT NULL AND mechanism  IS DISTINCT FROM $4::text) )`,
+        [marketId, status, resolution, mechanism]
+    );
+    return r.rowCount;
+}
+
+async function pmInsertBurn(b) {
+    await pool.query(
+        `INSERT INTO sm.polkamarkt_burns (block, ts, hash, market_id, kind, amount)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [b.block, b.ts, b.hash || null, b.marketId ?? null, b.kind, b.amount]
+    );
+}
+
+async function pmGetBurnStats() {
+    const r = await pool.query(
+        `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount), 0)::text AS total FROM sm.polkamarkt_burns`
+    );
+    const row = r.rows[0] || {};
+    return { count: Number(row.cnt) || 0, total: String(row.total || '0') };
 }
 
 async function pmInsertTrade(t) {
@@ -1889,19 +2096,72 @@ async function pmInsertClaim(c) {
     );
 }
 
+async function pmInsertBuyback(b) {
+    await pool.query(
+        `INSERT INTO sm.polkamarkt_buybacks (block, ts, hash, kusd_spent, xor_burned)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [b.block, b.ts, b.hash, b.kusdSpent, b.xorBurned]
+    );
+}
+
+async function pmGetBuybackStats() {
+    const r = await pool.query(`
+        SELECT
+          COUNT(*)                              AS sweep_count,
+          COALESCE(SUM(kusd_spent), 0)::text    AS kusd_spent_total,
+          COALESCE(SUM(xor_burned), 0)::text    AS xor_burned_total,
+          MAX(ts)                               AS last_ts,
+          MAX(block)                            AS last_block
+        FROM sm.polkamarkt_buybacks
+    `);
+    const row = r.rows[0] || {};
+    return {
+        sweepCount:     Number(row.sweep_count) || 0,
+        kusdSpentTotal: String(row.kusd_spent_total || '0'),
+        xorBurnedTotal: String(row.xor_burned_total || '0'),
+        lastTs:         row.last_ts != null ? Number(row.last_ts) : null,
+        lastBlock:      row.last_block != null ? Number(row.last_block) : null,
+    };
+}
+
+async function pmListBuybacks({ limit = 20, offset = 0 } = {}) {
+    const r = await pool.query(
+        `SELECT block, ts, hash, kusd_spent::text AS kusd_spent, xor_burned::text AS xor_burned
+         FROM sm.polkamarkt_buybacks
+         ORDER BY ts DESC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset]
+    );
+    return r.rows.map(row => ({
+        block:      Number(row.block),
+        ts:         Number(row.ts),
+        hash:       row.hash,
+        kusdSpent:  row.kusd_spent,
+        xorBurned:  row.xor_burned,
+    }));
+}
+
 // Totals for KPI header in the Prediction Markets section.
 async function pmGetTotals() {
     const r = await pool.query(`
         SELECT
           COUNT(*)                                              AS markets_total,
           COUNT(*) FILTER (WHERE status = 'Open')               AS markets_active,
-          (SELECT COALESCE(SUM(collateral), 0) FROM sm.polkamarkt_trades) AS volume_total
+          COUNT(*) FILTER (WHERE status = 'Resolved')           AS markets_resolved,
+          (SELECT COALESCE(SUM(collateral), 0)::text FROM sm.polkamarkt_trades) AS volume_total
         FROM sm.polkamarkt_markets
     `);
+    // Distinct collateral assets across all markets — lets the UI label the
+    // cumulative volume with a token symbol only when every market shares one
+    // collateral (summing raw amounts across different tokens is meaningless).
+    const cRes = await pool.query(`SELECT DISTINCT collateral_asset FROM sm.polkamarkt_markets WHERE collateral_asset LIKE '0x%'`);
     return {
         markets: Number(r.rows[0].markets_total) || 0,
         active: Number(r.rows[0].markets_active) || 0,
-        volume: Number(r.rows[0].volume_total) || 0,
+        resolved: Number(r.rows[0].markets_resolved) || 0,
+        // volume kept as a raw (1e18) string — the UI scales + labels it.
+        volume: String(r.rows[0].volume_total || '0'),
+        collaterals: cRes.rows.map(x => x.collateral_asset),
     };
 }
 
@@ -1912,11 +2172,25 @@ async function pmGetMarkets({ page = 1, limit = 25, status = null } = {}) {
     if (status && status !== 'all') { params.push(status); where.push(`status = $${params.length}`); }
     const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
     params.push(limit, (page - 1) * limit);
+    // volume = SUM(collateral) of all trades. coll_yes/coll_no = net collateral
+    // (money, Buy adds / Sell subtracts) wagered on each outcome — this drives
+    // the list's bar. We use MONEY, not share counts: in an outcome-token AMM the
+    // share count is inverse to price (a cheaper outcome yields more shares per
+    // unit collateral), so a share-split bar would be directionally misleading.
+    // The collateral split is purely factual ("how much is on YES vs NO"). We
+    // also keep net yes_shares/no_shares for the drill's share readout.
     const data = await pool.query(
-        `SELECT m.*, v.volume
+        `SELECT m.*, v.volume, v.yes_shares, v.no_shares, v.coll_yes, v.coll_no
          FROM sm.polkamarkt_markets m
          LEFT JOIN LATERAL (
-             SELECT COALESCE(SUM(collateral), 0) AS volume
+             SELECT
+               COALESCE(SUM(collateral), 0) AS volume,
+               COALESCE(SUM(CASE WHEN side = 'Buy'  AND outcome = 'Yes' THEN shares ELSE 0 END)
+                      - SUM(CASE WHEN side = 'Sell' AND outcome = 'Yes' THEN shares ELSE 0 END), 0) AS yes_shares,
+               COALESCE(SUM(CASE WHEN side = 'Buy'  AND outcome = 'No'  THEN shares ELSE 0 END)
+                      - SUM(CASE WHEN side = 'Sell' AND outcome = 'No'  THEN shares ELSE 0 END), 0) AS no_shares,
+               COALESCE(SUM(CASE WHEN outcome = 'Yes' THEN (CASE WHEN side = 'Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0) AS coll_yes,
+               COALESCE(SUM(CASE WHEN outcome = 'No'  THEN (CASE WHEN side = 'Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0) AS coll_no
              FROM sm.polkamarkt_trades t WHERE t.market_id = m.market_id
          ) v ON true
          ${whereSql}
@@ -1944,6 +2218,23 @@ async function pmGetMarketDetail(marketId) {
     const mRes = await pool.query(`SELECT * FROM sm.polkamarkt_markets WHERE market_id = $1`, [marketId]);
     if (mRes.rows.length === 0) return null;
     const market = mRes.rows[0];
+
+    // Market-level aggregates so the drill's bar/readout match the list (the
+    // market row itself carries no trade totals). volume + net shares + net
+    // collateral per outcome — same definitions as pmGetMarkets.
+    const aggRes = await pool.query(
+        `SELECT
+           COALESCE(SUM(collateral), 0)::text AS volume,
+           COALESCE(SUM(CASE WHEN side='Buy' AND outcome='Yes' THEN shares ELSE 0 END)
+                  - SUM(CASE WHEN side='Sell' AND outcome='Yes' THEN shares ELSE 0 END), 0)::text AS yes_shares,
+           COALESCE(SUM(CASE WHEN side='Buy' AND outcome='No'  THEN shares ELSE 0 END)
+                  - SUM(CASE WHEN side='Sell' AND outcome='No'  THEN shares ELSE 0 END), 0)::text AS no_shares,
+           COALESCE(SUM(CASE WHEN outcome='Yes' THEN (CASE WHEN side='Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0)::text AS coll_yes,
+           COALESCE(SUM(CASE WHEN outcome='No'  THEN (CASE WHEN side='Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0)::text AS coll_no
+         FROM sm.polkamarkt_trades WHERE market_id = $1`,
+        [marketId]
+    );
+    Object.assign(market, aggRes.rows[0] || {});
 
     const tradesRes = await pool.query(
         `SELECT * FROM sm.polkamarkt_trades WHERE market_id = $1 ORDER BY ts DESC LIMIT 20`,
@@ -2083,12 +2374,309 @@ async function getFeeBurnsWindow(seconds) {
     return r.rows[0] || {};
 }
 
+// Real burn time-series, grouped by day, for the cumulative burn chart.
+// Returns one row per day with per-token burn sums (real on-chain, from the
+// indexer). Empty until the indexer has enough days of data.
+async function getFeeBurnsSeries(days) {
+    const since = Date.now() - days * 86400000;
+    const r = await pool.query(
+        `SELECT
+            (ts / 86400000)::bigint                        AS day_bucket,
+            COALESCE(SUM(remint_xor_burned),  0)::float8   AS xor,
+            COALESCE(SUM(remint_val_burned),  0)::float8   AS val,
+            COALESCE(SUM(remint_kusd_burned), 0)::float8   AS kusd,
+            COALESCE(SUM(remint_tbcd_burned), 0)::float8   AS tbcd
+         FROM sm.fee_burns_live
+         WHERE ts >= $1
+         GROUP BY day_bucket
+         ORDER BY day_bucket ASC`,
+        [since]
+    );
+    return r.rows.map(row => ({
+        ts: Number(row.day_bucket) * 86400000,
+        xor: Number(row.xor) || 0,
+        val: Number(row.val) || 0,
+        kusd: Number(row.kusd) || 0,
+        tbcd: Number(row.tbcd) || 0,
+    }));
+}
+
+// Exposed for /block/:n event enrichment (asset_id hex -> { symbol, decimals }).
+function getAssetIdToInfo() { return _assetIdToInfo; }
+
+// VAL staking rewards (4.8.6+) — `xorFee.ValStakingRewardPaid` event indexer.
+// Idempotent schema + insert; silent until the event starts firing post-enactment.
+async function initValStakingRewardsSchema() {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS sm.val_staking_rewards (
+            id BIGSERIAL PRIMARY KEY,
+            era INTEGER NOT NULL,
+            page INTEGER NOT NULL,
+            validator_stash TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            amount NUMERIC(78, 0) NOT NULL,
+            block_num BIGINT NOT NULL,
+            block_hash TEXT,
+            ts TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT val_staking_rewards_uniq UNIQUE (era, page, validator_stash, destination, block_num)
+        );
+        CREATE INDEX IF NOT EXISTS val_staking_rewards_validator_era_idx
+            ON sm.val_staking_rewards (validator_stash, era);
+        CREATE INDEX IF NOT EXISTS val_staking_rewards_destination_ts_idx
+            ON sm.val_staking_rewards (destination, ts DESC);
+        CREATE INDEX IF NOT EXISTS val_staking_rewards_ts_idx
+            ON sm.val_staking_rewards (ts DESC);
+    `);
+}
+
+async function insertValStakingReward({ era, page, validator_stash, destination, amount, block_num, block_hash, ts }) {
+    await pool.query(`
+        INSERT INTO sm.val_staking_rewards
+            (era, page, validator_stash, destination, amount, block_num, block_hash, ts)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (era, page, validator_stash, destination, block_num) DO NOTHING
+    `, [era, page, validator_stash, destination, amount, block_num, block_hash, ts]);
+}
+
+// Read-side aggregates on real indexed events. Returns numeric strings to keep
+// 18-decimal precision (caller divides by 1e18 when displaying as VAL).
+async function getValStakingNetworkTotals() {
+    const buckets = [
+        { key: 'all',   sql: '' },
+        { key: 'h6',    sql: "WHERE ts > now() - interval '6 hours'" },
+        { key: 'h12',   sql: "WHERE ts > now() - interval '12 hours'" },
+        { key: 'h24',   sql: "WHERE ts > now() - interval '24 hours'" },
+        { key: 'd3',    sql: "WHERE ts > now() - interval '3 days'" },
+        { key: 'd6',    sql: "WHERE ts > now() - interval '6 days'" },
+        { key: 'd30',   sql: "WHERE ts > now() - interval '30 days'" },
+        { key: 'd90',   sql: "WHERE ts > now() - interval '90 days'" },
+        { key: 'd180',  sql: "WHERE ts > now() - interval '180 days'" },
+        { key: 'd365',  sql: "WHERE ts > now() - interval '365 days'" },
+    ];
+    const result = {};
+    for (const b of buckets) {
+        const r = await pool.query(`
+            SELECT
+                COALESCE(SUM(amount), 0)::text AS total_amount,
+                COUNT(*)::int AS payout_count,
+                COUNT(DISTINCT validator_stash)::int AS validator_count,
+                COUNT(DISTINCT destination)::int AS destination_count
+            FROM sm.val_staking_rewards ${b.sql}
+        `);
+        result[b.key] = r.rows[0];
+    }
+    return result;
+}
+
+async function getValStakingPerValidator() {
+    const r = await pool.query(`
+        SELECT
+            validator_stash,
+            COALESCE(SUM(amount), 0)::text AS total_amount,
+            COUNT(*)::int AS payout_count,
+            COUNT(DISTINCT era)::int AS era_count,
+            MAX(era)::int AS last_era,
+            MAX(ts) AS last_ts
+        FROM sm.val_staking_rewards
+        GROUP BY validator_stash
+        ORDER BY SUM(amount) DESC
+    `);
+    return r.rows;
+}
+
+async function getValStakingTopDestinations(limit = 10) {
+    const r = await pool.query(`
+        SELECT
+            destination,
+            COALESCE(SUM(amount), 0)::text AS total_amount,
+            COUNT(*)::int AS payout_count,
+            COUNT(DISTINCT validator_stash)::int AS validator_count
+        FROM sm.val_staking_rewards
+        GROUP BY destination
+        ORDER BY SUM(amount) DESC
+        LIMIT $1
+    `, [limit]);
+    return r.rows;
+}
+
+async function getValStakingForDestination(destination) {
+    const r = await pool.query(`
+        SELECT
+            era,
+            page,
+            validator_stash,
+            amount::text AS amount,
+            ts,
+            block_num
+        FROM sm.val_staking_rewards
+        WHERE destination = $1
+        ORDER BY era DESC, page DESC
+    `, [destination]);
+    return r.rows;
+}
+
+// (validator_stash, era) pairs already paid out, as recorded by the indexer the moment the
+// payout lands on-chain. Used to mark eras claimed in /staking/rewards WITHOUT waiting for the
+// local node's staking.claimedRewards to catch up (it lags behind chain head). Returns a Set of
+// `${validator_stash}:${era}` keys, matching the claimedByValidatorEra map keying.
+async function getClaimedValStakingPairs() {
+    const r = await pool.query(`
+        SELECT DISTINCT validator_stash, era
+        FROM sm.val_staking_rewards
+    `);
+    return new Set(r.rows.map(row => `${row.validator_stash}:${row.era}`));
+}
+
+// Historical VAL→XOR rate range (min/max) per window, from sm.price_history hourly medians.
+// rate = VAL_price_usd / XOR_price_usd per hour (both priced in DAI by the price indexer).
+// hour_bucket is a UNIX-seconds bucket. Returns { h24:{min,max}, d7:{min,max}, d30:{min,max} }
+// with nulls when a window has no data. Real on-chain-derived data only — no estimates.
+const XOR_ASSET_ID = '0x0200000000000000000000000000000000000000000000000000000000000000';
+const VAL_ASSET_ID = '0x0200040000000000000000000000000000000000000000000000000000000000';
+async function getValXorRateWindows() {
+    const r = await pool.query(`
+        WITH x AS (SELECT hour_bucket h, price_usd xp FROM sm.price_history WHERE asset_id = $1 AND price_usd > 0),
+             v AS (SELECT hour_bucket h, price_usd vp FROM sm.price_history WHERE asset_id = $2 AND price_usd > 0),
+             r AS (SELECT x.h, v.vp / x.xp AS ratio FROM x JOIN v ON v.h = x.h),
+             n AS (SELECT EXTRACT(EPOCH FROM NOW())::bigint nh)
+        SELECT
+            MIN(ratio) FILTER (WHERE h >= nh - 86400)   AS min_h24,
+            MAX(ratio) FILTER (WHERE h >= nh - 86400)   AS max_h24,
+            MIN(ratio) FILTER (WHERE h >= nh - 604800)  AS min_d7,
+            MAX(ratio) FILTER (WHERE h >= nh - 604800)  AS max_d7,
+            MIN(ratio) FILTER (WHERE h >= nh - 2592000) AS min_d30,
+            MAX(ratio) FILTER (WHERE h >= nh - 2592000) AS max_d30
+        FROM r, n
+    `, [XOR_ASSET_ID, VAL_ASSET_ID]);
+    const row = r.rows[0] || {};
+    const num = (x) => (x == null ? null : Number(x));
+    return {
+        h24: { min: num(row.min_h24), max: num(row.max_h24) },
+        d7:  { min: num(row.min_d7),  max: num(row.max_d7)  },
+        d30: { min: num(row.min_d30), max: num(row.max_d30) },
+    };
+}
+
+// Aligned hourly price series for N tokens over a window, from sm.price_history (price_usd in DAI;
+// hour_bucket is UNIX seconds). Downsampled in SQL to ~150-270 points per token so the payload
+// stays small even for 'all' (≈5 years). Real on-chain-derived prices only — no estimates.
+// Returns { window, bucketSec, series: { assetId: [{ t, p }] } } (t = bucket-start UNIX seconds).
+const PRICE_SERIES_WINDOWS = {
+    '7d':   { backSec: 604800,    bucketSec: 3600   },  // 1h  → ~168 pts
+    '30d':  { backSec: 2592000,   bucketSec: 14400  },  // 4h  → ~180 pts
+    '90d':  { backSec: 7776000,   bucketSec: 43200  },  // 12h → ~180 pts
+    '365d': { backSec: 31536000,  bucketSec: 172800 },  // 2d  → ~182 pts
+    'all':  { backSec: null,      bucketSec: 604800 },  // 1wk → ~270 pts (since 2021)
+};
+async function getPriceSeries(assetIds, windowKey = '30d') {
+    const ids = (Array.isArray(assetIds) ? assetIds : [assetIds]).filter(Boolean).slice(0, 4);
+    if (ids.length === 0) return { window: windowKey, bucketSec: 0, series: {} };
+    const w = PRICE_SERIES_WINDOWS[windowKey] || PRICE_SERIES_WINDOWS['30d'];
+    const fromSec = w.backSec == null ? 0 : Math.floor(Date.now() / 1000) - w.backSec;
+    const r = await pool.query(`
+        SELECT asset_id,
+               (hour_bucket / $2)::bigint * $2 AS t,
+               AVG(price_usd) AS p
+        FROM sm.price_history
+        WHERE asset_id = ANY($1) AND price_usd > 0 AND hour_bucket >= $3
+        GROUP BY asset_id, t
+        ORDER BY t ASC
+    `, [ids, w.bucketSec, fromSec]);
+    const series = {};
+    for (const id of ids) series[id] = [];
+    for (const row of r.rows) {
+        (series[row.asset_id] || (series[row.asset_id] = [])).push({ t: Number(row.t), p: Number(row.p) });
+    }
+    return { window: windowKey, bucketSec: w.bucketSec, series };
+}
+
+// Real network-wide extrinsic stats for a rolling window (default 24h).
+// Returns { total, success, failed, successRate, topPallet, topPalletCount }
+// over mv_extrinsics ∪ live_extrinsics — NOT the page the UI happens to show.
+let _extStats24Cache = { data: null, ts: 0 };
+async function getExtrinsicStats24h(windowMs = 86400000) {
+    if (_extStats24Cache.data && Date.now() - _extStats24Cache.ts < 30000) return _extStats24Cache.data;
+    const startTime = Date.now() - windowMs;
+    const cond = "timestamp >= $1 AND NOT (section = 'timestamp' AND method = 'set')";
+    const totalsRes = await pool.query(
+        `SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE success = 1) AS success
+         FROM (SELECT timestamp, section, method, success FROM sm.mv_extrinsics WHERE ${cond}
+               UNION ALL SELECT timestamp, section, method, success FROM sm.live_extrinsics WHERE ${cond}) AS _u`,
+        [startTime]
+    );
+    const palletRes = await pool.query(
+        `SELECT section, COUNT(*) AS cnt
+         FROM (SELECT timestamp, section, method FROM sm.mv_extrinsics WHERE ${cond}
+               UNION ALL SELECT timestamp, section, method FROM sm.live_extrinsics WHERE ${cond}) AS _u
+         GROUP BY section ORDER BY cnt DESC LIMIT 1`,
+        [startTime]
+    );
+    const total = parseInt(totalsRes.rows[0]?.total) || 0;
+    const success = parseInt(totalsRes.rows[0]?.success) || 0;
+    const data = {
+        total,
+        success,
+        failed: total - success,
+        successRate: total ? +(success / total * 100).toFixed(1) : 0,
+        topPallet: palletRes.rows[0]?.section || null,
+        topPalletCount: parseInt(palletRes.rows[0]?.cnt) || 0,
+        windowMs,
+    };
+    _extStats24Cache = { data, ts: Date.now() };
+    return data;
+}
+
+// Real per-block fees for a set of blocks. The runtime emits one
+// transactionPayment.TransactionFeePaid per signed extrinsic; the live indexer
+// stores it in live_fees keyed by block (+type), and mv_fees holds the historical
+// part. live_fees stays within ~100 blocks of the chain head, so recent rows DO
+// have a fee — unlike events_json, which is null for recent blocks. ~97% of
+// blocks carry exactly one fee row, so for those the block fee IS that signed
+// extrinsic's fee. Returns { [block]: { totalXor, totalUsd, rows } }. amount
+// capped like getFeeStats to drop denomination-boundary outliers.
+async function getFeesByBlocks(blocks) {
+    const list = (Array.isArray(blocks) ? blocks : [])
+        .map(b => parseInt(b)).filter(Number.isFinite).slice(0, 100);
+    if (list.length === 0) return {};
+    const res = await pool.query(
+        `SELECT block, amount, usd_value FROM (
+            SELECT block, amount, usd_value FROM sm.mv_fees WHERE block = ANY($1)
+            UNION ALL SELECT block, amount, usd_value FROM sm.live_fees WHERE block = ANY($1)
+         ) AS _u WHERE amount > 0 AND amount <= $2`,
+        [list, FEE_AMOUNT_CAP]
+    );
+    const out = {};
+    for (const r of res.rows) {
+        const b = Number(r.block);
+        if (!out[b]) out[b] = { totalXor: 0, totalUsd: 0, rows: 0 };
+        out[b].totalXor += Number(r.amount) || 0;
+        out[b].totalUsd += Number(r.usd_value) || 0;
+        out[b].rows += 1;
+    }
+    return out;
+}
+
 module.exports = {
+    getExtrinsicStats24h,
+    getFeesByBlocks,
     initDB,
-    initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow,
+    getAssetIdToInfo,
+    initFeeBurnsLiveSchema, insertFeeBurnRow, getFeeBurnsWindow, getFeeBurnsSeries,
     initPolkamarktSchema,
-    pmInsertMarket, pmUpdateMarketStatus, pmInsertTrade, pmInsertClaim,
+    pmInsertMarket, pmUpdateMarketStatus, pmReconcileMarketStatus,
+    pmInsertTrade, pmInsertClaim,
+    pmInsertBuyback, pmGetBuybackStats, pmListBuybacks,
+    pmInsertBurn, pmGetBurnStats,
     pmGetTotals, pmGetMarkets, pmGetMarketDetail, pmGetUserPositions,
+    initNewsSchema, newsInsertEpisode, newsListEpisodes,
+    initValStakingRewardsSchema, insertValStakingReward,
+    getValStakingNetworkTotals, getValStakingPerValidator,
+    getValStakingTopDestinations, getValStakingForDestination,
+    getClaimedValStakingPairs,
+    getValXorRateWindows,
+    getPriceSeries,
     insertTransfer,
     getTransfers,
     getLatestTransfers,

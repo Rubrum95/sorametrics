@@ -4,7 +4,7 @@
 // subsequent navigation network-first wins for HTML/JSX/CSS so users see
 // new deploys without a hard reload.
 
-const CACHE_NAME = 'sorametrics-v72-prod';
+const CACHE_NAME = 'sorametrics-v77-prod';
 const ASSETS = [
     '/',
     '/index.html',

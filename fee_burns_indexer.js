@@ -76,9 +76,9 @@ function startFeeBurnsIndexer(api, db, log = console) {
 
     const refWeight = () => {
         const sv = api?.runtimeVersion?.specVersion?.toNumber?.() ?? 0;
-        return sv >= 120
-            ? { ref: 10, xor: 20, val: 50, kusd: 5,  total: 85 }   // 4.8.x
-            : { ref: 10, xor: 20, val: 50, kusd: 20, total: 100 }; // 4.7.x
+        if (sv >= 128) return { ref: 10, xor: 35, val: 40, kusd: 0,  total: 85 };  // 4.8.6
+        if (sv >= 120) return { ref: 10, xor: 20, val: 50, kusd: 5,  total: 85 };  // 4.8.2-4.8.4
+        return { ref: 10, xor: 20, val: 50, kusd: 20, total: 100 };                 // 4.7.x
     };
 
     async function processBlock(header) {

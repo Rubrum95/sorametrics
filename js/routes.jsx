@@ -83,11 +83,11 @@ function TokenBadge({ sym, logo, size = 22 }) {
   );
 }
 
-function TokenPair({ a, b }) {
+function TokenPair({ a, b, logoA, logoB }) {
   return (
     <span className="tok-pair">
-      <TokenBadge sym={a} size={22}/>
-      <TokenBadge sym={b} size={22}/>
+      <TokenBadge sym={a} logo={logoA} size={22}/>
+      <TokenBadge sym={b} logo={logoB} size={22}/>
       <span className="tok-pair-label">{a} · {b}</span>
     </span>
   );
@@ -766,7 +766,7 @@ function OrderBookSection({ tweaks }) {
                     </td>
                     <td><a className="block-link num" href="#" onClick={e => e.preventDefault()}>#{(o.block || 0).toLocaleString()}</a></td>
                     <td><span className="tag">{o.event_type || '—'}</span></td>
-                    <td><TokenPair a={baseSym} b={quoteSym}/></td>
+                    <td><TokenPair a={baseSym} b={quoteSym} logoA={TOKEN_LOGOS[baseSym]} logoB={TOKEN_LOGOS[quoteSym]}/></td>
                     <td><span className={'fill-side ' + side}>{side === 'buy' ? '▲ BUY' : side === 'sell' ? '▼ SELL' : '—'}</span></td>
                     <td style={{textAlign:'right'}} className="num">{Number(o.price || 0).toFixed(6)}</td>
                     <td style={{textAlign:'right'}} className="num">{Number(o.amount || 0).toFixed(4)}</td>
@@ -921,7 +921,9 @@ function PoolsSection({ tweaks }) {
               {pools.map(p => (
                 <tr key={p.id} className="ext-row">
                   <td data-label="Par" style={{paddingLeft: 20}}>
-                    <TokenPair a={p.base?.symbol} b={p.target?.symbol}/>
+                    <TokenPair a={p.base?.symbol} b={p.target?.symbol}
+                               logoA={p.base?.logo || TOKEN_LOGOS[p.base?.symbol]}
+                               logoB={p.target?.logo || TOKEN_LOGOS[p.target?.symbol]}/>
                   </td>
                   <td data-label="Reservas" style={{textAlign:'right'}} className="num">
                     <div style={{lineHeight:1.3}}>
@@ -1018,8 +1020,8 @@ function GlobalLiquidityActivity() {
     targetAmount: Number(e.target_amount ?? e.targetAmount ?? e.target?.amount) || 0,
     baseSymbol: e.pool_base || e.baseSymbol || e.base?.symbol || '',
     targetSymbol: e.pool_target || e.targetSymbol || e.target?.symbol || '',
-    baseLogo: e.base_logo || e.base?.logo,
-    targetLogo: e.target_logo || e.target?.logo,
+    baseLogo: e.base_logo || e.base?.logo || TOKEN_LOGOS[e.pool_base || e.baseSymbol || e.base?.symbol],
+    targetLogo: e.target_logo || e.target?.logo || TOKEN_LOGOS[e.pool_target || e.targetSymbol || e.target?.symbol],
     usd: Number(e.usd_value) || 0,
     wallet: e.wallet || e.account,
   })), [rawEvents]);
@@ -1084,7 +1086,7 @@ function GlobalLiquidityActivity() {
                   <div className="muted" style={{fontSize:11}}>{fmt.ago(r.ts)}</div>
                 </td>
                 <td><a className="block-link num" href="#" onClick={e => e.preventDefault()}>#{(r.block || 0).toLocaleString()}</a></td>
-                <td><TokenPair a={r.baseSymbol} b={r.targetSymbol}/></td>
+                <td><TokenPair a={r.baseSymbol} b={r.targetSymbol} logoA={r.baseLogo} logoB={r.targetLogo}/></td>
                 <td>
                   <span className={'tag ' + (String(r.type).toLowerCase().startsWith('add') || String(r.type).toLowerCase() === 'deposit' ? 'ok' : '')}>
                     {String(r.type).toLowerCase().startsWith('add') || String(r.type).toLowerCase() === 'deposit' ? '+ ' + t('pool.activity.add', 'Add') : '− ' + t('pool.activity.remove', 'Remove')}
@@ -1892,6 +1894,10 @@ function StakingSection({ tweaks }) {
   const [stakingMeta, setStakingMeta] = useState(null); // { era, validatorCount }
   const [networkStats, setNetworkStats] = useState(null);
   const [recentBlocks, setRecentBlocks] = useState([]);
+  const [rewardsData, setRewardsData] = useState(null);
+  const [liveData, setLiveData] = useState(null);
+  // Force re-render when the global identity registry updates (alias / on-chain / tech).
+  const [identTick, _identTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1903,11 +1909,21 @@ function StakingSection({ tweaks }) {
         if (cancelled) return;
         setRawValidators(j.validators || []);
         setStakingMeta({ era: j.era, validatorCount: j.validatorCount, maxValidators: j.maxValidators });
+        // Warm the identity registry so the names appear without a reload.
+        for (const v of (j.validators || [])) {
+          if (v.address) window.requestIdentity?.(v.address);
+        }
       } catch {}
     };
     pull();
     const id = setInterval(pull, 60_000);
     return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Re-render when the identity registry refreshes (batch fetch lands).
+  useEffect(() => {
+    if (!window.subscribeIdentity) return;
+    return window.subscribeIdentity(() => _identTick(x => x + 1));
   }, []);
 
   // Network stats + recent blocks (for Network tab).
@@ -1925,21 +1941,63 @@ function StakingSection({ tweaks }) {
     return () => { cancelled = true; clearInterval(id); };
   }, [tab]);
 
+  // Rewards data (Rewards tab) — real data only, no projections.
+  useEffect(() => {
+    if (tab !== 'rewards') return;
+    let cancelled = false;
+    const pull = () => fetch('/staking/rewards').then(r => r.ok ? r.json() : null).then(j => {
+      if (!cancelled && j && !j.error) setRewardsData(j);
+    }).catch(() => {});
+    pull();
+    const id = setInterval(pull, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [tab]);
+
+  // Live pipeline polling — every 30s reads from in-memory backend state (zero node load).
+  useEffect(() => {
+    if (tab !== 'rewards') return;
+    let cancelled = false;
+    const pullLive = () => fetch('/staking/rewards/live').then(r => r.ok ? r.json() : null).then(j => {
+      if (!cancelled && j) setLiveData(j);
+    }).catch(() => {});
+    pullLive();
+    const id = setInterval(pullLive, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [tab]);
+
   const validators = useMemo(() => {
-    return rawValidators.map((v, i) => ({
-      rank: i + 1,
-      name: v.identity || (v.address ? v.address.slice(0, 8) + '…' + v.address.slice(-6) : 'Unknown'),
-      address: v.address,
-      total: Number(v.totalStake) || 0,
-      own: Number(v.ownStake) || 0,
-      other: Number(v.otherStake) || 0,
-      nominators: Number(v.nominatorsCount) || 0,
-      commission: Number(v.commission) || 0,
-      points: Math.round(Number(v.erasSincePayout) * 1000) || 0,
-      erasSincePayout: Number(v.erasSincePayout) || 0,
-      status: v.isBlocked ? 'blocked' : 'active',
-    }));
-  }, [rawValidators]);
+    return rawValidators.map((v, i) => {
+      // Priority: real user alias > on-chain identity > backend identity > consistent truncate.
+      // IMPORTANT: features.jsx auto-generates pseudo-aliases like `addr.slice(0,6)+sep+slice(-4)`
+      // when wallets are added without explicit naming. Separator may be '…' (Unicode) or '...'
+      // (ASCII) depending on which code path created the alias. We detect them by checking if
+      // the alias is literally a prefix+suffix slice of the real address (robust to any separator).
+      const rawRegistryName = (v.address && window.identityName) ? window.identityName(v.address) : null;
+      const looksLikeAddrTrunc = (alias, addr) => {
+        if (!alias || !addr || alias.length > 30 || alias === addr) return false;
+        const m = alias.match(/^([A-Za-z0-9]+)[^A-Za-z0-9]+([A-Za-z0-9]+)$/);
+        if (!m) return false;
+        return addr.startsWith(m[1]) && addr.endsWith(m[2]);
+      };
+      const isAutoGenAlias = looksLikeAddrTrunc(rawRegistryName, v.address);
+      const registryName = isAutoGenAlias ? null : rawRegistryName;
+      // Unified truncate 15+…+15 — same format as the Rewards tab's dispName().
+      const fallbackTrunc = v.address ? v.address.slice(0, 15) + '…' + v.address.slice(-15) : 'Unknown';
+      return ({
+        rank: i + 1,
+        name: registryName || v.identity || fallbackTrunc,
+        address: v.address,
+        total: Number(v.totalStake) || 0,
+        own: Number(v.ownStake) || 0,
+        other: Number(v.otherStake) || 0,
+        nominators: Number(v.nominatorsCount) || 0,
+        commission: Number(v.commission) || 0,
+        points: Math.round(Number(v.erasSincePayout) * 1000) || 0,
+        erasSincePayout: Number(v.erasSincePayout) || 0,
+        status: v.isBlocked ? 'blocked' : 'active',
+      });
+    });
+  }, [rawValidators, identTick]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -1959,7 +2017,9 @@ function StakingSection({ tweaks }) {
     return list;
   }, [validators, search, sortKey, sortDir]);
 
-  const pageSize = tweaks.density === 'compact' ? 15 : 12;
+  // Show all validators on one page — the set is small (< 100) and pagination
+  // discriminated validators that fell on page 2 from being seen.
+  const pageSize = Math.max(filtered.length, 1);
   const visible = filtered.slice((page-1) * pageSize, page * pageSize);
 
   const toggleSort = (key) => {
@@ -1988,6 +2048,7 @@ function StakingSection({ tweaks }) {
       <Tabs tabs={[
         { id: 'validators', label: t('staking.tab.validators'), count: validators.length },
         { id: 'network', label: t('staking.tab.network') },
+        { id: 'rewards', label: t('staking.tab.rewards') },
       ]} current={tab} onChange={setTab}/>
 
       {tab === 'validators' && (
@@ -2149,6 +2210,537 @@ function StakingSection({ tweaks }) {
           </div>
         </>
       )}
+
+      {tab === 'rewards' && (() => {
+        const rd = rewardsData;
+        const ld = liveData;
+        // Timeframe state — single-select pill (compact, like Intelligence).
+        if (typeof window.__rewardsTf === 'undefined') window.__rewardsTf = 'h24';
+        const tfKey = window.__rewardsTf;
+        const setActiveTf = (k) => { window.__rewardsTf = k; _identTick(x => x + 1); };
+        const TF_OPTS = [['6h','h6'],['12h','h12'],['24h','h24'],['3d','d3'],['6d','d6'],['30d','d30'],['90d','d90'],['180d','d180'],['365d','d365'],['all','all']];
+
+        // ── Conversions (Number-only, no BigInt literals for browser compat) ──
+        const toVal = (raw) => { try { return Number(raw || '0') / 1e18; } catch { return 0; } };
+        const fmtValN = (n, d=4) => fmt.num(n, d);
+        // Consistent validator name: real alias/identity, but ignore auto-generated
+        // pseudo-aliases (addr slices like "cnVS…JLEq") so every row truncates the same way.
+        const dispName = (addr) => {
+          if (!addr) return 'Unknown';
+          const raw = window.identityName?.(addr);
+          if (raw && raw.length <= 30 && raw !== addr) {
+            const m = raw.match(/^([A-Za-z0-9]+)[^A-Za-z0-9]+([A-Za-z0-9]+)$/);
+            const isAuto = m && addr.startsWith(m[1]) && addr.endsWith(m[2]);
+            if (!isAuto) return raw;
+          } else if (raw) {
+            return raw;
+          }
+          return addr.slice(0, 15) + '…' + addr.slice(-15);
+        };
+        const valUsdN = (n) => (rd?.valPrice ? n * rd.valPrice : 0);
+        const xorUsdN = (n) => (rd?.xorPrice ? n * rd.xorPrice : 0);
+        const GREEN = '#6EE7B7';
+        const BLUE = '#7DD3FC';
+        const ORANGE = '#F5B041';
+
+        // Inline USD pill (sorametrics pattern: small green number after the main value).
+        const InlineUsd = ({ usd }) => (
+          <span className="num tiny" style={{color: GREEN, marginLeft: 6, fontSize: 11, fontWeight: 600}}>
+            ≈ {fmt.usd(usd || 0)}
+          </span>
+        );
+
+        // VAL token logo: real VAL from registry → fallback to gradient yellow VAL.
+        const ValLogo = ({ size = 22 }) => {
+          const src = (window.TOKEN_LOGOS && window.TOKEN_LOGOS.VAL) || null;
+          if (src) return <img src={src} alt="VAL" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}/>;
+          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#FBC02D,#F57F17)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'#fff', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}>V</div>;
+        };
+        const XorLogo = ({ size = 22 }) => {
+          const src = (window.TOKEN_LOGOS && window.TOKEN_LOGOS.XOR) || null;
+          if (src) return <img src={src} alt="XOR" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}/>;
+          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#E3232C,#8B0000)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'#fff', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}>X</div>;
+        };
+
+        // Sparkline SVG inline — compact 100×24, no library.
+        const Spark = ({ points, color = GREEN, w = 100, h = 24 }) => {
+          if (!points || points.length < 2) {
+            return <svg width={w} height={h} style={{display:'block'}}><line x1={0} y1={h/2} x2={w} y2={h/2} stroke="var(--border-color)" strokeDasharray="2,3"/></svg>;
+          }
+          const vals = points.map(p => Number(p) || 0);
+          const max = Math.max(...vals), min = Math.min(...vals);
+          const range = max - min || 1;
+          const step = w / (vals.length - 1);
+          const pts = vals.map((v, i) => `${(i*step).toFixed(1)},${(h - ((v-min)/range)*(h-2) - 1).toFixed(1)}`).join(' ');
+          return <svg width={w} height={h} style={{display:'block'}}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"/></svg>;
+        };
+
+        const sparkXor = (ld?.history || []).map(h => toVal(h.xorToVal));
+        // Bucket sparkline: only samples from the CURRENT era (avoid mixing eras → fake drop).
+        const curEra = ld?.valStakingEraReward?.era;
+        const sparkBucket = (ld?.history || []).filter(h => h.era === curEra).map(h => toVal(h.valStakingEraReward));
+
+        const blocksToNextRemint = (ld?.remintPeriod && ld?.bestBlock)
+          ? (ld.remintPeriod - (ld.bestBlock % ld.remintPeriod))
+          : null;
+        const ldAge = ld?.lastUpdate ? Math.max(0, Math.floor((Date.now() - ld.lastUpdate)/1000)) : null;
+
+        // Active timeframe data
+        const tfData = rd?.networkTotals?.[tfKey] || { total_amount:'0', payout_count:0, validator_count:0, destination_count:0 };
+        const tfVal = toVal(tfData.total_amount);
+        const tfUsd = valUsdN(tfVal);
+
+        // Per-validator sorted by valOutstanding then indexedReceived
+        const sortedValidators = (rd?.validators || []).slice().sort((a, b) => {
+          const aOut = toVal(a.valOutstanding), bOut = toVal(b.valOutstanding);
+          if (aOut !== bOut) return bOut - aOut;
+          const aRec = toVal(a.indexedTotalValReceived), bRec = toVal(b.indexedTotalValReceived);
+          if (aRec !== bRec) return bRec - aRec;
+          return (b.avgRewardPointsPerEra || 0) - (a.avgRewardPointsPerEra || 0);
+        });
+
+        const renderEraAgo = (era) => {
+          if (era == null || !rd) return '—';
+          const erasAgo = rd.era - era;
+          if (erasAgo < 0) return String(era);
+          const h = (erasAgo * rd.eraSeconds) / 3600;
+          if (h < 24) return `${h.toFixed(1)}h`;
+          return `${(h/24).toFixed(1)}d`;
+        };
+        // Time since the payout was ACTUALLY executed (real block ts), not since the
+        // claimed era ended. A claim of era N executed today should show "now", not "Nd".
+        const renderClaimAgo = (v) => {
+          if (v.lastClaimTs) {
+            const ms = Date.now() - new Date(v.lastClaimTs).getTime();
+            if (ms < 0) return 'now';
+            const m = ms / 60000;
+            if (m < 1) return 'now';
+            if (m < 60) return `${Math.round(m)}m`;
+            const h = m / 60;
+            if (h < 24) return `${h.toFixed(1)}h`;
+            return `${(h / 24).toFixed(1)}d`;
+          }
+          return renderEraAgo(v.lastClaimEra);
+        };
+
+        // Max VAL received among validators (for mini-bar normalization)
+        const maxValReceived = Math.max(1, ...sortedValidators.map(v => toVal(v.indexedTotalValReceived)));
+
+        const PillBtn = ({ k, label, active }) => (
+          <button key={k} onClick={() => setActiveTf(k)} style={{
+            padding:'4px 10px', fontSize:11, fontWeight: active ? 700 : 500,
+            border:'none', borderRadius:5, cursor:'pointer',
+            color: active ? 'var(--fg-0)' : 'var(--fg-2)',
+            background: active ? 'rgba(110,231,183,0.18)' : 'transparent',
+            transition:'all 0.12s ease',
+          }}>{label}</button>
+        );
+
+        const glossaryOpen = window.__rewardsGlossaryOpen === true;
+        const toggleGlossary = () => { window.__rewardsGlossaryOpen = !glossaryOpen; _identTick(x => x + 1); };
+
+        return (
+          <>
+            {/* ── ROW 1: LIVE PIPELINE + REWARDS DISTRIBUTED (side-by-side desktop, stack mobile) ── */}
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14, marginTop:18}}>
+              {/* LIVE pipeline card */}
+              <div className="card" style={{borderColor:'rgba(110,231,183,0.25)'}}>
+                <div className="card-header">
+                  <div className="card-title" style={{display:'flex', alignItems:'center', gap:8}}>
+                    <span style={{display:'inline-block', width:8, height:8, borderRadius:'50%', background: GREEN, boxShadow:`0 0 8px ${GREEN}`}}/>
+                    <span>{t('staking.rewards.live.title')}</span>
+                  </div>
+                  <span className="tag" style={{background:'rgba(110,231,183,0.15)', color: GREEN, fontWeight:700}}>● {t('staking.rewards.live.live')} · {ldAge != null ? ldAge + 's' : '…'}</span>
+                </div>
+                <div className="card-body" style={{padding:'14px 16px'}}>
+                  {/* XOR pending swap row */}
+                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0'}}>
+                    <XorLogo size={22}/>
+                    <div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2}}>{t('staking.rewards.live.xorPending')}</div>
+                      <div className="num" style={{fontSize:17, fontWeight:700, color:'var(--fg-0)'}}>
+                        {fmtValN(toVal(ld?.xorToVal), 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span>
+                        <InlineUsd usd={xorUsdN(toVal(ld?.xorToVal))}/>
+                      </div>
+                    </div>
+                    <Spark points={sparkXor} color={GREEN}/>
+                  </div>
+                  {/* VAL bucket row */}
+                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                    <ValLogo size={22}/>
+                    <div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2}}>{t('staking.rewards.live.eraBucket')}{ld?.valStakingEraReward ? ` · era ${ld.valStakingEraReward.era}` : ''}</div>
+                      <div className="num" style={{fontSize:17, fontWeight:700, color: ld?.valStakingEraReward ? 'var(--fg-0)' : 'var(--fg-2)'}}>
+                        {ld?.valStakingEraReward ? <>{fmtValN(toVal(ld.valStakingEraReward.value), 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>VAL</span><InlineUsd usd={valUsdN(toVal(ld.valStakingEraReward.value))}/></> : <span style={{fontSize:13}}>{t('staking.rewards.live.naBucket')}</span>}
+                      </div>
+                      {ld?.valBucketPrevEra && (
+                        <div className="muted tiny" style={{fontSize:10, marginTop:2}}>
+                          era {ld.valBucketPrevEra.era}: {fmtValN(toVal(ld.valBucketPrevEra.value), 2)} VAL
+                        </div>
+                      )}
+                    </div>
+                    <Spark points={sparkBucket} color={BLUE}/>
+                  </div>
+                  {/* Next remint row */}
+                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                    <span style={{fontSize:16, textAlign:'center', color: ORANGE}}>⟳</span>
+                    <div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2}}>{t('staking.rewards.live.nextRemint')}</div>
+                      <div className="num" style={{fontSize:17, fontWeight:700, color:'var(--fg-0)'}}>
+                        {blocksToNextRemint != null ? <>{blocksToNextRemint} <span style={{fontSize:11, color:'var(--fg-2)'}}>blk · ≈{Math.round(blocksToNextRemint*6/60)}m</span></> : '—'}
+                      </div>
+                    </div>
+                    <span className="muted tiny" style={{fontSize:10}}>period {ld?.remintPeriod || '—'} · #{ld?.bestBlock || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* DISTRIBUTED card with pills */}
+              <div className="card">
+                <div className="card-header">
+                  <div className="card-title" style={{display:'flex', alignItems:'center', gap:8}}>
+                    <ValLogo size={18}/>
+                    <span>{t('staking.rewards.timeframe.title')}</span>
+                  </div>
+                  <div style={{display:'inline-flex', gap:0, padding:2, borderRadius:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', flexWrap:'wrap'}}>
+                    {TF_OPTS.map(([label, k]) => <PillBtn key={k} k={k} label={label} active={tfKey === k}/>)}
+                  </div>
+                </div>
+                <div className="card-body" style={{padding:'18px 20px'}}>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:18}}>
+                    <div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>VAL distributed</div>
+                      <div className="num" style={{fontSize:28, fontWeight:700, color:'var(--fg-0)', lineHeight:1.1}}>
+                        {fmtValN(tfVal, 4)} <span style={{fontSize:13, color:'var(--fg-2)'}}>VAL</span>
+                      </div>
+                      <div className="num" style={{fontSize:13, fontWeight:600, color: GREEN, marginTop:2}}>≈ {fmt.usd(tfUsd)}</div>
+                    </div>
+                    <div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>Payouts</div>
+                      <div className="num" style={{fontSize:28, fontWeight:700, color:'var(--fg-0)', lineHeight:1.1}}>{tfData.payout_count}</div>
+                      <div className="muted tiny" style={{marginTop:2}}>{tfData.validator_count} validators · {tfData.destination_count} recipients</div>
+                    </div>
+                  </div>
+                  <div style={{marginTop:14, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:18, fontSize:11}}>
+                    <div>
+                      <div className="muted tiny">Bucket era actual</div>
+                      <div className="num" style={{fontWeight:700, color:'var(--fg-0)'}}>{fmtValN(toVal(rd?.valBucketCurrentEra), 4)} VAL<InlineUsd usd={valUsdN(toVal(rd?.valBucketCurrentEra))}/></div>
+                    </div>
+                    <div>
+                      <div className="muted tiny">Unassigned</div>
+                      <div className="num" style={{fontWeight:700, color:'var(--fg-0)'}}>{fmtValN(toVal(rd?.valBucketUnassigned), 4)} VAL</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── ROW 2: PER VALIDATOR table ── */}
+            <div className="card" style={{marginTop:14}}>
+              <div className="card-header" style={{flexWrap:'wrap', gap:8}}>
+                <div className="card-title"><span className="dot"/> {t('staking.rewards.perValidator.title')}</div>
+                <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+                  {(() => {
+                    // VAL→XOR rate range over a selectable window, from real price_history (no estimates).
+                    // Market rate — same for everyone — so it lives here in the header, not as a per-row column.
+                    const win = rd?.valToXorRateWindows;
+                    if (!win) return null;
+                    const WK = window.__valXorWin || 'h24';
+                    const setWin = (k) => { window.__valXorWin = k; _identTick(x => x + 1); };
+                    const inv = window.__valXorInv === true;       // false = VAL→XOR, true = XOR→VAL
+                    const toggleDir = () => { window.__valXorInv = !inv; _identTick(x => x + 1); };
+                    const W = { h24: win.h24, d7: win.d7, d30: win.d30 }[WK] || win.h24;
+                    const spot = rd?.valToXorRate;
+                    // Inverting (XOR→VAL = 1/rate) flips min↔max: the smallest VAL/XOR is the largest XOR/VAL.
+                    const recip = (x) => (x == null || x === 0 ? null : 1 / x);
+                    const lo  = inv ? recip(W.max) : W.min;
+                    const hi  = inv ? recip(W.min) : W.max;
+                    const now = inv ? recip(spot)  : spot;
+                    // Readable, no scientific notation: scale decimals to the magnitude.
+                    // ~800 → "800.5", ~0.00136 → "0.001360", with thousands separators.
+                    const fmtR = (x) => {
+                      if (x == null) return '—';
+                      const a = Math.abs(x);
+                      const d = a >= 100 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
+                      return x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+                    };
+                    return (
+                      <span style={{display:'inline-flex', alignItems:'center', gap:8, fontSize:11}}>
+                        <button onClick={toggleDir} title={t('staking.rewards.tt.valXorFlip')} style={{
+                          display:'inline-flex', alignItems:'center', gap:3, border:'none', borderRadius:5,
+                          padding:'2px 5px', cursor:'pointer', background:'rgba(255,255,255,0.04)', color:'var(--fg-2)',
+                        }}>
+                          {inv ? <><XorLogo size={12}/><span>→</span><ValLogo size={12}/></>
+                               : <><ValLogo size={12}/><span>→</span><XorLogo size={12}/></>}
+                          <span style={{fontSize:9, opacity:0.6, marginLeft:1}}>⇄</span>
+                        </button>
+                        <span style={{display:'inline-flex', gap:2, background:'rgba(255,255,255,0.04)', borderRadius:6, padding:2}}>
+                          {[['24h','h24'],['7d','d7'],['30d','d30']].map(([lbl,k]) => (
+                            <button key={k} onClick={() => setWin(k)} style={{
+                              padding:'2px 8px', fontSize:10, fontWeight: WK===k?700:500, border:'none', borderRadius:4, cursor:'pointer',
+                              color: WK===k?'var(--fg-0)':'var(--fg-2)', background: WK===k?'rgba(110,231,183,0.18)':'transparent',
+                            }}>{lbl}</button>
+                          ))}
+                        </span>
+                        <span className="num" style={{color:'var(--fg-2)'}} title={t('staking.rewards.tt.valXorRange')}>
+                          min <b style={{color:'var(--fg-1)'}}>{fmtR(lo)}</b>
+                          {' · '}{t('staking.rewards.valXorNow')} <b style={{color: GREEN}}>{fmtR(now)}</b>
+                          {' · '}max <b style={{color:'var(--fg-1)'}}>{fmtR(hi)}</b>
+                        </span>
+                      </span>
+                    );
+                  })()}
+                  <span className="tag">{sortedValidators.length} validators</span>
+                </div>
+              </div>
+              <div className="swaps-table-wrap">
+                <table className="swaps-table">
+                  <thead>
+                    <tr>
+                      <th style={{paddingLeft:20, textAlign:'left'}}>{t('staking.rewards.perValidator.validator')}</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.commission')}>Comm</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.outstanding')}>
+                        <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'flex-end'}}>Outstanding <ValLogo size={13}/></span>
+                      </th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.pendingEras')}>{t('staking.rewards.perValidator.pendingEras')}</th>
+                      <th style={{textAlign:'center', cursor:'help'}} title={t('staking.rewards.tt.claim') + ' (vía precio USD)'}>{t('staking.rewards.perValidator.claim')} $</th>
+                      <th style={{textAlign:'center', cursor:'help'}} title={t('staking.rewards.tt.claim') + ' — ' + t('staking.rewards.tt.claimXorNet')}>
+                        <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'center'}}>
+                          {t('staking.rewards.perValidator.claim')}
+                          <span style={{display:'inline-flex', alignItems:'center', gap:2}}>
+                            <ValLogo size={13}/><span style={{color:'var(--fg-2)', fontSize:10}}>→</span><XorLogo size={13}/>
+                          </span>
+                        </span>
+                      </th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.valReceived')}>Received</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.lastClaim')}>Last claim</th>
+                      <th style={{paddingRight:20, textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.payouts')}>Payouts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedValidators.map((v, idx) => {
+                      const outVal = toVal(v.valOutstanding);
+                      const recVal = toVal(v.indexedTotalValReceived);
+                      const displayName = dispName(v.address);
+                      const recBarPct = Math.min(100, (recVal / maxValReceived) * 100);
+                      // ── Claim profitability semaphore (validator's own perspective) ──
+                      // What the validator collects (own commission + own-exposure share), in XOR,
+                      // vs the cost of claiming all pending eras (N × 0.01 XOR per payout_stakers).
+                      // Fee measured on-chain from the first real payout (FeeWithdrawn 0.010014 XOR);
+                      // the MINIMAL_FEE custom fee does NOT apply to payout_stakers in practice.
+                      const PAYOUT_FEE_XOR = 0.01;        // real fee per payout_stakers call (measured)
+                      const pendingEras = v.pendingErasCount || 0;
+                      const ownOutVal = toVal(v.ownOutstanding);
+                      const ownOutXor = (rd?.valPrice && rd?.xorPrice) ? ownOutVal * rd.valPrice / rd.xorPrice : 0;
+                      const claimCostXor = pendingEras * PAYOUT_FEE_XOR;
+                      let claimColor = 'var(--fg-2)', claimPct = null, claimTitle = 'Nada pendiente de reclamar';
+                      if (pendingEras > 0 && claimCostXor > 0) {
+                        const net = ownOutXor - claimCostXor;
+                        const ratio = net / claimCostXor;
+                        claimPct = ratio * 100;
+                        claimColor = ratio < 0 ? '#EF4444' : ratio < 0.03 ? '#F5B041' : GREEN;
+                        claimTitle = `${pendingEras} era(s) pendiente(s) × ${PAYOUT_FEE_XOR} = ${claimCostXor.toFixed(4)} XOR coste · validador cobra ${ownOutXor.toFixed(4)} XOR (${ownOutVal.toFixed(2)} VAL) · neto ${net >= 0 ? '+' : ''}${net.toFixed(4)} XOR`;
+                      }
+                      // Cap the displayed ratio so it stays legible (anything >500% is just "very profitable").
+                      const claimLabel = claimPct == null ? '—'
+                        : claimPct > 500 ? '>+500%'
+                        : (claimPct >= 0 ? '+' : '') + claimPct.toFixed(0) + '%';
+                      // XOR/VAL lens (no USD): the ABSOLUTE net XOR the validator nets by claiming —
+                      // reward VAL converted at the direct DEX rate, minus the XOR fee. Distinct from
+                      // the $ column's %, which is currency-invariant (showing the same % twice is moot).
+                      const ownOutXorDirect = rd?.valToXorRate ? ownOutVal * rd.valToXorRate : 0;
+                      let claimColorXV = 'var(--fg-2)', netXorXV = null, claimTitleXV = 'Ratio DEX no disponible';
+                      if (pendingEras > 0 && claimCostXor > 0 && rd?.valToXorRate) {
+                        netXorXV = ownOutXorDirect - claimCostXor;
+                        const ratioXV = netXorXV / claimCostXor;
+                        claimColorXV = ratioXV < 0 ? '#EF4444' : ratioXV < 0.03 ? '#F5B041' : GREEN;
+                        claimTitleXV = `${pendingEras} era(s) × ${PAYOUT_FEE_XOR} = ${claimCostXor.toFixed(4)} XOR coste · cobra ${ownOutXorDirect.toFixed(4)} XOR (${ownOutVal.toFixed(2)} VAL × ${rd.valToXorRate.toExponential(3)} XOR/VAL directo del DEX) · neto ${netXorXV >= 0 ? '+' : ''}${netXorXV.toFixed(4)} XOR`;
+                      }
+                      const claimLabelXV = netXorXV == null ? '—'
+                        : (netXorXV >= 0 ? '+' : '') + netXorXV.toFixed(4);
+                      return (
+                        <tr key={v.address} className="swap-row">
+                          <td style={{paddingLeft:20}}>
+                            <div style={{display:'flex', alignItems:'center', gap:10}}>
+                              <div style={{width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
+                              <div style={{minWidth:0}}>
+                                <div style={{fontWeight:700, color:'var(--fg-0)', fontSize:13, whiteSpace:'nowrap'}}>{displayName}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{textAlign:'right'}} className="num"><span style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}%</span></td>
+                          <td style={{textAlign:'right'}} className="num">{outVal > 0 ? <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'flex-end'}}><strong>{fmt.num(outVal, 4)}</strong> <ValLogo size={12}/><InlineUsd usd={valUsdN(outVal)}/></span> : <span style={{color:'var(--fg-2)'}}>0</span>}</td>
+                          <td style={{textAlign:'right'}} className="num">{pendingEras > 0 ? <span style={{color:'var(--fg-1)', fontWeight:700}}>{pendingEras}</span> : <span style={{color:'var(--fg-2)'}}>0</span>}</td>
+                          <td style={{textAlign:'center', cursor: claimPct != null ? 'help' : 'default'}} title={claimTitle}>
+                            {claimPct != null ? (
+                              <span style={{display:'inline-flex', alignItems:'center', gap:5, justifyContent:'center'}}>
+                                <span style={{width:8, height:8, borderRadius:'50%', background: claimColor, flexShrink:0}}/>
+                                <span className="num" style={{color: claimColor, fontWeight:700, fontSize:12}}>{claimLabel}</span>
+                              </span>
+                            ) : <span style={{color:'var(--fg-2)'}}>—</span>}
+                          </td>
+                          <td style={{textAlign:'center', cursor: netXorXV != null ? 'help' : 'default'}} title={claimTitleXV}>
+                            {netXorXV != null ? (
+                              <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'center'}}>
+                                <span style={{width:8, height:8, borderRadius:'50%', background: claimColorXV, flexShrink:0}}/>
+                                <span className="num" style={{color: claimColorXV, fontWeight:700, fontSize:12}}>{claimLabelXV}</span>
+                                <XorLogo size={11}/>
+                              </span>
+                            ) : <span style={{color:'var(--fg-2)'}}>—</span>}
+                          </td>
+                          <td style={{textAlign:'right'}} className="num">
+                            {recVal > 0 ? (
+                              <div style={{display:'inline-flex', alignItems:'center', gap:6, justifyContent:'flex-end'}}>
+                                <div style={{width:42, height:4, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden'}}>
+                                  <div style={{width: recBarPct + '%', height:'100%', background: BLUE}}/>
+                                </div>
+                                <strong>{fmt.num(recVal, 4)}</strong>
+                                <InlineUsd usd={valUsdN(recVal)}/>
+                              </div>
+                            ) : <span style={{color:'var(--fg-2)'}}>0</span>}
+                          </td>
+                          <td style={{textAlign:'right', color:'var(--fg-2)', fontSize:11}}>{renderClaimAgo(v)}</td>
+                          <td style={{paddingRight:20, textAlign:'right'}} className="num">{v.indexedPayoutCount || 0}</td>
+                        </tr>
+                      );
+                    })}
+                    {sortedValidators.length === 0 && (
+                      <tr><td colSpan={9} style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>{t('staking.rewards.perValidator.loading')}</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ── ROW 3: SMART PICKS — Best for nominators + Network health ── */}
+            {(() => {
+              const ERAS_PER_YEAR = (rd && rd.eraSeconds) ? (365.25 * 86400 / rd.eraSeconds) : 1461;
+              const validatorsWithYield = (rd?.validators || []).filter(v => v.yieldRateNominatorPerXorPerEra != null).map(v => {
+                const yieldPerXorEra = Number(v.yieldRateNominatorPerXorPerEra) / 1e12;
+                const valPerXorYear = yieldPerXorEra * ERAS_PER_YEAR;
+                const usdPerXorYear = valPerXorYear * (rd.valPrice || 0);
+                const aprPct = rd?.xorPrice ? (usdPerXorYear / rd.xorPrice) * 100 : 0;
+                return { ...v, yieldPerXorEra, aprPct };
+              });
+              const bestNominate = validatorsWithYield.slice().sort((a, b) => b.yieldPerXorEra - a.yieldPerXorEra).slice(0, 5);
+
+              // Network health metrics — all real on-chain.
+              // xorTotalSupply is already human XOR (NOT raw); totalStaked is raw 18-dec.
+              const totalIssuanceN = rd?.xorTotalSupply || 0;
+              const totalStakedN = toVal(rd?.totalStaked);
+              const stakingRatio = totalIssuanceN > 0 ? (totalStakedN / totalIssuanceN) * 100 : 0;
+              const aprValues = validatorsWithYield.map(v => v.aprPct).filter(x => x > 0).sort((a, b) => a - b);
+              const medianAPR = aprValues.length ? aprValues[Math.floor(aprValues.length / 2)] : null;
+              const bucketRewards = toVal(rd?.valBucketCurrentEra);          // 90% del val_to_burn (lo que se distribuye)
+              const burnPct = rd?.valBurnPercent || 0.10;
+              const deflationPerEra = bucketRewards > 0 ? (bucketRewards * burnPct / (1 - burnPct)) : 0; // bucket / 9
+
+              return (
+                <div className="card" style={{marginTop:14}}>
+                  <div className="card-header">
+                    <div className="card-title"><span className="dot" style={{background:'#FBC02D'}}/> ★ {t('staking.rewards.smart.title')}</div>
+                  </div>
+                  <div className="card-body" style={{padding:'14px 0 0 0'}}>
+                    {/* BEST FOR NOMINATORS */}
+                    <div style={{padding:'0 20px 14px 20px'}}>
+                      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8}}>
+                        <div style={{fontWeight:700, fontSize:13, color:'var(--fg-0)'}}>{t('staking.rewards.smart.bestFor')}</div>
+                        <span className="muted tiny" style={{fontSize:10, fontStyle:'italic'}}>{t('staking.rewards.smart.bestSub')}</span>
+                      </div>
+                      {bestNominate.length === 0 ? (
+                        <div style={{padding:'14px 0', textAlign:'center', color:'var(--fg-2)', fontSize:12}}>{t('staking.rewards.smart.emptyState')}</div>
+                      ) : bestNominate.map((v, i) => {
+                        const displayName = dispName(v.address);
+                        return (
+                          <div key={v.address} style={{display:'flex', flexWrap:'wrap', alignItems:'center', gap:10, padding:'8px 0', borderBottom: i < bestNominate.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'}}>
+                            {/* Identity block — always together */}
+                            <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 200px'}}>
+                              <span className={'rank-chip ' + (i < 3 ? 'top3' : '')} style={{fontSize:10, flexShrink:0}}>{i + 1}</span>
+                              <div style={{width:22, height:22, borderRadius:5, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
+                              <span style={{fontSize:12, fontWeight:600, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0}}>{displayName}</span>
+                            </div>
+                            {/* Metrics — wrap to next line on mobile */}
+                            <div style={{display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', justifyContent:'flex-end', flex:'0 0 auto'}}>
+                              <span className="num tiny" style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}% comm</span>
+                              <span className="num" style={{fontSize:11, color:'var(--fg-2)'}}>{v.yieldPerXorEra > 0.0001 ? v.yieldPerXorEra.toFixed(6) : v.yieldPerXorEra.toExponential(2)} <span style={{opacity:0.7}}>VAL/XOR/era</span></span>
+                              <span className="num" style={{fontSize:13, fontWeight:700, color: v.aprPct > 5 ? GREEN : 'var(--fg-0)'}}>{v.aprPct.toFixed(2)}% <span style={{fontSize:10, color:'var(--fg-2)'}}>APR</span></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* NETWORK HEALTH */}
+                    <div style={{borderTop:'1px solid rgba(255,255,255,0.06)', padding:'14px 20px 16px 20px'}}>
+                      <div style={{fontWeight:700, fontSize:13, color:'var(--fg-0)', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
+                        <span style={{color: BLUE}}>◆</span> {t('staking.rewards.smart.health')}
+                      </div>
+                      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:14}}>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.stakingRatio')}</div>
+                          <div className="num" style={{fontSize:18, fontWeight:700, color:'var(--fg-0)'}}>{stakingRatio > 0.0001 ? stakingRatio.toFixed(4) + '%' : stakingRatio.toExponential(2) + '%'}</div>
+                          <div className="muted tiny" style={{fontSize:10}}>{fmt.num(totalStakedN, 0)} staked / {totalIssuanceN > 1e15 ? totalIssuanceN.toExponential(2) : fmt.num(totalIssuanceN, 0)} XOR total</div>
+                        </div>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.medianApr')}</div>
+                          <div className="num" style={{fontSize:18, fontWeight:700, color: medianAPR != null ? (medianAPR > 5 ? GREEN : 'var(--fg-0)') : 'var(--fg-2)'}}>
+                            {medianAPR != null ? medianAPR.toFixed(2) + '%' : '—'}
+                          </div>
+                          <div className="muted tiny" style={{fontSize:10}}>{aprValues.length} validators con yield real</div>
+                        </div>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.rewardsEra')}</div>
+                          <div className="num" style={{fontSize:18, fontWeight:700, color:'var(--fg-0)'}}>
+                            {fmt.num(bucketRewards, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>VAL</span>
+                            <InlineUsd usd={valUsdN(bucketRewards)}/>
+                          </div>
+                          <div className="muted tiny" style={{fontSize:10}}>era {rd?.era} · 90% se redistribuye</div>
+                        </div>
+                        <div>
+                          <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3, color: ORANGE}}>{t('staking.rewards.smart.deflation')}</div>
+                          <div className="num" style={{fontSize:18, fontWeight:700, color: ORANGE}}>
+                            {fmt.num(deflationPerEra, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>VAL</span>
+                            <span className="num tiny" style={{color: ORANGE, marginLeft: 6, fontSize: 11, fontWeight: 600}}>≈ {fmt.usd(valUsdN(deflationPerEra))}</span>
+                          </div>
+                          <div className="muted tiny" style={{fontSize:10, fontStyle:'italic'}}>{t('staking.rewards.smart.deflationDesc')}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── ROW 4: GLOSSARY collapsible ── */}
+            <div className="card" style={{marginTop:14}}>
+              <div className="card-header" style={{cursor:'pointer'}} onClick={toggleGlossary}>
+                <div className="card-title"><span className="dot"/> {t('staking.rewards.glossary.title')}</div>
+                <span className="tag" style={{cursor:'pointer'}}>{glossaryOpen ? '▼' : '▶'}</span>
+              </div>
+              {glossaryOpen && (
+                <div className="card-body" style={{padding:'12px 20px 16px 20px', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14, fontSize:12, lineHeight:1.5}}>
+                  {[
+                    ['VAL distributed', t('staking.rewards.tt.allTime')],
+                    ['Bucket era actual', t('staking.rewards.tt.bucketCurrent')],
+                    ['Outstanding', t('staking.rewards.tt.outstanding')],
+                    [t('staking.rewards.perValidator.pendingEras'), t('staking.rewards.tt.pendingEras')],
+                    [t('staking.rewards.perValidator.claim'), t('staking.rewards.tt.claim')],
+                    ['Comm', t('staking.rewards.tt.commission')],
+                    ['Last claim', t('staking.rewards.tt.lastClaim')],
+                    ['Received', t('staking.rewards.tt.valReceived')],
+                    ['Payouts', t('staking.rewards.tt.payouts')],
+                  ].map(([title, desc]) => (
+                    <div key={title}>
+                      <div style={{fontWeight:700, color:'var(--fg-0)', marginBottom:4}}>{title}</div>
+                      <div style={{color:'var(--fg-2)'}}>{desc}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -2266,18 +2858,36 @@ function GovSection({ tweaks }) {
   //          proposals:[], currentBlock, totalReferendums, ... }
   const democracy = useMemo(() => {
     const src = rawDemocracy || {};
+    // Helper: parse tally value (may be hex string with leading 0x or plain number)
+    // Values are in planck (1 XOR = 10^18 planck). Use BigInt to avoid precision loss.
+    const parsePlanck = v => {
+      if (!v && v !== 0) return BigInt(0);
+      try { return BigInt(v); } catch { return BigInt(0); }
+    };
+    const fmtXorK = xor => {
+      if (xor >= 1e6) return (xor / 1e6).toFixed(2) + 'M';
+      if (xor >= 1e3) return (xor / 1e3).toFixed(1) + 'K';
+      return xor.toFixed(0);
+    };
     const refs = (src.referendums || []).map(rf => {
       const tally = rf.detail?.tally || {};
-      const ayes = Number(tally.ayes) || 0;
-      const nays = Number(tally.nays) || 0;
-      const total = ayes + nays || 1;
+      const ayesBig = parsePlanck(tally.ayes);
+      const naysBig = parsePlanck(tally.nays);
+      const PLANCK = BigInt('1000000000000000000');
+      const ayesXor = Number(ayesBig / PLANCK);
+      const naysXor = Number(naysBig / PLANCK);
+      const turnoutXor = Number(parsePlanck(tally.turnout) / PLANCK);
+      const totalXor = ayesXor + naysXor || 1;
       return {
         id: rf.id,
-        title: rf.decoded?.description || ('Referendum #' + rf.id),
-        aye: Math.round((ayes / total) * 100),
-        nay: Math.round((nays / total) * 100),
+        title: rf.decoded?.description || rf.decoded?.remark || ('Referendum #' + rf.id),
+        aye: Math.round((ayesXor / totalXor) * 100),
+        nay: Math.round((naysXor / totalXor) * 100),
+        ayesLabel: fmtXorK(ayesXor) + ' XOR',
+        naysLabel: fmtXorK(naysXor) + ' XOR',
         ends: rf.timeRemaining || '—',
-        turnout: Number(rf.detail?.tally?.turnout || 0) / 1e18,
+        turnoutLabel: fmtXorK(turnoutXor) + ' XOR',
+        threshold: rf.detail?.threshold || '',
         status: rf.status,
       };
     });
@@ -2440,13 +3050,18 @@ function GovSection({ tweaks }) {
                 <div key={r.id} className="motion-card">
                   <div style={{display:'flex', alignItems:'center', gap:12, marginBottom: 8}}>
                     <span className="motion-id">#{r.id}</span>
+                    {r.threshold && <span className="tag" style={{background:'rgba(99,102,241,0.15)',color:'#818CF8'}}>{r.threshold}</span>}
                     <span className="tag">{t('gov.democracy.endsIn', 'Termina en')} {r.ends}</span>
-                    <span className="muted tiny" style={{marginLeft:'auto'}}>{t('gov.democracy.turnout', 'Participación')} · {r.turnout}%</span>
+                    <span className="muted tiny" style={{marginLeft:'auto'}}>{t('gov.democracy.turnout', 'Participación')} · {r.turnoutLabel}</span>
                   </div>
                   <div style={{fontSize:15, fontWeight:700, marginBottom: 10}}>{r.title}</div>
                   <div className="vote-bar">
-                    <div className="vote-aye" style={{flex: r.aye || 0.5}}>✓ {r.aye}% AYE</div>
-                    <div className="vote-nay" style={{flex: r.nay || 0.5}}>✗ {r.nay}% NAY</div>
+                    <div className="vote-aye" style={{flex: r.aye > 0 ? r.aye : (r.nay === 0 ? 1 : 0.5), whiteSpace:'nowrap', overflow:'hidden'}}>✓ {r.aye}%</div>
+                    {r.nay > 0 && <div className="vote-nay" style={{flex: r.nay, whiteSpace:'nowrap', overflow:'hidden'}}>✗ {r.nay}%</div>}
+                  </div>
+                  <div style={{display:'flex', gap:16, marginTop:5, fontSize:11}}>
+                    <span style={{color:'#4ADE80'}}>✓ AYE · {r.ayesLabel}</span>
+                    {r.nay > 0 && <span style={{color:'#F87171'}}>✗ NAY · {r.naysLabel}</span>}
                   </div>
                 </div>
               ))}
@@ -2950,7 +3565,9 @@ function formatBalance(raw, decimals = 18) {
   if (!/^-?\d+$/.test(s)) return String(raw);
   try {
     const big = BigInt(s);
-    const divisor = BigInt(10) ** BigInt(decimals);
+    // Build 10**decimals as a BigInt without the ** operator: the in-browser
+    // Babel "env" preset rewrites ** to Math.pow(), which throws on BigInt.
+    const divisor = BigInt('1' + '0'.repeat(Number(decimals)));
     const whole = big / divisor;
     const frac = big % divisor;
     const fracStr = frac.toString().padStart(decimals, '0').slice(0, 4).replace(/0+$/, '');

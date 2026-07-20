@@ -37,7 +37,7 @@ module.exports = {
             log_date_format: 'YYYY-MM-DD HH:mm:ss',
             env: {
                 NODE_ENV: 'production',
-                WS: 'wss://mof2.sora.org',
+                WS: 'ws://127.0.0.1:9944',
                 BACKFILL_BATCH: '200',
                 BACKFILL_CONCURRENCY: '15',
                 BACKFILL_SPAN: '200000'
@@ -54,7 +54,8 @@ module.exports = {
             log_date_format: 'YYYY-MM-DD HH:mm:ss',
             env: {
                 NODE_ENV: 'production',
-                MINAMOTO_TORII: 'https://minamoto.sora.org'
+                MINAMOTO_TORII: 'https://minamoto.sora.org',
+                MINAMOTO_METRICS_RETENTION_DAYS: '7'
             }
         }
     ]

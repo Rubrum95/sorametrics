@@ -58,37 +58,82 @@ function StudioProvider({ children, section, setSection }) {
   const ctxRef = useRef(null);
   const analyserRef = useRef(null);
   const sourceRef = useRef(null);
+  const gainRef = useRef(null);
   const [freq, setFreq] = useState(null);
   const rafRef = useRef(0);
 
-  // Fetch real playlist.
+  // Fetch real playlist; probe per-track duration via detached <audio>
+  // elements. preload="metadata" only fetches the file header (a few KB via
+  // Range request), so the network cost is minimal even for 20+ tracks.
+  // Browsers cap to ~6 concurrent connections per origin, so no manual
+  // throttling needed.
   useEffect(() => {
     let cancelled = false;
     fetch('/music/list').then(r => r.ok ? r.json() : null).then(j => {
       if (cancelled || !Array.isArray(j) || j.length === 0) return;
-      setTracks(j.map(x => ({ title: x.title, artist: x.artist, src: x.src, dur: 180 })));
+      const next = j.map(x => ({ title: x.title, artist: x.artist, src: x.src, cover: x.cover || null, dur: Number.isFinite(x.dur) ? x.dur : null }));
+      setTracks(next);
+      // Deep-link: ?track=<filename> selects + plays that track on load.
+      try {
+        const want = new URLSearchParams(window.location.search).get('track');
+        if (want) {
+          const di = next.findIndex(t => decodeURIComponent((t.src || '').split('/').pop()) === want);
+          if (di >= 0) { setIdx(di); setPlaying(true); }
+        }
+      } catch {}
+      next.forEach((tr, i) => {
+        const probe = new Audio();
+        probe.preload = 'metadata';
+        const cleanup = () => {
+          probe.removeEventListener('loadedmetadata', onMeta);
+          probe.removeEventListener('error', cleanup);
+        };
+        const onMeta = () => {
+          cleanup();
+          if (cancelled) return;
+          const d = probe.duration;
+          if (Number.isFinite(d) && d > 0) {
+            setTracks(curr => curr.map((t, k) => k === i ? { ...t, dur: d } : t));
+          }
+        };
+        probe.addEventListener('loadedmetadata', onMeta);
+        probe.addEventListener('error', cleanup);
+        probe.src = tr.src;
+      });
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
   const track = tracks[idx] || tracks[0];
 
-  // Wire src + play state.
+  // Load the file only when the track changes. el.src (getter) returns the
+  // resolved ABSOLUTE url while track.src is relative, so `el.src !== track.src`
+  // is always true — keying on track?.src is the reliable change signal.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !track?.src) return;
+    el.src = track.src;
+    el.load();
+  }, [track?.src]);
+
+  // Play / pause. Re-applied on track change so auto-advance keeps playing.
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
-    if (track?.src && el.src !== track.src) {
-      el.src = track.src;
-      el.load();
-    }
-    el.volume = volume;
     if (playing) {
       ensureAudioGraph();
       el.play().catch(() => setPlaying(false));
     } else {
       el.pause();
     }
-  }, [track?.src, playing, volume]);
+  }, [playing, track?.src]);
+
+  // Own effect (sharing with load/play would re-run el.load() on volume change → pause). Once the Web Audio graph exists, el.volume is bypassed; the GainNode is the audible control. el.volume kept for the pre-graph (pre-first-play) case.
+  useEffect(() => {
+    const el = audioRef.current;
+    if (el) el.volume = volume;
+    if (gainRef.current) gainRef.current.gain.value = volume;
+  }, [volume]);
 
   // Timebase + auto-advance. Repeat/shuffle change the 'ended' behaviour,
   // so they're in the dep list to re-register the handler with fresh values.
@@ -134,6 +179,20 @@ function StudioProvider({ children, section, setSection }) {
 
   useEffect(() => { setElapsed(0); }, [idx]);
 
+  // Reflect current track in the URL so it's shareable (address bar / row link button); preserves other params like ?tab=.
+  useEffect(() => {
+    const t = tracks[idx];
+    if (!t?.src) return;
+    try {
+      const slug = decodeURIComponent(t.src.split('/').pop());
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('track') !== slug) {
+        u.searchParams.set('track', slug);
+        window.history.replaceState({}, '', u.toString());
+      }
+    } catch {}
+  }, [idx, tracks]);
+
   // Build the analyser graph lazily — calling createMediaElementSource twice
   // on the same element throws, hence the ref guard.
   const ensureAudioGraph = () => {
@@ -150,11 +209,15 @@ function StudioProvider({ children, section, setSection }) {
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.82;
+      const gain = ctx.createGain();
+      gain.gain.value = volume;
       src.connect(analyser);
-      analyser.connect(ctx.destination);
+      analyser.connect(gain);
+      gain.connect(ctx.destination);
       ctxRef.current = ctx;
       analyserRef.current = analyser;
       sourceRef.current = src;
+      gainRef.current = gain;
     } catch (err) {
       // Silently fall back — the page still works, just without the visualizer.
     }
@@ -364,15 +427,35 @@ function MusicStudioSection() {
         transition: 'box-shadow 80ms linear',
         background: 'radial-gradient(120% 80% at 50% 100%, rgba(236,72,153,0.18), transparent 60%), linear-gradient(180deg, #0a0a14, #0e0816 40%, #06030c)',
       }}>
-        <div style={{height: 340, position:'relative'}}>
-          <NeonVisualizer freq={freq} playing={playing} accent="#EC4899" accent2="#60A5FA"/>
-          <div style={{position:'absolute', top:18, left:22, right:22, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, pointerEvents:'none'}}>
-            <div>
-              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase'}}>Now playing</div>
-              <div style={{fontSize:26, fontWeight:800, color:'#fff', marginTop:2, textShadow:'0 0 24px rgba(236,72,153,0.6)'}}>{track?.title || '—'}</div>
-              <div style={{fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:2}}>{track?.artist || ''}</div>
+        <div style={{height: 340, position:'relative', overflow:'hidden'}}>
+          {track?.cover && (
+            <>
+              {/* Blurred copy fills the wide player as ambient backdrop (no hard crop). */}
+              <img src={track.cover} alt="" aria-hidden="true"
+                   style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', zIndex:0,
+                           filter:'blur(40px) saturate(1.15)', opacity:0.5,
+                           transform:`scale(${1.2 + energy * 0.05})`, transition:'transform 120ms linear'}}/>
+              {/* The WHOLE cover, uncropped (object-fit: contain), centered. */}
+              <img src={track.cover} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                   style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'contain', zIndex:1,
+                           transform:`scale(${1 + energy * 0.04})`, transition:'transform 120ms linear',
+                           filter:'drop-shadow(0 10px 34px rgba(0,0,0,0.55))'}}/>
+            </>
+          )}
+          {/* Scrim: darken only top (title) + bottom (controls), keep the art bright. */}
+          <div style={{position:'absolute', inset:0, zIndex:2, pointerEvents:'none',
+                       background:'linear-gradient(180deg, rgba(6,3,12,0.58) 0%, rgba(6,3,12,0.04) 26%, rgba(6,3,12,0.04) 64%, rgba(6,3,12,0.78) 100%)'}}/>
+          {/* Frequency bars dance in front of the artwork (transparent canvas). */}
+          <div style={{position:'absolute', inset:0, zIndex:3}}>
+            <NeonVisualizer freq={freq} playing={playing} accent="#EC4899" accent2="#60A5FA"/>
+          </div>
+          <div style={{position:'absolute', top:18, left:22, right:22, zIndex:4, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, pointerEvents:'none'}}>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase', textShadow:'0 1px 6px rgba(0,0,0,0.7)'}}>Now playing</div>
+              <div style={{fontSize:26, fontWeight:800, color:'#fff', marginTop:2, textShadow:'0 2px 20px rgba(0,0,0,0.75), 0 0 24px rgba(236,72,153,0.5)'}}>{track?.title || '—'}</div>
+              <div style={{fontSize:14, color:'rgba(255,255,255,0.85)', marginTop:2, textShadow:'0 1px 8px rgba(0,0,0,0.75)'}}>{track?.artist || ''}</div>
             </div>
-            <div style={{fontFamily:'JetBrains Mono', fontSize:11, color:'rgba(255,255,255,0.45)', textAlign:'right', lineHeight:1.5}}>
+            <div style={{fontFamily:'JetBrains Mono', fontSize:11, color:'rgba(255,255,255,0.55)', textAlign:'right', lineHeight:1.5, textShadow:'0 1px 6px rgba(0,0,0,0.75)'}}>
               <div>FFT 256</div>
               <div>48 kHz · stereo</div>
               <div>{freq ? freq.length + ' bins' : 'idle'}</div>
@@ -439,11 +522,12 @@ function MusicStudioSection() {
                 <th>Title</th>
                 <th>Artist</th>
                 <th style={{textAlign:'right', paddingRight:20, width:80}}>Dur</th>
+                <th style={{textAlign:'right', paddingRight:16, width:40}}></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={4} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>No matches.</td></tr>
+                <tr><td colSpan={5} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>No matches.</td></tr>
               )}
               {filtered.map(tr => {
                 const isActive = tr.originalIdx === idx;
@@ -454,9 +538,30 @@ function MusicStudioSection() {
                         ? <span style={{color:'#EC4899', fontSize:14}}>♪</span>
                         : <span className="muted tiny">{tr.originalIdx + 1}</span>}
                     </td>
-                    <td style={{fontWeight: isActive ? 700 : 500, color: isActive ? '#fff' : 'var(--fg-1)'}}>{tr.title}</td>
+                    <td style={{fontWeight: isActive ? 700 : 500, color: isActive ? '#fff' : 'var(--fg-1)'}}>
+                      <div style={{display:'flex', alignItems:'center', gap:11, minWidth:0}}>
+                        {tr.cover
+                          ? <img src={tr.cover} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+                                 style={{width:36, height:36, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgba(255,255,255,0.1)'}}/>
+                          : <span style={{width:36, height:36, borderRadius:8, flexShrink:0, background:'rgba(255,255,255,0.05)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:15, color:'rgba(255,255,255,0.3)'}}>♪</span>}
+                        <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{tr.title}</span>
+                      </div>
+                    </td>
                     <td className="muted tiny">{tr.artist}</td>
-                    <td style={{textAlign:'right', paddingRight:20}} className="num tiny muted">{fmtMMSS(tr.dur || 0)}</td>
+                    <td style={{textAlign:'right', paddingRight:20}} className="num tiny muted">{tr.dur ? fmtMMSS(tr.dur) : '—'}</td>
+                    <td style={{textAlign:'right', paddingRight:16}}>
+                      <button title="Copy link to this track"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const u = new URL(window.location.href);
+                            u.searchParams.set('tab', 'studio');
+                            u.searchParams.set('track', decodeURIComponent(tr.src.split('/').pop()));
+                            navigator.clipboard?.writeText(u.toString());
+                          } catch {}
+                        }}
+                        style={{background:'transparent', border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.6)', borderRadius:6, cursor:'pointer', fontSize:12, lineHeight:1, padding:'4px 6px'}}>🔗</button>
+                    </td>
                   </tr>
                 );
               })}
@@ -494,6 +599,10 @@ function StudioMiniPlayer() {
       WebkitBackdropFilter:'blur(8px)',
     }}>
       <div style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+        {track?.cover && (
+          <img src={track.cover} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
+               style={{width:40, height:40, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgba(255,255,255,0.12)'}}/>
+        )}
         <button
           onClick={() => setSection?.('studio')}
           title="Open Studio"
@@ -545,4 +654,4 @@ const miniBtn = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 };
 
-Object.assign(window, { MusicStudioSection, StudioProvider, useStudio, StudioMiniPlayer });
+Object.assign(window, { MusicStudioSection, StudioProvider, useStudio, StudioMiniPlayer, NeonVisualizer });

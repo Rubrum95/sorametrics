@@ -557,6 +557,32 @@ router.get('/cross-chain/mint-history', rateLimit(60, 60_000), asyncHandler(asyn
     res.json(await db.getXorMintHistory());
 }));
 
+// Pending cross-chain burns — every Sora v2 burn that emitted the
+// `soraNexusXorClaim` system.remark, joined with mn.transactions to
+// surface which ones are still waiting on the Soramitsu operator. The
+// `status` query param accepts: 'pending' | 'claimed' | 'all' (default).
+router.get('/cross-chain/pending-burns', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
+    const allowed = ['pending', 'claimed', 'pre_reset', 'all'];
+    const status = allowed.includes(req.query.status) ? req.query.status : 'all';
+    const limit = Math.max(1, Math.min(500, parseInt(req.query.limit, 10) || 100));
+    // Always fetch with status='all' so the counts in the response are
+    // total-truth regardless of the active filter; then apply the filter
+    // client-side. The query is small (12 rows today) so this is cheap.
+    const allItems = await db.listPendingCrossChainBurns({ status: 'all', limit });
+    const counts = allItems.reduce(
+        (acc, it) => {
+            acc.total += 1;
+            acc[it.state] = (acc[it.state] || 0) + 1;
+            return acc;
+        },
+        { total: 0, claimed: 0, pending: 0, pre_reset: 0 }
+    );
+    const items = status === 'all'
+        ? allItems
+        : allItems.filter((it) => it.state === status);
+    res.json({ status, limit, counts, items });
+}));
+
 // ------------------------------------------------------------
 // Peers / Validators
 // ------------------------------------------------------------

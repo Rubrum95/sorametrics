@@ -19,8 +19,10 @@ function parseHistTime(t) {
     // seconds (dates before the year 33658 in ms). Multiply up to ms.
     return n < 1e12 ? n * 1000 : n;
   }
-  const iso = Date.parse(s);
-  if (!Number.isNaN(iso)) return iso;
+  // IMPORTANT: try the Spanish DD/MM/YYYY regex BEFORE Date.parse, otherwise
+  // browsers happily parse "01/05/2026 22:05:36" as MM/DD (Jan 5) and we end
+  // up displaying every recent row 4 months in the past. ISO strings use
+  // hyphens or 'T' separators and won't match this regex.
   const re = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
   const m = s.match(re);
   if (m) {
@@ -28,6 +30,8 @@ function parseHistTime(t) {
     const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
     if (!Number.isNaN(dt.getTime())) return dt.getTime();
   }
+  const iso = Date.parse(s);
+  if (!Number.isNaN(iso)) return iso;
   return Date.now();
 }
 
@@ -259,6 +263,7 @@ function Petals({ count = 16 }) {
 // /history/global/swaps don't always echo the logo field, so every section can
 // fall back to this map before painting a placeholder gradient.
 const TOKEN_LOGOS = {};
+const TOKEN_PRICES = {};   // symbol -> USD price, from the same /tokens payload
 let _tokenLogosPromise = null;
 function loadTokenLogos() {
   if (_tokenLogosPromise) return _tokenLogosPromise;
@@ -269,6 +274,9 @@ function loadTokenLogos() {
       for (const t of arr) {
         if (t?.symbol && t?.logo && !TOKEN_LOGOS[t.symbol]) {
           TOKEN_LOGOS[t.symbol] = t.logo;
+        }
+        if (t?.symbol && Number(t?.price) > 0) {
+          TOKEN_PRICES[t.symbol] = Number(t.price);
         }
       }
     })
@@ -386,7 +394,7 @@ function startHoldersBackgroundRefresh(assetIds) {
 }
 
 Object.assign(window, {
-  fmt, seededRand, sparkPath, areaPath, TOKENS, TOKEN_LOGOS, loadTokenLogos,
+  fmt, seededRand, sparkPath, areaPath, TOKENS, TOKEN_LOGOS, TOKEN_PRICES, loadTokenLogos,
   FAKE_ADDRS, IDENTITIES, I, Petals, useHistory, parseHistTime,
   getHoldersCached, startHoldersBackgroundRefresh, HOLDERS_TTL_MS,
 });
