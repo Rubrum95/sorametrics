@@ -1,0 +1,3 @@
+# High-res originals are mirrored to production VPS separately (not in git).
+assets/covers/full/
+assets/posters/master/

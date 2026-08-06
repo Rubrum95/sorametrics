@@ -1,0 +1,200 @@
+{
+  "$schema": "F1",
+  "version": 1,
+  "snapshot": "2026-05-28",
+  "lane": "SORA_A_PORTER_RADIO_STATION_HOME_V1",
+
+  "station": {
+    "id": "sora-station",
+    "name": "Sorametrics Radio",
+    "state": "live",
+    "frequencyDisplay": "7.83 △ Hz",
+    "signalDisplay": "Live broadcast",
+    "tagline": "Signal · Resonance · Connection",
+    "memo": {
+      "title": "Between signal and silence",
+      "body": "Every frequency carries a memory. Every beat, a decision. We broadcast to those who still feel the world as vibration, who collect meaning, not just music. — This is not background. This is transmission.",
+      "signer": "SORA · Founder & Signal Keeper"
+    }
+  },
+
+  "currentTrackId": "sora-rhapsody",
+
+  "tracks": [
+    {
+      "id": "sora-rhapsody",
+      "title": "SORA Rhapsody",
+      "slug": "sora-rhapsody",
+      "family": "Editorial Monument",
+      "description": "Piano hall under a constellation. Editorial Monument's slowest read.",
+      "audioStatus": "available",
+      "audioPath": "/music/SORA%20Rhapsody.mp3",
+      "coverStatus": "artwork_final",
+      "coverWebSlug": "sora-rhapsody",
+      "duration": "07:18",
+      "relatedObjectIds": ["poster-end-of-history"]
+    },
+    {
+      "id": "xor-raiders",
+      "title": "XOR Raiders",
+      "slug": "xor-raiders",
+      "family": "Signal Performance",
+      "description": "Battle hymn of the network's defenders. Signal Performance in red.",
+      "audioStatus": "available",
+      "audioPath": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3",
+      "coverStatus": "artwork_final",
+      "coverWebSlug": "xor-raiders-defend",
+      "duration": "05:12",
+      "relatedObjectIds": []
+    },
+    {
+      "id": "sora-aitai",
+      "title": "SORA Aitai",
+      "slug": "sora-aitai",
+      "family": "Monumental Ascent",
+      "description": "Heroic ascent under a single moon. The handshake before the climb.",
+      "audioStatus": "available",
+      "audioPath": "/music/SORA_Aitai.mp3",
+      "coverStatus": "artwork_final",
+      "coverWebSlug": "sora-aitai",
+      "duration": "06:24",
+      "relatedObjectIds": []
+    },
+    {
+      "id": "i23",
+      "title": "i23",
+      "slug": "i23",
+      "family": "Sigil Sovereign",
+      "description": "A compressed sigil. Authority on a single line.",
+      "audioStatus": "available",
+      "audioPath": "/music/i23.mp3",
+      "coverStatus": "artwork_final",
+      "coverWebSlug": "i23",
+      "duration": "04:47",
+      "relatedObjectIds": []
+    },
+    {
+      "id": "let-there-be-xor",
+      "title": "Let there be XOR",
+      "slug": "let-there-be-xor",
+      "family": "Monumental Ascent",
+      "description": "Origin myth in light. Monumental Ascent at first ignition.",
+      "audioStatus": "available",
+      "audioPath": "/music/Let%20there%20be%20XOR.mp3",
+      "coverStatus": "artwork_final",
+      "coverWebSlug": "let-there-be-xor",
+      "duration": "07:02",
+      "relatedObjectIds": []
+    }
+  ],
+
+  "queue": [
+    { "position": 1, "trackId": "sora-rhapsody",    "state": "playing" },
+    { "position": 2, "trackId": "xor-raiders",      "state": "next" },
+    { "position": 3, "trackId": "sora-aitai",       "state": "queued" },
+    { "position": 4, "trackId": "i23",              "state": "queued" },
+    { "position": 5, "trackId": "let-there-be-xor", "state": "queued" }
+  ],
+
+  "stationMetrics": [
+    {
+      "key": "signalStrength",
+      "label": "Signal strength",
+      "valueDisplay": "78%",
+      "kind": "symbolic",
+      "note": "Station state · editorial display, not external telemetry"
+    },
+    {
+      "key": "listeners",
+      "label": "Listeners",
+      "valueDisplay": "12,847",
+      "kind": "symbolic",
+      "note": "Station state · editorial display, not external telemetry"
+    },
+    {
+      "key": "frequency",
+      "label": "Frequency",
+      "valueDisplay": "7.83 △ Hz",
+      "kind": "symbolic",
+      "note": "Schumann resonance reference · editorial frequency, not RF broadcast"
+    },
+    {
+      "key": "location",
+      "label": "Location",
+      "valueDisplay": "Alicante",
+      "kind": "factual",
+      "note": "Origin of transmission, real"
+    }
+  ],
+
+  "relatedObjects": [
+    {
+      "id": "poster-end-of-history",
+      "kind": "poster",
+      "title": "The End of History",
+      "family": "Editorial Monument",
+      "linkOnly": true,
+      "route": "14_POSTERS.html#poster-end-of-history",
+      "note": "Master print exists. Commerce path not open in F1."
+    }
+  ],
+
+  "assetAvailability": [
+    { "trackId": "sora-rhapsody",    "kind": "cover-web",  "state": "available",     "path": "/sora%20a%20porter/assets/covers/web/sora-rhapsody.webp" },
+    { "trackId": "sora-rhapsody",    "kind": "cover-full", "state": "metadata_only", "path": "/sora%20a%20porter/assets/covers/full/sora-rhapsody.png", "note": "Print rights pending" },
+    { "trackId": "sora-rhapsody",    "kind": "audio-preview", "state": "available",  "path": "/music/SORA%20Rhapsody.mp3" },
+
+    { "trackId": "xor-raiders",      "kind": "cover-web",  "state": "available",     "path": "/sora%20a%20porter/assets/covers/web/xor-raiders-defend.webp" },
+    { "trackId": "xor-raiders",      "kind": "cover-full", "state": "metadata_only", "path": "/sora%20a%20porter/assets/covers/full/xor-raiders-defend.png", "note": "Print rights pending" },
+    { "trackId": "xor-raiders",      "kind": "audio-preview", "state": "available",  "path": "/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" },
+
+    { "trackId": "sora-aitai",       "kind": "cover-web",  "state": "available",     "path": "/sora%20a%20porter/assets/covers/web/sora-aitai.webp" },
+    { "trackId": "sora-aitai",       "kind": "cover-full", "state": "metadata_only", "path": "/sora%20a%20porter/assets/covers/full/sora-aitai.png" },
+    { "trackId": "sora-aitai",       "kind": "audio-preview", "state": "available",  "path": "/music/SORA_Aitai.mp3" },
+
+    { "trackId": "i23",              "kind": "cover-web",  "state": "available",     "path": "/sora%20a%20porter/assets/covers/web/i23.webp" },
+    { "trackId": "i23",              "kind": "cover-full", "state": "metadata_only", "path": "/sora%20a%20porter/assets/covers/full/i23.png" },
+    { "trackId": "i23",              "kind": "audio-preview", "state": "available",  "path": "/music/i23.mp3" },
+
+    { "trackId": "let-there-be-xor", "kind": "cover-web",  "state": "available",     "path": "/sora%20a%20porter/assets/covers/web/let-there-be-xor.webp" },
+    { "trackId": "let-there-be-xor", "kind": "cover-full", "state": "metadata_only", "path": "/sora%20a%20porter/assets/covers/full/let-there-be-xor.png" },
+    { "trackId": "let-there-be-xor", "kind": "audio-preview", "state": "available",  "path": "/music/Let%20there%20be%20XOR.mp3" },
+
+    { "trackId": null, "kind": "poster-master-end-of-history", "state": "available_later", "path": "/sora%20a%20porter/assets/posters/master/end-of-history-master.png", "note": "Master print exists locally. Commerce path not open in F1." }
+  ],
+
+  "modeAccess": [
+    {
+      "modeId": "station",
+      "label": "Station",
+      "kind": "primary",
+      "route": "08_RADIO_SORAMETRICS.html",
+      "state": "live",
+      "note": "Current surface (Station Home v1)"
+    },
+    {
+      "modeId": "dj",
+      "label": "DJ Session",
+      "kind": "future-lane",
+      "route": "09_RADIO_DJ_SESSION.html",
+      "state": "demo-only",
+      "note": "Prototype lane · not commerce-ready. Build exists locally."
+    },
+    {
+      "modeId": "composer",
+      "label": "Composer Session",
+      "kind": "future-lane",
+      "route": "12_RADIO_COMPOSER.html",
+      "state": "demo-only",
+      "note": "Concept lane · access placeholder. Build exists locally."
+    },
+    {
+      "modeId": "journal",
+      "label": "Journal",
+      "kind": "adjacent-surface",
+      "route": "10_JOURNAL_INDEX.html",
+      "state": "live",
+      "note": "Editorial dispatches. Adjacent to RADIO but separate surface."
+    }
+  ]
+}

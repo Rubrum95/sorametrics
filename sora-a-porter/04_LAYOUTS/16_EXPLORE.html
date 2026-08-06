@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SORA-a-porter Explore — Catalog discovery</title>
+  <meta name="description" content="The complete catalog. Every release, every meme, every capsule. Filterable by family.">
+  <link rel="canonical" href="/sora-a-porter/explore">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-shell.css">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-radio.css">
+</head>
+<body data-family="monumental-ascent">
+
+  <header class="topbar" role="banner">
+    <div class="topbar__inner">
+      <a class="brand" href="01_SORA_A_PORTER_FIRST_LAYOUT.html" aria-label="SORA-a-porter home">
+        <svg class="brand__sigil" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1"/>
+          <circle cx="16" cy="16" r="9"  stroke="currentColor" stroke-width="0.8" opacity="0.7"/>
+          <circle cx="16" cy="16" r="4"  stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+          <line x1="16" y1="2"  x2="16" y2="30" stroke="currentColor" stroke-width="0.6"/>
+          <line x1="2"  y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="0.6"/>
+          <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>
+          <span class="brand__wordmark">SORA-A-PORTER</span>
+          <span class="brand__tagline">Music · Signal Culture · Ideas · Collectibles</span>
+        </span>
+      </a>
+
+      <button class="nav-hamburger" type="button" aria-label="Open navigation" aria-expanded="false" id="nav-hamburger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav__link" href="01_SORA_A_PORTER_FIRST_LAYOUT.html">Home</a>
+        <a class="nav__link" href="16_EXPLORE.html" aria-current="page">Explore</a>
+        <a class="nav__link" href="15_COLLECTIONS.html">Collections</a>
+        <a class="nav__link" href="08_RADIO_SORAMETRICS.html">Radio</a>
+        <a class="nav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+        <a class="nav__link" href="14_POSTERS.html">Posters</a>
+        <a class="nav__link" href="13_MEMES.html">Memes</a>
+        <a class="nav__link" href="17_ABOUT.html">About</a>
+      </nav>
+
+      <div class="utility">
+        <span class="utility__pill" aria-live="polite">
+          <span class="sr-only">Live signal</span>
+          Live signal
+        </span>
+        <button class="utility__icon" type="button" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+        </button>
+        <a class="utility__icon" href="08_RADIO_SORAMETRICS.html" aria-label="Tune in to RADIO">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11a7 7 0 0 1 14 0" stroke-linecap="round"/><path d="M8 11a4 4 0 0 1 8 0" stroke-linecap="round"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <button class="utility__icon" type="button" aria-label="Bag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8h14l-1 12H6Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="utility__icon" type="button" aria-label="Account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="9" r="4"/><path d="M5 21a7 7 0 0 1 14 0" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+
+    <section class="page-hero">
+      <div>
+        <p class="page-hero__eyebrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="m20 20-3.5-3.5" stroke-linecap="round"/>
+          </svg>
+          Explore · Catalog discovery · 32 releases
+        </p>
+        <h1 class="page-hero__title">Explore.</h1>
+        <p class="page-hero__lede">
+          Every release, every meme, every capsule — one surface. Family filters keep the reading order honest: SORA originals first, partners next, archive contained.
+        </p>
+      </div>
+
+      <aside class="page-hero__stats">
+        <span>Releases · <span class="val">24</span></span>
+        <span>Memes · <span class="val">08</span></span>
+        <span>Cycle · <span class="val">2026 Q2</span></span>
+        <span>Families · <span class="val">6</span></span>
+      </aside>
+    </section>
+
+    <section class="explore-filters" role="group" aria-label="Family filter">
+      <button class="chip is-on" type="button" data-filter="all">All</button>
+      <button class="chip" type="button" data-filter="Monumental Ascent">Monumental Ascent</button>
+      <button class="chip" type="button" data-filter="Signal Performance">Signal Performance</button>
+      <button class="chip" type="button" data-filter="Editorial Monument">Editorial Monument</button>
+      <button class="chip" type="button" data-filter="Sigil Sovereign">Sigil Sovereign</button>
+      <button class="chip" type="button" data-filter="Archive Relic">Archive Relic</button>
+    </section>
+
+    <section class="explore-grid memes-grid" data-list="all-releases" aria-label="All releases"></section>
+
+    <aside class="page-footnote">
+      Discovery here is reading order, not algorithm. The first card is always the canon. Filter chips collapse the catalog without breaking the family hierarchy.
+      <span class="signer">— SORA · Founder &amp; Signal Keeper</span>
+    </aside>
+
+  </main>
+
+  <footer class="bottom-bar" role="contentinfo">
+    <div class="bottom-bar__inner">
+      <div class="bottom-bar__signal">
+        <svg class="sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M8 11a4 4 0 0 1 8 0"/><circle cx="12" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <span class="label--live">Live signal</span>
+        <span>· Sorametrics Radio · Now broadcasting worldwide</span>
+      </div>
+      <div class="bottom-bar__center"></div>
+      <div class="bottom-bar__tagline">Signal for dreamers, engineers, lovers, strangers</div>
+    </div>
+  </footer>
+
+  <script src="../07_RUNTIME/sora-shell.js"></script>
+  <script src="../07_RUNTIME/sora-catalog.js"></script>
+  <script>
+    (function () {
+      const chips = document.querySelectorAll('.explore-filters .chip');
+      function apply(filter) {
+        chips.forEach((c) => c.classList.toggle('is-on', c.dataset.filter === filter));
+        const cards = document.querySelectorAll('.explore-grid .card');
+        cards.forEach((card) => {
+          const family = card.querySelector('.card__meta')?.textContent || '';
+          card.style.display = (filter === 'all' || family.includes(filter)) ? '' : 'none';
+        });
+      }
+      chips.forEach((c) => c.addEventListener('click', () => apply(c.dataset.filter)));
+
+      const params = new URLSearchParams(window.location.search);
+      const row = params.get('row');
+      const familyByRow = { sora: 'Monumental Ascent', memes: 'Archive Relic' };
+      if (row && familyByRow[row]) {
+        document.querySelector('[data-list="all-releases"]')?.addEventListener('catalog:all-rendered', () => apply(familyByRow[row]));
+      }
+    })();
+  </script>
+
+  <style>
+    body { padding-bottom: calc(var(--bar-height) + 8px); }
+    .explore-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin: var(--space-5) 0;
+      padding-bottom: var(--space-4);
+      border-bottom: 1px solid var(--gold-line);
+    }
+    .explore-filters .chip { cursor: pointer; }
+  </style>
+
+</body>
+</html>

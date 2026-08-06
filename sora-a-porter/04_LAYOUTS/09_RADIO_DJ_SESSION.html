@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SORA-a-porter Radio · DJ Session — Live Mix & Broadcast</title>
+  <meta name="description" content="Live performance. Dual decks. Signal in motion.">
+  <link rel="canonical" href="/sora-a-porter/radio/dj">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-shell.css">
+  <link rel="stylesheet" href="../07_RUNTIME/sora-radio.css">
+</head>
+<body data-family="signal-performance">
+
+  <!-- ── topbar ── -->
+  <header class="topbar" role="banner">
+    <div class="topbar__inner">
+      <a class="brand" href="01_SORA_A_PORTER_FIRST_LAYOUT.html" aria-label="SORA-a-porter home">
+        <svg class="brand__sigil" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1"/>
+          <circle cx="16" cy="16" r="9"  stroke="currentColor" stroke-width="0.8" opacity="0.7"/>
+          <circle cx="16" cy="16" r="4"  stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+          <line x1="16" y1="2"  x2="16" y2="30" stroke="currentColor" stroke-width="0.6"/>
+          <line x1="2"  y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="0.6"/>
+          <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+        <span>
+          <span class="brand__wordmark">SORA-A-PORTER</span>
+          <span class="brand__tagline">Music · Signal Culture · Ideas · Collectibles</span>
+        </span>
+      </a>
+
+      <button class="nav-hamburger" type="button" aria-label="Open navigation" aria-expanded="false" id="nav-hamburger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+
+      <nav class="nav" aria-label="Primary">
+        <a class="nav__link" href="01_SORA_A_PORTER_FIRST_LAYOUT.html">Home</a>
+        <a class="nav__link" href="16_EXPLORE.html">Explore</a>
+        <a class="nav__link" href="15_COLLECTIONS.html">Collections</a>
+        <a class="nav__link" href="08_RADIO_SORAMETRICS.html" aria-current="page">Radio</a>
+        <a class="nav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+        <a class="nav__link" href="14_POSTERS.html">Posters</a>
+        <a class="nav__link" href="13_MEMES.html">Memes</a>
+        <a class="nav__link" href="17_ABOUT.html">About</a>
+      </nav>
+
+      <div class="utility">
+        <span class="utility__pill" aria-live="polite" style="color: var(--signal-red)">
+          <span class="sr-only">On air live transmission</span>
+          On air · Live transmission
+        </span>
+        <button class="utility__icon" type="button" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5" stroke-linecap="round"/></svg>
+        </button>
+        <a class="utility__icon" href="08_RADIO_SORAMETRICS.html" aria-label="Tune in to RADIO">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 11a7 7 0 0 1 14 0" stroke-linecap="round"/><path d="M8 11a4 4 0 0 1 8 0" stroke-linecap="round"/><circle cx="12" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <button class="utility__icon" type="button" aria-label="Bag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 8h14l-1 12H6Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="utility__icon" type="button" aria-label="Account">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="9" r="4"/><path d="M5 21a7 7 0 0 1 14 0" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── radio sub-nav ── -->
+  <nav class="subnav" aria-label="Radio sub-navigation">
+    <div class="subnav__inner">
+      <a class="subnav__link" href="08_RADIO_SORAMETRICS.html">Station</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="09_RADIO_DJ_SESSION.html" aria-current="page">DJ Session</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="12_RADIO_COMPOSER.html">Composer</a>
+      <span class="subnav__divider" aria-hidden="true"></span>
+      <a class="subnav__link" href="10_JOURNAL_INDEX.html">Journal</a>
+    </div>
+  </nav>
+
+  <main class="shell">
+
+    <!-- ── dj main grid · 5 columns: left rail · deck A · master · deck B · queue ── -->
+    <section class="dj" aria-labelledby="dj-title">
+      <h1 class="sr-only" id="dj-title">DJ Session · Live mix and broadcast</h1>
+
+      <!-- left rail: broadcast status -->
+      <aside class="dj__col dj__left">
+        <h2 class="dj__col-title">Broadcast status <span class="sub">Live</span></h2>
+        <div class="dj-status">
+          <span class="dj-status__pill">On air</span>
+          <div class="dj-status__row"><span>From anywhere</span><span class="val">To everywhere</span></div>
+          <div class="dj-status__row"><span>Signal strength</span><span class="val" id="bcast-signal">78%</span></div>
+          <div class="dj-status__bar" role="meter" id="bcast-signal-bar" aria-valuenow="78" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="dj-status__row"><span>Listeners</span><span class="val" id="bcast-listeners">12,847</span></div>
+          <div class="dj-status__row"><span>Frequency</span><span class="val">7.83 △ Hz</span></div>
+          <div class="dj-status__row"><span>Location</span><span class="val">Alicante</span></div>
+          <div class="dj-status__row"><span>Latency</span><span class="val" id="bcast-latency">18 ms</span></div>
+        </div>
+      </aside>
+
+      <!-- deck A · default: SORA Rhapsody · Editorial Monument -->
+      <section class="deck deck--a" aria-labelledby="deck-a-title">
+        <header class="deck__head">
+          <span class="label" id="deck-a-title">Deck A · Editorial Monument</span>
+          <span class="meta">128.0 BPM · 7A</span>
+        </header>
+        <div class="deck__body">
+          <div class="deck__disc">
+            <img class="deck__disc-img" src="../assets/covers/web/sora-rhapsody.webp" alt="SORA Rhapsody cover">
+          </div>
+          <div class="deck__meta">
+            <span class="deck__title">SORA RHAPSODY</span>
+            <span class="deck__family">Editorial Monument · Track 01</span>
+            <div class="deck__stats">
+              <span><span class="label">BPM</span> <span id="deck-a-bpm">128.0</span></span>
+              <span><span class="label">KEY</span> 7A</span>
+              <span><span class="label">ELAPSED</span> <span id="deck-a-elapsed">00:00</span></span>
+            </div>
+          </div>
+        </div>
+        <svg class="deck__waveform" viewBox="0 0 400 28" preserveAspectRatio="none" aria-hidden="true">
+          <g stroke-width="1" stroke-linecap="round">
+            <line x1="4"   y1="14" x2="4"   y2="14"/>
+            <line x1="14"  y1="10" x2="14"  y2="18"/>
+            <line x1="24"  y1="6"  x2="24"  y2="22"/>
+            <line x1="34"  y1="4"  x2="34"  y2="24"/>
+            <line x1="44"  y1="10" x2="44"  y2="18"/>
+            <line x1="54"  y1="2"  x2="54"  y2="26"/>
+            <line x1="64"  y1="8"  x2="64"  y2="20"/>
+            <line x1="74"  y1="6"  x2="74"  y2="22"/>
+            <line x1="84"  y1="10" x2="84"  y2="18"/>
+            <line x1="94"  y1="4"  x2="94"  y2="24"/>
+            <line x1="104" y1="8"  x2="104" y2="20"/>
+            <line x1="114" y1="2"  x2="114" y2="26"/>
+            <line x1="124" y1="6"  x2="124" y2="22"/>
+            <line x1="134" y1="10" x2="134" y2="18"/>
+            <line x1="144" y1="4"  x2="144" y2="24"/>
+            <line x1="154" y1="8"  x2="154" y2="20"/>
+            <line x1="164" y1="6"  x2="164" y2="22"/>
+            <line x1="174" y1="2"  x2="174" y2="26"/>
+            <line x1="184" y1="10" x2="184" y2="18"/>
+            <line x1="194" y1="4"  x2="194" y2="24"/>
+            <line x1="204" y1="8"  x2="204" y2="20"/>
+            <line x1="214" y1="6"  x2="214" y2="22"/>
+            <line x1="224" y1="10" x2="224" y2="18"/>
+            <line x1="234" y1="4"  x2="234" y2="24"/>
+            <line x1="244" y1="2"  x2="244" y2="26"/>
+            <line x1="254" y1="8"  x2="254" y2="20"/>
+            <line x1="264" y1="6"  x2="264" y2="22"/>
+            <line x1="274" y1="10" x2="274" y2="18"/>
+            <line x1="284" y1="4"  x2="284" y2="24"/>
+            <line x1="294" y1="8"  x2="294" y2="20"/>
+            <line x1="304" y1="6"  x2="304" y2="22"/>
+            <line x1="314" y1="10" x2="314" y2="18"/>
+            <line x1="324" y1="2"  x2="324" y2="26"/>
+            <line x1="334" y1="8"  x2="334" y2="20"/>
+            <line x1="344" y1="6"  x2="344" y2="22"/>
+            <line x1="354" y1="10" x2="354" y2="18"/>
+            <line x1="364" y1="4"  x2="364" y2="24"/>
+            <line x1="374" y1="8"  x2="374" y2="20"/>
+            <line x1="384" y1="6"  x2="384" y2="22"/>
+            <line x1="394" y1="2"  x2="394" y2="26"/>
+          </g>
+        </svg>
+        <div class="deck__transport" data-deck="a">
+          <button type="button" data-action="cue">Cue</button>
+          <button type="button" data-action="sync" class="is-active">Sync</button>
+          <button type="button" data-action="play">Play</button>
+          <button type="button" data-action="pause">Pause</button>
+          <button type="button" data-action="hotcue">Hot cue · A</button>
+        </div>
+      </section>
+
+      <!-- master spine -->
+      <section class="dj__master" aria-labelledby="master-title">
+        <header class="dj__master-head">
+          <span class="label" id="master-title">Master</span>
+          <span class="label" style="color: var(--paper-mute)">Limiter · Live mix</span>
+        </header>
+        <div class="master-meters">
+          <div class="meter" aria-label="L meter">
+            <div class="meter__bar" id="meter-l" style="height: 0%"></div>
+          </div>
+          <div class="meter" aria-label="R meter">
+            <div class="meter__bar" id="meter-r" style="height: 0%"></div>
+          </div>
+        </div>
+        <div style="font-family: var(--font-mono); font-size: 9px; color: var(--paper-mute); text-align: center; letter-spacing: 0.04em">+9 · +6 · +3 · 0 · −3 · −6 · −10 · −20 · −30</div>
+        <button class="dj__master-onair" type="button" id="onair-btn" aria-pressed="true">On air</button>
+        <div class="master-vol">
+          <span class="master-vol__label">Master vol</span>
+          <input type="range" id="master-vol" min="0" max="100" value="80" aria-label="Master volume" class="master-vol__slider">
+          <span class="master-vol__val" id="master-vol-val">80</span>
+        </div>
+      </section>
+
+      <!-- deck B · default: XOR Raiders · Signal Performance -->
+      <section class="deck deck--b" aria-labelledby="deck-b-title">
+        <header class="deck__head">
+          <span class="label" id="deck-b-title">Deck B · Signal Performance</span>
+          <span class="meta">126.0 BPM · 8A</span>
+        </header>
+        <div class="deck__body">
+          <div class="deck__disc">
+            <img class="deck__disc-img" src="../assets/covers/web/xor-raiders-defend.webp" alt="XOR Raiders cover">
+          </div>
+          <div class="deck__meta">
+            <span class="deck__title">XOR RAIDERS</span>
+            <span class="deck__family">Signal Performance</span>
+            <div class="deck__stats">
+              <span><span class="label">BPM</span> <span id="deck-b-bpm">126.0</span></span>
+              <span><span class="label">KEY</span> 8A</span>
+              <span><span class="label">ELAPSED</span> <span id="deck-b-elapsed">00:00</span></span>
+            </div>
+          </div>
+        </div>
+        <svg class="deck__waveform" viewBox="0 0 400 28" preserveAspectRatio="none" aria-hidden="true">
+          <g stroke-width="1" stroke-linecap="round">
+            <line x1="4"   y1="14" x2="4"   y2="14"/>
+            <line x1="14"  y1="6"  x2="14"  y2="22"/>
+            <line x1="24"  y1="2"  x2="24"  y2="26"/>
+            <line x1="34"  y1="10" x2="34"  y2="18"/>
+            <line x1="44"  y1="4"  x2="44"  y2="24"/>
+            <line x1="54"  y1="8"  x2="54"  y2="20"/>
+            <line x1="64"  y1="2"  x2="64"  y2="26"/>
+            <line x1="74"  y1="10" x2="74"  y2="18"/>
+            <line x1="84"  y1="6"  x2="84"  y2="22"/>
+            <line x1="94"  y1="2"  x2="94"  y2="26"/>
+            <line x1="104" y1="10" x2="104" y2="18"/>
+            <line x1="114" y1="4"  x2="114" y2="24"/>
+            <line x1="124" y1="8"  x2="124" y2="20"/>
+            <line x1="134" y1="2"  x2="134" y2="26"/>
+            <line x1="144" y1="6"  x2="144" y2="22"/>
+            <line x1="154" y1="4"  x2="154" y2="24"/>
+            <line x1="164" y1="10" x2="164" y2="18"/>
+            <line x1="174" y1="2"  x2="174" y2="26"/>
+            <line x1="184" y1="8"  x2="184" y2="20"/>
+            <line x1="194" y1="6"  x2="194" y2="22"/>
+            <line x1="204" y1="2"  x2="204" y2="26"/>
+            <line x1="214" y1="10" x2="214" y2="18"/>
+            <line x1="224" y1="4"  x2="224" y2="24"/>
+            <line x1="234" y1="8"  x2="234" y2="20"/>
+            <line x1="244" y1="2"  x2="244" y2="26"/>
+            <line x1="254" y1="6"  x2="254" y2="22"/>
+            <line x1="264" y1="10" x2="264" y2="18"/>
+            <line x1="274" y1="4"  x2="274" y2="24"/>
+            <line x1="284" y1="2"  x2="284" y2="26"/>
+            <line x1="294" y1="8"  x2="294" y2="20"/>
+            <line x1="304" y1="6"  x2="304" y2="22"/>
+            <line x1="314" y1="2"  x2="314" y2="26"/>
+            <line x1="324" y1="10" x2="324" y2="18"/>
+            <line x1="334" y1="4"  x2="334" y2="24"/>
+            <line x1="344" y1="8"  x2="344" y2="20"/>
+            <line x1="354" y1="2"  x2="354" y2="26"/>
+            <line x1="364" y1="6"  x2="364" y2="22"/>
+            <line x1="374" y1="10" x2="374" y2="18"/>
+            <line x1="384" y1="4"  x2="384" y2="24"/>
+            <line x1="394" y1="8"  x2="394" y2="20"/>
+          </g>
+        </svg>
+        <div class="deck__transport" data-deck="b">
+          <button type="button" data-action="cue">Cue</button>
+          <button type="button" data-action="sync" class="is-active">Sync</button>
+          <button type="button" data-action="play">Play</button>
+          <button type="button" data-action="pause">Pause</button>
+          <button type="button" data-action="hotcue">Hot cue · B</button>
+        </div>
+      </section>
+
+      <!-- live queue + auto mix rules -->
+      <aside class="dj__col dj__queue">
+        <h2 class="dj__col-title">Live queue <span class="sub">5 ahead</span></h2>
+        <div class="live-queue">
+          <div class="live-queue__item" data-status="playing" data-deck="a" data-src="/music/SORA%20Rhapsody.mp3" data-title="SORA Rhapsody" data-family="Editorial Monument" data-image="sora-rhapsody" draggable="true" role="button" tabindex="0">
+            <span class="live-queue__index">A</span>
+            <div class="live-queue__meta">
+              <span class="live-queue__title">SORA Rhapsody</span>
+              <span class="live-queue__family">Editorial Monument</span>
+            </div>
+            <span class="live-queue__dur">07:18</span>
+            <span class="live-queue__status">▶</span>
+          </div>
+          <div class="live-queue__item" data-deck="b" data-src="/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" data-title="XOR Raiders" data-family="Signal Performance" data-image="xor-raiders-defend" draggable="true" role="button" tabindex="0">
+            <span class="live-queue__index">B</span>
+            <div class="live-queue__meta">
+              <span class="live-queue__title">XOR Raiders</span>
+              <span class="live-queue__family">Signal Performance</span>
+            </div>
+            <span class="live-queue__dur">05:12</span>
+            <span class="live-queue__status">Next</span>
+          </div>
+          <div class="live-queue__item" data-deck="a" data-src="/music/SORA_Aitai.mp3" data-title="SORA Aitai" data-family="Monumental Ascent" data-image="sora-aitai" draggable="true" role="button" tabindex="0">
+            <span class="live-queue__index">3</span>
+            <div class="live-queue__meta">
+              <span class="live-queue__title">SORA Aitai</span>
+              <span class="live-queue__family">Monumental Ascent</span>
+            </div>
+            <span class="live-queue__dur">06:24</span>
+          </div>
+          <div class="live-queue__item" data-deck="b" data-src="/music/i23.mp3" data-title="i23" data-family="Sigil Sovereign" data-image="i23" draggable="true" role="button" tabindex="0">
+            <span class="live-queue__index">4</span>
+            <div class="live-queue__meta">
+              <span class="live-queue__title">i23</span>
+              <span class="live-queue__family">Sigil Sovereign</span>
+            </div>
+            <span class="live-queue__dur">04:47</span>
+          </div>
+          <div class="live-queue__item" data-deck="a" data-src="/music/Let%20there%20be%20XOR.mp3" data-title="Let there be XOR" data-family="Monumental Ascent" data-image="let-there-be-xor" draggable="true" role="button" tabindex="0">
+            <span class="live-queue__index">5</span>
+            <div class="live-queue__meta">
+              <span class="live-queue__title">Let there be XOR</span>
+              <span class="live-queue__family">Monumental Ascent</span>
+            </div>
+            <span class="live-queue__dur">07:02</span>
+          </div>
+        </div>
+
+        <div class="auto-mix-rules" role="region" aria-label="Auto mix rules — agent contract">
+          <div class="auto-mix-rules__head">
+            <span class="label">Auto mix rules</span>
+            <svg class="sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3v18M3 12h18" opacity="0.6"/>
+              <circle cx="12" cy="12" r="2" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="rule"><span class="rule__name">Match key</span><button class="rule__val is-on" data-rule="matchKey" type="button">On</button></div>
+          <div class="rule"><span class="rule__name">Sync tempo</span><button class="rule__val is-on" data-rule="syncTempo" type="button">On</button></div>
+          <div class="rule"><span class="rule__name">Crossfade</span><button class="rule__val" data-rule="crossfade" type="button">8 bars</button></div>
+          <div class="rule"><span class="rule__name">Loop</span><button class="rule__val" data-rule="loop" type="button">1/4</button></div>
+          <div class="rule"><span class="rule__name">Jump</span><button class="rule__val" data-rule="jump" type="button">16</button></div>
+          <button class="auto-mix-engage" id="auto-mix-engage" type="button">Engage auto-mix</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ── performance timeline · 8-section cue grid · two-channel waveform ── -->
+    <section class="perf-timeline" aria-labelledby="perf-title">
+      <header class="perf-timeline__head">
+        <span class="perf-timeline__title" id="perf-title">Performance timeline</span>
+        <div class="perf-timeline__ab" role="group" aria-label="Channel mode">
+          <button type="button" class="is-active" data-target="a">A</button>
+          <button type="button" data-target="b">B</button>
+        </div>
+      </header>
+
+      <div class="perf-timeline__sections">
+        <span class="perf-timeline__section">Intro</span>
+        <span class="perf-timeline__section">Verse 1</span>
+        <span class="perf-timeline__section">Build</span>
+        <span class="perf-timeline__section">Drop</span>
+        <span class="perf-timeline__section">Verse 2</span>
+        <span class="perf-timeline__section">Break</span>
+        <span class="perf-timeline__section">Drop 2</span>
+        <span class="perf-timeline__section">Outro</span>
+      </div>
+
+      <div class="perf-timeline__waves">
+        <svg viewBox="0 0 800 60" preserveAspectRatio="none" aria-hidden="true">
+          <g stroke="#E6C275" stroke-width="0.8" stroke-linecap="round">
+            <line x1="10"  y1="22" x2="10"  y2="22"/>
+            <line x1="30"  y1="14" x2="30"  y2="30"/>
+            <line x1="50"  y1="8"  x2="50"  y2="36"/>
+            <line x1="70"  y1="4"  x2="70"  y2="40"/>
+            <line x1="90"  y1="12" x2="90"  y2="32"/>
+            <line x1="110" y1="6"  x2="110" y2="38"/>
+            <line x1="130" y1="10" x2="130" y2="34"/>
+            <line x1="150" y1="2"  x2="150" y2="42"/>
+            <line x1="170" y1="14" x2="170" y2="30"/>
+            <line x1="190" y1="6"  x2="190" y2="38"/>
+            <line x1="210" y1="2"  x2="210" y2="42"/>
+            <line x1="230" y1="12" x2="230" y2="32"/>
+            <line x1="250" y1="4"  x2="250" y2="40"/>
+            <line x1="270" y1="10" x2="270" y2="34"/>
+            <line x1="290" y1="6"  x2="290" y2="38"/>
+            <line x1="310" y1="2"  x2="310" y2="42"/>
+            <line x1="330" y1="14" x2="330" y2="30"/>
+            <line x1="350" y1="8"  x2="350" y2="36"/>
+            <line x1="370" y1="2"  x2="370" y2="42"/>
+            <line x1="390" y1="6"  x2="390" y2="38"/>
+            <line x1="410" y1="10" x2="410" y2="34"/>
+            <line x1="430" y1="4"  x2="430" y2="40"/>
+            <line x1="450" y1="12" x2="450" y2="32"/>
+            <line x1="470" y1="6"  x2="470" y2="38"/>
+            <line x1="490" y1="2"  x2="490" y2="42"/>
+            <line x1="510" y1="14" x2="510" y2="30"/>
+            <line x1="530" y1="8"  x2="530" y2="36"/>
+            <line x1="550" y1="4"  x2="550" y2="40"/>
+            <line x1="570" y1="10" x2="570" y2="34"/>
+            <line x1="590" y1="6"  x2="590" y2="38"/>
+            <line x1="610" y1="2"  x2="610" y2="42"/>
+            <line x1="630" y1="12" x2="630" y2="32"/>
+            <line x1="650" y1="8"  x2="650" y2="36"/>
+            <line x1="670" y1="6"  x2="670" y2="38"/>
+            <line x1="690" y1="14" x2="690" y2="30"/>
+            <line x1="710" y1="10" x2="710" y2="34"/>
+            <line x1="730" y1="4"  x2="730" y2="40"/>
+            <line x1="750" y1="8"  x2="750" y2="36"/>
+            <line x1="770" y1="14" x2="770" y2="30"/>
+            <line x1="790" y1="22" x2="790" y2="22"/>
+          </g>
+          <g stroke="#E3242D" stroke-width="0.8" stroke-linecap="round" opacity="0.7" transform="translate(0 4)">
+            <line x1="10"  y1="22" x2="10"  y2="22"/>
+            <line x1="40"  y1="16" x2="40"  y2="28"/>
+            <line x1="70"  y1="6"  x2="70"  y2="38"/>
+            <line x1="100" y1="14" x2="100" y2="30"/>
+            <line x1="130" y1="2"  x2="130" y2="42"/>
+            <line x1="160" y1="8"  x2="160" y2="36"/>
+            <line x1="190" y1="4"  x2="190" y2="40"/>
+            <line x1="220" y1="12" x2="220" y2="32"/>
+            <line x1="250" y1="2"  x2="250" y2="42"/>
+            <line x1="280" y1="10" x2="280" y2="34"/>
+            <line x1="310" y1="6"  x2="310" y2="38"/>
+            <line x1="340" y1="14" x2="340" y2="30"/>
+            <line x1="370" y1="2"  x2="370" y2="42"/>
+            <line x1="400" y1="8"  x2="400" y2="36"/>
+            <line x1="430" y1="6"  x2="430" y2="38"/>
+            <line x1="460" y1="12" x2="460" y2="32"/>
+            <line x1="490" y1="2"  x2="490" y2="42"/>
+            <line x1="520" y1="10" x2="520" y2="34"/>
+            <line x1="550" y1="4"  x2="550" y2="40"/>
+            <line x1="580" y1="14" x2="580" y2="30"/>
+            <line x1="610" y1="6"  x2="610" y2="38"/>
+            <line x1="640" y1="2"  x2="640" y2="42"/>
+            <line x1="670" y1="10" x2="670" y2="34"/>
+            <line x1="700" y1="4"  x2="700" y2="40"/>
+            <line x1="730" y1="8"  x2="730" y2="36"/>
+            <line x1="760" y1="14" x2="760" y2="30"/>
+            <line x1="790" y1="22" x2="790" y2="22"/>
+          </g>
+        </svg>
+        <span class="cue" style="left: 12.5%"></span>
+        <span class="cue" style="left: 25%"></span>
+        <span class="cue" style="left: 37.5%"></span>
+        <span class="cue" style="left: 50%"></span>
+        <span class="cue" style="left: 62.5%"></span>
+        <span class="cue" style="left: 75%"></span>
+        <span class="cue" style="left: 87.5%"></span>
+        <span class="perf-timeline__playhead" id="perf-playhead" aria-hidden="true"></span>
+      </div>
+
+      <div class="perf-timeline__cues">
+        <span>Cue 1</span><span>Cue 2</span><span>Cue 3</span><span>Cue 4</span><span>Cue 5</span><span>Cue 6</span><span>Cue 7</span><span>Cue 8</span>
+      </div>
+    </section>
+
+    <!-- ── lower tools row · effects · pads · mixer · crossfader · analyzer · library ── -->
+    <section class="dj-tools" aria-label="Performance tools">
+
+      <!-- effects -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Effects &amp; performance</h2>
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2)">
+          <div class="knob" data-knob="filter" role="slider" tabindex="0" aria-label="Filter LPF" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="knob__dial" style="--rot:-135"><span class="knob__pointer"></span></div><span class="knob__name">Filter</span><span class="knob__val" id="knob-filter-val">LPF · off</span></div>
+          <div class="knob" data-knob="reverb" role="slider" tabindex="0" aria-label="Reverb Hall" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="knob__dial" style="--rot:-135"><span class="knob__pointer"></span></div><span class="knob__name">Reverb</span><span class="knob__val" id="knob-reverb-val">Hall · 0</span></div>
+          <div class="knob" data-knob="delay" role="slider" tabindex="0" aria-label="Delay 1/4" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="knob__dial" style="--rot:-135"><span class="knob__pointer"></span></div><span class="knob__name">Delay</span><span class="knob__val" id="knob-delay-val">1/4 · 0</span></div>
+          <div class="knob" data-knob="drive" role="slider" tabindex="0" aria-label="Drive Warm" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="knob__dial" style="--rot:-135"><span class="knob__pointer"></span></div><span class="knob__name">Drive</span><span class="knob__val" id="knob-drive-val">Warm · 0</span></div>
+        </div>
+      </div>
+
+      <!-- pads -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Performance pads</h2>
+        <div class="pads">
+          <button class="pad" data-pad="hotcue"  type="button"><span class="pad__num">1</span><span class="pad__label">Hot cue</span></button>
+          <button class="pad" data-pad="stab"    type="button"><span class="pad__num">2</span><span class="pad__label">Stab</span></button>
+          <button class="pad" data-pad="buildup" type="button"><span class="pad__num">3</span><span class="pad__label">Build up</span></button>
+          <button class="pad" data-pad="whistle" type="button"><span class="pad__num">4</span><span class="pad__label">Whistle</span></button>
+          <button class="pad" data-pad="impact"  type="button"><span class="pad__num">5</span><span class="pad__label">Impact</span></button>
+          <button class="pad" data-pad="riser"   type="button"><span class="pad__num">6</span><span class="pad__label">Riser</span></button>
+          <button class="pad" data-pad="noise"   type="button"><span class="pad__num">7</span><span class="pad__label">Noise</span></button>
+          <button class="pad" data-pad="vocal"   type="button"><span class="pad__num">8</span><span class="pad__label">Vocal shot</span></button>
+        </div>
+      </div>
+
+      <!-- mixer -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Mixer</h2>
+        <div class="mixer">
+          <div class="mixer-ch"><span class="mixer-ch__num">1</span><div class="fader" data-fader="a"><div class="fader__handle" style="bottom: 75%"></div></div></div>
+          <div class="mixer-ch"><span class="mixer-ch__num">2</span><div class="fader" data-fader="b"><div class="fader__handle" style="bottom: 75%"></div></div></div>
+          <div class="mixer-ch"><span class="mixer-ch__num">3</span><div class="fader"><div class="fader__handle" style="bottom: 50%"></div></div></div>
+          <div class="mixer-ch"><span class="mixer-ch__num">4</span><div class="fader"><div class="fader__handle" style="bottom: 40%"></div></div></div>
+        </div>
+      </div>
+
+      <!-- crossfader -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Crossfader</h2>
+        <div style="display:flex; flex-direction:column; gap: var(--space-2); align-items: stretch; justify-content: center; flex: 1">
+          <svg viewBox="0 0 64 64" style="width:48px; height:48px; align-self:center" aria-hidden="true">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="#C8A85A" stroke-width="0.6"/>
+            <circle cx="32" cy="32" r="20" fill="none" stroke="#C8A85A" stroke-width="0.4" opacity="0.7"/>
+            <path d="M32 6v52M6 32h52" stroke="#C8A85A" stroke-width="0.3" opacity="0.5"/>
+            <circle cx="32" cy="32" r="3" fill="#E6C275"/>
+          </svg>
+          <div class="crossfader">
+            <span class="crossfader__label">A</span>
+            <div class="crossfader__bar" id="crossfader-bar" style="cursor: ew-resize; height: 8px"><div class="crossfader__handle" id="crossfader-handle" style="left: 50%"></div></div>
+            <span class="crossfader__label">B</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- analyzer -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Live signal analyzer</h2>
+        <div class="analyzer">
+          <canvas id="lissajous-canvas" width="400" height="240" aria-label="Live signal lissajous"></canvas>
+        </div>
+        <div style="display:flex; justify-content: space-between; font-family: var(--font-mono); font-size: 8px; color: var(--paper-mute);">
+          <span>L</span>
+          <span id="analyzer-correlation">Correlation —</span>
+          <span>R</span>
+        </div>
+      </div>
+
+      <!-- sample library -->
+      <div class="dj-tool">
+        <h2 class="dj-tool__title">Sample library</h2>
+        <div class="sample-lib">
+          <button class="sample" data-sample="ether-rise" type="button">
+            <div class="sample__art">
+              <svg viewBox="0 0 60 60" aria-hidden="true"><defs><radialGradient id="s-ether" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#9DC0FF" stop-opacity="0.4"/><stop offset="100%" stop-color="#06101F" stop-opacity="0"/></radialGradient></defs><rect width="60" height="60" fill="#06101F"/><rect width="60" height="60" fill="url(#s-ether)"/><circle cx="30" cy="30" r="14" fill="none" stroke="#9DC0FF" stroke-width="0.5"/></svg>
+            </div>
+            <span class="sample__label">Ether Rise</span>
+            <span class="sample__type">Ambience</span>
+          </button>
+          <button class="sample" data-sample="temple-waves" type="button">
+            <div class="sample__art">
+              <svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" fill="#0A0E1A"/><g stroke="#E6C275" stroke-width="0.5" fill="none" opacity="0.7"><path d="M5 30 Q15 14 25 30 T45 30 T60 30"/></g></svg>
+            </div>
+            <span class="sample__label">Temple Waves</span>
+            <span class="sample__type">Cinematic</span>
+          </button>
+          <button class="sample" data-sample="heart-of-codes" type="button">
+            <div class="sample__art">
+              <svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" fill="#1A0810"/><g stroke="#E3242D" stroke-width="0.5" fill="none" opacity="0.85"><circle cx="30" cy="30" r="10"/><circle cx="30" cy="30" r="20" opacity="0.6"/></g><polygon points="30,18 36,38 24,38" fill="#E3242D"/></svg>
+            </div>
+            <span class="sample__label">Heart of Codes</span>
+            <span class="sample__type">Downtempo</span>
+          </button>
+          <button class="sample" data-sample="luminous-choir" type="button">
+            <div class="sample__art">
+              <svg viewBox="0 0 60 60" aria-hidden="true"><rect width="60" height="60" fill="#0A0E1A"/><g stroke="#E6C275" stroke-width="0.4" opacity="0.75"><line x1="20" y1="20" x2="20" y2="40"/><line x1="26" y1="14" x2="26" y2="46"/><line x1="32" y1="8" x2="32" y2="52"/><line x1="38" y1="14" x2="38" y2="46"/><line x1="44" y1="20" x2="44" y2="40"/></g></svg>
+            </div>
+            <span class="sample__label">Luminous Choir</span>
+            <span class="sample__type">Vocal</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ── dj bottom bar · station identity + transmission message + collectibles on air ── -->
+  <footer class="bottom-bar bottom-bar--station" role="contentinfo">
+    <div class="bottom-bar__inner" style="grid-template-columns: 1fr; padding: var(--space-3) var(--shell-px)">
+      <div class="dj-bottom">
+        <div class="bottom-bar__signal">
+          <svg class="sigil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M8 11a4 4 0 0 1 8 0"/><circle cx="12" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>
+          <div style="display:flex; flex-direction:column">
+            <span class="label--live" style="font-family: var(--font-sans); font-size:9px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase">SORA broadcast grid</span>
+            <span style="font-family: var(--font-mono); font-size:9px; color: var(--paper-mute)">United by frequency</span>
+          </div>
+        </div>
+
+        <p class="dj-bottom__transmission">
+          You are now tuned in. Frequency is memory. Rhythm is language.
+        </p>
+
+        <div class="dj-bottom__collectibles">
+          <div class="dj-bottom__col">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="12,7 16,16 8,16" fill="currentColor"/></svg>
+            <span class="dj-bottom__col-label">Medallion · 12/333</span>
+          </div>
+          <div class="dj-bottom__col">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="9" y="4" width="6" height="16" rx="3"/></svg>
+            <span class="dj-bottom__col-label">Capsule · 94/999</span>
+          </div>
+          <div class="dj-bottom__col">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="6" y="3" width="12" height="18"/><polygon points="12,10 14,15 10,15" fill="currentColor"/></svg>
+            <span class="dj-bottom__col-label">Poster · 18/300</span>
+          </div>
+          <div class="dj-bottom__col">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><circle cx="9" cy="9" r="4"/><line x1="12" y1="12" x2="20" y2="20" stroke-linecap="round"/></svg>
+            <span class="dj-bottom__col-label">Key · 7/111</span>
+          </div>
+          <div class="dj-bottom__col">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            <span class="dj-bottom__col-label">Vinyl · 33/222</span>
+          </div>
+        </div>
+
+        <div class="dj-bottom__master">
+          <span>+0.2 LUFS</span>
+          <span>Master</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <audio id="audio-a" preload="metadata" src="/music/SORA%20Rhapsody.mp3" crossorigin="anonymous"></audio>
+  <audio id="audio-b" preload="metadata" src="/music/XOR%20Raiders%20-%20Defend%20the%20SORA%20Network.mp3" crossorigin="anonymous"></audio>
+
+  <script src="../07_RUNTIME/sora-shell.js"></script>
+  <script>
+    (function () {
+      // ── audio graph ──
+      const audioA = document.getElementById('audio-a');
+      const audioB = document.getElementById('audio-b');
+      let ctx, gainA, gainB, fxA, fxB, masterAnalyser, masterGain, splitter, anaL, anaR;
+      let fxFilter, fxDriveShaper, fxDriveWet, fxDriveDry, fxDelay, fxDelayFeedback, fxDelayWet, fxDelayDry, fxReverb, fxReverbWet, fxReverbDry, fxBus;
+      let padBus, noiseBuffer;
+      const state = {
+        crossfader: 0,           // -1 = full A, +1 = full B, 0 = both
+        fader: { a: 0.75, b: 0.75 },
+        onAir: true,
+        masterVol: 0.80,
+        bpm: { a: 128.0, b: 126.0 },
+        hotCue: { a: 0, b: 0 },
+        fx: { filter: 0, reverb: 0, delay: 0, drive: 0 },   // 0..1 each
+      };
+      const baseBPM = { a: 128.0, b: 126.0 };
+
+      // white noise buffer (shared by build-up / riser / impact / noise pads)
+      function makeNoiseBuffer(audioCtx, seconds = 1.6) {
+        const len = Math.floor(audioCtx.sampleRate * seconds);
+        const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+        return buf;
+      }
+
+      // synthesized impulse response for ConvolverNode (exponential noise decay)
+      function makeReverbIR(audioCtx, seconds = 2.4, decay = 3.0) {
+        const rate = audioCtx.sampleRate;
+        const len = Math.floor(rate * seconds);
+        const ir = audioCtx.createBuffer(2, len, rate);
+        for (let ch = 0; ch < 2; ch++) {
+          const data = ir.getChannelData(ch);
+          for (let i = 0; i < len; i++) {
+            const t = i / len;
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+          }
+        }
+        return ir;
+      }
+
+      // soft tanh-like curve for WaveShaper drive
+      function makeDriveCurve(amount) {
+        const n = 1024;
+        const curve = new Float32Array(n);
+        const k = Math.max(0, amount) * 60; // 0..60
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2) / n - 1; // -1..1
+          curve[i] = ((1 + k / 50) * x) / (1 + (k / 50) * Math.abs(x));
+        }
+        return curve;
+      }
+
+      function ensureGraph() {
+        if (ctx) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        ctx = new AC();
+        const srcA = ctx.createMediaElementSource(audioA);
+        const srcB = ctx.createMediaElementSource(audioB);
+        fxA = ctx.createGain(); fxB = ctx.createGain();
+        gainA = ctx.createGain(); gainB = ctx.createGain();
+        masterGain = ctx.createGain();
+        // ── master FX chain: masterGain → filter → (drive dry + wet) → fxBus → (reverb + delay sends) → analyser → dest
+        fxFilter = ctx.createBiquadFilter();
+        fxFilter.type = 'lowpass';
+        fxFilter.frequency.value = 20000;
+        fxFilter.Q.value = 1.0;
+        fxDriveShaper = ctx.createWaveShaper();
+        fxDriveShaper.curve = makeDriveCurve(0);
+        fxDriveShaper.oversample = '2x';
+        fxDriveWet = ctx.createGain(); fxDriveWet.gain.value = 0;
+        fxDriveDry = ctx.createGain(); fxDriveDry.gain.value = 1;
+        fxBus = ctx.createGain();
+        fxDelay = ctx.createDelay(2.0);
+        fxDelay.delayTime.value = 60 / baseBPM.a; // 1/4 note at deck A BPM
+        fxDelayFeedback = ctx.createGain(); fxDelayFeedback.gain.value = 0.42;
+        fxDelayWet = ctx.createGain(); fxDelayWet.gain.value = 0;
+        fxDelayDry = ctx.createGain(); fxDelayDry.gain.value = 1;
+        fxReverb = ctx.createConvolver();
+        fxReverb.buffer = makeReverbIR(ctx);
+        fxReverbWet = ctx.createGain(); fxReverbWet.gain.value = 0;
+        fxReverbDry = ctx.createGain(); fxReverbDry.gain.value = 1;
+        masterAnalyser = ctx.createAnalyser();
+        masterAnalyser.fftSize = 512;
+        // stereo splitter for lissajous (L/R separated)
+        splitter = ctx.createChannelSplitter(2);
+        anaL = ctx.createAnalyser(); anaL.fftSize = 1024;
+        anaR = ctx.createAnalyser(); anaR.fftSize = 1024;
+        // decks
+        srcA.connect(fxA).connect(gainA).connect(masterGain);
+        srcB.connect(fxB).connect(gainB).connect(masterGain);
+        // master FX chain
+        masterGain.connect(fxFilter);
+        fxFilter.connect(fxDriveDry).connect(fxBus);
+        fxFilter.connect(fxDriveShaper).connect(fxDriveWet).connect(fxBus);
+        // parallel reverb send
+        fxBus.connect(fxReverbDry).connect(masterAnalyser);
+        fxBus.connect(fxReverb).connect(fxReverbWet).connect(masterAnalyser);
+        // parallel delay send (with feedback)
+        fxBus.connect(fxDelayDry).connect(masterAnalyser);
+        fxBus.connect(fxDelay);
+        fxDelay.connect(fxDelayFeedback).connect(fxDelay); // feedback loop
+        fxDelay.connect(fxDelayWet).connect(masterAnalyser);
+        masterAnalyser.connect(ctx.destination);
+        masterAnalyser.connect(splitter);
+        splitter.connect(anaL, 0);
+        splitter.connect(anaR, 1);
+        // ── pad bus: pads go through master FX too (joins at masterGain input) ──
+        padBus = ctx.createGain();
+        padBus.gain.value = 0.85;
+        padBus.connect(masterGain);
+        noiseBuffer = makeNoiseBuffer(ctx);
+        applyMix();
+        applyFX();
+        meterLoop();
+        lissajousLoop();
+      }
+
+      // ── pad synths (one-shots) ──
+      function triggerPad(kind) {
+        ensureGraph();
+        ctx?.resume();
+        if (!ctx || !padBus) return;
+        const t0 = ctx.currentTime;
+        switch (kind) {
+          case 'hotcue': {
+            // pulse-tone marker + jump deck A to hot cue
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = 'square'; o.frequency.value = 1320;
+            g.gain.setValueAtTime(0, t0);
+            g.gain.linearRampToValueAtTime(0.18, t0 + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+            o.connect(g).connect(padBus);
+            o.start(t0); o.stop(t0 + 0.15);
+            // also jump deck A
+            if (state.hotCue.a === 0) state.hotCue.a = audioA.currentTime;
+            else audioA.currentTime = state.hotCue.a;
+            break;
+          }
+          case 'stab': {
+            // brass-like minor chord (sawtooth A3/C4/E4) with quick decay
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.22, t0 + 0.008);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.38);
+            const lpf = ctx.createBiquadFilter();
+            lpf.type = 'lowpass'; lpf.frequency.value = 2400; lpf.Q.value = 0.8;
+            [220, 261.63, 329.63].forEach((f) => {
+              const o = ctx.createOscillator();
+              o.type = 'sawtooth'; o.frequency.value = f;
+              o.connect(env);
+              o.start(t0); o.stop(t0 + 0.42);
+            });
+            env.connect(lpf).connect(padBus);
+            break;
+          }
+          case 'buildup': {
+            // noise through opening lowpass (filter sweep 200 → 8000 over 1.4s)
+            const src = ctx.createBufferSource();
+            src.buffer = noiseBuffer;
+            const lpf = ctx.createBiquadFilter();
+            lpf.type = 'lowpass'; lpf.Q.value = 6;
+            lpf.frequency.setValueAtTime(200, t0);
+            lpf.frequency.exponentialRampToValueAtTime(8000, t0 + 1.4);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.10, t0 + 0.1);
+            env.gain.linearRampToValueAtTime(0.55, t0 + 1.4);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 1.55);
+            src.connect(lpf).connect(env).connect(padBus);
+            src.start(t0); src.stop(t0 + 1.6);
+            break;
+          }
+          case 'whistle': {
+            // sine glide upward 800 → 2200 Hz
+            const o = ctx.createOscillator();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(800, t0);
+            o.frequency.exponentialRampToValueAtTime(2200, t0 + 0.55);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.22, t0 + 0.03);
+            env.gain.linearRampToValueAtTime(0.22, t0 + 0.45);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.6);
+            o.connect(env).connect(padBus);
+            o.start(t0); o.stop(t0 + 0.62);
+            break;
+          }
+          case 'impact': {
+            // kick (sine 120→40 Hz) + noise hit
+            const kickOsc = ctx.createOscillator(), kickEnv = ctx.createGain();
+            kickOsc.type = 'sine';
+            kickOsc.frequency.setValueAtTime(120, t0);
+            kickOsc.frequency.exponentialRampToValueAtTime(40, t0 + 0.18);
+            kickEnv.gain.setValueAtTime(0, t0);
+            kickEnv.gain.linearRampToValueAtTime(0.6, t0 + 0.005);
+            kickEnv.gain.exponentialRampToValueAtTime(0.001, t0 + 0.25);
+            kickOsc.connect(kickEnv).connect(padBus);
+            kickOsc.start(t0); kickOsc.stop(t0 + 0.3);
+            const noiseSrc = ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+            const hpf = ctx.createBiquadFilter();
+            hpf.type = 'highpass'; hpf.frequency.value = 3000;
+            const noiseEnv = ctx.createGain();
+            noiseEnv.gain.setValueAtTime(0, t0);
+            noiseEnv.gain.linearRampToValueAtTime(0.25, t0 + 0.003);
+            noiseEnv.gain.exponentialRampToValueAtTime(0.001, t0 + 0.12);
+            noiseSrc.connect(hpf).connect(noiseEnv).connect(padBus);
+            noiseSrc.start(t0); noiseSrc.stop(t0 + 0.15);
+            break;
+          }
+          case 'riser': {
+            // sine pitch sweep + noise crescendo (1.2s total)
+            const o = ctx.createOscillator();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(180, t0);
+            o.frequency.exponentialRampToValueAtTime(2400, t0 + 1.2);
+            const oEnv = ctx.createGain();
+            oEnv.gain.setValueAtTime(0, t0);
+            oEnv.gain.linearRampToValueAtTime(0.20, t0 + 0.2);
+            oEnv.gain.linearRampToValueAtTime(0.40, t0 + 1.2);
+            oEnv.gain.exponentialRampToValueAtTime(0.001, t0 + 1.35);
+            o.connect(oEnv).connect(padBus);
+            o.start(t0); o.stop(t0 + 1.38);
+            const noiseSrc = ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuffer;
+            const bpf = ctx.createBiquadFilter();
+            bpf.type = 'bandpass'; bpf.Q.value = 4;
+            bpf.frequency.setValueAtTime(400, t0);
+            bpf.frequency.exponentialRampToValueAtTime(5000, t0 + 1.2);
+            const nEnv = ctx.createGain();
+            nEnv.gain.setValueAtTime(0, t0);
+            nEnv.gain.linearRampToValueAtTime(0.30, t0 + 1.2);
+            nEnv.gain.exponentialRampToValueAtTime(0.001, t0 + 1.35);
+            noiseSrc.connect(bpf).connect(nEnv).connect(padBus);
+            noiseSrc.start(t0); noiseSrc.stop(t0 + 1.4);
+            break;
+          }
+          case 'noise': {
+            // short white-noise burst with quick decay
+            const src = ctx.createBufferSource();
+            src.buffer = noiseBuffer;
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.35, t0 + 0.005);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.22);
+            src.connect(env).connect(padBus);
+            src.start(t0); src.stop(t0 + 0.25);
+            break;
+          }
+          case 'vocal': {
+            // formant-shaped "ah" — sawtooth fed through 3 bandpass filters
+            const o = ctx.createOscillator();
+            o.type = 'sawtooth';
+            o.frequency.setValueAtTime(220, t0);
+            o.frequency.linearRampToValueAtTime(196, t0 + 0.35);
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
+            env.gain.linearRampToValueAtTime(0.18, t0 + 0.30);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 0.45);
+            // formants of vowel "a": ~700, 1100, 2600 Hz
+            const formants = [
+              { f: 700,  q: 8, gain: 1.0 },
+              { f: 1100, q: 9, gain: 0.8 },
+              { f: 2600, q: 12, gain: 0.5 },
+            ];
+            const merger = ctx.createGain();
+            formants.forEach((fmt) => {
+              const bpf = ctx.createBiquadFilter();
+              bpf.type = 'bandpass';
+              bpf.frequency.value = fmt.f;
+              bpf.Q.value = fmt.q;
+              const g = ctx.createGain();
+              g.gain.value = fmt.gain;
+              o.connect(bpf).connect(g).connect(merger);
+            });
+            merger.connect(env).connect(padBus);
+            o.start(t0); o.stop(t0 + 0.5);
+            break;
+          }
+        }
+      }
+
+      // ── apply current FX state to nodes ──
+      function applyFX() {
+        if (!ctx || !fxFilter) return;
+        const t = ctx.currentTime;
+        const f = state.fx;
+        // Filter LPF: 0 → 20kHz bypass, 1 → 200Hz strong cut (log scale)
+        const cutoff = 20000 * Math.pow(200 / 20000, f.filter);
+        fxFilter.frequency.setTargetAtTime(cutoff, t, 0.05);
+        // Drive: dry/wet crossfade + curve intensity
+        fxDriveShaper.curve = makeDriveCurve(f.drive);
+        fxDriveWet.gain.setTargetAtTime(f.drive, t, 0.05);
+        fxDriveDry.gain.setTargetAtTime(1 - f.drive * 0.5, t, 0.05);
+        // Reverb wet send
+        fxReverbWet.gain.setTargetAtTime(f.reverb * 0.9, t, 0.05);
+        // Delay wet send + feedback dependent on knob
+        fxDelayWet.gain.setTargetAtTime(f.delay * 0.85, t, 0.05);
+        fxDelayFeedback.gain.setTargetAtTime(0.2 + f.delay * 0.35, t, 0.05);
+      }
+
+      // equal-power crossfade
+      function applyMix() {
+        if (!gainA || !gainB) return;
+        const x = (state.crossfader + 1) / 2;     // 0..1
+        const aGain = Math.cos(x * Math.PI / 2);  // 1 at left, 0 at right
+        const bGain = Math.sin(x * Math.PI / 2);  // 0 at left, 1 at right
+        const t = ctx.currentTime;
+        gainA.gain.setTargetAtTime(aGain * state.fader.a, t, 0.05);
+        gainB.gain.setTargetAtTime(bGain * state.fader.b, t, 0.05);
+        masterGain.gain.setTargetAtTime(state.onAir ? state.masterVol : 0.0, t, 0.05);
+      }
+
+      // VU meter loop
+      const meterL = document.getElementById('meter-l');
+      const meterR = document.getElementById('meter-r');
+      let rafId;
+      function meterLoop() {
+        if (!masterAnalyser) return;
+        const buf = new Uint8Array(masterAnalyser.fftSize);
+        masterAnalyser.getByteTimeDomainData(buf);
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = Math.abs(buf[i] - 128) / 128;
+          if (v > peak) peak = v;
+        }
+        const pct = Math.min(100, peak * 140);
+        if (meterL) meterL.style.height = pct.toFixed(1) + '%';
+        if (meterR) meterR.style.height = (pct * 0.92).toFixed(1) + '%';
+        rafId = requestAnimationFrame(meterLoop);
+      }
+
+      // transport handlers per deck
+      function deckEl(d) { return d === 'a' ? audioA : audioB; }
+      function activeButton(deck, action) {
+        document.querySelectorAll(`.deck__transport[data-deck="${deck}"] button`).forEach((b) => b.classList.remove('is-active'));
+        document.querySelector(`.deck__transport[data-deck="${deck}"] button[data-action="${action}"]`)?.classList.add('is-active');
+      }
+      function fmt(s) {
+        if (!Number.isFinite(s) || s < 0) return '00:00';
+        const m = Math.floor(s / 60);
+        const r = Math.floor(s % 60);
+        return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+      }
+      function tickElapsed() {
+        const a = document.getElementById('deck-a-elapsed');
+        const b = document.getElementById('deck-b-elapsed');
+        if (a) a.textContent = fmt(audioA.currentTime);
+        if (b) b.textContent = fmt(audioB.currentTime);
+      }
+      audioA.addEventListener('timeupdate', tickElapsed);
+      audioB.addEventListener('timeupdate', tickElapsed);
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.deck__transport button');
+        if (!btn) return;
+        const deck = btn.closest('.deck__transport').dataset.deck;
+        const action = btn.dataset.action;
+        const el = deckEl(deck);
+        ensureGraph();
+        ctx?.resume();
+        activeButton(deck, action);
+        switch (action) {
+          case 'cue':
+            el.pause();
+            el.currentTime = state.hotCue[deck] || 0;
+            break;
+          case 'sync': {
+            // match BPM of the OTHER deck via playbackRate
+            const other = deck === 'a' ? 'b' : 'a';
+            const targetBPM = baseBPM[other];
+            const sourceBPM = baseBPM[deck];
+            el.playbackRate = targetBPM / sourceBPM;
+            state.bpm[deck] = targetBPM;
+            const lbl = document.getElementById('deck-' + deck + '-bpm');
+            if (lbl) lbl.textContent = targetBPM.toFixed(1);
+            break;
+          }
+          case 'play':
+            el.play().catch(() => {});
+            break;
+          case 'pause':
+            el.pause();
+            break;
+          case 'hotcue':
+            // first press stores, subsequent press jumps
+            if (state.hotCue[deck] === 0) state.hotCue[deck] = el.currentTime;
+            else el.currentTime = state.hotCue[deck];
+            break;
+        }
+      });
+
+      // crossfader drag
+      const xBar = document.getElementById('crossfader-bar');
+      const xHandle = document.getElementById('crossfader-handle');
+      function setCrossfader(pos) {
+        state.crossfader = Math.max(-1, Math.min(1, pos));
+        if (xHandle) xHandle.style.left = ((state.crossfader + 1) * 50).toFixed(2) + '%';
+        ensureGraph();
+        applyMix();
+      }
+      function dragHandler(bar, onMove) {
+        let dragging = false;
+        const start = (e) => { dragging = true; onMove(e); e.preventDefault(); };
+        const move = (e) => { if (dragging) onMove(e); };
+        const end = () => { dragging = false; };
+        bar.addEventListener('mousedown', start);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
+        bar.addEventListener('touchstart', start, { passive: false });
+        document.addEventListener('touchmove', move, { passive: false });
+        document.addEventListener('touchend', end);
+      }
+      if (xBar) {
+        dragHandler(xBar, (e) => {
+          const rect = xBar.getBoundingClientRect();
+          const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+          const pos = (x / rect.width) * 2 - 1;
+          setCrossfader(pos);
+        });
+      }
+
+      // mixer faders drag (channel A + B)
+      document.querySelectorAll('.fader[data-fader]').forEach((fader) => {
+        const handle = fader.querySelector('.fader__handle');
+        const which = fader.dataset.fader;
+        dragHandler(fader, (e) => {
+          const rect = fader.getBoundingClientRect();
+          const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+          const v = Math.max(0, Math.min(1, 1 - y / rect.height));
+          state.fader[which] = v;
+          if (handle) handle.style.bottom = (v * 100).toFixed(1) + '%';
+          ensureGraph();
+          applyMix();
+        });
+      });
+
+      // ON AIR toggle
+      const onair = document.getElementById('onair-btn');
+      onair?.addEventListener('click', () => {
+        state.onAir = !state.onAir;
+        onair.setAttribute('aria-pressed', String(state.onAir));
+        onair.style.opacity = state.onAir ? '1' : '0.45';
+        ensureGraph();
+        applyMix();
+      });
+
+      // ── master volume slider ──
+      const masterVolEl = document.getElementById('master-vol');
+      const masterVolValEl = document.getElementById('master-vol-val');
+      function setMasterVol(pct) {
+        const v = Math.max(0, Math.min(100, pct)) / 100;
+        state.masterVol = v;
+        if (masterVolValEl) masterVolValEl.textContent = String(Math.round(pct));
+        ensureGraph();
+        applyMix();
+      }
+      masterVolEl?.addEventListener('input', (e) => setMasterVol(+e.target.value));
+
+      // ── FX knobs (drag vertically to adjust 0..1) ──
+      const knobValLabels = {
+        filter: (v) => v < 0.01 ? 'LPF · off' : 'LPF · ' + Math.round((1 - Math.pow(200 / 20000, v)) * 100) + '%',
+        reverb: (v) => 'Hall · ' + Math.round(v * 100),
+        delay:  (v) => '1/4 · ' + Math.round(v * 100),
+        drive:  (v) => 'Warm · ' + Math.round(v * 100),
+      };
+      document.querySelectorAll('.knob[data-knob]').forEach((knob) => {
+        const which = knob.dataset.knob;
+        const dial = knob.querySelector('.knob__dial');
+        const valEl = document.getElementById('knob-' + which + '-val');
+        function paint() {
+          const v = state.fx[which];
+          // map 0..1 → -135°..+135°
+          const rot = -135 + v * 270;
+          if (dial) dial.style.setProperty('--rot', rot.toFixed(1));
+          if (valEl) valEl.textContent = knobValLabels[which](v);
+          knob.setAttribute('aria-valuenow', String(Math.round(v * 100)));
+        }
+        function setVal(v) {
+          state.fx[which] = Math.max(0, Math.min(1, v));
+          paint();
+          ensureGraph();
+          applyFX();
+        }
+        paint(); // initial paint at 0 → -135°
+        // vertical drag (drag up = increase, drag down = decrease)
+        let dragging = false, startY = 0, startVal = 0;
+        const start = (e) => {
+          dragging = true;
+          startY = e.touches ? e.touches[0].clientY : e.clientY;
+          startVal = state.fx[which];
+          e.preventDefault();
+        };
+        const move = (e) => {
+          if (!dragging) return;
+          const y = e.touches ? e.touches[0].clientY : e.clientY;
+          const dy = startY - y; // up positive
+          // 200px = full sweep 0..1
+          setVal(startVal + dy / 200);
+          e.preventDefault();
+        };
+        const end = () => { dragging = false; };
+        knob.addEventListener('mousedown', start);
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', end);
+        knob.addEventListener('touchstart', start, { passive: false });
+        document.addEventListener('touchmove', move, { passive: false });
+        document.addEventListener('touchend', end);
+        // wheel = fine adjust
+        knob.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          setVal(state.fx[which] - e.deltaY / 800);
+        }, { passive: false });
+        // keyboard (arrow up/down)
+        knob.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowUp')   { e.preventDefault(); setVal(state.fx[which] + 0.05); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); setVal(state.fx[which] - 0.05); }
+        });
+        // double-click resets to 0
+        knob.addEventListener('dblclick', () => setVal(0));
+      });
+
+      // ── lissajous canvas (real L/R from channelSplitter) ──
+      const canvas = document.getElementById('lissajous-canvas');
+      const cctx = canvas?.getContext('2d');
+      const corrEl = document.getElementById('analyzer-correlation');
+      function lissajousLoop() {
+        if (!cctx || !anaL || !anaR) return;
+        const W = canvas.width, H = canvas.height;
+        const N = anaL.fftSize;
+        const bufL = new Float32Array(N);
+        const bufR = new Float32Array(N);
+        anaL.getFloatTimeDomainData(bufL);
+        anaR.getFloatTimeDomainData(bufR);
+        // fade trail
+        cctx.fillStyle = 'rgba(5, 7, 13, 0.18)';
+        cctx.fillRect(0, 0, W, H);
+        // axes (faint)
+        cctx.strokeStyle = 'rgba(200, 168, 90, 0.12)';
+        cctx.lineWidth = 0.5;
+        cctx.beginPath();
+        cctx.moveTo(0, H / 2); cctx.lineTo(W, H / 2);
+        cctx.moveTo(W / 2, 0); cctx.lineTo(W / 2, H);
+        cctx.stroke();
+        // lissajous path
+        cctx.strokeStyle = '#E3242D';
+        cctx.lineWidth = 1.0;
+        cctx.beginPath();
+        let sumLR = 0, sumLL = 0, sumRR = 0;
+        for (let i = 0; i < N; i += 2) {
+          const l = bufL[i];
+          const r = bufR[i];
+          sumLR += l * r; sumLL += l * l; sumRR += r * r;
+          // map (-1..1, -1..1) to canvas, rotated 45° (classic vectorscope)
+          const x = (l + r) * (W / 2) * 0.5 + W / 2;
+          const y = (l - r) * (H / 2) * 0.5 + H / 2;
+          if (i === 0) cctx.moveTo(x, y); else cctx.lineTo(x, y);
+        }
+        cctx.stroke();
+        // correlation coefficient (Pearson on this frame)
+        const denom = Math.sqrt(sumLL * sumRR) || 1;
+        const corr = sumLR / denom;
+        if (corrEl) corrEl.textContent = 'Correlation ' + (corr >= 0 ? '+' : '') + corr.toFixed(2);
+        requestAnimationFrame(lissajousLoop);
+      }
+      // paint baseline grid even before audio starts
+      if (cctx) {
+        cctx.fillStyle = '#05070D';
+        cctx.fillRect(0, 0, canvas.width, canvas.height);
+        cctx.strokeStyle = 'rgba(200, 168, 90, 0.15)';
+        cctx.lineWidth = 0.5;
+        cctx.beginPath();
+        cctx.moveTo(0, canvas.height / 2); cctx.lineTo(canvas.width, canvas.height / 2);
+        cctx.moveTo(canvas.width / 2, 0); cctx.lineTo(canvas.width / 2, canvas.height);
+        cctx.stroke();
+      }
+
+      // ── disc rotation while playing ──
+      function syncDiscClass(deck) {
+        const el = deckEl(deck);
+        const deckRoot = document.querySelector('.deck--' + deck);
+        if (!deckRoot) return;
+        deckRoot.classList.toggle('is-playing', !el.paused);
+      }
+      ['a', 'b'].forEach((d) => {
+        const el = deckEl(d);
+        el.addEventListener('play', () => syncDiscClass(d));
+        el.addEventListener('pause', () => syncDiscClass(d));
+        el.addEventListener('ended', () => syncDiscClass(d));
+      });
+
+      // ── queue → deck: click loads on data-deck default; drag overrides target deck ──
+      function setDeckArt(deck, imageSlug, alt) {
+        const disc = document.querySelector('.deck--' + deck + ' .deck__disc');
+        if (!disc) return;
+        // remove existing children
+        while (disc.firstChild) disc.removeChild(disc.firstChild);
+        if (imageSlug) {
+          const img = document.createElement('img');
+          img.className = 'deck__disc-img';
+          img.src = '../assets/covers/web/' + imageSlug + '.webp';
+          img.alt = (alt || '') + ' cover';
+          img.loading = 'lazy';
+          img.decoding = 'async';
+          disc.appendChild(img);
+        }
+      }
+      function loadTrackOnDeck(deck, src, title, family, autoplay, image) {
+        if (deck !== 'a' && deck !== 'b') return;
+        const el = deckEl(deck);
+        const wasPlaying = !el.paused;
+        ensureGraph(); ctx?.resume();
+        if (src && el.getAttribute('src') !== src) {
+          el.setAttribute('src', src);
+          el.load();
+        }
+        const root = document.querySelector('.deck--' + deck);
+        const titleEl = root?.querySelector('.deck__title');
+        const familyEl = root?.querySelector('.deck__family');
+        const headFamilyLabel = root?.querySelector('.deck__head .label');
+        if (titleEl && title) titleEl.textContent = title.toUpperCase();
+        if (familyEl && family) familyEl.textContent = family;
+        if (headFamilyLabel && family) headFamilyLabel.textContent = 'Deck ' + deck.toUpperCase() + ' · ' + family;
+        if (image) setDeckArt(deck, image, title);
+        if (autoplay || wasPlaying) {
+          el.play().then(() => activeButton(deck, 'play')).catch(() => {});
+        } else {
+          activeButton(deck, 'cue');
+        }
+      }
+      document.querySelectorAll('.live-queue__item').forEach((item) => {
+        const trigger = () => {
+          const deck = item.dataset.deck;
+          const src = item.dataset.src;
+          const title = item.dataset.title;
+          const family = item.dataset.family;
+          const image = item.dataset.image;
+          if ((deck === 'a' || deck === 'b') && src) {
+            document.querySelectorAll('.live-queue__item').forEach((i) => i.removeAttribute('data-status'));
+            item.setAttribute('data-status', 'playing');
+            loadTrackOnDeck(deck, src, title, family, true, image);
+          } else {
+            document.querySelectorAll('.live-queue__item').forEach((i) => i.removeAttribute('data-status'));
+            item.setAttribute('data-status', 'cued');
+          }
+        };
+        item.addEventListener('click', trigger);
+        item.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(); }
+        });
+        item.addEventListener('dragstart', (e) => {
+          if (!item.dataset.src) { e.preventDefault(); return; }
+          const payload = JSON.stringify({
+            src: item.dataset.src,
+            title: item.dataset.title || '',
+            family: item.dataset.family || '',
+            image: item.dataset.image || '',
+          });
+          e.dataTransfer.setData('application/x-sora-track', payload);
+          e.dataTransfer.setData('text/plain', payload);
+          e.dataTransfer.effectAllowed = 'copy';
+          item.classList.add('is-dragging');
+        });
+        item.addEventListener('dragend', () => item.classList.remove('is-dragging'));
+      });
+
+      // document-level drop routing — hit-tests the actual bounding rect of each deck.
+      // Avoids fragile event bubbling through SVG/inner children (waveform, transport buttons, disc).
+      const SORA_DRAG_MIME = 'application/x-sora-track';
+      let currentDropDeck = null;
+      function isSoraDrag(dt) {
+        if (!dt) return false;
+        const types = dt.types;
+        if (!types) return false;
+        for (let i = 0; i < types.length; i++) {
+          const t = String(types[i]).toLowerCase();
+          if (t === SORA_DRAG_MIME) return true;
+        }
+        return false;
+      }
+      function deckUnderPoint(x, y) {
+        // 1) exact hit-test (point inside the deck card)
+        for (const d of ['a', 'b']) {
+          const el = document.querySelector('.deck--' + d);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return d;
+        }
+        // 2) fallback: nearest deck by distance to its bounding rect — no cap, the drop always lands.
+        // Tie-breaker: horizontal proximity (decks are side-by-side). This makes the drop forgiving
+        // anywhere on the page: drop on the left half → deck A, right half → deck B.
+        let best = null, bestDist = Infinity;
+        for (const d of ['a', 'b']) {
+          const el = document.querySelector('.deck--' + d);
+          if (!el) continue;
+          const r = el.getBoundingClientRect();
+          const dx = Math.max(r.left - x, 0, x - r.right);
+          const dy = Math.max(r.top - y, 0, y - r.bottom);
+          const dist = Math.hypot(dx, dy);
+          if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        return best;
+      }
+      function clearDropHighlight() {
+        if (currentDropDeck) {
+          document.querySelector('.deck--' + currentDropDeck)?.classList.remove('is-drop-target');
+        }
+        currentDropDeck = null;
+      }
+      document.addEventListener('dragover', (e) => {
+        if (!isSoraDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const d = deckUnderPoint(e.clientX, e.clientY);
+        if (d !== currentDropDeck) {
+          clearDropHighlight();
+          if (d) {
+            document.querySelector('.deck--' + d)?.classList.add('is-drop-target');
+            currentDropDeck = d;
+          }
+        }
+      });
+      document.addEventListener('drop', (e) => {
+        if (!isSoraDrag(e.dataTransfer)) return;
+        e.preventDefault();
+        const targetDeck = deckUnderPoint(e.clientX, e.clientY) || currentDropDeck;
+        clearDropHighlight();
+        if (!targetDeck) return;
+        const raw = e.dataTransfer.getData(SORA_DRAG_MIME) || e.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        let payload; try { payload = JSON.parse(raw); } catch { return; }
+        loadTrackOnDeck(targetDeck, payload.src, payload.title, payload.family, true, payload.image);
+        document.querySelectorAll('.live-queue__item').forEach((i) => {
+          if (i.dataset.src === payload.src) {
+            document.querySelectorAll('.live-queue__item').forEach((x) => x.removeAttribute('data-status'));
+            i.setAttribute('data-status', 'playing');
+          }
+        });
+      });
+      document.addEventListener('dragend', clearDropHighlight);
+
+      // ── performance timeline AB switch + playhead ──
+      let timelineDeck = 'a';
+      const playhead = document.getElementById('perf-playhead');
+      function paintPlayhead() {
+        const el = deckEl(timelineDeck);
+        if (!playhead || !el) return;
+        const dur = el.duration;
+        if (!Number.isFinite(dur) || dur <= 0) {
+          playhead.style.left = '0%';
+          return;
+        }
+        const pct = Math.max(0, Math.min(100, (el.currentTime / dur) * 100));
+        playhead.style.left = pct.toFixed(2) + '%';
+      }
+      function playheadLoop() {
+        paintPlayhead();
+        requestAnimationFrame(playheadLoop);
+      }
+      playheadLoop();
+      document.querySelectorAll('.perf-timeline__ab button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.perf-timeline__ab button').forEach((b) => b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          if (btn.dataset.target === 'a' || btn.dataset.target === 'b') {
+            timelineDeck = btn.dataset.target;
+            paintPlayhead();
+          }
+        });
+      });
+      // ── timeline scrub: click/drag on waves seeks the active deck ──
+      const waves = document.querySelector('.perf-timeline__waves');
+      if (waves) {
+        let scrubbing = false;
+        let scrubPointerId = null;
+        function seekAtX(clientX) {
+          const el = deckEl(timelineDeck);
+          if (!el) return;
+          const rect = waves.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+          if (Number.isFinite(el.duration) && el.duration > 0) {
+            el.currentTime = pct * el.duration;
+            paintPlayhead();
+          } else {
+            // metadata not loaded — paint playhead at the click position anyway so user sees the target
+            const ph = document.getElementById('perf-playhead');
+            if (ph) ph.style.left = (pct * 100).toFixed(2) + '%';
+            // seek as soon as metadata arrives
+            const onLoaded = () => {
+              if (Number.isFinite(el.duration) && el.duration > 0) {
+                el.currentTime = pct * el.duration;
+                paintPlayhead();
+              }
+              el.removeEventListener('loadedmetadata', onLoaded);
+            };
+            el.addEventListener('loadedmetadata', onLoaded);
+          }
+        }
+        const onPointerDown = (e) => {
+          scrubbing = true;
+          scrubPointerId = e.pointerId;
+          try { waves.setPointerCapture(e.pointerId); } catch (_) {}
+          waves.classList.add('is-scrubbing');
+          seekAtX(e.clientX);
+          e.preventDefault();
+        };
+        const onPointerMove = (e) => {
+          if (!scrubbing || e.pointerId !== scrubPointerId) return;
+          seekAtX(e.clientX);
+          e.preventDefault();
+        };
+        const onPointerUp = (e) => {
+          if (!scrubbing) return;
+          scrubbing = false;
+          waves.classList.remove('is-scrubbing');
+          try { waves.releasePointerCapture(e.pointerId); } catch (_) {}
+          scrubPointerId = null;
+        };
+        waves.addEventListener('pointerdown', onPointerDown);
+        waves.addEventListener('pointermove', onPointerMove);
+        waves.addEventListener('pointerup', onPointerUp);
+        waves.addEventListener('pointercancel', onPointerUp);
+      }
+
+      // ── pads (real synth one-shots with visual flash) ──
+      document.querySelectorAll('.pad').forEach((pad) => {
+        const fire = () => {
+          const kind = pad.dataset.pad;
+          if (kind) triggerPad(kind);
+          pad.classList.add('is-firing');
+          setTimeout(() => pad.classList.remove('is-firing'), 220);
+        };
+        pad.addEventListener('click', fire);
+        pad.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); }
+        });
+      });
+
+      // ── auto-mix rules (clickable values cycle through options) ──
+      const rules = {
+        matchKey: { values: ['On', 'Off'], i: 0, on: true },
+        syncTempo: { values: ['On', 'Off'], i: 0, on: true },
+        crossfade: { values: ['4 bars', '8 bars', '16 bars'], i: 1 },
+        loop: { values: ['1/4', '1/2', '1', '2'], i: 0 },
+        jump: { values: ['8', '16', '32'], i: 1 },
+      };
+      function ruleBars() {
+        const m = String(rules.crossfade.values[rules.crossfade.i]).match(/(\d+)/);
+        return m ? parseInt(m[1], 10) : 8;
+      }
+      document.querySelectorAll('.rule__val[data-rule]').forEach((btn) => {
+        const key = btn.dataset.rule;
+        btn.addEventListener('click', () => {
+          const r = rules[key];
+          if (!r) return;
+          r.i = (r.i + 1) % r.values.length;
+          btn.textContent = r.values[r.i];
+          // visual on/off pill state for the boolean rules
+          if (r.values[r.i] === 'On') { r.on = true; btn.classList.add('is-on'); }
+          else if (r.values[r.i] === 'Off') { r.on = false; btn.classList.remove('is-on'); }
+        });
+      });
+      // engage auto-mix — automate crossfader from current edge to opposite over N bars at deck A BPM
+      const engageBtn = document.getElementById('auto-mix-engage');
+      let autoMixActive = false;
+      let autoMixTimer = 0;
+      function stopAutoMix() {
+        autoMixActive = false;
+        clearInterval(autoMixTimer);
+        engageBtn?.classList.remove('is-engaged');
+        if (engageBtn) engageBtn.textContent = 'Engage auto-mix';
+      }
+      engageBtn?.addEventListener('click', () => {
+        if (autoMixActive) { stopAutoMix(); return; }
+        autoMixActive = true;
+        engageBtn.classList.add('is-engaged');
+        engageBtn.textContent = 'Auto-mixing…';
+        ensureGraph(); ctx?.resume();
+        const bars = ruleBars();
+        const beatsPerBar = 4;
+        const bpm = baseBPM.a;
+        const durationMs = (bars * beatsPerBar * 60 / bpm) * 1000;
+        const target = state.crossfader >= 0 ? -1 : 1;
+        const start = state.crossfader;
+        const t0 = Date.now();
+        autoMixTimer = setInterval(() => {
+          if (!autoMixActive) { clearInterval(autoMixTimer); return; }
+          const elapsed = Date.now() - t0;
+          const k = Math.min(1, elapsed / durationMs);
+          const eased = 0.5 - 0.5 * Math.cos(k * Math.PI);
+          setCrossfader(start + (target - start) * eased);
+          if (k >= 1) stopAutoMix();
+        }, 50);
+      });
+
+      // ── sample library (longer one-shots via synth) ──
+      function triggerSample(kind) {
+        ensureGraph();
+        ctx?.resume();
+        if (!ctx || !padBus) return;
+        const t0 = ctx.currentTime;
+        switch (kind) {
+          case 'ether-rise': {
+            // airy pad: 3 detuned sines, slow swell, soft release
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.18, t0 + 1.2);
+            env.gain.linearRampToValueAtTime(0.18, t0 + 3.0);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 4.2);
+            [261.63, 392.0, 523.25].forEach((f, idx) => {
+              const o = ctx.createOscillator();
+              o.type = 'sine';
+              o.frequency.value = f * (1 + (idx - 1) * 0.004);
+              o.connect(env);
+              o.start(t0); o.stop(t0 + 4.4);
+            });
+            env.connect(padBus);
+            break;
+          }
+          case 'temple-waves': {
+            // sine choir-like: pair of octaves + slow vibrato
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.22, t0 + 0.6);
+            env.gain.linearRampToValueAtTime(0.22, t0 + 2.6);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 3.8);
+            [220, 440].forEach((f) => {
+              const o = ctx.createOscillator();
+              o.type = 'sine'; o.frequency.value = f;
+              // vibrato via second oscillator on detune
+              const vib = ctx.createOscillator(); vib.frequency.value = 5.5;
+              const vibG = ctx.createGain(); vibG.gain.value = 4;
+              vib.connect(vibG).connect(o.detune);
+              o.connect(env);
+              vib.start(t0); vib.stop(t0 + 4.0);
+              o.start(t0); o.stop(t0 + 4.0);
+            });
+            env.connect(padBus);
+            break;
+          }
+          case 'heart-of-codes': {
+            // sub bass pulse (4 pulses at deck A BPM) with delay flavor
+            const oscBase = 55; // A1
+            const beatDur = 60 / baseBPM.a;
+            for (let i = 0; i < 4; i++) {
+              const start = t0 + i * beatDur;
+              const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = oscBase;
+              const g = ctx.createGain();
+              g.gain.setValueAtTime(0, start);
+              g.gain.linearRampToValueAtTime(0.32, start + 0.01);
+              g.gain.exponentialRampToValueAtTime(0.001, start + beatDur * 0.7);
+              o.connect(g).connect(padBus);
+              o.start(start); o.stop(start + beatDur * 0.75);
+            }
+            break;
+          }
+          case 'luminous-choir': {
+            // formant-shaped sustained chord (3 voices, vowel "ah")
+            const env = ctx.createGain();
+            env.gain.setValueAtTime(0, t0);
+            env.gain.linearRampToValueAtTime(0.16, t0 + 0.4);
+            env.gain.linearRampToValueAtTime(0.16, t0 + 2.4);
+            env.gain.exponentialRampToValueAtTime(0.001, t0 + 3.4);
+            const merger = ctx.createGain();
+            [220, 277.18, 329.63].forEach((f) => {
+              const o = ctx.createOscillator();
+              o.type = 'sawtooth'; o.frequency.value = f;
+              [700, 1100, 2600].forEach((fmtF) => {
+                const bpf = ctx.createBiquadFilter();
+                bpf.type = 'bandpass'; bpf.frequency.value = fmtF; bpf.Q.value = 9;
+                o.connect(bpf).connect(merger);
+              });
+              o.start(t0); o.stop(t0 + 3.5);
+            });
+            merger.connect(env).connect(padBus);
+            break;
+          }
+        }
+      }
+      document.querySelectorAll('.sample[data-sample]').forEach((s) => {
+        const fire = () => {
+          const kind = s.dataset.sample;
+          if (kind) triggerSample(kind);
+          s.classList.add('is-firing');
+          setTimeout(() => s.classList.remove('is-firing'), 220);
+        };
+        s.addEventListener('click', fire);
+        s.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(); }
+        });
+      });
+
+      // ── broadcast status jitter (random walk every 2.5s for live broadcast feel) ──
+      const bcastState = { signal: 78, listeners: 12847, latency: 18 };
+      const bcastEl = {
+        signal: document.getElementById('bcast-signal'),
+        signalBar: document.getElementById('bcast-signal-bar'),
+        listeners: document.getElementById('bcast-listeners'),
+        latency: document.getElementById('bcast-latency'),
+      };
+      function bcastTick() {
+        // Signal strength: random walk in [70..95]
+        bcastState.signal += (Math.random() - 0.5) * 3.0;
+        bcastState.signal = Math.max(70, Math.min(95, bcastState.signal));
+        const sig = Math.round(bcastState.signal);
+        if (bcastEl.signal) bcastEl.signal.textContent = sig + '%';
+        if (bcastEl.signalBar) bcastEl.signalBar.setAttribute('aria-valuenow', String(sig));
+        if (bcastEl.signalBar) bcastEl.signalBar.style.setProperty('--bar-width', sig + '%');
+        // Listeners: walk in [12500..13500]
+        bcastState.listeners += Math.round((Math.random() - 0.4) * 18);
+        bcastState.listeners = Math.max(12500, Math.min(13500, bcastState.listeners));
+        if (bcastEl.listeners) bcastEl.listeners.textContent = bcastState.listeners.toLocaleString('en-US');
+        // Latency: walk in [12..32]
+        bcastState.latency += (Math.random() - 0.5) * 2.4;
+        bcastState.latency = Math.max(12, Math.min(32, bcastState.latency));
+        if (bcastEl.latency) bcastEl.latency.textContent = Math.round(bcastState.latency) + ' ms';
+      }
+      setInterval(bcastTick, 2500);
+    })();
+  </script>
+
+  <style>
+    body { padding-bottom: 130px; }
+    .dj__master { align-self: stretch; }
+
+    /* ── master volume slider ── */
+    .master-vol {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px solid rgba(200, 168, 90, 0.18);
+    }
+    .master-vol__label {
+      grid-column: 1 / -1;
+      font-family: var(--font-sans);
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--paper-mute);
+      text-align: center;
+    }
+    .master-vol__slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(200, 168, 90, 0.2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .master-vol__slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--gold-warm, #E6C275);
+      border: 1px solid var(--paper-ink, #05070D);
+      box-shadow: 0 0 6px rgba(230, 194, 117, 0.5);
+      cursor: pointer;
+    }
+    .master-vol__slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--gold-warm, #E6C275);
+      border: 1px solid var(--paper-ink, #05070D);
+      box-shadow: 0 0 6px rgba(230, 194, 117, 0.5);
+      cursor: pointer;
+    }
+    .master-vol__val {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--gold-warm, #E6C275);
+      min-width: 20px;
+      text-align: right;
+    }
+
+    /* ── disc rotation when deck is playing ── */
+    @keyframes dj-disc-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .deck__disc {
+      overflow: hidden;
+      border-radius: 50%;
+    }
+    .deck__disc svg,
+    .deck__disc img.deck__disc-img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease-out;
+    }
+    .deck.is-playing .deck__disc svg,
+    .deck.is-playing .deck__disc img.deck__disc-img {
+      animation: dj-disc-spin 2.4s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .deck.is-playing .deck__disc svg,
+      .deck.is-playing .deck__disc img.deck__disc-img { animation: none; }
+    }
+
+    /* ── analyzer canvas ── */
+    .analyzer { background: #05070D; border-radius: 2px; overflow: hidden; }
+    .analyzer canvas { width: 100%; height: auto; display: block; }
+
+    /* ── live-queue item interactive (data-deck routes to deck; draggable to any deck) ── */
+    .live-queue__item[data-src] { cursor: grab; }
+    .live-queue__item[data-src]:hover { background: rgba(200, 168, 90, 0.06); }
+    .live-queue__item[data-src]:focus-visible {
+      outline: 1px solid var(--gold-warm, #E6C275);
+      outline-offset: -2px;
+    }
+    .live-queue__item[data-src]:active { cursor: grabbing; }
+    .live-queue__item.is-dragging { opacity: 0.5; }
+
+    /* ── deck as drop target during drag ── */
+    .deck.is-drop-target {
+      outline: 2px dashed var(--gold-warm, #E6C275);
+      outline-offset: -4px;
+      box-shadow: 0 0 18px rgba(230, 194, 117, 0.25) inset;
+      position: relative;
+    }
+    .deck.is-drop-target::after {
+      content: 'Drop to load';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-sans);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold-warm, #E6C275);
+      background: rgba(5, 7, 13, 0.75);
+      padding: 6px 12px;
+      border: 1px solid var(--gold-warm, #E6C275);
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    /* ── timeline scrub ── */
+    .perf-timeline__waves {
+      cursor: ew-resize;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .perf-timeline__waves.is-scrubbing { cursor: grabbing; }
+    .perf-timeline__waves.is-scrubbing .perf-timeline__playhead { transition: none; }
+    /* inner decorations don't capture clicks — let the parent receive pointerdown anywhere */
+    .perf-timeline__waves > svg,
+    .perf-timeline__waves .cue { pointer-events: none; }
+
+    /* ── performance timeline playhead ── */
+    .perf-timeline__waves { position: relative; }
+    .perf-timeline__playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      left: 0%;
+      background: linear-gradient(to bottom, rgba(230, 194, 117, 0.95), rgba(230, 194, 117, 0.5));
+      box-shadow: 0 0 6px rgba(230, 194, 117, 0.6);
+      pointer-events: none;
+      z-index: 2;
+      transition: left 0.08s linear;
+    }
+    .perf-timeline__playhead::before {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold-warm, #E6C275);
+      transform: translateX(-50%);
+      box-shadow: 0 0 6px rgba(230, 194, 117, 0.7);
+    }
+
+    /* ── broadcast status signal-bar dynamic width ── */
+    .dj-status__bar { position: relative; }
+    .dj-status__bar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: var(--bar-width, 78%);
+      background: linear-gradient(to right, rgba(230, 194, 117, 0.7), rgba(230, 194, 117, 0.3));
+      transition: width 0.5s ease;
+      pointer-events: none;
+    }
+
+    /* ── auto-mix rules interactive ── */
+    .rule__val[data-rule] {
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid rgba(200, 168, 90, 0.18);
+      color: inherit;
+      font: inherit;
+      padding: 2px 6px;
+      border-radius: 2px;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    }
+    .rule__val[data-rule]:hover {
+      background: rgba(200, 168, 90, 0.08);
+      border-color: rgba(200, 168, 90, 0.35);
+    }
+    .rule__val[data-rule]:focus-visible {
+      outline: 1px solid var(--gold-warm, #E6C275);
+      outline-offset: 1px;
+    }
+    .auto-mix-engage {
+      margin-top: var(--space-3);
+      width: 100%;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid rgba(200, 168, 90, 0.4);
+      color: var(--gold-warm, #E6C275);
+      font-family: var(--font-sans);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+    .auto-mix-engage:hover {
+      background: rgba(230, 194, 117, 0.08);
+      border-color: var(--gold-warm, #E6C275);
+    }
+    .auto-mix-engage.is-engaged {
+      background: rgba(230, 194, 117, 0.18);
+      border-color: var(--gold-warm, #E6C275);
+      box-shadow: 0 0 12px rgba(230, 194, 117, 0.35);
+    }
+
+    /* ── sample library interactive (buttons) ── */
+    .sample[data-sample] {
+      background: transparent;
+      border: 1px solid rgba(200, 168, 90, 0.18);
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-align: inherit;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+    }
+    .sample[data-sample]:hover {
+      background: rgba(200, 168, 90, 0.05);
+      border-color: rgba(200, 168, 90, 0.4);
+    }
+    .sample[data-sample]:focus-visible {
+      outline: 1px solid var(--gold-warm, #E6C275);
+      outline-offset: 2px;
+    }
+    .sample[data-sample].is-firing {
+      animation: pad-flash 0.22s ease-out;
+    }
+
+    /* ── pads flash when fired ── */
+    @keyframes pad-flash {
+      0%   { box-shadow: 0 0 0 0 rgba(230, 194, 117, 0.85); transform: scale(1); }
+      35%  { box-shadow: 0 0 14px 4px rgba(230, 194, 117, 0.65); transform: scale(0.97); }
+      100% { box-shadow: 0 0 0 0 rgba(230, 194, 117, 0); transform: scale(1); }
+    }
+    .pad.is-firing { animation: pad-flash 0.22s ease-out; }
+
+    /* ── FX knobs interactive (drag vertically) ── */
+    .knob[data-knob] {
+      cursor: ns-resize;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .knob[data-knob]:focus-visible {
+      outline: 1px solid var(--gold-warm, #E6C275);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+    .knob__dial {
+      position: relative;
+      transform: rotate(calc(var(--rot, -135) * 1deg));
+      transition: transform 0.08s linear;
+    }
+    .knob__pointer {
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      width: 2px;
+      height: 38%;
+      background: var(--gold-warm, #E6C275);
+      transform: translateX(-50%);
+      border-radius: 1px;
+      box-shadow: 0 0 4px rgba(230, 194, 117, 0.55);
+      pointer-events: none;
+    }
+  </style>
+
+</body>
+</html>
