@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT asset_id, symbol, decimals, logo FROM sm.asset_registry",
+  "query": "SELECT asset_id, symbol, name, decimals, logo, whitelisted FROM sm.asset_registry",
   "describe": {
     "columns": [
       {
@@ -15,13 +15,23 @@
       },
       {
         "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
         "name": "decimals",
         "type_info": "Int2"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "logo",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "whitelisted",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -30,9 +40,11 @@
     "nullable": [
       false,
       false,
+      true,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "312844e7dfc1ff4dc930c504761898ec9e702d7d5e069cf58f647f21e9e51525"
+  "hash": "0eeeca0c8229e63d5a32c2ebdf08b5607009f30c7d8e957fe06d2dbaed0e3898"
 }

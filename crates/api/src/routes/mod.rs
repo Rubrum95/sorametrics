@@ -11,6 +11,7 @@ use axum::Router;
 pub mod freshness;
 pub mod health;
 pub mod history;
+pub mod prices;
 pub mod tokens;
 
 /// Construct the `/`-mounted router with every route the API serves.
@@ -20,5 +21,6 @@ pub fn build(state: AppState) -> Router {
         .merge(freshness::router())
         .merge(history::router())
         .merge(tokens::router())
+        .merge(prices::router())
         .with_state(state)
 }

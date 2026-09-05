@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            asset_id,\n            symbol,\n            name,\n            decimals,\n            logo,\n            updated_at\n        FROM sm.asset_registry\n        WHERE asset_id = $1\n        ",
+  "query": "\n        SELECT asset_id, symbol, name, decimals, logo, whitelisted, updated_at\n        FROM sm.asset_registry\n        WHERE asset_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -30,6 +30,11 @@
       },
       {
         "ordinal": 5,
+        "name": "whitelisted",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
         "name": "updated_at",
         "type_info": "Timestamptz"
       }
@@ -45,8 +50,9 @@
       true,
       false,
       true,
+      false,
       false
     ]
   },
-  "hash": "c8a4d9da10291b788e7839e2c0e89d496f0757072b1a0010ba6f2cce4f407ecb"
+  "hash": "e95e1ef046b384b697766de0e42d457dc47102e1940e7c40c96e2d7911699df0"
 }

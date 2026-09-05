@@ -24,14 +24,43 @@ pub const REGISTRY_REFRESH: Duration = Duration::from_secs(300);
 #[derive(Default)]
 pub struct Registry {
     by_id: HashMap<String, RegistryAsset>,
+    /// Canonical asset per symbol: a whitelisted one when it exists,
+    /// else the lowest asset id. The legacy registry carries duplicate
+    /// symbols (XOR ×8, ETH ×4); the Node's map was "last row wins",
+    /// which is not deterministic — this is.
+    by_symbol: HashMap<String, String>,
 }
 
 impl Registry {
     /// Build from rows.
     pub fn from_rows(rows: Vec<RegistryAsset>) -> Self {
+        let mut by_symbol: HashMap<String, String> = HashMap::new();
+        let mut sorted: Vec<&RegistryAsset> = rows.iter().collect();
+        sorted.sort_by(|a, b| {
+            b.whitelisted
+                .cmp(&a.whitelisted)
+                .then_with(|| a.asset_id.cmp(&b.asset_id))
+        });
+        for a in sorted {
+            by_symbol
+                .entry(a.symbol.clone())
+                .or_insert_with(|| a.asset_id.clone());
+        }
         Self {
             by_id: rows.into_iter().map(|a| (a.asset_id.clone(), a)).collect(),
+            by_symbol,
         }
+    }
+
+    /// Canonical asset id for a symbol (exact, case-sensitive like the
+    /// Node's `_symbolToAssetId`).
+    pub fn asset_id_for_symbol(&self, symbol: &str) -> Option<&str> {
+        self.by_symbol.get(symbol).map(String::as_str)
+    }
+
+    /// The whitelisted assets (the Node's `ASSETS`), unordered.
+    pub fn whitelisted(&self) -> Vec<&RegistryAsset> {
+        self.by_id.values().filter(|a| a.whitelisted).collect()
     }
 
     /// Registry entry for an asset id, if listed.
@@ -137,9 +166,26 @@ mod tests {
         RegistryAsset {
             asset_id: id.to_string(),
             symbol: sym.to_string(),
+            name: None,
             decimals: 18,
             logo: None,
+            whitelisted: true,
         }
+    }
+
+    #[test]
+    fn symbol_resolves_to_whitelisted_then_lowest_id() {
+        let mut dup = asset("0x09", "XOR");
+        dup.whitelisted = false;
+        let r = Registry::from_rows(vec![dup, asset("0x02", "XOR"), asset("0x01", "XOR")]);
+        assert_eq!(r.asset_id_for_symbol("XOR"), Some("0x01"));
+        let mut a = asset("0x05", "ETH");
+        a.whitelisted = false;
+        let mut b = asset("0x03", "ETH");
+        b.whitelisted = false;
+        let r = Registry::from_rows(vec![a, b]);
+        assert_eq!(r.asset_id_for_symbol("ETH"), Some("0x03"));
+        assert_eq!(r.asset_id_for_symbol("eth"), None);
     }
 
     #[test]

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT price_usd\n        FROM ts.price_history\n        WHERE asset_id = $1 AND hour_bucket <= $2\n        ORDER BY hour_bucket DESC\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "price_usd",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a78f70e3c1bcef849ce60dd5af36bc2bb3eca9d864bc57a750caf43c3d4ec90c"
+}

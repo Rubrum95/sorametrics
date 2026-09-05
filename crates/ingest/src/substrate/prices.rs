@@ -20,6 +20,7 @@ pub async fn run_price_sampler(
     endpoints: Vec<url::Url>,
     db: PgPool,
     period: Duration,
+    sweep_period: Duration,
     backoff: Duration,
     mut cancel: watch::Receiver<bool>,
 ) -> Result<(), PriceError> {
@@ -34,7 +35,7 @@ pub async fn run_price_sampler(
             return Ok(());
         }
         let url = &endpoints[endpoint_idx];
-        match sample_session(url, &db, period, &mut cancel).await {
+        match sample_session(url, &db, period, sweep_period, &mut cancel).await {
             Ok(()) => return Ok(()),
             Err(PriceError::Db(e)) => return Err(PriceError::Db(e)),
             Err(e) => warn!(error = %e, endpoint = %url, "price sampler session ended; rotating"),
@@ -55,15 +56,19 @@ async fn sample_session(
     url: &url::Url,
     db: &PgPool,
     period: Duration,
+    sweep_period: Duration,
     cancel: &mut watch::Receiver<bool>,
 ) -> Result<(), PriceError> {
     let rpc = RpcClient::from_url(url.as_str()).await?;
     let resolver = PriceResolver::live(db.clone(), rpc).await?;
     let popular = resolver.popular_assets().len();
-    info!(endpoint = %url, popular, "price sampler connected");
+    let whitelisted = resolver.whitelisted_assets().len();
+    info!(endpoint = %url, popular, whitelisted, "price sampler connected");
 
     let mut ticker = interval(period);
     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    let mut sweep = interval(sweep_period);
+    sweep.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
         tokio::select! {
             _ = ticker.tick() => {
@@ -79,6 +84,21 @@ async fn sample_session(
                     failed = outcome.failed,
                     popular,
                     "price samples recorded"
+                );
+            }
+            _ = sweep.tick() => {
+                let mut outcome = resolver.sample_whitelist().await?;
+                if outcome.looks_disconnected() {
+                    if let Some(e) = outcome.last_error.take() {
+                        return Err(e);
+                    }
+                }
+                info!(
+                    priced = outcome.priced,
+                    no_route = outcome.no_route,
+                    failed = outcome.failed,
+                    whitelisted,
+                    "whitelist price sweep recorded"
                 );
             }
             _ = cancel.changed() => {

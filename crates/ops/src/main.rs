@@ -478,14 +478,15 @@ async fn load_asset_registry(url: &str) -> Result<()> {
 
         let res = sqlx::query!(
             r#"
-            INSERT INTO sm.asset_registry (asset_id, symbol, name, decimals, logo, updated_at)
-            VALUES ($1, $2, $3, $4, $5, NOW())
+            INSERT INTO sm.asset_registry (asset_id, symbol, name, decimals, logo, whitelisted, updated_at)
+            VALUES ($1, $2, $3, $4, $5, true, NOW())
             ON CONFLICT (asset_id) DO UPDATE SET
-                symbol     = EXCLUDED.symbol,
-                name       = EXCLUDED.name,
-                decimals   = EXCLUDED.decimals,
-                logo       = EXCLUDED.logo,
-                updated_at = NOW()
+                symbol      = EXCLUDED.symbol,
+                name        = EXCLUDED.name,
+                decimals    = EXCLUDED.decimals,
+                logo        = EXCLUDED.logo,
+                whitelisted = true,
+                updated_at  = NOW()
             RETURNING (xmax = 0) AS "is_insert!"
             "#,
             entry.address,

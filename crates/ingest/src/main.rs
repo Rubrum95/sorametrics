@@ -127,11 +127,13 @@ async fn run_substrate() -> Result<()> {
     let cancel_sampler = cancel_rx.clone();
     let db_for_sampler = db.clone();
     let sampler_period = cfg.price_sample_interval;
+    let sweep_period = cfg.price_sweep_interval;
     let sampler_handle = tokio::spawn(async move {
         run_price_sampler(
             sampler_endpoints,
             db_for_sampler,
             sampler_period,
+            sweep_period,
             subscriber_backoff,
             cancel_sampler,
         )

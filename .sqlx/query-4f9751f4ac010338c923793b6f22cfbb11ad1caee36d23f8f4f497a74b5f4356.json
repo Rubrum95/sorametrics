@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO ts.price_latest (asset_id, price_usd, sampled_at)\n        VALUES ($1, $2, $3)\n        ON CONFLICT (asset_id) DO UPDATE SET\n            price_usd  = EXCLUDED.price_usd,\n            sampled_at = EXCLUDED.sampled_at\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4f9751f4ac010338c923793b6f22cfbb11ad1caee36d23f8f4f497a74b5f4356"
+}

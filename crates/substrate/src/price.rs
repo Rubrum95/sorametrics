@@ -33,7 +33,7 @@ use serde::Deserialize;
 use sorametrics_core::chain::AssetId;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::load_asset_registry;
-use sorametrics_db::ts::{price_at_bucket, upsert_price_sample};
+use sorametrics_db::ts::{price_at_bucket, upsert_price_latest, upsert_price_sample};
 use sorametrics_db::DbError;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -180,6 +180,7 @@ struct CachedQuote {
 struct RegistryEntry {
     symbol: String,
     decimals: u32,
+    whitelisted: bool,
 }
 
 /// Values events in USD. One instance per ingest session / ops run.
@@ -218,6 +219,7 @@ impl PriceResolver {
                     RegistryEntry {
                         symbol: a.symbol,
                         decimals: a.decimals.max(0) as u32,
+                        whitelisted: a.whitelisted,
                     },
                 )
             })
@@ -319,7 +321,8 @@ impl PriceResolver {
         Ok(price)
     }
 
-    /// Fold a price sample into the current hour bucket.
+    /// Fold a price sample into the current hour bucket and publish it
+    /// as the asset's latest quote (what `/tokens` serves as `price`).
     async fn record_sample(&self, asset: &AssetId, price: Decimal) -> Result<(), PriceError> {
         let price_f64 = match price.to_string().parse::<f64>() {
             Ok(v) if v.is_finite() && v > 0.0 => v,
@@ -328,9 +331,25 @@ impl PriceResolver {
                 return Ok(());
             }
         };
-        let bucket = Timestamp::now().hour_bucket_secs();
-        upsert_price_sample(&self.db, asset.as_str(), bucket, price_f64).await?;
+        let now = Timestamp::now();
+        upsert_price_sample(&self.db, asset.as_str(), now.hour_bucket_secs(), price_f64).await?;
+        upsert_price_latest(&self.db, asset.as_str(), price_f64, now.0).await?;
         Ok(())
+    }
+
+    /// Every whitelisted asset (the Node's `ASSETS` list), sorted by id
+    /// for a stable sweep order.
+    pub fn whitelisted_assets(&self) -> Vec<AssetId> {
+        let mut ids: Vec<&String> = self
+            .registry
+            .iter()
+            .filter(|(_, e)| e.whitelisted)
+            .map(|(id, _)| id)
+            .collect();
+        ids.sort();
+        ids.into_iter()
+            .map(|id| AssetId::new(id.as_str()))
+            .collect()
     }
 
     /// Registry assets whose symbol is in [`POPULAR_SYMBOLS`], in that
@@ -355,14 +374,26 @@ impl PriceResolver {
     /// dead connection (nothing priced, errors) from illiquid assets. A
     /// DB failure propagates.
     pub async fn sample_popular(&self) -> Result<SampleOutcome, PriceError> {
+        self.sample_assets(&self.popular_assets()).await
+    }
+
+    /// Quote the whole whitelist once. The Node quoted non-popular
+    /// assets lazily when `/tokens` paginated to them (60 s cache); the
+    /// read-only v33 API cannot, so the sampler sweeps them on a slower
+    /// cadence instead.
+    pub async fn sample_whitelist(&self) -> Result<SampleOutcome, PriceError> {
+        self.sample_assets(&self.whitelisted_assets()).await
+    }
+
+    async fn sample_assets(&self, assets: &[AssetId]) -> Result<SampleOutcome, PriceError> {
         let rpc = match &self.rpc {
             Some(r) => r,
             None => return Ok(SampleOutcome::default()),
         };
         let mut outcome = SampleOutcome::default();
-        for asset in self.popular_assets() {
-            let decimals = self.decimals_of(&asset);
-            match quote_price_in_dai(rpc, &asset, decimals).await {
+        for asset in assets {
+            let decimals = self.decimals_of(asset);
+            match quote_price_in_dai(rpc, asset, decimals).await {
                 Ok(Some(p)) => {
                     self.quotes.lock().await.insert(
                         asset.as_str().to_string(),
@@ -371,7 +402,7 @@ impl PriceResolver {
                             at: Instant::now(),
                         },
                     );
-                    self.record_sample(&asset, p).await?;
+                    self.record_sample(asset, p).await?;
                     outcome.priced += 1;
                 }
                 Ok(None) => {

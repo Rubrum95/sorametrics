@@ -281,17 +281,21 @@ pub struct RegistryAsset {
     pub asset_id: String,
     /// Ticker symbol (e.g. `XOR`).
     pub symbol: String,
+    /// Display name, if known.
+    pub name: Option<String>,
     /// On-chain decimals.
     pub decimals: i16,
     /// Logo (data URI or URL) for the legacy API rows, if known.
     pub logo: Option<String>,
+    /// In the official sora-xor whitelist (listed by `/tokens`).
+    pub whitelisted: bool,
 }
 
-/// Every asset in `sm.asset_registry` (id, symbol, decimals, logo).
+/// Every asset in `sm.asset_registry`.
 pub async fn load_asset_registry(pool: &PgPool) -> Result<Vec<RegistryAsset>, DbError> {
     let rows = sqlx::query_as!(
         RegistryAsset,
-        r#"SELECT asset_id, symbol, decimals, logo FROM sm.asset_registry"#
+        r#"SELECT asset_id, symbol, name, decimals, logo, whitelisted FROM sm.asset_registry"#
     )
     .fetch_all(pool)
     .await?;

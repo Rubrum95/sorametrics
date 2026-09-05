@@ -47,6 +47,10 @@ pub enum ApiError {
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
 
+    /// Error from the typed `sorametrics-db` layer (same policy).
+    #[error("database error: {0}")]
+    DbLayer(#[from] sorametrics_db::DbError),
+
     /// Invalid query / path parameter.
     #[error("bad request: {0}")]
     BadRequest(String),
@@ -64,7 +68,7 @@ pub enum ApiError {
 impl ApiError {
     fn code(&self) -> ErrorCode {
         match self {
-            Self::Database(_) => ErrorCode::Database,
+            Self::Database(_) | Self::DbLayer(_) => ErrorCode::Database,
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::NotFound(_) => ErrorCode::NotFound,
             Self::Internal(_) => ErrorCode::Internal,
@@ -74,7 +78,7 @@ impl ApiError {
     fn public_message(&self) -> String {
         match self {
             // Never leak the raw sqlx error to clients.
-            Self::Database(_) => "database error".to_string(),
+            Self::Database(_) | Self::DbLayer(_) => "database error".to_string(),
             Self::BadRequest(msg) => msg.clone(),
             Self::NotFound(msg) => msg.clone(),
             // Same policy as Database: internals stay in logs.

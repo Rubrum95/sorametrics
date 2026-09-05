@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT asset_id,\n               (hour_bucket / $2) * $2 AS \"t!\",\n               AVG(price_usd)          AS \"p!\"\n        FROM ts.price_history\n        WHERE asset_id = ANY($1) AND price_usd > 0 AND hour_bucket >= $3\n        GROUP BY asset_id, (hour_bucket / $2) * $2\n        ORDER BY \"t!\" ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "t!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "p!",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "515c0a362f96c6b7af16b874a0a681f48af095d69d195dfb5f455548b2e00ff5"
+}
