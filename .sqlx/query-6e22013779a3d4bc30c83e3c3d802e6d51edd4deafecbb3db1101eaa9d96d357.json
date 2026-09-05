@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            (SELECT COUNT(*) FROM sm.swaps     WHERE block_timestamp >= $1) AS \"swaps!\",\n            (SELECT COUNT(*) FROM sm.transfers WHERE block_timestamp >= $1) AS \"transfers!\",\n            (SELECT COUNT(*) FROM sm.bridges   WHERE block_timestamp >= $1) AS \"bridges!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "swaps!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "transfers!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "bridges!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "6e22013779a3d4bc30c83e3c3d802e6d51edd4deafecbb3db1101eaa9d96d357"
+}
