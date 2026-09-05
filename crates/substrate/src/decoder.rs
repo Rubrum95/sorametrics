@@ -97,7 +97,7 @@ pub struct EventCoords {
 
 impl EventCoords {
     /// The extrinsic hash as `0x`-hex, ready for storage.
-    fn extrinsic_hash_hex(&self) -> Option<String> {
+    pub fn extrinsic_hash_hex(&self) -> Option<String> {
         self.extrinsic_hash.as_ref().map(bytes32_hex)
     }
 }

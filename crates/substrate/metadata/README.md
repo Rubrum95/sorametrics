@@ -26,6 +26,7 @@ Pinning the file (vs fetching at build time) gives us:
 | `ParachainBridgeApp` | Hashi v2 parachain bridge events (XCM). |
 | `JettonApp` | Hashi v2 TON bridge events. |
 | `BridgeMultisig` | Hashi v1 (legacy) bridge multisig events. |
+| `EthBridge` | Classic Ethereum bridge: `transfer_to_sidechain` call, `RequestRegistered` / `IncomingRequestFinalized` events, `requests` storage. |
 
 When Phase 1.2 expands to other event types, regenerate with the new pallet list.
 
@@ -38,7 +39,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge" \
   --format bytes \
   > sora-mainnet.scale
 ```

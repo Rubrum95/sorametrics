@@ -17,6 +17,9 @@ use crate::decoder::{
     decode_bridge, decode_fee_burn, decode_swap, decode_transfer, timestamp_from_millis,
     EventCoords,
 };
+use crate::eth_bridge::{
+    decode_eth_incoming, decode_eth_outgoing, eth_incoming_hash, outgoing_calls,
+};
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
 use sorametrics_core::chain::BlockHeight;
@@ -51,7 +54,8 @@ pub struct BlockDecodeStats {
     pub decoded_transfers: u32,
     /// Number of transfers that resulted in a new row.
     pub inserted_transfers: u32,
-    /// Number of bridge events (any of the 3 Hashi v2 pallets) decoded.
+    /// Number of bridge events decoded (Hashi v2 pallets + classic
+    /// EthBridge outgoing/incoming transfers).
     pub decoded_bridges: u32,
     /// Number of bridges that resulted in a new row.
     pub inserted_bridges: u32,
@@ -124,6 +128,9 @@ pub async fn decode_block_events(
     // Extrinsic hashes by in-block index, for `ApplyExtrinsic(i)` events.
     // Collected once from the already-fetched body — no extra RPC.
     let extrinsic_hashes: Vec<[u8; 32]> = extrinsics.iter().map(|ext| ext.hash().0).collect();
+    // Classic ETH bridge outgoing transfers are read from the call args
+    // of `transfer_to_sidechain`, keyed by extrinsic index.
+    let eth_outgoing = outgoing_calls(&extrinsics);
     let mut stats = BlockDecodeStats::default();
     let mut events_seen: u32 = 0;
 
@@ -199,6 +206,38 @@ pub async fn decode_block_events(
                 block = height.0,
                 event_id = coords.event_id,
                 "bridge decode failed"
+            ),
+        }
+
+        match decode_eth_outgoing(&ev, coords, &eth_outgoing) {
+            Ok(Some(bridge)) => {
+                bridges.push(bridge);
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "eth bridge outgoing decode failed"
+            ),
+        }
+
+        match eth_incoming_hash(&ev) {
+            Ok(Some(hash)) => {
+                // Storage read at this block; a transport failure here is
+                // a block failure (the row would otherwise silently vanish).
+                if let Some(bridge) = decode_eth_incoming(block, coords, hash).await? {
+                    bridges.push(bridge);
+                }
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "eth bridge incoming decode failed"
             ),
         }
 
