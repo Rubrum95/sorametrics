@@ -17,7 +17,9 @@ Pinning the file (vs fetching at build time) gives us:
 |--------|--------|
 | `System` | Always required by subxt (extrinsic success/fail, block hashes). |
 | `Timestamp` | `set` extrinsic carries the block timestamp. |
-| `Assets` | `Transfer` events. |
+| `Assets` | Asset registry types (`AssetId32`). |
+| `Balances` | `Transfer` events for native XOR (the Node live mechanism). |
+| `Tokens` | ORML `Transfer` events for every other asset (the Node live mechanism). |
 | `LiquidityProxy` | DEX `Exchange` events (swaps). |
 | `XorFee` | Fee burn events. |
 | `SubstrateBridgeApp` | Hashi v2 substrate-side bridge events. |
@@ -36,7 +38,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig" \
   --format bytes \
   > sora-mainnet.scale
 ```

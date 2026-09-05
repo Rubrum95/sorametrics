@@ -68,7 +68,8 @@ pub struct V2Swap {
     pub timestamp: Timestamp,
 }
 
-/// A token transfer (`assets.Transfer` event flattened).
+/// A token transfer (`Balances::Transfer` for XOR / `Tokens::Transfer` for
+/// every other asset, technical-account legs excluded).
 ///
 /// Idempotency key is `(block_height, extrinsic_id, event_id)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

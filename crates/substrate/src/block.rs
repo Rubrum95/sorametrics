@@ -46,7 +46,8 @@ pub struct BlockDecodeStats {
     pub decoded_swaps: u32,
     /// Number of swaps that resulted in a new row.
     pub inserted_swaps: u32,
-    /// Number of `Assets::Transfer` events successfully decoded.
+    /// Number of `Balances::Transfer` / `Tokens::Transfer` events decoded
+    /// (technical-account legs excluded).
     pub decoded_transfers: u32,
     /// Number of transfers that resulted in a new row.
     pub inserted_transfers: u32,

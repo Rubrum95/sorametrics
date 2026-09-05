@@ -119,6 +119,22 @@ impl fmt::Display for BlockHeight {
 // the SS58 spec. Larger idents are reserved and rejected at
 // construction ([`Ss58Prefix::new`]), which keeps encoding infallible.
 
+/// First 16 bytes of every SORA *technical* account (pool reserves,
+/// XST/TBC, order-book, bridge and other pallet-owned accounts).
+/// `technical::tech_account_id_encoded_to_account_id_32` builds the
+/// AccountId as `MAGIC_PREFIX ‖ xxhash64(seed 0) ‖ xxhash64(seed 1)`
+/// (`common::TECH_ACCOUNT_MAGIC_PREFIX`, sora2 `common/src/lib.rs`).
+/// In SS58 these all start with `cnTQ1kbv7PBNNQrEb1tZpmK7`.
+pub const TECH_ACCOUNT_MAGIC_PREFIX: [u8; 16] = [
+    84, 115, 79, 144, 249, 113, 160, 44, 96, 155, 45, 104, 78, 97, 181, 87,
+];
+
+/// `true` when `account` is a pallet-owned technical account
+/// (`common::IsRepresentation::is_representation` in sora2).
+pub fn is_technical_account(account: &[u8; 32]) -> bool {
+    account[..16] == TECH_ACCOUNT_MAGIC_PREFIX
+}
+
 /// A validated SS58 network prefix (0..=16383).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Ss58Prefix(u16);
@@ -416,5 +432,23 @@ mod tests {
     fn ss58_prefix_rejects_reserved() {
         assert!(Ss58Prefix::new(16383).is_some());
         assert!(Ss58Prefix::new(16384).is_none());
+    }
+
+    #[test]
+    fn technical_account_prefix_matches_real_pool_account() {
+        // cnTQ1kbv7PBNNQrEb1tZpmK7fuxWZxsAP6HA1UauiMxyJ4Wmp — DAI/XOR pool
+        // reserves account seen in block 27542813.
+        let (bytes, _) = ss58_decode("cnTQ1kbv7PBNNQrEb1tZpmK7fuxWZxsAP6HA1UauiMxyJ4Wmp").unwrap();
+        assert!(is_technical_account(&bytes));
+        assert_eq!(
+            hex::encode(&bytes[..16]),
+            "54734f90f971a02c609b2d684e61b557"
+        );
+    }
+
+    #[test]
+    fn user_account_is_not_technical() {
+        let (bytes, _) = ss58_decode("cnWeiModLdWS4hC75QeZxEANGNUmekog7YaaJ9PevFH1UTnhh").unwrap();
+        assert!(!is_technical_account(&bytes));
     }
 }

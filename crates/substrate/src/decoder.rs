@@ -15,7 +15,9 @@ use crate::runtime::sora;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use num_bigint::BigInt;
-use sorametrics_core::chain::{ss58_encode_sora, Address, AssetId, BlockHeight};
+use sorametrics_core::chain::{
+    is_technical_account, ss58_encode_sora, Address, AssetId, BlockHeight,
+};
 use sorametrics_core::sora_v2::{
     BridgeDirection, FeeBurnKind, V2Bridge, V2FeeBurn, V2Swap, V2Transfer,
 };
@@ -189,48 +191,57 @@ fn substrate_network_label(id: &SubNetworkId) -> &'static str {
     }
 }
 
-/// Decode `Assets::Transfer` into a [`V2Transfer`].
+/// XOR asset id — the currency behind `Balances::Transfer`.
+const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
+
+/// Decode a token transfer into a [`V2Transfer`].
 ///
-/// The unnamed tuple shape from codegen is `(from, to, asset, amount)`.
+/// Mechanism = the Node's live indexer (`index.js` `transferEvents`):
+/// `Balances::Transfer` (native XOR) ∪ `Tokens::Transfer` (ORML, every
+/// other asset), skipping any leg that touches a technical account.
+///
+/// Why not `Assets::Transfer`: `assets.transfer_from` always delegates
+/// to `Currencies`, so the underlying pair is a strict superset — it
+/// also carries flows that bypass the assets pallet (e.g.
+/// `vested_rewards.vested_transfer` goes straight through `Currencies`).
+/// `Balances` and `Tokens` expose no extrinsics in the SORA runtime, so
+/// there is no path where they fire without a real transfer.
+///
+/// Why skip technical accounts: those legs are pool reserves moving
+/// during swaps, order-book fills, XST/TBC mints — DEX internals, not
+/// transfers. The Node filters them by SS58 prefix (`cnTQ`); we test the
+/// 16-byte `TECH_ACCOUNT_MAGIC_PREFIX` the runtime derives them from.
 pub fn decode_transfer(
     ev: &EventDetails<SubstrateConfig>,
     coords: EventCoords,
 ) -> Result<Option<V2Transfer>, DecodeError> {
-    if ev.pallet_name() != "Assets" || ev.variant_name() != "Transfer" {
+    let (from, to, asset, amount): ([u8; 32], [u8; 32], String, u128) =
+        match (ev.pallet_name(), ev.variant_name()) {
+            ("Balances", "Transfer") => {
+                let t =
+                    require_event::<sora::balances::events::Transfer>(ev, "Balances", "Transfer")?;
+                (t.from.0, t.to.0, XOR_ASSET_ID.to_string(), t.amount)
+            }
+            ("Tokens", "Transfer") => {
+                let t = require_event::<sora::tokens::events::Transfer>(ev, "Tokens", "Transfer")?;
+                (t.from.0, t.to.0, bytes32_hex(&t.currency_id.code), t.amount)
+            }
+            _ => return Ok(None),
+        };
+
+    if is_technical_account(&from) || is_technical_account(&to) {
         return Ok(None);
     }
-
-    let t = ev
-        .as_event::<sora::assets::events::Transfer>()
-        .map_err(|e| DecodeError::Subxt {
-            pallet: "Assets",
-            variant: "Transfer",
-            source: Box::new(e.into()),
-        })?;
-    let t = match t {
-        Some(t) => t,
-        None => {
-            return Err(DecodeError::Subxt {
-                pallet: "Assets",
-                variant: "Transfer",
-                source: Box::new(subxt::Error::Other(
-                    "Assets::Transfer name match but as_event returned None".into(),
-                )),
-            });
-        }
-    };
-
-    let amount = u128_to_bigdecimal(t.3);
 
     Ok(Some(V2Transfer {
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
         extrinsic_hash: coords.extrinsic_hash_hex(),
-        from: Address::new(ss58_encode_sora(&t.0 .0)),
-        to: Address::new(ss58_encode_sora(&t.1 .0)),
-        asset: AssetId::new(bytes32_hex(&t.2.code)),
-        amount,
+        from: Address::new(ss58_encode_sora(&from)),
+        to: Address::new(ss58_encode_sora(&to)),
+        asset: AssetId::new(asset),
+        amount: u128_to_bigdecimal(amount),
         usd_value: None,
         timestamp: coords.block_timestamp,
     }))
