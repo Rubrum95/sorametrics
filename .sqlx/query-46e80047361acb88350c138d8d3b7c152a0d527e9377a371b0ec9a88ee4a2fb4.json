@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"count!\"\n        FROM sm.transfers\n        WHERE ($1::text IS NULL OR from_address = $1 OR to_address = $1)\n          AND ($2::text[] IS NULL OR asset_id = ANY($2)\n               OR from_address ILIKE $3 OR to_address ILIKE $3)\n          AND ($4::timestamptz IS NULL OR block_timestamp <= $4)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "46e80047361acb88350c138d8d3b7c152a0d527e9377a371b0ec9a88ee4a2fb4"
+}

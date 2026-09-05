@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT asset_id, symbol, decimals FROM sm.asset_registry",
+  "query": "SELECT asset_id, symbol, decimals, logo FROM sm.asset_registry",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "decimals",
         "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "logo",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -25,8 +30,9 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "da7ba19e7981e055097db017debdd9a3a9a0c4b19280489f9cfac54d4cb0e5e0"
+  "hash": "312844e7dfc1ff4dc930c504761898ec9e702d7d5e069cf58f647f21e9e51525"
 }

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.swaps (\n                block_height, extrinsic_id, event_id, block_timestamp,\n                caller, input_asset_id, input_amount, output_asset_id, output_amount,\n                usd_value, output_usd_value, hash, origin\n            )\n            SELECT b, e, 0, t, c, ia, iam, oa, oam, u, ou, h, 'legacy'\n            FROM UNNEST(\n                $1::bigint[], $2::text[], $3::timestamptz[], $4::text[],\n                $5::text[], $6::numeric[], $7::text[], $8::numeric[],\n                $9::numeric[], $10::numeric[], $11::text[]\n            ) AS x(b, e, t, c, ia, iam, oa, oam, u, ou, h)\n            ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray",
+        "NumericArray",
+        "TextArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fb135531f4a949f123ff91b589d7774e367ce158c039ce65eee953e10e54fd71"
+}

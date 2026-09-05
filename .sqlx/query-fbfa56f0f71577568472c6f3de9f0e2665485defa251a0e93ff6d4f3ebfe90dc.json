@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"count!\"\n        FROM sm.swaps\n        WHERE ($1::text IS NULL OR caller = $1)\n          AND ($2::text[] IS NULL OR input_asset_id = ANY($2) OR output_asset_id = ANY($2))\n          AND ($3::timestamptz IS NULL OR block_timestamp <= $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fbfa56f0f71577568472c6f3de9f0e2665485defa251a0e93ff6d4f3ebfe90dc"
+}

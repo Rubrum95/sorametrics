@@ -241,6 +241,7 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
                (s.in_amount::numeric  * {sc_in})::numeric(78,0)  AS input_amount,
                (s.out_amount::numeric * {sc_out})::numeric(78,0) AS output_amount,
                s.in_usd::numeric(38,6) AS usd_value,
+               s.out_usd::numeric(38,6) AS output_usd_value,
                s.hash, s.extrinsic_id
         FROM sm.mv_swaps s
         LEFT JOIN sm.asset_registry ar_in  ON ar_in.asset_id  = s.in_asset_id
@@ -276,6 +277,7 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
         let mut out_assets = Vec::with_capacity(n);
         let mut out_amounts = Vec::with_capacity(n);
         let mut usds: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
+        let mut out_usds: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
         let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
 
         for r in &rows {
@@ -288,6 +290,7 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
             out_assets.push(r.try_get::<String, _>("out_asset_id")?);
             out_amounts.push(r.try_get::<BigDecimal, _>("output_amount")?);
             usds.push(r.try_get::<Option<BigDecimal>, _>("usd_value")?);
+            out_usds.push(r.try_get::<Option<BigDecimal>, _>("output_usd_value")?);
             hashes.push(r.try_get::<Option<String>, _>("hash")?);
             cursor = r.try_get::<String, _>("_row_id")?;
         }
@@ -297,14 +300,14 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
             INSERT INTO sm.swaps (
                 block_height, extrinsic_id, event_id, block_timestamp,
                 caller, input_asset_id, input_amount, output_asset_id, output_amount,
-                usd_value, hash, origin
+                usd_value, output_usd_value, hash, origin
             )
-            SELECT b, e, 0, t, c, ia, iam, oa, oam, u, h, 'legacy'
+            SELECT b, e, 0, t, c, ia, iam, oa, oam, u, ou, h, 'legacy'
             FROM UNNEST(
                 $1::bigint[], $2::text[], $3::timestamptz[], $4::text[],
                 $5::text[], $6::numeric[], $7::text[], $8::numeric[],
-                $9::numeric[], $10::text[]
-            ) AS x(b, e, t, c, ia, iam, oa, oam, u, h)
+                $9::numeric[], $10::numeric[], $11::text[]
+            ) AS x(b, e, t, c, ia, iam, oa, oam, u, ou, h)
             ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
             "#,
             &blocks,
@@ -316,6 +319,7 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
             &out_assets,
             &out_amounts,
             &usds as &[Option<BigDecimal>],
+            &out_usds as &[Option<BigDecimal>],
             &hashes as &[Option<String>],
         )
         .execute(target)

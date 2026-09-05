@@ -62,8 +62,10 @@ pub struct V2Swap {
     pub output_asset: AssetId,
     /// Output asset amount (raw, post-denomination, arbitrary precision).
     pub output_amount: BigDecimal,
-    /// USD value of the swap at execution time, derived via DAI ratio.
+    /// USD value of the INPUT leg at index time (legacy `in_usd`).
     pub usd_value: Option<BigDecimal>,
+    /// USD value of the OUTPUT leg at index time (legacy `out_usd`).
+    pub output_usd_value: Option<BigDecimal>,
     /// Wall-clock timestamp from the block's `timestamp.set` inherent.
     pub timestamp: Timestamp,
 }
@@ -170,6 +172,12 @@ pub struct V2Bridge {
     pub network: String,
     /// Caller address on SORA v2 side.
     pub caller: Address,
+    /// The other side of the bridge, rendered per its kind: SS58 for
+    /// Substrate accounts, `0x`-hex for EVM, `workchain:hash` for TON,
+    /// `xcm:0x<scale>` for parachain locations. `None` when the event
+    /// carries no counterparty (`Unknown`, or a parachain mint without
+    /// origin).
+    pub counterparty: Option<String>,
     /// Asset bridged.
     pub asset: AssetId,
     /// Amount (raw, post-denomination, arbitrary precision).

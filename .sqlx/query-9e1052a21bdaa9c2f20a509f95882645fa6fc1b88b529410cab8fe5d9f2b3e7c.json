@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT COUNT(*) AS \"count!\"\n                FROM sm.fee_events\n                WHERE ($1::text IS NULL OR payer = $1)\n                  AND ($2::timestamptz IS NULL OR block_timestamp <= $2)\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9e1052a21bdaa9c2f20a509f95882645fa6fc1b88b529410cab8fe5d9f2b3e7c"
+}

@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.swaps (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            caller, input_asset_id, input_amount, output_asset_id, output_amount,\n            usd_value, output_usd_value, hash\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8, $9,\n            $10, $11, $12\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int4",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Numeric",
+        "Text",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ad263ee000c121338124ee2c7f2cbf16b1c19ebf66e843cb0c14c68078a1889b"
+}

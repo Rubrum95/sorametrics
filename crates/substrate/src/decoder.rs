@@ -27,6 +27,9 @@ use thiserror::Error;
 
 /// Type alias for the SubNetworkId enum reachable from runtime codegen.
 type SubNetworkId = sora::runtime_types::bridge_types::SubNetworkId;
+type GenericAccount = sora::runtime_types::bridge_types::GenericAccount;
+type TonAddress = sora::runtime_types::bridge_types::ton::TonAddress;
+type VersionedLocation = sora::runtime_types::xcm::VersionedLocation;
 
 /// Errors when decoding an event.
 ///
@@ -165,6 +168,7 @@ pub fn decode_swap(
         output_asset: AssetId::new(output_asset),
         output_amount,
         usd_value: None,
+        output_usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -247,6 +251,32 @@ pub fn decode_transfer(
     }))
 }
 
+/// Render a Hashi `GenericAccount` as the legacy-visible counterparty.
+/// Substrate accounts use the SORA SS58 prefix — the Node rendered them
+/// through the same registry, so `cn…` is what production shows.
+fn generic_account_label(acc: &GenericAccount) -> Option<String> {
+    match acc {
+        GenericAccount::EVM(h) => Some(format!("0x{}", hex::encode(h.0))),
+        GenericAccount::Sora(a) | GenericAccount::Liberland(a) => Some(ss58_encode_sora(&a.0)),
+        GenericAccount::Parachain(loc) => Some(versioned_location_label(loc)),
+        GenericAccount::TON(t) => Some(ton_address_label(t)),
+        GenericAccount::Root => Some("Root".to_string()),
+        GenericAccount::Unknown => None,
+    }
+}
+
+/// TON raw form `workchain:hex(hash)` (e.g. `0:abcd…`).
+fn ton_address_label(t: &TonAddress) -> String {
+    format!("{}:{}", t.workchain, hex::encode(t.address.0))
+}
+
+/// XCM locations have no canonical text form; keep the exact SCALE
+/// bytes so nothing is lost and a client can decode them.
+fn versioned_location_label(loc: &VersionedLocation) -> String {
+    use subxt::ext::codec::Encode;
+    format!("xcm:0x{}", hex::encode(loc.encode()))
+}
+
 /// Decode any of the Hashi v2 bridge events into a [`V2Bridge`].
 ///
 /// Handles 6 distinct events across 3 pallets:
@@ -262,9 +292,8 @@ pub fn decode_transfer(
 ///
 /// `caller` is always the SORA-side address: `sender` on Burned (the
 /// SORA account that initiated the burn), `recipient` on Minted (the
-/// SORA account receiving the minted tokens). The cross-chain
-/// counterparty is intentionally not stored — when 1.2.4 adds the
-/// extended bridge schema we'll capture it then.
+/// SORA account receiving the minted tokens). `counterparty` is the
+/// other side, rendered by [`generic_account_label`] and friends.
 pub fn decode_bridge(
     ev: &EventDetails<SubstrateConfig>,
     coords: EventCoords,
@@ -302,6 +331,7 @@ fn decode_substrate_bridge_burned(
         direction: BridgeDirection::Out,
         network: format!("Substrate: {}", substrate_network_label(&b.network_id)),
         caller: Address::new(ss58_encode_sora(&b.sender.0)),
+        counterparty: generic_account_label(&b.recipient),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
         usd_value: None,
@@ -326,6 +356,7 @@ fn decode_substrate_bridge_minted(
         direction: BridgeDirection::In,
         network: format!("Substrate: {}", substrate_network_label(&m.network_id)),
         caller: Address::new(ss58_encode_sora(&m.recipient.0)),
+        counterparty: generic_account_label(&m.sender),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
         usd_value: None,
@@ -353,6 +384,7 @@ fn decode_parachain_bridge_burned(
         direction: BridgeDirection::Out,
         network: format!("Parachain: {}", substrate_network_label(&b.0)),
         caller: Address::new(ss58_encode_sora(&b.2 .0)),
+        counterparty: Some(versioned_location_label(&b.3)),
         asset: AssetId::new(bytes32_hex(&b.1.code)),
         amount: u128_to_bigdecimal(b.4),
         usd_value: None,
@@ -378,6 +410,7 @@ fn decode_parachain_bridge_minted(
         direction: BridgeDirection::In,
         network: format!("Parachain: {}", substrate_network_label(&m.0)),
         caller: Address::new(ss58_encode_sora(&m.3 .0)),
+        counterparty: m.2.as_ref().map(versioned_location_label),
         asset: AssetId::new(bytes32_hex(&m.1.code)),
         amount: u128_to_bigdecimal(m.4),
         usd_value: None,
@@ -400,6 +433,7 @@ fn decode_jetton_burned(
         direction: BridgeDirection::Out,
         network: "TON".to_string(),
         caller: Address::new(ss58_encode_sora(&b.sender.0)),
+        counterparty: Some(ton_address_label(&b.recipient)),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
         usd_value: None,
@@ -420,6 +454,7 @@ fn decode_jetton_minted(
         direction: BridgeDirection::In,
         network: "TON".to_string(),
         caller: Address::new(ss58_encode_sora(&m.recipient.0)),
+        counterparty: Some(ton_address_label(&m.sender)),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
         usd_value: None,

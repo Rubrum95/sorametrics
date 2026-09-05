@@ -217,10 +217,13 @@ pub async fn decode_block_events(
         }
     }
 
-    // Phase 2: USD valuation (swap = input leg, as the legacy `in_usd`).
+    // Phase 2: USD valuation (swaps: both legs, as the legacy in_usd/out_usd).
     for swap in swaps.iter_mut() {
         swap.usd_value = prices
             .usd_value_at(&swap.input_asset, &swap.input_amount, swap.timestamp)
+            .await?;
+        swap.output_usd_value = prices
+            .usd_value_at(&swap.output_asset, &swap.output_amount, swap.timestamp)
             .await?;
     }
     for transfer in transfers.iter_mut() {

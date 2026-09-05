@@ -107,11 +107,11 @@ pub async fn insert_swap(pool: &PgPool, swap: &V2Swap) -> Result<UpsertOutcome, 
         INSERT INTO sm.swaps (
             block_height, extrinsic_id, event_id, block_timestamp,
             caller, input_asset_id, input_amount, output_asset_id, output_amount,
-            usd_value, hash
+            usd_value, output_usd_value, hash
         ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7, $8, $9,
-            $10, $11
+            $10, $11, $12
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
@@ -126,6 +126,7 @@ pub async fn insert_swap(pool: &PgPool, swap: &V2Swap) -> Result<UpsertOutcome, 
         swap.output_asset.0,
         swap.output_amount,
         swap.usd_value,
+        swap.output_usd_value,
         swap.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
@@ -214,10 +215,10 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
         r#"
         INSERT INTO sm.bridges (
             block_height, extrinsic_id, event_id, block_timestamp,
-            direction, network, caller, asset_id, amount, usd_value, hash
+            direction, network, caller, counterparty, asset_id, amount, usd_value, hash
         ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8, $9, $10, $11
+            $5, $6, $7, $8, $9, $10, $11, $12
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
@@ -229,6 +230,7 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
         direction as PgBridgeDirection,
         bridge.network,
         bridge.caller.0,
+        bridge.counterparty.as_deref(),
         bridge.asset.0,
         bridge.amount,
         bridge.usd_value,
@@ -281,13 +283,15 @@ pub struct RegistryAsset {
     pub symbol: String,
     /// On-chain decimals.
     pub decimals: i16,
+    /// Logo (data URI or URL) for the legacy API rows, if known.
+    pub logo: Option<String>,
 }
 
-/// Every asset in `sm.asset_registry` (id, symbol, decimals).
+/// Every asset in `sm.asset_registry` (id, symbol, decimals, logo).
 pub async fn load_asset_registry(pool: &PgPool) -> Result<Vec<RegistryAsset>, DbError> {
     let rows = sqlx::query_as!(
         RegistryAsset,
-        r#"SELECT asset_id, symbol, decimals FROM sm.asset_registry"#
+        r#"SELECT asset_id, symbol, decimals, logo FROM sm.asset_registry"#
     )
     .fetch_all(pool)
     .await?;
@@ -394,6 +398,7 @@ pub async fn insert_swaps_batch(pool: &PgPool, swaps: &[V2Swap]) -> Result<u64, 
     let mut out_assets = Vec::with_capacity(n);
     let mut out_amounts = Vec::with_capacity(n);
     let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut out_usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
     let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
     for s in swaps {
         blocks.push(s.block_height.0 as i64);
@@ -406,6 +411,7 @@ pub async fn insert_swaps_batch(pool: &PgPool, swaps: &[V2Swap]) -> Result<u64, 
         out_assets.push(s.output_asset.0.clone());
         out_amounts.push(s.output_amount.clone());
         usds.push(s.usd_value.clone());
+        out_usds.push(s.output_usd_value.clone());
         hashes.push(s.extrinsic_hash.clone());
     }
     let res = sqlx::query!(
@@ -413,14 +419,14 @@ pub async fn insert_swaps_batch(pool: &PgPool, swaps: &[V2Swap]) -> Result<u64, 
         INSERT INTO sm.swaps (
             block_height, extrinsic_id, event_id, block_timestamp,
             caller, input_asset_id, input_amount, output_asset_id, output_amount,
-            usd_value, hash
+            usd_value, output_usd_value, hash
         )
-        SELECT b, e, ev, t, c, ia, iam, oa, oam, u, h
+        SELECT b, e, ev, t, c, ia, iam, oa, oam, u, ou, h
         FROM UNNEST(
             $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
             $6::text[], $7::numeric[], $8::text[], $9::numeric[],
-            $10::numeric[], $11::text[]
-        ) AS x(b, e, ev, t, c, ia, iam, oa, oam, u, h)
+            $10::numeric[], $11::numeric[], $12::text[]
+        ) AS x(b, e, ev, t, c, ia, iam, oa, oam, u, ou, h)
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         "#,
         &blocks,
@@ -433,6 +439,7 @@ pub async fn insert_swaps_batch(pool: &PgPool, swaps: &[V2Swap]) -> Result<u64, 
         &out_assets,
         &out_amounts,
         &usds as &[Option<bigdecimal::BigDecimal>],
+        &out_usds as &[Option<bigdecimal::BigDecimal>],
         &hashes as &[Option<String>],
     )
     .execute(pool)
@@ -513,6 +520,7 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
     let mut directions = Vec::with_capacity(n);
     let mut networks = Vec::with_capacity(n);
     let mut callers = Vec::with_capacity(n);
+    let mut counterparties: Vec<Option<String>> = Vec::with_capacity(n);
     let mut assets = Vec::with_capacity(n);
     let mut amounts = Vec::with_capacity(n);
     let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
@@ -528,6 +536,7 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         });
         networks.push(b.network.clone());
         callers.push(b.caller.0.clone());
+        counterparties.push(b.counterparty.clone());
         assets.push(b.asset.0.clone());
         amounts.push(b.amount.clone());
         usds.push(b.usd_value.clone());
@@ -537,13 +546,13 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         r#"
         INSERT INTO sm.bridges (
             block_height, extrinsic_id, event_id, block_timestamp,
-            direction, network, caller, asset_id, amount, usd_value, hash
+            direction, network, caller, counterparty, asset_id, amount, usd_value, hash
         )
-        SELECT b, e, ev, t, d::sm.bridge_direction, nw, c, a, am, u, h
+        SELECT b, e, ev, t, d::sm.bridge_direction, nw, c, cp, a, am, u, h
         FROM UNNEST(
             $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
-            $6::text[], $7::text[], $8::text[], $9::numeric[], $10::numeric[], $11::text[]
-        ) AS x(b, e, ev, t, d, nw, c, a, am, u, h)
+            $6::text[], $7::text[], $8::text[], $9::text[], $10::numeric[], $11::numeric[], $12::text[]
+        ) AS x(b, e, ev, t, d, nw, c, cp, a, am, u, h)
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         "#,
         &blocks,
@@ -553,6 +562,7 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         &directions,
         &networks,
         &callers,
+        &counterparties as &[Option<String>],
         &assets,
         &amounts,
         &usds as &[Option<bigdecimal::BigDecimal>],
@@ -669,6 +679,7 @@ mod tests {
             output_amount: BigDecimal::from(2_500_000_u64),
             // 1.50 USD as BigDecimal: integer 150 with scale 2.
             usd_value: Some(BigDecimal::new(num_bigint::BigInt::from(150_i64), 2)),
+            output_usd_value: None,
             timestamp: Timestamp::new(DateTime::from_timestamp(1_700_000_000, 0).unwrap()),
         }
     }
@@ -722,6 +733,7 @@ mod tests {
             direction: BridgeDirection::Out,
             network: "Substrate: Liberland".to_string(),
             caller: Address::new("cnAAA"),
+            counterparty: Some("0xB".to_string()),
             asset: AssetId::new("xor"),
             amount: BigDecimal::from(500_u64),
             usd_value: None,

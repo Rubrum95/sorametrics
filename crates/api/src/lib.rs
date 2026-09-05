@@ -18,6 +18,7 @@
 #![deny(rust_2018_idioms, missing_docs)]
 
 pub mod error;
+pub mod legacy;
 pub mod routes;
 pub mod state;
 pub mod util;

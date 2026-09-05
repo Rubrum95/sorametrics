@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            kind::text AS \"kind!\",\n            payer,\n            referrer,\n            amount AS \"amount!: BigDecimal\"\n        FROM sm.fee_events\n        WHERE (block_height, event_id) < ($1, $2)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
+  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            kind::text AS \"kind!\",\n            payer,\n            referrer,\n            amount AS \"amount!: BigDecimal\"\n        FROM sm.fee_events\n        WHERE (block_height, event_id) < ($1, $2)\n          AND ($5::text IS NULL OR payer = $5)\n          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
   "describe": {
     "columns": [
       {
@@ -54,7 +54,9 @@
         "Int8",
         "Int4",
         "Int8",
-        "Int8"
+        "Int8",
+        "Text",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -69,5 +71,5 @@
       false
     ]
   },
-  "hash": "828fe17ca4e4c98b157236636c988f484d21d44abad9e1ca16035f01b54ae1c6"
+  "hash": "a61669d215eaee786b0354cd2b00a77b6c16668fbccc82916ab98cf5f19d2d07"
 }

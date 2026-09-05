@@ -7,6 +7,7 @@
 #![deny(rust_2018_idioms)]
 
 use anyhow::{Context, Result};
+use sorametrics_api::state::time_zone_from_env;
 use sorametrics_api::{build_router, AppState};
 use sorametrics_db::{connect as db_connect, DbConfig};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
@@ -33,7 +34,11 @@ async fn main() -> Result<()> {
     .context("connecting to PostgreSQL")?;
     info!("DB ready");
 
-    let state = AppState::new(db);
+    let time_zone = time_zone_from_env().map_err(anyhow::Error::msg)?;
+    let state = AppState::with_registry(db, time_zone)
+        .await
+        .context("loading asset registry")?;
+    state.spawn_registry_refresh();
     let app = build_router(state);
 
     let listener = TcpListener::bind(bind)

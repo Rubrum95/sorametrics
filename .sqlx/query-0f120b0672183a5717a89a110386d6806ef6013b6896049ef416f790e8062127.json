@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            caller,\n            input_asset_id,\n            input_amount  AS \"input_amount!: BigDecimal\",\n            output_asset_id,\n            output_amount AS \"output_amount!: BigDecimal\",\n            usd_value     AS \"usd_value: BigDecimal\"\n        FROM sm.swaps\n        WHERE caller = $1 AND (block_height, event_id) < ($2, $3)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $4 OFFSET $5\n        ",
+  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            from_address,\n            to_address,\n            asset_id,\n            amount    AS \"amount!: BigDecimal\",\n            usd_value AS \"usd_value: BigDecimal\"\n        FROM sm.transfers\n        WHERE (block_height, event_id) < ($1, $2)\n          AND ($5::text IS NULL OR from_address = $5 OR to_address = $5)\n          AND ($6::text[] IS NULL OR asset_id = ANY($6)\n               OR from_address ILIKE $7 OR to_address ILIKE $7)\n          AND ($8::timestamptz IS NULL OR block_timestamp <= $8)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
   "describe": {
     "columns": [
       {
@@ -30,42 +30,40 @@
       },
       {
         "ordinal": 5,
-        "name": "caller",
+        "name": "from_address",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "input_asset_id",
+        "name": "to_address",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "input_amount!: BigDecimal",
-        "type_info": "Numeric"
-      },
-      {
-        "ordinal": 8,
-        "name": "output_asset_id",
+        "name": "asset_id",
         "type_info": "Text"
       },
       {
-        "ordinal": 9,
-        "name": "output_amount!: BigDecimal",
+        "ordinal": 8,
+        "name": "amount!: BigDecimal",
         "type_info": "Numeric"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "usd_value: BigDecimal",
         "type_info": "Numeric"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
         "Int8",
         "Int4",
         "Int8",
-        "Int8"
+        "Int8",
+        "Text",
+        "TextArray",
+        "Text",
+        "Timestamptz"
       ]
     },
     "nullable": [
@@ -78,9 +76,8 @@
       false,
       false,
       false,
-      false,
       true
     ]
   },
-  "hash": "d266678d43dc64eaa166ebf784d190ef1ae95404f024c09d7f0505fa6453bd43"
+  "hash": "0f120b0672183a5717a89a110386d6806ef6013b6896049ef416f790e8062127"
 }
