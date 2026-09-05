@@ -6,18 +6,16 @@
 //! `Ok(Some(...))` if it matches, `Ok(None)` if it's a different
 //! event type, `Err(...)` if decoding failed.
 //!
-//! Caller addresses and asset ids are stored as `0x`-prefixed lowercase
-//! hex of the underlying 32-byte arrays. SORA SS58 conversion is
-//! deliberately deferred to the API layer (Phase 3) so that this hot
-//! ingest path stays simple and free of base58-encoding overhead.
-//!
-//! Phase 1.2.2 ships the swap decoder. Transfers and bridges follow.
+//! Account addresses are stored as SS58 (SORA prefix 69, "cn…") —
+//! matching the legacy DB and the frontend contract (Bloque 1 decision,
+//! 2026-04-30). Asset ids remain `0x`-prefixed lowercase hex of the
+//! 32-byte `AssetId32.code`.
 
 use crate::runtime::sora;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use num_bigint::BigInt;
-use sorametrics_core::chain::{Address, AssetId, BlockHeight};
+use sorametrics_core::chain::{ss58_encode_sora, Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
     BridgeDirection, FeeBurnKind, V2Bridge, V2FeeBurn, V2Swap, V2Transfer,
 };
@@ -87,6 +85,16 @@ pub struct EventCoords {
     pub extrinsic_id: u32,
     /// Position of the event within the block's flat events list.
     pub event_id: u32,
+    /// Hash of the extrinsic the event belongs to. `None` for events
+    /// emitted outside an extrinsic (Initialization/Finalization).
+    pub extrinsic_hash: Option<[u8; 32]>,
+}
+
+impl EventCoords {
+    /// The extrinsic hash as `0x`-hex, ready for storage.
+    fn extrinsic_hash_hex(&self) -> Option<String> {
+        self.extrinsic_hash.as_ref().map(bytes32_hex)
+    }
 }
 
 /// Decode `liquidityProxy.Exchange` into a [`V2Swap`].
@@ -137,7 +145,7 @@ pub fn decode_swap(
     //   5 output_amount (u128)
     //   6 fee (OutcomeFee — currently unused; will populate sm.live_fees later)
     //   7 liquidity_sources (Vec<LiquiditySourceId>)
-    let caller = bytes32_hex(&exchange.0 .0);
+    let caller = ss58_encode_sora(&exchange.0 .0);
     let _dex_id = exchange.1; // not stored yet; reserved for future analytics
     let input_asset = bytes32_hex(&exchange.2.code);
     let output_asset = bytes32_hex(&exchange.3.code);
@@ -148,6 +156,7 @@ pub fn decode_swap(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         caller: Address::new(caller),
         input_asset: AssetId::new(input_asset),
         input_amount,
@@ -218,8 +227,9 @@ pub fn decode_transfer(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
-        from: Address::new(bytes32_hex(&t.0 .0)),
-        to: Address::new(bytes32_hex(&t.1 .0)),
+        extrinsic_hash: coords.extrinsic_hash_hex(),
+        from: Address::new(ss58_encode_sora(&t.0 .0)),
+        to: Address::new(ss58_encode_sora(&t.1 .0)),
         asset: AssetId::new(bytes32_hex(&t.2.code)),
         amount,
         // USD value populated later by a price-history join in the API layer.
@@ -279,9 +289,10 @@ fn decode_substrate_bridge_burned(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::Out,
         network: format!("Substrate: {}", substrate_network_label(&b.network_id)),
-        caller: Address::new(bytes32_hex(&b.sender.0)),
+        caller: Address::new(ss58_encode_sora(&b.sender.0)),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
         timestamp: coords.block_timestamp,
@@ -301,9 +312,10 @@ fn decode_substrate_bridge_minted(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::In,
         network: format!("Substrate: {}", substrate_network_label(&m.network_id)),
-        caller: Address::new(bytes32_hex(&m.recipient.0)),
+        caller: Address::new(ss58_encode_sora(&m.recipient.0)),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
         timestamp: coords.block_timestamp,
@@ -326,9 +338,10 @@ fn decode_parachain_bridge_burned(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::Out,
         network: format!("Parachain: {}", substrate_network_label(&b.0)),
-        caller: Address::new(bytes32_hex(&b.2 .0)),
+        caller: Address::new(ss58_encode_sora(&b.2 .0)),
         asset: AssetId::new(bytes32_hex(&b.1.code)),
         amount: u128_to_bigdecimal(b.4),
         timestamp: coords.block_timestamp,
@@ -349,9 +362,10 @@ fn decode_parachain_bridge_minted(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::In,
         network: format!("Parachain: {}", substrate_network_label(&m.0)),
-        caller: Address::new(bytes32_hex(&m.3 .0)),
+        caller: Address::new(ss58_encode_sora(&m.3 .0)),
         asset: AssetId::new(bytes32_hex(&m.1.code)),
         amount: u128_to_bigdecimal(m.4),
         timestamp: coords.block_timestamp,
@@ -369,9 +383,10 @@ fn decode_jetton_burned(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::Out,
         network: "TON".to_string(),
-        caller: Address::new(bytes32_hex(&b.sender.0)),
+        caller: Address::new(ss58_encode_sora(&b.sender.0)),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
         timestamp: coords.block_timestamp,
@@ -387,9 +402,10 @@ fn decode_jetton_minted(
         block_height: coords.block_height,
         extrinsic_id: coords.extrinsic_id,
         event_id: coords.event_id,
+        extrinsic_hash: coords.extrinsic_hash_hex(),
         direction: BridgeDirection::In,
         network: "TON".to_string(),
-        caller: Address::new(bytes32_hex(&m.recipient.0)),
+        caller: Address::new(ss58_encode_sora(&m.recipient.0)),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
         timestamp: coords.block_timestamp,
@@ -419,8 +435,9 @@ pub fn decode_fee_burn(
                 block_height: coords.block_height,
                 extrinsic_id: coords.extrinsic_id,
                 event_id: coords.event_id,
+                extrinsic_hash: coords.extrinsic_hash_hex(),
                 kind: FeeBurnKind::FeeWithdrawn,
-                payer: Address::new(bytes32_hex(&f.0 .0)),
+                payer: Address::new(ss58_encode_sora(&f.0 .0)),
                 referrer: None,
                 amount: u128_to_bigdecimal(f.1),
                 timestamp: coords.block_timestamp,
@@ -436,9 +453,10 @@ pub fn decode_fee_burn(
                 block_height: coords.block_height,
                 extrinsic_id: coords.extrinsic_id,
                 event_id: coords.event_id,
+                extrinsic_hash: coords.extrinsic_hash_hex(),
                 kind: FeeBurnKind::ReferrerRewarded,
-                payer: Address::new(bytes32_hex(&r.0 .0)),
-                referrer: Some(Address::new(bytes32_hex(&r.1 .0))),
+                payer: Address::new(ss58_encode_sora(&r.0 .0)),
+                referrer: Some(Address::new(ss58_encode_sora(&r.1 .0))),
                 amount: u128_to_bigdecimal(r.2),
                 timestamp: coords.block_timestamp,
             }))

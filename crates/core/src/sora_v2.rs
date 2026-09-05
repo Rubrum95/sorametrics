@@ -48,6 +48,10 @@ pub struct V2Swap {
     pub extrinsic_id: u32,
     /// Event index within the block (0-based, monotonic across all events).
     pub event_id: u32,
+    /// Hash of the originating extrinsic (`0x`-hex). `None` for events
+    /// emitted outside an extrinsic (Initialization/Finalization) and
+    /// for legacy ETL rows that never recorded it.
+    pub extrinsic_hash: Option<String>,
     /// Caller address.
     pub caller: Address,
     /// Input asset id.
@@ -76,6 +80,8 @@ pub struct V2Transfer {
     pub extrinsic_id: u32,
     /// Event index within the block (0-based, monotonic across all events).
     pub event_id: u32,
+    /// Hash of the originating extrinsic (`0x`-hex), if any.
+    pub extrinsic_hash: Option<String>,
     /// Sender address.
     pub from: Address,
     /// Recipient address.
@@ -127,6 +133,8 @@ pub struct V2FeeBurn {
     pub extrinsic_id: u32,
     /// Event index within the block (0-based).
     pub event_id: u32,
+    /// Hash of the originating extrinsic (`0x`-hex), if any.
+    pub extrinsic_hash: Option<String>,
     /// Discriminator: which `XorFee::*` variant produced this row.
     pub kind: FeeBurnKind,
     /// `FeeWithdrawn`: the account whose XOR was burned.
@@ -153,6 +161,8 @@ pub struct V2Bridge {
     pub extrinsic_id: u32,
     /// Event index within the block (0-based, monotonic across all events).
     pub event_id: u32,
+    /// Hash of the originating extrinsic (`0x`-hex), if any.
+    pub extrinsic_hash: Option<String>,
     /// Direction of the bridge event.
     pub direction: BridgeDirection,
     /// Network label (e.g. "Substrate: Liberland", "Parachain: Karura", "TON").

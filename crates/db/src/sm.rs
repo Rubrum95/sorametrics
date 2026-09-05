@@ -104,20 +104,20 @@ pub async fn set_error(pool: &PgPool, job_name: &str, message: &str) -> Result<(
 pub async fn insert_swap(pool: &PgPool, swap: &V2Swap) -> Result<UpsertOutcome, DbError> {
     let row = sqlx::query!(
         r#"
-        INSERT INTO sm.live_swaps (
+        INSERT INTO sm.swaps (
             block_height, extrinsic_id, event_id, block_timestamp,
             caller, input_asset_id, input_amount, output_asset_id, output_amount,
-            usd_value
+            usd_value, hash
         ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7, $8, $9,
-            $10
+            $10, $11
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
         "#,
         swap.block_height.0 as i64,
-        swap.extrinsic_id as i32,
+        swap.extrinsic_id.to_string(),
         swap.event_id as i32,
         swap.timestamp.0,
         swap.caller.0,
@@ -126,6 +126,7 @@ pub async fn insert_swap(pool: &PgPool, swap: &V2Swap) -> Result<UpsertOutcome, 
         swap.output_asset.0,
         swap.output_amount,
         swap.usd_value,
+        swap.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
     .await?;
@@ -148,20 +149,20 @@ pub async fn insert_transfer(
 ) -> Result<UpsertOutcome, DbError> {
     let row = sqlx::query!(
         r#"
-        INSERT INTO sm.live_transfers (
+        INSERT INTO sm.transfers (
             block_height, extrinsic_id, event_id, block_timestamp,
             from_address, to_address, asset_id, amount,
-            usd_value
+            usd_value, hash
         ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7, $8,
-            $9
+            $9, $10
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
         "#,
         transfer.block_height.0 as i64,
-        transfer.extrinsic_id as i32,
+        transfer.extrinsic_id.to_string(),
         transfer.event_id as i32,
         transfer.timestamp.0,
         transfer.from.0,
@@ -169,6 +170,7 @@ pub async fn insert_transfer(
         transfer.asset.0,
         transfer.amount,
         transfer.usd_value,
+        transfer.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
     .await?;
@@ -210,18 +212,18 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
     let direction: PgBridgeDirection = bridge.direction.into();
     let row = sqlx::query!(
         r#"
-        INSERT INTO sm.live_bridges (
+        INSERT INTO sm.bridges (
             block_height, extrinsic_id, event_id, block_timestamp,
-            direction, network, caller, asset_id, amount
+            direction, network, caller, asset_id, amount, hash
         ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8, $9
+            $5, $6, $7, $8, $9, $10
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
         "#,
         bridge.block_height.0 as i64,
-        bridge.extrinsic_id as i32,
+        bridge.extrinsic_id.to_string(),
         bridge.event_id as i32,
         bridge.timestamp.0,
         direction as PgBridgeDirection,
@@ -229,6 +231,7 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
         bridge.caller.0,
         bridge.asset.0,
         bridge.amount,
+        bridge.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
     .await?;
@@ -242,7 +245,7 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
 
 /// Counts rows in a live table for testing / freshness checks.
 pub async fn count_swaps(pool: &PgPool) -> Result<i64, DbError> {
-    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.live_swaps")
+    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.swaps")
         .fetch_one(pool)
         .await?;
     Ok(row.c.unwrap_or(0))
@@ -250,7 +253,7 @@ pub async fn count_swaps(pool: &PgPool) -> Result<i64, DbError> {
 
 /// Counts transfers.
 pub async fn count_transfers(pool: &PgPool) -> Result<i64, DbError> {
-    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.live_transfers")
+    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.transfers")
         .fetch_one(pool)
         .await?;
     Ok(row.c.unwrap_or(0))
@@ -258,7 +261,7 @@ pub async fn count_transfers(pool: &PgPool) -> Result<i64, DbError> {
 
 /// Counts bridge events.
 pub async fn count_bridges(pool: &PgPool) -> Result<i64, DbError> {
-    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.live_bridges")
+    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.bridges")
         .fetch_one(pool)
         .await?;
     Ok(row.c.unwrap_or(0))
@@ -300,24 +303,25 @@ pub async fn insert_fee_burn(pool: &PgPool, burn: &V2FeeBurn) -> Result<UpsertOu
 
     let row = sqlx::query!(
         r#"
-        INSERT INTO sm.live_fee_burns (
+        INSERT INTO sm.fee_events (
             block_height, extrinsic_id, event_id, block_timestamp,
-            kind, payer, referrer, amount
+            kind, payer, referrer, amount, hash
         ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8
+            $5, $6, $7, $8, $9
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
         "#,
         burn.block_height.0 as i64,
-        burn.extrinsic_id as i32,
+        burn.extrinsic_id.to_string(),
         burn.event_id as i32,
         burn.timestamp.0,
         kind as PgFeeBurnKind,
         burn.payer.0,
         referrer,
         burn.amount,
+        burn.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
     .await?;
@@ -331,10 +335,259 @@ pub async fn insert_fee_burn(pool: &PgPool, burn: &V2FeeBurn) -> Result<UpsertOu
 
 /// Counts fee-burn rows (both kinds).
 pub async fn count_fee_burns(pool: &PgPool) -> Result<i64, DbError> {
-    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.live_fee_burns")
+    let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.fee_events")
         .fetch_one(pool)
         .await?;
     Ok(row.c.unwrap_or(0))
+}
+
+// =============================================================
+// Batched inserts — one round-trip per event type per block.
+//
+// The live subscriber and backfill decode a whole block first, then
+// land each event family in a single UNNEST upsert (same pattern as
+// `ops migrate-legacy`). `rows_affected` counts the genuinely new rows
+// (ON CONFLICT skips don't count), which is exactly the "inserted"
+// number BlockDecodeStats wants.
+// =============================================================
+
+/// Batch-insert swaps. Returns the number of NEW rows.
+pub async fn insert_swaps_batch(pool: &PgPool, swaps: &[V2Swap]) -> Result<u64, DbError> {
+    if swaps.is_empty() {
+        return Ok(0);
+    }
+    let n = swaps.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut event_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut callers = Vec::with_capacity(n);
+    let mut in_assets = Vec::with_capacity(n);
+    let mut in_amounts = Vec::with_capacity(n);
+    let mut out_assets = Vec::with_capacity(n);
+    let mut out_amounts = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for s in swaps {
+        blocks.push(s.block_height.0 as i64);
+        ext_ids.push(s.extrinsic_id.to_string());
+        event_ids.push(s.event_id as i32);
+        tss.push(s.timestamp.0);
+        callers.push(s.caller.0.clone());
+        in_assets.push(s.input_asset.0.clone());
+        in_amounts.push(s.input_amount.clone());
+        out_assets.push(s.output_asset.0.clone());
+        out_amounts.push(s.output_amount.clone());
+        usds.push(s.usd_value.clone());
+        hashes.push(s.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.swaps (
+            block_height, extrinsic_id, event_id, block_timestamp,
+            caller, input_asset_id, input_amount, output_asset_id, output_amount,
+            usd_value, hash
+        )
+        SELECT b, e, ev, t, c, ia, iam, oa, oam, u, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
+            $6::text[], $7::numeric[], $8::text[], $9::numeric[],
+            $10::numeric[], $11::text[]
+        ) AS x(b, e, ev, t, c, ia, iam, oa, oam, u, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &event_ids,
+        &tss,
+        &callers,
+        &in_assets,
+        &in_amounts,
+        &out_assets,
+        &out_amounts,
+        &usds as &[Option<bigdecimal::BigDecimal>],
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// Batch-insert transfers. Returns the number of NEW rows.
+pub async fn insert_transfers_batch(
+    pool: &PgPool,
+    transfers: &[V2Transfer],
+) -> Result<u64, DbError> {
+    if transfers.is_empty() {
+        return Ok(0);
+    }
+    let n = transfers.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut event_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut froms = Vec::with_capacity(n);
+    let mut tos = Vec::with_capacity(n);
+    let mut assets = Vec::with_capacity(n);
+    let mut amounts = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for t in transfers {
+        blocks.push(t.block_height.0 as i64);
+        ext_ids.push(t.extrinsic_id.to_string());
+        event_ids.push(t.event_id as i32);
+        tss.push(t.timestamp.0);
+        froms.push(t.from.0.clone());
+        tos.push(t.to.0.clone());
+        assets.push(t.asset.0.clone());
+        amounts.push(t.amount.clone());
+        usds.push(t.usd_value.clone());
+        hashes.push(t.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.transfers (
+            block_height, extrinsic_id, event_id, block_timestamp,
+            from_address, to_address, asset_id, amount, usd_value, hash
+        )
+        SELECT b, e, ev, t, f, "to", a, am, u, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
+            $6::text[], $7::text[], $8::numeric[], $9::numeric[], $10::text[]
+        ) AS x(b, e, ev, t, f, "to", a, am, u, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &event_ids,
+        &tss,
+        &froms,
+        &tos,
+        &assets,
+        &amounts,
+        &usds as &[Option<bigdecimal::BigDecimal>],
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// Batch-insert bridge events. Returns the number of NEW rows.
+pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result<u64, DbError> {
+    if bridges.is_empty() {
+        return Ok(0);
+    }
+    let n = bridges.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut event_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut directions = Vec::with_capacity(n);
+    let mut networks = Vec::with_capacity(n);
+    let mut callers = Vec::with_capacity(n);
+    let mut assets = Vec::with_capacity(n);
+    let mut amounts = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for b in bridges {
+        blocks.push(b.block_height.0 as i64);
+        ext_ids.push(b.extrinsic_id.to_string());
+        event_ids.push(b.event_id as i32);
+        tss.push(b.timestamp.0);
+        directions.push(match b.direction {
+            BridgeDirection::In => "in".to_string(),
+            BridgeDirection::Out => "out".to_string(),
+        });
+        networks.push(b.network.clone());
+        callers.push(b.caller.0.clone());
+        assets.push(b.asset.0.clone());
+        amounts.push(b.amount.clone());
+        hashes.push(b.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.bridges (
+            block_height, extrinsic_id, event_id, block_timestamp,
+            direction, network, caller, asset_id, amount, hash
+        )
+        SELECT b, e, ev, t, d::sm.bridge_direction, nw, c, a, am, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
+            $6::text[], $7::text[], $8::text[], $9::numeric[], $10::text[]
+        ) AS x(b, e, ev, t, d, nw, c, a, am, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &event_ids,
+        &tss,
+        &directions,
+        &networks,
+        &callers,
+        &assets,
+        &amounts,
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// Batch-insert fee events. Returns the number of NEW rows.
+pub async fn insert_fee_burns_batch(pool: &PgPool, burns: &[V2FeeBurn]) -> Result<u64, DbError> {
+    if burns.is_empty() {
+        return Ok(0);
+    }
+    let n = burns.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut event_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut kinds = Vec::with_capacity(n);
+    let mut payers = Vec::with_capacity(n);
+    let mut referrers: Vec<Option<String>> = Vec::with_capacity(n);
+    let mut amounts = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for f in burns {
+        blocks.push(f.block_height.0 as i64);
+        ext_ids.push(f.extrinsic_id.to_string());
+        event_ids.push(f.event_id as i32);
+        tss.push(f.timestamp.0);
+        kinds.push(match f.kind {
+            FeeBurnKind::FeeWithdrawn => "fee_withdrawn".to_string(),
+            FeeBurnKind::ReferrerRewarded => "referrer_rewarded".to_string(),
+        });
+        payers.push(f.payer.0.clone());
+        referrers.push(f.referrer.as_ref().map(|a| a.0.clone()));
+        amounts.push(f.amount.clone());
+        hashes.push(f.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.fee_events (
+            block_height, extrinsic_id, event_id, block_timestamp,
+            kind, payer, referrer, amount, hash
+        )
+        SELECT b, e, ev, t, k::sm.fee_burn_kind, p, r, am, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
+            $6::text[], $7::text[], $8::numeric[], $9::text[]
+        ) AS x(b, e, ev, t, k, p, r, am, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &event_ids,
+        &tss,
+        &kinds,
+        &payers,
+        &referrers as &[Option<String>],
+        &amounts,
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
 }
 
 // Suppress unused-imports for the public type aliases that downstream
@@ -374,6 +627,7 @@ mod tests {
             block_height: BlockHeight(block),
             extrinsic_id: 1,
             event_id: 4,
+            extrinsic_hash: Some(format!("0x{}", "ab".repeat(32))),
             caller: Address::new("cnXXX"),
             input_asset: AssetId::new(
                 "0x0200000000000000000000000000000000000000000000000000000000000000",
@@ -408,6 +662,7 @@ mod tests {
             block_height: BlockHeight(42),
             extrinsic_id: 2,
             event_id: 5,
+            extrinsic_hash: None,
             from: Address::new("from1"),
             to: Address::new("to1"),
             asset: AssetId::new("xor"),
@@ -433,6 +688,7 @@ mod tests {
             block_height: BlockHeight(99),
             extrinsic_id: 3,
             event_id: 6,
+            extrinsic_hash: Some(format!("0x{}", "cd".repeat(32))),
             direction: BridgeDirection::Out,
             network: "Substrate: Liberland".to_string(),
             caller: Address::new("cnAAA"),

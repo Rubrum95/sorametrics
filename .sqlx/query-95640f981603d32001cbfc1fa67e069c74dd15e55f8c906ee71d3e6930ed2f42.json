@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.transfers (\n                block_height, extrinsic_id, event_id, block_timestamp,\n                from_address, to_address, asset_id, amount, usd_value, hash, origin\n            )\n            SELECT b, e, 0, t, f, \"to\", a, am, u, h, 'legacy'\n            FROM UNNEST(\n                $1::bigint[], $2::text[], $3::timestamptz[], $4::text[],\n                $5::text[], $6::text[], $7::numeric[], $8::numeric[], $9::text[]\n            ) AS x(b, e, t, f, \"to\", a, am, u, h)\n            ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "NumericArray",
+        "NumericArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "95640f981603d32001cbfc1fa67e069c74dd15e55f8c906ee71d3e6930ed2f42"
+}

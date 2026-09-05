@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 sorametrics-core.workspace = true
+hex.workspace = true
 sorametrics-db.workspace = true
 sorametrics-telemetry.workspace = true
 tokio.workspace = true
@@ -35,4 +36,6 @@ dotenvy.workspace = true
 clap.workspace = true
 
 [dev-dependencies]
+socketioxide = "0.18"
+sorametrics-telemetry.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }

@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(*) AS c FROM sm.live_swaps",
+  "query": "SELECT COUNT(*)::bigint AS \"c!\" FROM sm.asset_registry",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "c",
+        "name": "c!",
         "type_info": "Int8"
       }
     ],
@@ -16,5 +16,5 @@
       null
     ]
   },
-  "hash": "3d3737b1efe6ab9260935649228f5536980ddaf23fe2e9cea4aedd7b7e7193bb"
+  "hash": "0f475375172845fd152e8c845fc3759ca62a070ffb348480e7388019dac0d528"
 }

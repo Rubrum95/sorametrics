@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            block_timestamp,\n            caller,\n            input_asset_id,\n            input_amount  AS \"input_amount!: BigDecimal\",\n            output_asset_id,\n            output_amount AS \"output_amount!: BigDecimal\",\n            usd_value     AS \"usd_value: BigDecimal\"\n        FROM sm.live_swaps\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $1 OFFSET $2\n        ",
+  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            caller,\n            input_asset_id,\n            input_amount  AS \"input_amount!: BigDecimal\",\n            output_asset_id,\n            output_amount AS \"output_amount!: BigDecimal\",\n            usd_value     AS \"usd_value: BigDecimal\"\n        FROM sm.swaps\n        WHERE caller = $1 AND (block_height, event_id) < ($2, $3)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $4 OFFSET $5\n        ",
   "describe": {
     "columns": [
       {
@@ -11,7 +11,7 @@
       {
         "ordinal": 1,
         "name": "extrinsic_id",
-        "type_info": "Int4"
+        "type_info": "Text"
       },
       {
         "ordinal": 2,
@@ -20,42 +20,50 @@
       },
       {
         "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "block_timestamp",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "caller",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "input_asset_id",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "input_amount!: BigDecimal",
         "type_info": "Numeric"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "output_asset_id",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "output_amount!: BigDecimal",
         "type_info": "Numeric"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "usd_value: BigDecimal",
         "type_info": "Numeric"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Int8",
+        "Int4",
         "Int8",
         "Int8"
       ]
@@ -64,6 +72,7 @@
       false,
       false,
       false,
+      true,
       false,
       false,
       false,
@@ -73,5 +82,5 @@
       true
     ]
   },
-  "hash": "06ad7654d6b2a32acde9abb2ffbe5d3876f35d6677905fa91c82779f08981b65"
+  "hash": "d266678d43dc64eaa166ebf784d190ef1ae95404f024c09d7f0505fa6453bd43"
 }

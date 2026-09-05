@@ -1,80 +1,105 @@
 //! Small helpers reused across handlers.
 
 use crate::error::ApiError;
+use sorametrics_core::chain::{ss58_decode, ss58_encode_sora, Ss58Prefix};
 
 /// Validates and canonicalises a SORA account address path parameter.
 ///
-/// Accepted input: `0x`-prefixed (with or without prefix) lowercase or
-/// uppercase 64 hex chars (= 32 bytes). Anything else → `400`.
+/// Accepted input:
+/// - SS58 with the SORA prefix (`cn…`) — checksum-verified.
+/// - `0x`-prefixed (prefix optional) 64-hex-char public key — converted.
 ///
-/// Canonical output: lowercase, with leading `0x`. This matches the
-/// shape the indexer wrote into `sm.live_*` (see
-/// `substrate::decoder::bytes32_hex`), so SQL equality comparisons
-/// against `caller` / `from_address` / `to_address` / `payer` columns
-/// are direct (no `LOWER()` wrapper needed).
+/// Canonical output: SS58 (SORA prefix 69). This matches what the
+/// ingest path stores in `sm.live_*` since Bloque 1, so SQL equality
+/// against `caller` / `from_address` / `to_address` / `payer` is direct.
 pub fn validate_address(raw: &str) -> Result<String, ApiError> {
+    // Hex form: strip 0x, 64 hex chars → encode to SS58.
     let body = raw.strip_prefix("0x").unwrap_or(raw);
-    if body.len() != 64 {
-        return Err(ApiError::BadRequest(format!(
-            "address must be 32 bytes hex (got {} chars after stripping 0x)",
-            body.len()
-        )));
+    if body.len() == 64 && body.chars().all(|c| c.is_ascii_hexdigit()) {
+        let mut account = [0u8; 32];
+        // len checked above; decode cannot fail on pure hex of even length.
+        hex::decode_to_slice(body.to_ascii_lowercase(), &mut account)
+            .map_err(|_| ApiError::BadRequest("address contains non-hex characters".into()))?;
+        return Ok(ss58_encode_sora(&account));
     }
-    if !body.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(ApiError::BadRequest(
-            "address contains non-hex characters".into(),
-        ));
+
+    // SS58 form: checksum + prefix must both hold.
+    match ss58_decode(raw) {
+        Ok((_, prefix)) if prefix == Ss58Prefix::SORA => Ok(raw.to_string()),
+        Ok((_, prefix)) => Err(ApiError::BadRequest(format!(
+            "address has SS58 prefix {} — expected SORA (69)",
+            prefix.raw()
+        ))),
+        Err(e) => Err(ApiError::BadRequest(format!(
+            "address is neither 32-byte hex nor valid SORA SS58: {e}"
+        ))),
     }
-    let mut canonical = String::with_capacity(2 + 64);
-    canonical.push_str("0x");
-    for ch in body.chars() {
-        canonical.push(ch.to_ascii_lowercase());
-    }
-    Ok(canonical)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // Same triple-sourced ground-truth pair as core::chain tests.
+    const REAL_HEX: &str = "b6952251ddff222bb7e97bc725439bd1ca33105e02114680be1a3712cde62a0f";
+    const REAL_SS58: &str = "cnVcgVYJqhyuQohhYrZraVs85dujMDCBsBhMj5z8QPHq91C84";
+
     #[test]
-    fn accepts_lowercase_with_prefix() {
-        let s = format!("0x{}", "ab".repeat(32));
-        let out = validate_address(&s).unwrap();
-        assert_eq!(out, s);
+    fn accepts_ss58_passthrough() {
+        assert_eq!(validate_address(REAL_SS58).unwrap(), REAL_SS58);
     }
 
     #[test]
-    fn accepts_uppercase_lowercased() {
-        let s = format!("0x{}", "AB".repeat(32));
-        let out = validate_address(&s).unwrap();
-        assert_eq!(out, format!("0x{}", "ab".repeat(32)));
+    fn converts_hex_with_prefix_to_ss58() {
+        let s = format!("0x{REAL_HEX}");
+        assert_eq!(validate_address(&s).unwrap(), REAL_SS58);
     }
 
     #[test]
-    fn accepts_no_prefix() {
-        let s = "ab".repeat(32);
-        let out = validate_address(&s).unwrap();
-        assert_eq!(out, format!("0x{}", "ab".repeat(32)));
+    fn converts_hex_without_prefix_to_ss58() {
+        assert_eq!(validate_address(REAL_HEX).unwrap(), REAL_SS58);
     }
 
     #[test]
-    fn rejects_short_address() {
-        let err = validate_address("0xabcd").unwrap_err();
+    fn converts_uppercase_hex() {
+        let s = format!("0x{}", REAL_HEX.to_ascii_uppercase());
+        assert_eq!(validate_address(&s).unwrap(), REAL_SS58);
+    }
+
+    #[test]
+    fn rejects_corrupted_ss58() {
+        let mut s = REAL_SS58.to_string();
+        let last = s.pop().unwrap();
+        s.push(if last == '4' { '5' } else { '4' });
+        assert!(matches!(
+            validate_address(&s).unwrap_err(),
+            ApiError::BadRequest(_)
+        ));
+    }
+
+    #[test]
+    fn rejects_foreign_prefix() {
+        // Same pubkey, generic Substrate prefix 42 — decodes fine but is
+        // not a SORA address; must be rejected, not silently re-encoded.
+        let generic = {
+            use sorametrics_core::chain::{ss58_encode, Ss58Prefix};
+            let mut account = [0u8; 32];
+            hex::decode_to_slice(REAL_HEX, &mut account).unwrap();
+            ss58_encode(&account, Ss58Prefix::new(42).unwrap())
+        };
+        let err = validate_address(&generic).unwrap_err();
         assert!(matches!(err, ApiError::BadRequest(_)));
     }
 
     #[test]
-    fn rejects_long_address() {
-        let s = format!("0x{}", "a".repeat(65));
-        let err = validate_address(&s).unwrap_err();
-        assert!(matches!(err, ApiError::BadRequest(_)));
-    }
-
-    #[test]
-    fn rejects_non_hex() {
-        let s = format!("0x{}", "z".repeat(64));
-        let err = validate_address(&s).unwrap_err();
-        assert!(matches!(err, ApiError::BadRequest(_)));
+    fn rejects_short_and_garbage() {
+        assert!(matches!(
+            validate_address("0xabcd").unwrap_err(),
+            ApiError::BadRequest(_)
+        ));
+        assert!(matches!(
+            validate_address("not-an-address").unwrap_err(),
+            ApiError::BadRequest(_)
+        ));
     }
 }

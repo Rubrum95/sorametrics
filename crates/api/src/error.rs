@@ -54,6 +54,11 @@ pub enum ApiError {
     /// Resource not found (e.g., unknown asset id).
     #[error("not found: {0}")]
     NotFound(String),
+
+    /// Server-side invariant violation (a bug, not a client error).
+    /// Details stay in logs.
+    #[error("internal error: {0}")]
+    Internal(String),
 }
 
 impl ApiError {
@@ -62,6 +67,7 @@ impl ApiError {
             Self::Database(_) => ErrorCode::Database,
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::NotFound(_) => ErrorCode::NotFound,
+            Self::Internal(_) => ErrorCode::Internal,
         }
     }
 
@@ -71,6 +77,8 @@ impl ApiError {
             Self::Database(_) => "database error".to_string(),
             Self::BadRequest(msg) => msg.clone(),
             Self::NotFound(msg) => msg.clone(),
+            // Same policy as Database: internals stay in logs.
+            Self::Internal(_) => "internal error".to_string(),
         }
     }
 }

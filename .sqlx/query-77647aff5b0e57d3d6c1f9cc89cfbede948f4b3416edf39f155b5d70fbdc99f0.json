@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(amount), 0)::numeric AS \"checksum!\"\n                   FROM sm.transfers WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bucket!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "cnt!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "checksum!",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "77647aff5b0e57d3d6c1f9cc89cfbede948f4b3416edf39f155b5d70fbdc99f0"
+}

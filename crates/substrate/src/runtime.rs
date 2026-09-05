@@ -1,7 +1,7 @@
 //! Generated SORA mainnet runtime types.
 //!
 //! The `sora` module is produced by `subxt` from the pinned metadata at
-//! `crates/ingest/metadata/sora-mainnet.scale`. See `metadata/README.md`
+//! `crates/substrate/metadata/sora-mainnet.scale`. See `metadata/README.md`
 //! for regeneration instructions.
 //!
 //! All event variants and storage entries we use are reachable through:

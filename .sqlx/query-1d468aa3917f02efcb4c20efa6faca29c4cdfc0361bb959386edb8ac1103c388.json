@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(*) AS c FROM sm.live_bridges",
+  "query": "SELECT COUNT(*) AS c FROM sm.fee_events",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       null
     ]
   },
-  "hash": "7d8820e786c5e4774e593f048bdb2edb53f53d148bcb9a8738beb1c453b6a376"
+  "hash": "1d468aa3917f02efcb4c20efa6faca29c4cdfc0361bb959386edb8ac1103c388"
 }

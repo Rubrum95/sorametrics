@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO sm.live_fee_burns (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            kind, payer, referrer, amount\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
+  "query": "\n        INSERT INTO sm.fee_events (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            kind, payer, referrer, amount, hash\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8, $9\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
   "describe": {
     "columns": [
       {
@@ -12,7 +12,7 @@
     "parameters": {
       "Left": [
         "Int8",
-        "Int4",
+        "Text",
         "Int4",
         "Timestamptz",
         {
@@ -28,12 +28,13 @@
         },
         "Text",
         "Text",
-        "Numeric"
+        "Numeric",
+        "Text"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "7e5e0d3ad8d8e73770df87c12ebe1f71b1949b0df64efa50d81f8f8eaaa94187"
+  "hash": "9766fc3119011aa7ae84eed33dd786f60cacba7a0215535ad1a1e97c7453e1c0"
 }

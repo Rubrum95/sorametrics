@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO sm.live_bridges (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            direction, network, caller, asset_id, amount\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8, $9\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
+  "query": "\n        INSERT INTO sm.bridges (\n            block_height, extrinsic_id, event_id, block_timestamp,\n            direction, network, caller, asset_id, amount, hash\n        ) VALUES (\n            $1, $2, $3, $4,\n            $5, $6, $7, $8, $9, $10\n        )\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        RETURNING block_height\n        ",
   "describe": {
     "columns": [
       {
@@ -12,7 +12,7 @@
     "parameters": {
       "Left": [
         "Int8",
-        "Int4",
+        "Text",
         "Int4",
         "Timestamptz",
         {
@@ -29,12 +29,13 @@
         "Text",
         "Text",
         "Text",
-        "Numeric"
+        "Numeric",
+        "Text"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "eea64976cde39c7451f1a8a24584df59d012c56194f9bcca0d81acc301cfe1dc"
+  "hash": "16d285d7cf2039a813a86ecb7ed9d5ca07c1f443640953da46f6b3393a4ee023"
 }

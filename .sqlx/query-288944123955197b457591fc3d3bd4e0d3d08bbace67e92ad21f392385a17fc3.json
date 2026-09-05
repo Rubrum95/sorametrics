@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT COUNT(*) AS c FROM sm.live_fee_burns",
+  "query": "SELECT MAX(block_timestamp) FROM sm.swaps",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "c",
-        "type_info": "Int8"
+        "name": "max",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -16,5 +16,5 @@
       null
     ]
   },
-  "hash": "6164c9d1471593455f6c988499996cf3ffd3e0e83cffa66b5bc5c8ce94fa036d"
+  "hash": "288944123955197b457591fc3d3bd4e0d3d08bbace67e92ad21f392385a17fc3"
 }

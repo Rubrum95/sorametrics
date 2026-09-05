@@ -15,6 +15,8 @@
 #![deny(rust_2018_idioms)]
 
 use anyhow::{Context, Result};
+
+mod etl;
 use clap::{Parser, Subcommand};
 use sorametrics_db::{connect as db_connect, DbConfig};
 use sorametrics_substrate::{decode_block_events, BlockDecodeStats};
@@ -85,6 +87,32 @@ enum Command {
         )]
         url: String,
     },
+
+    /// One-way ETL from the legacy SoraMetrics PostgreSQL into the v33
+    /// schema. Read-only on the source, idempotent + resumable on the
+    /// target (keyset cursors in `sm.etl_state`). Ends with a MANDATORY
+    /// reconciliation (counts + exact sums per block bucket); the
+    /// command fails if any bucket mismatches.
+    MigrateLegacy {
+        /// Legacy database URL (read-only usage).
+        #[arg(long, env = "LEGACY_DATABASE_URL")]
+        source_url: String,
+
+        /// Comma-separated table list. Default: all.
+        #[arg(
+            long,
+            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history"
+        )]
+        tables: String,
+
+        /// Rows per batch.
+        #[arg(long, default_value_t = 10_000)]
+        batch_size: i64,
+
+        /// Skip reconciliation (NOT recommended — mandatory project step).
+        #[arg(long, default_value_t = false)]
+        skip_reconcile: bool,
+    },
 }
 
 #[tokio::main]
@@ -102,6 +130,30 @@ async fn main() -> Result<()> {
             rpc,
         } => backfill(from, to, concurrency, &rpc).await,
         Command::LoadAssetRegistry { url } => load_asset_registry(&url).await,
+        Command::MigrateLegacy {
+            source_url,
+            tables,
+            batch_size,
+            skip_reconcile,
+        } => {
+            let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
+            let target = db_connect(&DbConfig {
+                url: db_url,
+                ..DbConfig::default()
+            })
+            .await
+            .context("connecting to target PostgreSQL")?;
+            etl::migrate_legacy(
+                target,
+                etl::EtlOpts {
+                    source_url,
+                    tables: tables.split(',').map(|s| s.trim().to_string()).collect(),
+                    batch_size,
+                    skip_reconcile,
+                },
+            )
+            .await
+        }
     }
 }
 
@@ -147,7 +199,7 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         .await
         .with_context(|| format!("fetching block at {hash:?}"))?;
 
-    let stats = decode_block_events(&client, &block, &db)
+    let stats = decode_block_events(&block, &db)
         .await
         .with_context(|| format!("decoding block at height {height}"))?;
 
@@ -324,7 +376,7 @@ async fn process_one_block(
         .at(hash)
         .await
         .with_context(|| format!("fetching block at height {height} ({hash:?})"))?;
-    decode_block_events(client, &block, db)
+    decode_block_events(&block, db)
         .await
         .with_context(|| format!("decoding block {height}"))
 }

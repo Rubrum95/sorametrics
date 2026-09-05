@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.fee_burns_aggregate (\n                block_height, ts, fees_paid_xor, ref_paid_xor, ref_redirected_xor,\n                remint_xor_burned, remint_val_burned, remint_kusd_burned, remint_tbcd_burned\n            )\n            SELECT b, t, c1, c2, c3, c4, c5, c6, c7\n            FROM UNNEST(\n                $1::bigint[], $2::bigint[], $3::numeric[], $4::numeric[], $5::numeric[],\n                $6::numeric[], $7::numeric[], $8::numeric[], $9::numeric[]\n            ) AS x(b, t, c1, c2, c3, c4, c5, c6, c7)\n            ON CONFLICT (block_height) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int8Array",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f670a5be0c50f35345fb9dcace223112a52f9da0498036a2cdc4bbcab6941cf6"
+}

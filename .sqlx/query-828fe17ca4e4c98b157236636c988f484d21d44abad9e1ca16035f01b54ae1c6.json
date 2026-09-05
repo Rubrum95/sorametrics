@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            block_timestamp,\n            kind::text AS \"kind!\",\n            payer,\n            referrer,\n            amount AS \"amount!: BigDecimal\"\n        FROM sm.live_fee_burns\n        WHERE payer = $1\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $2 OFFSET $3\n        ",
+  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            kind::text AS \"kind!\",\n            payer,\n            referrer,\n            amount AS \"amount!: BigDecimal\"\n        FROM sm.fee_events\n        WHERE (block_height, event_id) < ($1, $2)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
   "describe": {
     "columns": [
       {
@@ -11,7 +11,7 @@
       {
         "ordinal": 1,
         "name": "extrinsic_id",
-        "type_info": "Int4"
+        "type_info": "Text"
       },
       {
         "ordinal": 2,
@@ -20,33 +20,39 @@
       },
       {
         "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
         "name": "block_timestamp",
         "type_info": "Timestamptz"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "kind!",
         "type_info": "Text"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "payer",
         "type_info": "Text"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "referrer",
         "type_info": "Text"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "amount!: BigDecimal",
         "type_info": "Numeric"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
+        "Int8",
+        "Int4",
         "Int8",
         "Int8"
       ]
@@ -55,6 +61,7 @@
       false,
       false,
       false,
+      true,
       false,
       null,
       false,
@@ -62,5 +69,5 @@
       false
     ]
   },
-  "hash": "e649872f952c9a864c3d8491b0d08453f9ed709197c556b3906ec875802b33a1"
+  "hash": "828fe17ca4e4c98b157236636c988f484d21d44abad9e1ca16035f01b54ae1c6"
 }

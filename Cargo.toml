@@ -47,6 +47,9 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 # Crypto / encoding
 hex = "0.4"
+# SS58 address codec (base58 + blake2b-512 checksum). Used by core::chain.
+bs58 = "0.5"
+blake2 = "0.10"
 # Money / fixed-point (small values: USD prices, sub-1e28 amounts)
 rust_decimal = { version = "1", features = ["serde-with-arbitrary-precision"] }
 # Arbitrary-precision decimal for raw on-chain amounts. SORA pre-denomination

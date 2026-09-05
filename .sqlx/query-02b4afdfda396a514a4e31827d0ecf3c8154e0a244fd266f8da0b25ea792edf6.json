@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.asset_registry (asset_id, symbol, name, decimals, logo, updated_at)\n            VALUES ($1, $2, NULLIF($3, ''), $4, $5, NOW())\n            ON CONFLICT (asset_id) DO UPDATE\n                SET symbol = EXCLUDED.symbol,\n                    name = COALESCE(EXCLUDED.name, sm.asset_registry.name),\n                    decimals = EXCLUDED.decimals,\n                    logo = COALESCE(EXCLUDED.logo, sm.asset_registry.logo),\n                    updated_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Int2",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "02b4afdfda396a514a4e31827d0ecf3c8154e0a244fd266f8da0b25ea792edf6"
+}

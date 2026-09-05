@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO ts.price_history (asset_id, hour_bucket, price_usd, sample_count, origin)\n            SELECT a, b, p, s, 'legacy'\n            FROM UNNEST($1::text[], $2::bigint[], $3::float8[], $4::int[]) AS x(a, b, p, s)\n            ON CONFLICT (asset_id, hour_bucket) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8Array",
+        "Float8Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b60974eef7bd6f2c6037418d534ef3e5aab16c02d60e0590485568ef26e829c"
+}

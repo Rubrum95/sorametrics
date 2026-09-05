@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(fees_paid_xor), 0)::numeric AS \"checksum!\"\n                   FROM sm.fee_burns_aggregate GROUP BY 1 ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bucket!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "cnt!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "checksum!",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e2c54efb89c2ee69ec86e2b9f86ec4dc42efeb1d4d33734b0524a8290e25f972"
+}

@@ -32,16 +32,26 @@ When Phase 1.2 expands to other event types, regenerate with the new pallet list
 ```bash
 # Requires: cargo install subxt-cli  (matching the subxt crate version)
 
-cd crates/ingest/metadata
+cd crates/substrate/metadata
 
 subxt metadata \
-  --url wss://ws.mof.sora.org \
+  --url wss://mof2.sora.org --version 15 \
   --pallets "System,Timestamp,Assets,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig" \
   --format bytes \
   > sora-mainnet.scale
 ```
 
 Then run `cargo build` — the subxt macro will pick up the new file.
+
+Notes (2026-08-10, spec 130 refresh):
+
+- `--version 15` is required: the node now serves metadata v16 by default
+  and subxt 0.38 only understands up to v15.
+- `wss://ws.mof.sora.org` rejects external connections since ~2026-06;
+  use `wss://mof2.sora.org` for any probe or regeneration from the Mac.
+- `sora-mainnet.scale.bak.spec124` is the previous pin (runtime 4.8.3),
+  kept for diffing. The 9-pallet subset compiled unchanged against
+  spec 130 — none of our decoded events changed shape in 4.8.5–4.8.8.
 
 ## Drift detection
 
@@ -51,7 +61,7 @@ the pinned metadata:
 
 ```bash
 subxt compatibility \
-  --url wss://ws.mof.sora.org \
+  --url wss://mof2.sora.org --version 15 \
   --metadata sora-mainnet.scale \
   --pallets-only
 ```

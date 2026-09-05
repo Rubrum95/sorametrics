@@ -21,7 +21,7 @@ use crate::runtime::sora;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
-    insert_bridge, insert_fee_burn, insert_swap, insert_transfer, UpsertOutcome,
+    insert_bridges_batch, insert_fee_burns_batch, insert_swaps_batch, insert_transfers_batch,
 };
 use sqlx::PgPool;
 use subxt::blocks::Block;
@@ -68,49 +68,82 @@ impl BlockDecodeStats {
 }
 
 /// Errors surfaced by [`decode_block_events`].
+///
+/// The subxt error is boxed for the same reason as in
+/// `decoder::DecodeError`: `subxt::Error` is large enough to trip
+/// `clippy::result_large_err` on every sync function returning this.
 #[derive(Debug, Error)]
 pub enum BlockProcessError {
     /// Subxt-level error fetching block components or events.
     #[error("subxt: {0}")]
-    Subxt(#[from] subxt::Error),
+    Subxt(#[source] Box<subxt::Error>),
 
     /// DB error during insert.
     #[error("db: {0}")]
     Db(#[from] sorametrics_db::DbError),
 }
 
+impl From<subxt::Error> for BlockProcessError {
+    fn from(e: subxt::Error) -> Self {
+        Self::Subxt(Box::new(e))
+    }
+}
+
 /// Process a single finalized block: fetch its timestamp + events,
 /// run all decoders in priority order, persist matches.
+///
+/// Two-phase: decode the whole block into per-type vectors first, then
+/// land each family in ONE batched UPSERT (one round-trip per type per
+/// block instead of one per event — the difference dominates backfill
+/// throughput).
 ///
 /// Returns per-decoder counters. Decoder-internal failures (one bad
 /// event) are logged at `warn` and skipped, NOT bubbled up — a single
 /// malformed event must not stop the whole block.
 pub async fn decode_block_events(
-    client: &OnlineClient<SubstrateConfig>,
     block: &Block<SubstrateConfig, OnlineClient<SubstrateConfig>>,
     db: &PgPool,
 ) -> Result<BlockDecodeStats, BlockProcessError> {
     let height = BlockHeight(block.number().into());
-    let block_timestamp = fetch_block_timestamp(client, block).await?;
 
     let extrinsics = block.extrinsics().await?;
+    let block_timestamp = timestamp_from_inherent(&extrinsics, height)?;
     let events = block.events().await?;
     let extrinsics_len = extrinsics.len() as u32;
+    // Extrinsic hashes by in-block index, for `ApplyExtrinsic(i)` events.
+    // Collected once from the already-fetched body — no extra RPC.
+    let extrinsic_hashes: Vec<[u8; 32]> = extrinsics.iter().map(|ext| ext.hash().0).collect();
     let mut stats = BlockDecodeStats::default();
-    let mut event_id: u32 = 0;
+    let mut events_seen: u32 = 0;
 
+    let mut swaps = Vec::new();
+    let mut transfers = Vec::new();
+    let mut bridges = Vec::new();
+    let mut fee_burns = Vec::new();
+
+    // Phase 1: decode.
     for ev in events.iter() {
         // events.iter() yields Result<_, subxt_core::Error>; bridge through
         // the top-level subxt::Error for a uniform conversion.
         let ev = ev.map_err(subxt::Error::from)?;
 
+        let extrinsic_hash = match ev.phase() {
+            Phase::ApplyExtrinsic(i) => extrinsic_hashes.get(i as usize).copied(),
+            Phase::Initialization | Phase::Finalization => None,
+        };
+
         let coords = EventCoords {
             block_height: height,
             block_timestamp,
             extrinsic_id: extrinsic_index_from_phase(ev.phase(), extrinsics_len),
-            event_id,
+            // The event's own position in the block event list, as
+            // reported by subxt — the PK component documented in
+            // `core::sora_v2` (not a locally maintained counter, which
+            // could drift from it if subxt ever skipped an entry).
+            event_id: ev.index(),
+            extrinsic_hash,
         };
-        event_id += 1;
+        events_seen += 1;
 
         // Dispatch in priority order. After a hit we `continue` so we don't
         // run subsequent decoders on the same event (they'd all return
@@ -118,10 +151,7 @@ pub async fn decode_block_events(
         // string compares).
         match decode_swap(&ev, coords) {
             Ok(Some(swap)) => {
-                stats.decoded_swaps += 1;
-                if matches!(insert_swap(db, &swap).await?, UpsertOutcome::Inserted) {
-                    stats.inserted_swaps += 1;
-                }
+                swaps.push(swap);
                 continue;
             }
             Ok(None) => {}
@@ -135,13 +165,7 @@ pub async fn decode_block_events(
 
         match decode_transfer(&ev, coords) {
             Ok(Some(transfer)) => {
-                stats.decoded_transfers += 1;
-                if matches!(
-                    insert_transfer(db, &transfer).await?,
-                    UpsertOutcome::Inserted
-                ) {
-                    stats.inserted_transfers += 1;
-                }
+                transfers.push(transfer);
                 continue;
             }
             Ok(None) => {}
@@ -155,10 +179,7 @@ pub async fn decode_block_events(
 
         match decode_bridge(&ev, coords) {
             Ok(Some(bridge)) => {
-                stats.decoded_bridges += 1;
-                if matches!(insert_bridge(db, &bridge).await?, UpsertOutcome::Inserted) {
-                    stats.inserted_bridges += 1;
-                }
+                bridges.push(bridge);
                 continue;
             }
             Ok(None) => {}
@@ -172,13 +193,7 @@ pub async fn decode_block_events(
 
         match decode_fee_burn(&ev, coords) {
             Ok(Some(fee_burn)) => {
-                stats.decoded_fee_burns += 1;
-                if matches!(
-                    insert_fee_burn(db, &fee_burn).await?,
-                    UpsertOutcome::Inserted
-                ) {
-                    stats.inserted_fee_burns += 1;
-                }
+                fee_burns.push(fee_burn);
                 continue;
             }
             Ok(None) => {}
@@ -191,26 +206,43 @@ pub async fn decode_block_events(
         }
     }
 
-    stats.events = event_id;
+    // Phase 2: one batched upsert per family.
+    stats.decoded_swaps = swaps.len() as u32;
+    stats.decoded_transfers = transfers.len() as u32;
+    stats.decoded_bridges = bridges.len() as u32;
+    stats.decoded_fee_burns = fee_burns.len() as u32;
+    stats.inserted_swaps = insert_swaps_batch(db, &swaps).await? as u32;
+    stats.inserted_transfers = insert_transfers_batch(db, &transfers).await? as u32;
+    stats.inserted_bridges = insert_bridges_batch(db, &bridges).await? as u32;
+    stats.inserted_fee_burns = insert_fee_burns_batch(db, &fee_burns).await? as u32;
+
+    stats.events = events_seen;
     Ok(stats)
 }
 
-/// Read the wall-clock timestamp from `Timestamp::Now` storage at the
-/// given block. Returns Unix epoch (1970-01-01T00:00:00Z) if absent
-/// (which would only happen on a chain that has not yet executed a
-/// `timestamp.set` extrinsic — i.e., genesis-only).
-async fn fetch_block_timestamp(
-    client: &OnlineClient<SubstrateConfig>,
-    block: &Block<SubstrateConfig, OnlineClient<SubstrateConfig>>,
+/// Read the wall-clock timestamp from the block's own `timestamp.set`
+/// inherent — no extra RPC round-trip (the extrinsics are already
+/// fetched for phase mapping). Every non-genesis Substrate block
+/// carries exactly one; its absence is an error, not a default.
+///
+/// This replaces the earlier `Timestamp::Now` storage fetch, which cost
+/// one additional RPC per block — irrelevant live, dominant in backfill.
+fn timestamp_from_inherent(
+    extrinsics: &subxt::blocks::Extrinsics<SubstrateConfig, OnlineClient<SubstrateConfig>>,
+    height: BlockHeight,
 ) -> Result<Timestamp, BlockProcessError> {
-    let now_query = sora::storage().timestamp().now();
-    let now_ms: u64 = client
-        .storage()
-        .at(block.hash())
-        .fetch(&now_query)
-        .await?
-        .unwrap_or(0);
-    Ok(timestamp_from_millis(now_ms))
+    for ext in extrinsics.iter() {
+        match ext.as_extrinsic::<sora::timestamp::calls::types::Set>() {
+            Ok(Some(set)) => return Ok(timestamp_from_millis(set.now)),
+            Ok(None) => continue,
+            // A decode failure of an unrelated extrinsic must not mask
+            // the timestamp lookup; only fail if we never find `set`.
+            Err(_) => continue,
+        }
+    }
+    Err(BlockProcessError::from(subxt::Error::Other(format!(
+        "block {height} has no timestamp.set inherent"
+    ))))
 }
 
 /// Maps a `Phase` to a deterministic extrinsic index.
