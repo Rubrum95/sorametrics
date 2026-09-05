@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT TO_CHAR(block_timestamp AT TIME ZONE $2, $3) AS \"bucket!\",\n               SUM(CASE WHEN usd_value > 0 AND usd_value <= $4 AND amount_xor <= $5 THEN usd_value ELSE 0 END) AS \"total_usd: BigDecimal\"\n        FROM sm.fees\n        WHERE block_timestamp >= $1\n        GROUP BY 1\n        ORDER BY 1 ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bucket!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_usd: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Numeric",
+        "Numeric"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "6cdbf25214acda013a1a0052b83ebc140fdc3db4dc7be5635db8ce237ce5b956"
+}

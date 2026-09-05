@@ -16,7 +16,7 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2FeeBurn, V2Swap, V2Transfer,
+    BridgeDirection, FeeBurnKind, V2Bridge, V2Fee, V2FeeBurn, V2Swap, V2Transfer,
 };
 use sqlx::PgPool;
 
@@ -571,6 +571,53 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         &amounts,
         &usds as &[Option<bigdecimal::BigDecimal>],
         &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+// =============================================================
+// fees (per-extrinsic network fee, live rows)
+// =============================================================
+
+/// Batch-insert live network fees into `sm.fees`. `legacy_id` is
+/// `"<block>-<extrinsic index>"`, `amount_xor` is human XOR (raw planck
+/// / 1e18, the legacy unit), `origin = 'live'`. Idempotent on the id.
+/// Returns the number of NEW rows.
+pub async fn insert_fees_batch(pool: &PgPool, fees: &[V2Fee]) -> Result<u64, DbError> {
+    if fees.is_empty() {
+        return Ok(0);
+    }
+    let n = fees.len();
+    let mut ids = Vec::with_capacity(n);
+    let mut blocks = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut types = Vec::with_capacity(n);
+    let mut amounts = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    for f in fees {
+        ids.push(format!("{}-{}", f.block_height.0, f.extrinsic_id));
+        blocks.push(f.block_height.0 as i64);
+        tss.push(f.timestamp.0);
+        types.push(f.fee_type.label().to_string());
+        amounts.push(f.amount.clone());
+        usds.push(f.usd_value.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.fees (legacy_id, block_height, block_timestamp, fee_type, amount_xor, usd_value, origin)
+        SELECT i, b, t, ty, am / 1000000000000000000::numeric, u, 'live'
+        FROM UNNEST($1::text[], $2::bigint[], $3::timestamptz[], $4::text[], $5::numeric[], $6::numeric[])
+             AS x(i, b, t, ty, am, u)
+        ON CONFLICT (legacy_id) DO NOTHING
+        "#,
+        &ids,
+        &blocks,
+        &tss,
+        &types,
+        &amounts,
+        &usds as &[Option<bigdecimal::BigDecimal>],
     )
     .execute(pool)
     .await?;

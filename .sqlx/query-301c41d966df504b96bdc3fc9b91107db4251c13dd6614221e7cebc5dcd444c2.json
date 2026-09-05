@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT\n                        (SELECT COALESCE(SUM(\n                            CASE WHEN input_asset_id  = $1 THEN usd_value        ELSE 0 END\n                          + CASE WHEN output_asset_id = $1 THEN output_usd_value ELSE 0 END), 0)\n                         FROM sm.swaps\n                         WHERE (input_asset_id = $1 OR output_asset_id = $1) AND block_timestamp >= $2) AS \"swap_vol: BigDecimal\",\n                        (SELECT COALESCE(SUM(usd_value), 0)\n                         FROM sm.transfers\n                         WHERE asset_id = $1 AND block_timestamp >= $2) AS \"transfer_vol: BigDecimal\"\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "swap_vol: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "transfer_vol: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "301c41d966df504b96bdc3fc9b91107db4251c13dd6614221e7cebc5dcd444c2"
+}

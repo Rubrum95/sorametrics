@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT caller,\n                   SUM(output_usd_value) AS \"total_usd: BigDecimal\",\n                   SUM(output_amount)    AS \"total_amount!: BigDecimal\",\n                   COUNT(*)              AS \"swap_count!\",\n                   MAX(block_timestamp)  AS \"last_buy!\"\n            FROM sm.swaps\n            WHERE output_asset_id = $1 AND block_timestamp > $2\n            GROUP BY caller\n            ORDER BY SUM(output_usd_value) DESC NULLS LAST\n            LIMIT 10\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "caller",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "swap_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_buy!",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "409c4d90686a6a4dcd04d98f16e9958442d19d444d658c3a042f08f1c89f2a49"
+}

@@ -20,19 +20,26 @@ use crate::decoder::{
 use crate::eth_bridge::{
     decode_eth_incoming, decode_eth_outgoing, eth_incoming_hash, outgoing_calls,
 };
+use crate::fees::ExtrinsicFeeFacts;
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
+use sorametrics_core::chain::AssetId;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
-    insert_bridges_batch, insert_fee_burns_batch, insert_swaps_batch, insert_transfers_batch,
+    insert_bridges_batch, insert_fee_burns_batch, insert_fees_batch, insert_swaps_batch,
+    insert_transfers_batch,
 };
 use sqlx::PgPool;
+use std::collections::BTreeMap;
 use subxt::blocks::Block;
 use subxt::events::Phase;
 use subxt::{OnlineClient, SubstrateConfig};
 use thiserror::Error;
 use tracing::warn;
+
+/// XOR asset id — the currency every network fee is paid in.
+const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
 
 /// Per-block tally of decoder hits.
 ///
@@ -63,12 +70,20 @@ pub struct BlockDecodeStats {
     pub decoded_fee_burns: u32,
     /// Number of fee-burn rows that resulted in a new row.
     pub inserted_fee_burns: u32,
+    /// Number of extrinsics that paid a network fee (`TransactionFeePaid`).
+    pub decoded_fees: u32,
+    /// Number of fee rows that were new.
+    pub inserted_fees: u32,
 }
 
 impl BlockDecodeStats {
     /// `true` if the block produced at least one decoder hit.
     pub fn has_any(&self) -> bool {
-        self.decoded_swaps + self.decoded_transfers + self.decoded_bridges + self.decoded_fee_burns
+        self.decoded_swaps
+            + self.decoded_transfers
+            + self.decoded_bridges
+            + self.decoded_fee_burns
+            + self.decoded_fees
             > 0
     }
 }
@@ -138,6 +153,8 @@ pub async fn decode_block_events(
     let mut transfers = Vec::new();
     let mut bridges = Vec::new();
     let mut fee_burns = Vec::new();
+    // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
+    let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
 
     // Phase 1: decode.
     for ev in events.iter() {
@@ -162,6 +179,17 @@ pub async fn decode_block_events(
             extrinsic_hash,
         };
         events_seen += 1;
+
+        if let Phase::ApplyExtrinsic(i) = ev.phase() {
+            if let Err(e) = fee_facts.entry(i).or_default().observe(&ev, coords) {
+                warn!(
+                    error = %e,
+                    block = height.0,
+                    event_id = coords.event_id,
+                    "fee decode failed"
+                );
+            }
+        }
 
         // Dispatch in priority order. After a hit we `continue` so we don't
         // run subsequent decoders on the same event (they'd all return
@@ -256,6 +284,11 @@ pub async fn decode_block_events(
         }
     }
 
+    let mut fees: Vec<_> = fee_facts
+        .into_values()
+        .filter_map(ExtrinsicFeeFacts::into_fee)
+        .collect();
+
     // Phase 2: USD valuation (swaps: both legs, as the legacy in_usd/out_usd).
     for swap in swaps.iter_mut() {
         swap.usd_value = prices
@@ -275,6 +308,12 @@ pub async fn decode_block_events(
             .usd_value_at(&bridge.asset, &bridge.amount, bridge.timestamp)
             .await?;
     }
+    let xor = AssetId::new(XOR_ASSET_ID);
+    for fee in fees.iter_mut() {
+        fee.usd_value = prices
+            .usd_value_at(&xor, &fee.amount, fee.timestamp)
+            .await?;
+    }
 
     // Phase 3: one batched upsert per family.
     stats.decoded_swaps = swaps.len() as u32;
@@ -285,6 +324,8 @@ pub async fn decode_block_events(
     stats.inserted_transfers = insert_transfers_batch(db, &transfers).await? as u32;
     stats.inserted_bridges = insert_bridges_batch(db, &bridges).await? as u32;
     stats.inserted_fee_burns = insert_fee_burns_batch(db, &fee_burns).await? as u32;
+    stats.decoded_fees = fees.len() as u32;
+    stats.inserted_fees = insert_fees_batch(db, &fees).await? as u32;
 
     stats.events = events_seen;
     Ok(stats)

@@ -18,6 +18,7 @@
 pub mod block;
 pub mod decoder;
 pub mod eth_bridge;
+pub mod fees;
 pub mod price;
 pub mod runtime;
 

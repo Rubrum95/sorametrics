@@ -152,6 +152,54 @@ pub struct V2FeeBurn {
     pub timestamp: Timestamp,
 }
 
+/// Legacy fee category of an extrinsic (Node `live_fees.type`):
+/// decided by the events the extrinsic emitted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FeeType {
+    /// Emitted a `LiquidityProxy::Exchange`.
+    Swap,
+    /// Emitted an `EthBridge` / `Bridge` / `Multisig` event.
+    Bridge,
+    /// Emitted an `Assets`/`Balances` `*Transfer*` event.
+    Transfer,
+    /// Anything else that paid a fee.
+    Other,
+}
+
+impl FeeType {
+    /// Legacy text label.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Swap => "Swap",
+            Self::Bridge => "Bridge",
+            Self::Transfer => "Transfer",
+            Self::Other => "Other",
+        }
+    }
+}
+
+/// Network fee paid by one extrinsic
+/// (`TransactionPayment::TransactionFeePaid`), the Node's `live_fees`
+/// row. Idempotency key is `(block_height, extrinsic_id)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2Fee {
+    /// Block of the extrinsic.
+    pub block_height: BlockHeight,
+    /// Extrinsic index within the block.
+    pub extrinsic_id: u32,
+    /// Category per the extrinsic's events.
+    pub fee_type: FeeType,
+    /// Account that paid.
+    pub payer: Address,
+    /// `actual_fee` in raw XOR planck.
+    pub amount: BigDecimal,
+    /// USD value at index time (XOR price).
+    pub usd_value: Option<BigDecimal>,
+    /// Wall-clock timestamp from the block's `timestamp.set` inherent.
+    pub timestamp: Timestamp,
+}
+
 /// Bridge transfer (Hashi v2: substrate / parachain / TON).
 ///
 /// Idempotency key is `(block_height, extrinsic_id, event_id)`.

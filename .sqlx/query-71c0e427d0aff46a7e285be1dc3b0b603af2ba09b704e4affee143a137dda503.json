@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT TO_CHAR(block_timestamp AT TIME ZONE $2, $3) AS \"bucket!\",\n               COUNT(DISTINCT caller) AS \"val!\"\n        FROM sm.swaps WHERE block_timestamp >= $1\n        GROUP BY 1 ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "bucket!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "val!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "71c0e427d0aff46a7e285be1dc3b0b603af2ba09b704e4affee143a137dda503"
+}

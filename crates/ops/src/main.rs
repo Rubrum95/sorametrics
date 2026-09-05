@@ -219,6 +219,8 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         inserted_bridges = stats.inserted_bridges,
         decoded_fee_burns = stats.decoded_fee_burns,
         inserted_fee_burns = stats.inserted_fee_burns,
+        decoded_fees = stats.decoded_fees,
+        inserted_fees = stats.inserted_fees,
         "block decoded"
     );
 
@@ -404,6 +406,8 @@ fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.inserted_bridges += one.inserted_bridges;
     total.decoded_fee_burns += one.decoded_fee_burns;
     total.inserted_fee_burns += one.inserted_fee_burns;
+    total.decoded_fees += one.decoded_fees;
+    total.inserted_fees += one.inserted_fees;
 }
 
 // =============================================================

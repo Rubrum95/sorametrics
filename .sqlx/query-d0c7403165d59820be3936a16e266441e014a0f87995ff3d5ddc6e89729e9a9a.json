@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.fees (legacy_id, block_height, block_timestamp, fee_type, amount_xor, usd_value, origin)\n        SELECT i, b, t, ty, am / 1000000000000000000::numeric, u, 'live'\n        FROM UNNEST($1::text[], $2::bigint[], $3::timestamptz[], $4::text[], $5::numeric[], $6::numeric[])\n             AS x(i, b, t, ty, am, u)\n        ON CONFLICT (legacy_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8Array",
+        "TimestamptzArray",
+        "TextArray",
+        "NumericArray",
+        "NumericArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d0c7403165d59820be3936a16e266441e014a0f87995ff3d5ddc6e89729e9a9a"
+}

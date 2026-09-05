@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT fee_type,\n               SUM(CASE WHEN usd_value > 0 AND usd_value <= $2 AND amount_xor <= $3 THEN amount_xor ELSE 0 END) AS \"total_xor: BigDecimal\",\n               SUM(CASE WHEN usd_value > 0 AND usd_value <= $2 AND amount_xor <= $3 THEN usd_value  ELSE 0 END) AS \"total_usd: BigDecimal\"\n        FROM sm.fees\n        WHERE block_timestamp >= $1\n        GROUP BY fee_type\n        ORDER BY fee_type\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fee_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_xor: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_usd: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Numeric",
+        "Numeric"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "da49e2ec1220caced9413ecc1044ee7a33a62e5bf69ff05a216ed9c2a7064d4e"
+}
