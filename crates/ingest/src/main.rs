@@ -3,6 +3,8 @@
 //! Phase 1.1 wired the substrate WS connection layer + healthcheck.
 //! Phase 1.2.1 added the subxt finalized-block subscriber.
 //! Phase 1.2.2 wires the swap decoder + DB writes (`sm.live_swaps`).
+//! The price sampler task (popular assets → `ts.price_history`) runs
+//! alongside the subscriber.
 
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
@@ -17,7 +19,9 @@ use sorametrics_db::{connect as db_connect, migrate as db_migrate, DbConfig};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
 use std::process;
 use std::time::Duration;
-use substrate::{run_decoder_loop, run_health_loop, HealthOutcome, WsConnection};
+use substrate::{
+    run_decoder_loop, run_health_loop, run_price_sampler, HealthOutcome, WsConnection,
+};
 use tokio::sync::watch;
 use tracing::{info, warn};
 
@@ -117,7 +121,25 @@ async fn run_substrate() -> Result<()> {
         .await
     });
 
-    // Wait for: ctrl-c | healthcheck signals primary-recovery | subscriber fatal err.
+    // Price sampler task: popular assets → ts.price_history every
+    // `price_sample_interval`, on its own RPC connection.
+    let sampler_endpoints = cfg.ws_endpoints.clone();
+    let cancel_sampler = cancel_rx.clone();
+    let db_for_sampler = db.clone();
+    let sampler_period = cfg.price_sample_interval;
+    let sampler_handle = tokio::spawn(async move {
+        run_price_sampler(
+            sampler_endpoints,
+            db_for_sampler,
+            sampler_period,
+            subscriber_backoff,
+            cancel_sampler,
+        )
+        .await
+    });
+
+    // Wait for: ctrl-c | healthcheck signals primary-recovery | subscriber
+    // or sampler fatal err.
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             info!("received ctrl-c, shutting down");
@@ -140,6 +162,14 @@ async fn run_substrate() -> Result<()> {
             match inner {
                 Ok(()) => info!("subscriber task exited cleanly"),
                 Err(e) => warn!(error = %e, "subscriber task ended with error"),
+            }
+            let _ = cancel_tx.send(true);
+        }
+        result = sampler_handle => {
+            let inner = result.context("price sampler task panicked")?;
+            match inner {
+                Ok(()) => info!("price sampler exited cleanly"),
+                Err(e) => warn!(error = %e, "price sampler ended with error"),
             }
             let _ = cancel_tx.send(true);
         }

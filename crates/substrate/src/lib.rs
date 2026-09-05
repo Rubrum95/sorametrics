@@ -17,6 +17,7 @@
 
 pub mod block;
 pub mod decoder;
+pub mod price;
 pub mod runtime;
 
 pub use block::{decode_block_events, BlockDecodeStats, BlockProcessError};
@@ -24,3 +25,4 @@ pub use decoder::{
     decode_bridge, decode_fee_burn, decode_swap, decode_transfer, timestamp_from_millis,
     DecodeError, EventCoords,
 };
+pub use price::{PriceError, PriceResolver, SampleOutcome};

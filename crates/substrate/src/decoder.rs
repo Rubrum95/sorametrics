@@ -162,7 +162,6 @@ pub fn decode_swap(
         input_amount,
         output_asset: AssetId::new(output_asset),
         output_amount,
-        // USD value populated later by a price-history join in the API layer.
         usd_value: None,
         timestamp: coords.block_timestamp,
     }))
@@ -232,7 +231,6 @@ pub fn decode_transfer(
         to: Address::new(ss58_encode_sora(&t.1 .0)),
         asset: AssetId::new(bytes32_hex(&t.2.code)),
         amount,
-        // USD value populated later by a price-history join in the API layer.
         usd_value: None,
         timestamp: coords.block_timestamp,
     }))
@@ -295,6 +293,7 @@ fn decode_substrate_bridge_burned(
         caller: Address::new(ss58_encode_sora(&b.sender.0)),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -318,6 +317,7 @@ fn decode_substrate_bridge_minted(
         caller: Address::new(ss58_encode_sora(&m.recipient.0)),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -344,6 +344,7 @@ fn decode_parachain_bridge_burned(
         caller: Address::new(ss58_encode_sora(&b.2 .0)),
         asset: AssetId::new(bytes32_hex(&b.1.code)),
         amount: u128_to_bigdecimal(b.4),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -368,6 +369,7 @@ fn decode_parachain_bridge_minted(
         caller: Address::new(ss58_encode_sora(&m.3 .0)),
         asset: AssetId::new(bytes32_hex(&m.1.code)),
         amount: u128_to_bigdecimal(m.4),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -389,6 +391,7 @@ fn decode_jetton_burned(
         caller: Address::new(ss58_encode_sora(&b.sender.0)),
         asset: AssetId::new(bytes32_hex(&b.asset_id.code)),
         amount: u128_to_bigdecimal(b.amount),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }
@@ -408,6 +411,7 @@ fn decode_jetton_minted(
         caller: Address::new(ss58_encode_sora(&m.recipient.0)),
         asset: AssetId::new(bytes32_hex(&m.asset_id.code)),
         amount: u128_to_bigdecimal(m.amount),
+        usd_value: None,
         timestamp: coords.block_timestamp,
     }))
 }

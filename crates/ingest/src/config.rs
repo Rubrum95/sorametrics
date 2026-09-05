@@ -61,6 +61,8 @@ pub struct SubstrateConfig {
     pub primary_probe_interval: Duration,
     /// Connect timeout for each individual `connect()` attempt.
     pub connect_timeout: Duration,
+    /// How often the popular-asset price sampler quotes the chain.
+    pub price_sample_interval: Duration,
 }
 
 impl SubstrateConfig {
@@ -73,12 +75,14 @@ impl SubstrateConfig {
         let healthcheck_interval = duration_secs("SUBSTRATE_HEALTHCHECK_INTERVAL_SECS", 30)?;
         let primary_probe_interval = duration_secs("SUBSTRATE_PRIMARY_PROBE_INTERVAL_SECS", 120)?;
         let connect_timeout = duration_secs("SUBSTRATE_CONNECT_TIMEOUT_SECS", 10)?;
+        let price_sample_interval = duration_secs("PRICE_SAMPLE_INTERVAL_SECS", 60)?;
 
         Ok(Self {
             ws_endpoints,
             healthcheck_interval,
             primary_probe_interval,
             connect_timeout,
+            price_sample_interval,
         })
     }
 }

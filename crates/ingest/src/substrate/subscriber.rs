@@ -8,7 +8,7 @@
 
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_db::sm::{get_cursor, set_cursor, set_error};
-use sorametrics_substrate::{decode_block_events, BlockProcessError};
+use sorametrics_substrate::{decode_block_events, BlockProcessError, PriceError, PriceResolver};
 use sqlx::PgPool;
 use std::time::Duration;
 use subxt::backend::legacy::LegacyRpcMethods;
@@ -40,6 +40,10 @@ pub enum SubscriberError {
     /// Error processing one block (decoder or insert path).
     #[error("block process: {0}")]
     BlockProcess(#[from] BlockProcessError),
+
+    /// Price resolver could not be built (registry load failed).
+    #[error("price resolver: {0}")]
+    Price(#[from] PriceError),
 }
 
 /// Connects via subxt to the first reachable URL and runs the
@@ -129,6 +133,7 @@ async fn fill_gap(
     client: &OnlineClient<SubstrateConfig>,
     legacy: &LegacyRpcMethods<SubstrateConfig>,
     db: &PgPool,
+    prices: &PriceResolver,
     from: u64,
     to: u64,
     cancel: &mut tokio::sync::watch::Receiver<bool>,
@@ -163,7 +168,7 @@ async fn fill_gap(
                 )))
             })?;
         let block = client.blocks().at(hash).await?;
-        let stats = decode_block_events(&block, db).await?;
+        let stats = decode_block_events(&block, db, prices).await?;
         set_cursor(db, JOB_NAME_LIVE, BlockHeight(height), "running").await?;
 
         if stats.has_any() {
@@ -199,6 +204,10 @@ async fn try_subscribe_once(
     // backfill), then upgrade the same connection to an `OnlineClient`.
     let rpc_client = RpcClient::from_url(url.as_str()).await?;
     let legacy = LegacyRpcMethods::<SubstrateConfig>::new(rpc_client.clone());
+    // Live pricing shares this session's RPC connection: events inside
+    // the live window are quoted on demand, older ones (long gap fills)
+    // fall back to their hourly bucket.
+    let prices = PriceResolver::live(db.clone(), rpc_client.clone()).await?;
     let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client).await?;
     info!(endpoint = %url, "subxt connected, subscribing finalized blocks");
 
@@ -225,13 +234,13 @@ async fn try_subscribe_once(
                 let height = BlockHeight(block.number().into());
 
                 if let Some((from, to)) = plan_gap(last_processed, height.0) {
-                    fill_gap(&client, &legacy, db, from, to, cancel).await?;
+                    fill_gap(&client, &legacy, db, &prices, from, to, cancel).await?;
                     if *cancel.borrow_and_update() {
                         return Ok(());
                     }
                 }
 
-                let stats = decode_block_events(&block, db).await?;
+                let stats = decode_block_events(&block, db, &prices).await?;
                 // Never move the cursor backwards: a replayed older block
                 // (idempotent no-op in the DB) must not regress the resume
                 // point.

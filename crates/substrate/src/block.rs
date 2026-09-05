@@ -17,6 +17,7 @@ use crate::decoder::{
     decode_bridge, decode_fee_burn, decode_swap, decode_transfer, timestamp_from_millis,
     EventCoords,
 };
+use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
@@ -81,6 +82,10 @@ pub enum BlockProcessError {
     /// DB error during insert.
     #[error("db: {0}")]
     Db(#[from] sorametrics_db::DbError),
+
+    /// Price lookup failed (RPC or DB) while valuing an event.
+    #[error("price: {0}")]
+    Price(#[from] PriceError),
 }
 
 impl From<subxt::Error> for BlockProcessError {
@@ -92,17 +97,22 @@ impl From<subxt::Error> for BlockProcessError {
 /// Process a single finalized block: fetch its timestamp + events,
 /// run all decoders in priority order, persist matches.
 ///
-/// Two-phase: decode the whole block into per-type vectors first, then
-/// land each family in ONE batched UPSERT (one round-trip per type per
-/// block instead of one per event — the difference dominates backfill
+/// Three phases: decode the whole block into per-type vectors, value
+/// swaps / transfers / bridges in USD through `prices`, then land each
+/// family in ONE batched UPSERT (one round-trip per type per block
+/// instead of one per event — the difference dominates backfill
 /// throughput).
 ///
 /// Returns per-decoder counters. Decoder-internal failures (one bad
 /// event) are logged at `warn` and skipped, NOT bubbled up — a single
-/// malformed event must not stop the whole block.
+/// malformed event must not stop the whole block. A price failure IS
+/// bubbled up: it means the RPC or the DB is down, and inserting rows
+/// with a silently missing `usd_value` would be indistinguishable from
+/// "no price exists".
 pub async fn decode_block_events(
     block: &Block<SubstrateConfig, OnlineClient<SubstrateConfig>>,
     db: &PgPool,
+    prices: &PriceResolver,
 ) -> Result<BlockDecodeStats, BlockProcessError> {
     let height = BlockHeight(block.number().into());
 
@@ -206,7 +216,24 @@ pub async fn decode_block_events(
         }
     }
 
-    // Phase 2: one batched upsert per family.
+    // Phase 2: USD valuation (swap = input leg, as the legacy `in_usd`).
+    for swap in swaps.iter_mut() {
+        swap.usd_value = prices
+            .usd_value_at(&swap.input_asset, &swap.input_amount, swap.timestamp)
+            .await?;
+    }
+    for transfer in transfers.iter_mut() {
+        transfer.usd_value = prices
+            .usd_value_at(&transfer.asset, &transfer.amount, transfer.timestamp)
+            .await?;
+    }
+    for bridge in bridges.iter_mut() {
+        bridge.usd_value = prices
+            .usd_value_at(&bridge.asset, &bridge.amount, bridge.timestamp)
+            .await?;
+    }
+
+    // Phase 3: one batched upsert per family.
     stats.decoded_swaps = swaps.len() as u32;
     stats.decoded_transfers = transfers.len() as u32;
     stats.decoded_bridges = bridges.len() as u32;

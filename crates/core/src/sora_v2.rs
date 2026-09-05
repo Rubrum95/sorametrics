@@ -173,6 +173,8 @@ pub struct V2Bridge {
     pub asset: AssetId,
     /// Amount (raw, post-denomination, arbitrary precision).
     pub amount: BigDecimal,
+    /// USD value at index time (amount × DAI price of the asset).
+    pub usd_value: Option<BigDecimal>,
     /// Wall-clock timestamp.
     pub timestamp: Timestamp,
 }

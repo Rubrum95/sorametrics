@@ -214,10 +214,10 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
         r#"
         INSERT INTO sm.bridges (
             block_height, extrinsic_id, event_id, block_timestamp,
-            direction, network, caller, asset_id, amount, hash
+            direction, network, caller, asset_id, amount, usd_value, hash
         ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8, $9, $10
+            $5, $6, $7, $8, $9, $10, $11
         )
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         RETURNING block_height
@@ -231,6 +231,7 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
         bridge.caller.0,
         bridge.asset.0,
         bridge.amount,
+        bridge.usd_value,
         bridge.extrinsic_hash.as_deref(),
     )
     .fetch_optional(pool)
@@ -265,6 +266,32 @@ pub async fn count_bridges(pool: &PgPool) -> Result<i64, DbError> {
         .fetch_one(pool)
         .await?;
     Ok(row.c.unwrap_or(0))
+}
+
+// =============================================================
+// asset_registry
+// =============================================================
+
+/// One asset registry row, as needed by the price pipeline.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RegistryAsset {
+    /// `0x`-hex asset id.
+    pub asset_id: String,
+    /// Ticker symbol (e.g. `XOR`).
+    pub symbol: String,
+    /// On-chain decimals.
+    pub decimals: i16,
+}
+
+/// Every asset in `sm.asset_registry` (id, symbol, decimals).
+pub async fn load_asset_registry(pool: &PgPool) -> Result<Vec<RegistryAsset>, DbError> {
+    let rows = sqlx::query_as!(
+        RegistryAsset,
+        r#"SELECT asset_id, symbol, decimals FROM sm.asset_registry"#
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
 }
 
 // =============================================================
@@ -488,6 +515,7 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
     let mut callers = Vec::with_capacity(n);
     let mut assets = Vec::with_capacity(n);
     let mut amounts = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
     let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
     for b in bridges {
         blocks.push(b.block_height.0 as i64);
@@ -502,19 +530,20 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         callers.push(b.caller.0.clone());
         assets.push(b.asset.0.clone());
         amounts.push(b.amount.clone());
+        usds.push(b.usd_value.clone());
         hashes.push(b.extrinsic_hash.clone());
     }
     let res = sqlx::query!(
         r#"
         INSERT INTO sm.bridges (
             block_height, extrinsic_id, event_id, block_timestamp,
-            direction, network, caller, asset_id, amount, hash
+            direction, network, caller, asset_id, amount, usd_value, hash
         )
-        SELECT b, e, ev, t, d::sm.bridge_direction, nw, c, a, am, h
+        SELECT b, e, ev, t, d::sm.bridge_direction, nw, c, a, am, u, h
         FROM UNNEST(
             $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[],
-            $6::text[], $7::text[], $8::text[], $9::numeric[], $10::text[]
-        ) AS x(b, e, ev, t, d, nw, c, a, am, h)
+            $6::text[], $7::text[], $8::text[], $9::numeric[], $10::numeric[], $11::text[]
+        ) AS x(b, e, ev, t, d, nw, c, a, am, u, h)
         ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
         "#,
         &blocks,
@@ -526,6 +555,7 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         &callers,
         &assets,
         &amounts,
+        &usds as &[Option<bigdecimal::BigDecimal>],
         &hashes as &[Option<String>],
     )
     .execute(pool)
@@ -694,6 +724,7 @@ mod tests {
             caller: Address::new("cnAAA"),
             asset: AssetId::new("xor"),
             amount: BigDecimal::from(500_u64),
+            usd_value: None,
             timestamp: Timestamp::new(DateTime::from_timestamp(1_700_000_200, 0).unwrap()),
         };
 

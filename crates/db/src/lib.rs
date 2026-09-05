@@ -12,6 +12,7 @@
 #![deny(rust_2018_idioms, missing_docs)]
 
 pub mod sm;
+pub mod ts;
 
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::time::Duration;

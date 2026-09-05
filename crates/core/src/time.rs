@@ -31,6 +31,13 @@ impl Timestamp {
     pub fn elapsed_until(self, now: Self) -> TimeDelta {
         now.0 - self.0
     }
+
+    /// Start of the UTC hour containing this timestamp, as unix
+    /// SECONDS — the `ts.price_history.hour_bucket` grain inherited from
+    /// the legacy schema (`floor(epoch / 3600) * 3600`).
+    pub fn hour_bucket_secs(self) -> i64 {
+        self.0.timestamp().div_euclid(3600) * 3600
+    }
 }
 
 /// Freshness classification used by `/health/freshness` and per-table SLOs.
@@ -122,5 +129,19 @@ mod tests {
         let earlier = Timestamp::new(DateTime::from_timestamp(1_700_000_000, 0).unwrap());
         let later = Timestamp::new(DateTime::from_timestamp(1_700_000_060, 0).unwrap());
         assert_eq!(earlier.elapsed_until(later), TimeDelta::seconds(60));
+    }
+
+    #[test]
+    fn hour_bucket_floors_to_hour_in_seconds() {
+        // 2026-09-05T09:47:31Z → 09:00:00Z
+        let ts = Timestamp::new(DateTime::from_timestamp(1_788_601_651, 0).unwrap());
+        assert_eq!(ts.hour_bucket_secs(), 1_788_598_800);
+        assert_eq!(ts.hour_bucket_secs() % 3600, 0);
+    }
+
+    #[test]
+    fn hour_bucket_exact_hour_is_identity() {
+        let ts = Timestamp::new(DateTime::from_timestamp(1_788_598_800, 0).unwrap());
+        assert_eq!(ts.hour_bucket_secs(), 1_788_598_800);
     }
 }

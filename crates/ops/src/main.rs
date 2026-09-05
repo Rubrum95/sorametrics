@@ -19,7 +19,7 @@ use anyhow::{Context, Result};
 mod etl;
 use clap::{Parser, Subcommand};
 use sorametrics_db::{connect as db_connect, DbConfig};
-use sorametrics_substrate::{decode_block_events, BlockDecodeStats};
+use sorametrics_substrate::{decode_block_events, BlockDecodeStats, PriceResolver};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -199,7 +199,12 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         .await
         .with_context(|| format!("fetching block at {hash:?}"))?;
 
-    let stats = decode_block_events(&block, &db)
+    // Ops decodes are by definition about the past: value events from
+    // their hourly price bucket, never from a live quote.
+    let prices = PriceResolver::historical(db.clone())
+        .await
+        .context("loading asset registry for pricing")?;
+    let stats = decode_block_events(&block, &db, &prices)
         .await
         .with_context(|| format!("decoding block at height {height}"))?;
 
@@ -262,6 +267,11 @@ async fn backfill(from: u64, to: u64, concurrency: usize, rpc: &str) -> Result<(
             .with_context(|| format!("upgrading RPC client to OnlineClient at {rpc}"))?,
     );
 
+    let prices = Arc::new(
+        PriceResolver::historical(db.clone())
+            .await
+            .context("loading asset registry for pricing")?,
+    );
     let semaphore = Arc::new(Semaphore::new(concurrency));
     let total = to - from + 1;
     let started = Instant::now();
@@ -276,11 +286,12 @@ async fn backfill(from: u64, to: u64, concurrency: usize, rpc: &str) -> Result<(
         let client = client.clone();
         let legacy = legacy.clone();
         let db = db.clone();
+        let prices = prices.clone();
 
         handles.push(tokio::spawn(async move {
             // Hold the permit for the lifetime of the task.
             let _permit = permit;
-            process_one_block(&client, &legacy, &db, height).await
+            process_one_block(&client, &legacy, &db, &prices, height).await
         }));
     }
 
@@ -361,6 +372,7 @@ async fn process_one_block(
     client: &OnlineClient<SubstrateConfig>,
     legacy: &LegacyRpcMethods<SubstrateConfig>,
     db: &PgPool,
+    prices: &PriceResolver,
     height: u64,
 ) -> Result<BlockDecodeStats> {
     let height_u32: u32 = height
@@ -376,7 +388,7 @@ async fn process_one_block(
         .at(hash)
         .await
         .with_context(|| format!("fetching block at height {height} ({hash:?})"))?;
-    decode_block_events(&block, db)
+    decode_block_events(&block, db, prices)
         .await
         .with_context(|| format!("decoding block {height}"))
 }
