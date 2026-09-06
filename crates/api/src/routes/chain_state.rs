@@ -381,8 +381,10 @@ async fn scan_holders(state: &AppState, asset_id: &str) -> Result<Vec<Holder>, A
                     }
                     let amount = human(kv.value.free, decimals);
                     if amount > dust {
+                        // `Accounts`: Blake2_128Concat(account) ‖ Twox64Concat(asset)
+                        // → … ‖ hash16 ‖ account32 ‖ hash8 ‖ asset32.
                         let acc: [u8; 32] =
-                            kv.key_bytes[n - 80..n - 48].try_into().unwrap_or([0; 32]);
+                            kv.key_bytes[n - 72..n - 40].try_into().unwrap_or([0; 32]);
                         out.push(holder(&acc, amount));
                     }
                 }
@@ -450,6 +452,20 @@ mod tests {
             to_format_2(&BigDecimal::from_str("1234.5").unwrap()),
             "1,234.50"
         );
+    }
+
+    #[test]
+    fn tokens_accounts_key_layout() {
+        // prefix32 ‖ blake2_128(acc)16 ‖ acc32 ‖ twox64(asset)8 ‖ asset32 = 120 bytes
+        let mut key = vec![0u8; 32];
+        key.extend([1u8; 16]);
+        key.extend([0xaa; 32]);
+        key.extend([2u8; 8]);
+        key.extend([0xbb; 32]);
+        let n = key.len();
+        assert_eq!(n, 120);
+        assert_eq!(&key[n - 72..n - 40], &[0xaa; 32]);
+        assert_eq!(&key[n - 32..], &[0xbb; 32]);
     }
 
     #[test]
