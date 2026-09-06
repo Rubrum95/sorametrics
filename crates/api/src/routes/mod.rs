@@ -14,6 +14,7 @@ pub mod history;
 pub mod prices;
 pub mod stats;
 pub mod tokens;
+pub mod wallet;
 
 /// Construct the `/`-mounted router with every route the API serves.
 pub fn build(state: AppState) -> Router {
@@ -24,5 +25,6 @@ pub fn build(state: AppState) -> Router {
         .merge(tokens::router())
         .merge(prices::router())
         .merge(stats::router())
+        .merge(wallet::router())
         .with_state(state)
 }

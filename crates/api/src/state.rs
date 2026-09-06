@@ -1,6 +1,7 @@
 //! Shared application state passed to every handler via axum's
 //! [`State`](axum::extract::State) extractor.
 
+use crate::chain::ChainClient;
 use chrono_tz::Tz;
 use sorametrics_db::sm::{load_asset_registry, RegistryAsset};
 use sorametrics_db::DbError;
@@ -102,6 +103,10 @@ pub struct AppState {
     pub registry: Arc<RwLock<Registry>>,
     /// Zone for legacy `time` strings.
     pub time_zone: Tz,
+    /// Read-only chain access for group D routes; `None` = not configured.
+    pub chain: Option<ChainClient>,
+    /// Process start, for `/health.uptime`.
+    pub started_at: std::time::Instant,
 }
 
 impl AppState {
@@ -112,7 +117,15 @@ impl AppState {
             db,
             registry: Arc::new(RwLock::new(Registry::default())),
             time_zone: DEFAULT_TIME_ZONE,
+            chain: None,
+            started_at: std::time::Instant::now(),
         }
+    }
+
+    /// Attach a chain client.
+    pub fn with_chain(mut self, chain: Option<ChainClient>) -> Self {
+        self.chain = chain;
+        self
     }
 
     /// Loads the registry once from the DB. Fails loudly: an API with
@@ -124,6 +137,8 @@ impl AppState {
             db,
             registry: Arc::new(RwLock::new(Registry::from_rows(rows))),
             time_zone,
+            chain: None,
+            started_at: std::time::Instant::now(),
         })
     }
 

@@ -7,6 +7,7 @@
 #![deny(rust_2018_idioms)]
 
 use anyhow::{Context, Result};
+use sorametrics_api::chain::ChainClient;
 use sorametrics_api::state::time_zone_from_env;
 use sorametrics_api::{build_router, AppState};
 use sorametrics_db::{connect as db_connect, DbConfig};
@@ -35,9 +36,15 @@ async fn main() -> Result<()> {
     info!("DB ready");
 
     let time_zone = time_zone_from_env().map_err(anyhow::Error::msg)?;
+    let chain = ChainClient::from_env().map_err(anyhow::Error::msg)?;
+    match &chain {
+        Some(c) => info!(endpoints = c.endpoints().len(), "chain client configured"),
+        None => info!("WS_ENDPOINTS unset — chain-state routes will answer 503"),
+    }
     let state = AppState::with_registry(db, time_zone)
         .await
-        .context("loading asset registry")?;
+        .context("loading asset registry")?
+        .with_chain(chain);
     state.spawn_registry_refresh();
     let app = build_router(state);
 

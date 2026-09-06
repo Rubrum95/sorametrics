@@ -17,6 +17,7 @@
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms, missing_docs)]
 
+pub mod chain;
 pub mod error;
 pub mod legacy;
 pub mod routes;

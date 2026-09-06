@@ -28,6 +28,8 @@ pub enum ErrorCode {
     NotFound,
     /// Unhandled internal failure.
     Internal,
+    /// A dependency (chain RPC) is not configured or not reachable.
+    Unavailable,
 }
 
 impl ErrorCode {
@@ -36,6 +38,7 @@ impl ErrorCode {
             Self::Database | Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             Self::BadRequest => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
+            Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 }
@@ -63,6 +66,14 @@ pub enum ApiError {
     /// Details stay in logs.
     #[error("internal error: {0}")]
     Internal(String),
+
+    /// Chain RPC not configured / unreachable / failing.
+    #[error("chain unavailable: {0}")]
+    Chain(#[from] crate::chain::ChainError),
+
+    /// Chain routes without a configured client.
+    #[error("chain client not configured")]
+    NoChain,
 }
 
 impl ApiError {
@@ -72,6 +83,7 @@ impl ApiError {
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::NotFound(_) => ErrorCode::NotFound,
             Self::Internal(_) => ErrorCode::Internal,
+            Self::Chain(_) | Self::NoChain => ErrorCode::Unavailable,
         }
     }
 
@@ -83,6 +95,8 @@ impl ApiError {
             Self::NotFound(msg) => msg.clone(),
             // Same policy as Database: internals stay in logs.
             Self::Internal(_) => "internal error".to_string(),
+            Self::Chain(_) => "chain rpc unavailable".to_string(),
+            Self::NoChain => "chain client not configured".to_string(),
         }
     }
 }
