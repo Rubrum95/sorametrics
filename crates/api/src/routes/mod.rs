@@ -13,6 +13,8 @@ pub mod fee_config;
 pub mod freshness;
 pub mod health;
 pub mod history;
+pub mod identity;
+pub mod misc;
 pub mod prices;
 pub mod stats;
 pub mod tokens;
@@ -29,6 +31,8 @@ pub fn build(state: AppState) -> Router {
         .merge(stats::router())
         .merge(wallet::router())
         .merge(fee_config::router())
+        .merge(identity::router())
+        .merge(misc::router())
         .with_state(state)
 }
 

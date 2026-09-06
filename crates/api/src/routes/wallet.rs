@@ -1,4 +1,5 @@
-//! Chain-state wallet routes (group D): `POST /balances`.
+//! Chain-state wallet routes (group D): `POST /balances` and
+//! `GET /balance/:address` (same rows without `assetId`, as an array).
 //!
 //! Mechanism (`index.js::getAddressBalances`): XOR from
 //! `system.account(addr).data.free`, listed only when `> 0`; every other
@@ -14,7 +15,11 @@
 
 use crate::legacy::{decimals_for, logo_for, symbol_for};
 use crate::{error::ApiError, AppState};
-use axum::{extract::State, routing::post, Json, Router};
+use axum::{
+    extract::{Path, State},
+    routing::{get, post},
+    Json, Router,
+};
 use bigdecimal::{BigDecimal, RoundingMode};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
@@ -26,7 +31,9 @@ use subxt::utils::AccountId32;
 
 /// Build the sub-router.
 pub fn router() -> Router<AppState> {
-    Router::new().route("/balances", post(balances))
+    Router::new()
+        .route("/balances", post(balances))
+        .route("/balance/:address", get(balance))
 }
 
 const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
@@ -120,105 +127,149 @@ async fn balances(
 
     let mut result = Vec::with_capacity(addresses.len());
     for address in addresses {
-        let (bytes, _) = ss58_decode(&address)
-            .map_err(|_| ApiError::BadRequest("Invalid address format in list".into()))?;
-        let account = AccountId32(bytes);
-
-        let holdings = chain
-            .with_client(|client| async move {
-                let at = client.storage().at_latest().await?;
-                let mut out = Vec::new();
-                let sys = at
-                    .fetch(&sora::storage().system().account(&account))
-                    .await?;
-                if let Some(info) = sys {
-                    if info.data.free > 0 {
-                        out.push(RawHolding {
-                            asset_id: XOR_ASSET_ID.to_string(),
-                            free: info.data.free,
-                        });
-                    }
-                }
-                let mut stream = at
-                    .iter(sora::storage().tokens().accounts_iter1(&account))
-                    .await?;
-                while let Some(kv) = stream.next().await {
-                    let kv = kv?;
-                    // Double map hashed with *_Concat: the AssetId32 code is
-                    // the trailing 32 bytes of the storage key.
-                    let Some(code) = kv
-                        .key_bytes
-                        .len()
-                        .checked_sub(32)
-                        .map(|i| &kv.key_bytes[i..])
-                    else {
-                        continue;
-                    };
-                    out.push(RawHolding {
-                        asset_id: format!("0x{}", hex::encode(code)),
-                        free: kv.value.free,
-                    });
-                }
-                Ok(out)
-            })
-            .await?;
-
-        let registry = state.registry.read().await;
-        let threshold = BigDecimal::new(BigInt::from(1), 4); // 0.0001
-        let mut kept: Vec<Holding> = Vec::new();
-        for h in holdings {
-            let decimals = decimals_for(&registry, &h.asset_id);
-            let amount = human(h.free, decimals);
-            let keep = if h.asset_id == XOR_ASSET_ID {
-                h.free > 0
-            } else {
-                amount > threshold
-            };
-            if keep {
-                kept.push(Holding {
-                    symbol: symbol_for_wallet(&registry, &h.asset_id),
-                    logo: logo_for(&registry, &h.asset_id),
-                    asset_id: h.asset_id,
-                    amount,
-                });
-            }
-        }
-        drop(registry);
-
-        let asset_ids: Vec<String> = kept.iter().map(|h| h.asset_id.clone()).collect();
-        let prices: HashMap<String, f64> = latest_prices(&state.db, &asset_ids)
-            .await?
-            .into_iter()
-            .map(|p| (p.asset_id, p.price_usd))
-            .collect();
-
-        let mut tokens: Vec<(f64, TokenBalance)> = kept
-            .into_iter()
-            .map(|h| {
-                let price = prices.get(&h.asset_id).copied().unwrap_or(0.0);
-                let usd = (&h.amount * BigDecimal::try_from(price).unwrap_or_default())
-                    .with_scale_round(2, RoundingMode::HalfUp);
-                (
-                    usd.to_string().parse::<f64>().unwrap_or(0.0),
-                    TokenBalance {
-                        symbol: h.symbol,
-                        logo: h.logo,
-                        amount: fmt_fixed(&h.amount, 4),
-                        usd_value: fmt_fixed(&usd, 2),
-                        asset_id: h.asset_id,
-                    },
-                )
-            })
-            .collect();
-        tokens.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        let total_usd: f64 = tokens.iter().map(|(u, _)| *u).sum();
-        result.push(WalletBalances {
-            address,
-            tokens: tokens.into_iter().map(|(_, t)| t).collect(),
-            total_usd,
-        });
+        result.push(wallet_balances(&state, chain, address).await?);
     }
     Ok(Json(BalancesResponse { result }))
+}
+
+/// One wallet's priced holdings (`getAddressBalances`).
+async fn wallet_balances(
+    state: &AppState,
+    chain: &crate::chain::ChainClient,
+    address: String,
+) -> Result<WalletBalances, ApiError> {
+    let (bytes, _) = ss58_decode(&address)
+        .map_err(|_| ApiError::BadRequest("Invalid address format in list".into()))?;
+    let account = AccountId32(bytes);
+
+    let holdings = chain
+        .with_client(|client| async move {
+            let at = client.storage().at_latest().await?;
+            let mut out = Vec::new();
+            let sys = at
+                .fetch(&sora::storage().system().account(&account))
+                .await?;
+            if let Some(info) = sys {
+                if info.data.free > 0 {
+                    out.push(RawHolding {
+                        asset_id: XOR_ASSET_ID.to_string(),
+                        free: info.data.free,
+                    });
+                }
+            }
+            let mut stream = at
+                .iter(sora::storage().tokens().accounts_iter1(&account))
+                .await?;
+            while let Some(kv) = stream.next().await {
+                let kv = kv?;
+                // Double map hashed with *_Concat: the AssetId32 code is
+                // the trailing 32 bytes of the storage key.
+                let Some(code) = kv
+                    .key_bytes
+                    .len()
+                    .checked_sub(32)
+                    .map(|i| &kv.key_bytes[i..])
+                else {
+                    continue;
+                };
+                out.push(RawHolding {
+                    asset_id: format!("0x{}", hex::encode(code)),
+                    free: kv.value.free,
+                });
+            }
+            Ok(out)
+        })
+        .await?;
+
+    let registry = state.registry.read().await;
+    let threshold = BigDecimal::new(BigInt::from(1), 4); // 0.0001
+    let mut kept: Vec<Holding> = Vec::new();
+    for h in holdings {
+        let decimals = decimals_for(&registry, &h.asset_id);
+        let amount = human(h.free, decimals);
+        let keep = if h.asset_id == XOR_ASSET_ID {
+            h.free > 0
+        } else {
+            amount > threshold
+        };
+        if keep {
+            kept.push(Holding {
+                symbol: symbol_for_wallet(&registry, &h.asset_id),
+                logo: logo_for(&registry, &h.asset_id),
+                asset_id: h.asset_id,
+                amount,
+            });
+        }
+    }
+    drop(registry);
+
+    let asset_ids: Vec<String> = kept.iter().map(|h| h.asset_id.clone()).collect();
+    let prices: HashMap<String, f64> = latest_prices(&state.db, &asset_ids)
+        .await?
+        .into_iter()
+        .map(|p| (p.asset_id, p.price_usd))
+        .collect();
+
+    let mut tokens: Vec<(f64, TokenBalance)> = kept
+        .into_iter()
+        .map(|h| {
+            let price = prices.get(&h.asset_id).copied().unwrap_or(0.0);
+            let usd = (&h.amount * BigDecimal::try_from(price).unwrap_or_default())
+                .with_scale_round(2, RoundingMode::HalfUp);
+            (
+                usd.to_string().parse::<f64>().unwrap_or(0.0),
+                TokenBalance {
+                    symbol: h.symbol,
+                    logo: h.logo,
+                    amount: fmt_fixed(&h.amount, 4),
+                    usd_value: fmt_fixed(&usd, 2),
+                    asset_id: h.asset_id,
+                },
+            )
+        })
+        .collect();
+    tokens.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    let total_usd: f64 = tokens.iter().map(|(u, _)| *u).sum();
+    Ok(WalletBalances {
+        address,
+        tokens: tokens.into_iter().map(|(_, t)| t).collect(),
+        total_usd,
+    })
+}
+
+#[derive(Serialize)]
+struct SimpleBalance {
+    symbol: String,
+    logo: String,
+    amount: String,
+    #[serde(rename = "usdValue")]
+    usd_value: String,
+}
+
+/// Node `/balance/:address`: same rows, no `assetId`, bare array;
+/// any failure → `[]`.
+async fn balance(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+) -> Result<Json<Vec<SimpleBalance>>, ApiError> {
+    let address = crate::util::validate_address(&address)?;
+    let Some(chain) = state.chain.as_ref() else {
+        return Ok(Json(Vec::new()));
+    };
+    let rows = match wallet_balances(&state, chain, address).await {
+        Ok(w) => w.tokens,
+        Err(_) => Vec::new(),
+    };
+    Ok(Json(
+        rows.into_iter()
+            .map(|t| SimpleBalance {
+                symbol: t.symbol,
+                logo: t.logo,
+                amount: t.amount,
+                usd_value: t.usd_value,
+            })
+            .collect(),
+    ))
 }
 
 /// Node: `assetInfo?.symbol || 'UNK'` (no `0xXXXX` fallback here).
