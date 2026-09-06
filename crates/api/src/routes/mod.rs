@@ -8,6 +8,8 @@
 use crate::AppState;
 use axum::Router;
 
+pub mod chain_state;
+pub mod fee_config;
 pub mod freshness;
 pub mod health;
 pub mod history;
@@ -16,7 +18,7 @@ pub mod stats;
 pub mod tokens;
 pub mod wallet;
 
-/// Construct the `/`-mounted router with every route the API serves.
+/// Routes answered from the DB / cheap chain reads (30 s budget).
 pub fn build(state: AppState) -> Router {
     Router::new()
         .merge(health::router())
@@ -26,5 +28,12 @@ pub fn build(state: AppState) -> Router {
         .merge(prices::router())
         .merge(stats::router())
         .merge(wallet::router())
+        .merge(fee_config::router())
         .with_state(state)
+}
+
+/// Routes that walk whole storage maps (`/pools`, `/holders`); they get
+/// their own, longer timeout (the Node used 60 s + a 5 min cache).
+pub fn build_scans(state: AppState) -> Router {
+    chain_state::router().with_state(state)
 }

@@ -74,6 +74,10 @@ pub enum ApiError {
     /// Chain routes without a configured client.
     #[error("chain client not configured")]
     NoChain,
+
+    /// A full-storage scan is still running; retry shortly.
+    #[error("scan in progress")]
+    ScanPending,
 }
 
 impl ApiError {
@@ -83,7 +87,7 @@ impl ApiError {
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::NotFound(_) => ErrorCode::NotFound,
             Self::Internal(_) => ErrorCode::Internal,
-            Self::Chain(_) | Self::NoChain => ErrorCode::Unavailable,
+            Self::Chain(_) | Self::NoChain | Self::ScanPending => ErrorCode::Unavailable,
         }
     }
 
@@ -97,6 +101,7 @@ impl ApiError {
             Self::Internal(_) => "internal error".to_string(),
             Self::Chain(_) => "chain rpc unavailable".to_string(),
             Self::NoChain => "chain client not configured".to_string(),
+            Self::ScanPending => "scan in progress, retry shortly".to_string(),
         }
     }
 }
@@ -118,6 +123,13 @@ impl IntoResponse for ApiError {
             code,
             message: &self.public_message(),
         };
-        (code.http_status(), Json(body)).into_response()
+        let mut resp = (code.http_status(), Json(body)).into_response();
+        if matches!(self, Self::ScanPending) {
+            resp.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from_static("15"),
+            );
+        }
+        resp
     }
 }

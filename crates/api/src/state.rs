@@ -9,7 +9,7 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{info, warn};
 
 /// Time zone the legacy Node rendered `time` strings in (its process
@@ -107,6 +107,52 @@ pub struct AppState {
     pub chain: Option<ChainClient>,
     /// Process start, for `/health.uptime`.
     pub started_at: std::time::Instant,
+    /// In-process TTL caches for the heavy chain scans (`/pools`,
+    /// `/holders`), keyed by route-specific strings.
+    pub scan_cache: Arc<Mutex<HashMap<String, CachedScan>>>,
+    /// Scan keys currently being refreshed in the background.
+    pub scans_in_flight: Arc<Mutex<std::collections::HashSet<String>>>,
+}
+
+/// One cached scan result with its expiry.
+#[derive(Clone)]
+pub struct CachedScan {
+    /// When the entry was produced.
+    pub at: std::time::Instant,
+    /// JSON-serialisable payload (already shaped for the route).
+    pub value: serde_json::Value,
+}
+
+impl AppState {
+    /// Cached scan value if younger than `ttl`.
+    pub async fn cached_scan(&self, key: &str, ttl: Duration) -> Option<serde_json::Value> {
+        let cache = self.scan_cache.lock().await;
+        cache
+            .get(key)
+            .filter(|c| c.at.elapsed() < ttl)
+            .map(|c| c.value.clone())
+    }
+
+    /// Store a scan result.
+    pub async fn store_scan(&self, key: &str, value: serde_json::Value) {
+        self.scan_cache.lock().await.insert(
+            key.to_string(),
+            CachedScan {
+                at: std::time::Instant::now(),
+                value,
+            },
+        );
+    }
+
+    /// Mark a scan as running; `false` if it already was.
+    pub async fn begin_scan(&self, key: &str) -> bool {
+        self.scans_in_flight.lock().await.insert(key.to_string())
+    }
+
+    /// Clear the running mark.
+    pub async fn end_scan(&self, key: &str) {
+        self.scans_in_flight.lock().await.remove(key);
+    }
 }
 
 impl AppState {
@@ -119,6 +165,8 @@ impl AppState {
             time_zone: DEFAULT_TIME_ZONE,
             chain: None,
             started_at: std::time::Instant::now(),
+            scan_cache: Arc::new(Mutex::new(HashMap::new())),
+            scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
     }
 
@@ -139,6 +187,8 @@ impl AppState {
             time_zone,
             chain: None,
             started_at: std::time::Instant::now(),
+            scan_cache: Arc::new(Mutex::new(HashMap::new())),
+            scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
         })
     }
 

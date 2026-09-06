@@ -9,6 +9,7 @@
 //! request reconnects (possibly on the next endpoint).
 
 use std::sync::Arc;
+use subxt::backend::rpc::RpcClient;
 use subxt::{OnlineClient, SubstrateConfig};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
@@ -24,7 +25,27 @@ pub struct ChainClient {
 #[derive(Clone)]
 struct Connected {
     client: OnlineClient<SubstrateConfig>,
+    /// Same connection with SORA's raw `AccountId32` address type, for
+    /// building extrinsics (fee samples).
+    sora: OnlineClient<SoraConfig>,
     endpoint: Url,
+}
+
+/// subxt `Config` matching the SORA runtime's extrinsic format: the
+/// `Address` is the bare `AccountId32` (not `MultiAddress`). Storage and
+/// block reads are identical to `SubstrateConfig`; only transaction
+/// building depends on this.
+pub enum SoraConfig {}
+
+impl subxt::Config for SoraConfig {
+    type Hash = subxt::utils::H256;
+    type AccountId = subxt::utils::AccountId32;
+    type Address = subxt::utils::AccountId32;
+    type Signature = subxt::utils::MultiSignature;
+    type Hasher = subxt::config::substrate::BlakeTwo256;
+    type Header = subxt::config::substrate::SubstrateHeader<u32, Self::Hasher>;
+    type ExtrinsicParams = subxt::config::DefaultExtrinsicParams<Self>;
+    type AssetId = u32;
 }
 
 /// Errors from [`ChainClient`].
@@ -80,13 +101,11 @@ impl ChainClient {
             return Ok(c.client.clone());
         }
         for url in self.endpoints.iter() {
-            match OnlineClient::<SubstrateConfig>::from_url(url.as_str()).await {
-                Ok(client) => {
+            match Self::connect(url).await {
+                Ok(c) => {
                     info!(endpoint = %url, "api chain client connected");
-                    *guard = Some(Connected {
-                        client: client.clone(),
-                        endpoint: url.clone(),
-                    });
+                    let client = c.client.clone();
+                    *guard = Some(c);
                     return Ok(client);
                 }
                 Err(e) => warn!(endpoint = %url, error = %e, "api chain connect failed"),
@@ -95,6 +114,34 @@ impl ChainClient {
         Err(ChainError::Unreachable {
             tried: self.endpoints.len(),
         })
+    }
+
+    async fn connect(url: &Url) -> Result<Connected, subxt::Error> {
+        let rpc = RpcClient::from_url(url.as_str()).await?;
+        let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc.clone()).await?;
+        let sora = OnlineClient::<SoraConfig>::from_rpc_client_with(
+            client.genesis_hash(),
+            client.runtime_version(),
+            client.metadata(),
+            rpc,
+        )?;
+        Ok(Connected {
+            client,
+            sora,
+            endpoint: url.clone(),
+        })
+    }
+
+    /// The SORA-address-typed client (transaction building).
+    pub async fn sora_client(&self) -> Result<OnlineClient<SoraConfig>, ChainError> {
+        self.client().await?;
+        let guard = self.inner.lock().await;
+        guard
+            .as_ref()
+            .map(|c| c.sora.clone())
+            .ok_or(ChainError::Unreachable {
+                tried: self.endpoints.len(),
+            })
     }
 
     /// Forget the current connection so the next call reconnects.

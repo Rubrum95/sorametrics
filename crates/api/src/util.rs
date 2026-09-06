@@ -36,6 +36,18 @@ pub fn validate_address(raw: &str) -> Result<String, ApiError> {
     }
 }
 
+/// Validate an asset id path parameter: `0x` + 64 hex, lower-cased.
+/// (Node `validateAssetId`: `/^0x[0-9a-fA-F]{64}$/`.)
+pub fn validate_asset_id(raw: &str) -> Result<String, ApiError> {
+    let ok =
+        raw.len() == 66 && raw.starts_with("0x") && raw[2..].chars().all(|c| c.is_ascii_hexdigit());
+    if ok {
+        Ok(raw.to_lowercase())
+    } else {
+        Err(ApiError::BadRequest("Invalid asset ID format".into()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

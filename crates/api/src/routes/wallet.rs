@@ -260,7 +260,9 @@ mod tests {
     #[test]
     fn human_scales_by_decimals() {
         assert_eq!(
-            human(1_500_000_000_000_000_000, 18).normalized().to_string(),
+            human(1_500_000_000_000_000_000, 18)
+                .normalized()
+                .to_string(),
             "1.5"
         );
         assert_eq!(human(1234, 2).normalized().to_string(), "12.34");

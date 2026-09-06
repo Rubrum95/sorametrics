@@ -34,16 +34,15 @@ use tower_http::trace::TraceLayer;
 
 /// Build the full router for the API service.
 pub fn build_router(state: AppState) -> Router {
-    let inner = routes::build(state);
-
-    // Wrap with tower-http middleware: structured request tracing +
-    // a hard request timeout (returns 504 instead of holding a request
-    // open forever). We keep this tower stack thin in 3.1 and add
-    // CORS + rate-limit + cache later.
-    inner
-        .layer(TraceLayer::new_for_http())
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::GATEWAY_TIMEOUT,
-            Duration::from_secs(30),
-        ))
+    // Hard request timeouts (504 instead of holding a request open
+    // forever): 30 s for everything, 120 s for the full-storage scans.
+    let fast = routes::build(state.clone()).layer(TimeoutLayer::with_status_code(
+        StatusCode::GATEWAY_TIMEOUT,
+        Duration::from_secs(30),
+    ));
+    let scans = routes::build_scans(state).layer(TimeoutLayer::with_status_code(
+        StatusCode::GATEWAY_TIMEOUT,
+        Duration::from_secs(120),
+    ));
+    fast.merge(scans).layer(TraceLayer::new_for_http())
 }
