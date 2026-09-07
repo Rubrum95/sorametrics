@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT section AS \"section!\", COUNT(*) AS \"cnt!\"\n        FROM sm.extrinsics\n        WHERE block_timestamp >= $1 AND NOT (section = 'timestamp' AND method = 'set')\n        GROUP BY section ORDER BY COUNT(*) DESC LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "section!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "cnt!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "6bf14ebf25e513011b1c9496f3100528f1bcd528540745cd9e9cd7716630d267"
+}

@@ -61,6 +61,8 @@ bigdecimal = { version = "0.4", features = ["serde"] }
 num-bigint = "0.4"
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
+# Type registry used by subxt metadata (same version subxt-metadata 0.38 pins).
+scale-info = "2.11"
 # Substrate WS RPC client (lightweight, used by Phase 1.1 connection layer).
 jsonrpsee = { version = "0.24", default-features = false, features = [
     "ws-client",

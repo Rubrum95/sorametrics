@@ -11,6 +11,7 @@ description = "SORA v2 (Substrate) shared library: subxt codegen + event decoder
 sorametrics-core.workspace = true
 sorametrics-db.workspace = true
 subxt.workspace = true
+scale-info.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

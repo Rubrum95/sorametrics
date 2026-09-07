@@ -250,6 +250,35 @@ pub struct V2Liquidity {
     pub timestamp: Timestamp,
 }
 
+/// One extrinsic of a block (the Node's `live_extrinsics` row).
+/// Idempotency key is `(block_height, extrinsic_index)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2Extrinsic {
+    /// Block of the extrinsic.
+    pub block_height: BlockHeight,
+    /// Index within the block.
+    pub extrinsic_index: u32,
+    /// Extrinsic hash (`0x`-hex).
+    pub hash: String,
+    /// Pallet in polkadot-js camelCase (`liquidityProxy`).
+    pub section: String,
+    /// Call in polkadot-js camelCase (`transferToSidechain`).
+    pub method: String,
+    /// Signer (SS58) or `System` for unsigned extrinsics.
+    pub signer: String,
+    /// `System::ExtrinsicSuccess` seen in the phase.
+    pub success: bool,
+    /// `pallet.Error: docs` for module errors, else the error label; `""` on success.
+    pub error_msg: String,
+    /// Decoded call arguments (toHuman-like JSON object).
+    pub args: serde_json::Value,
+    /// Events of the phase as `[{s, m, d}]` (no success/failed markers).
+    pub events: serde_json::Value,
+    /// Wall-clock timestamp from the block's `timestamp.set` inherent.
+    pub timestamp: Timestamp,
+}
+
 /// Bridge transfer (Hashi v2: substrate / parachain / TON).
 ///
 /// Idempotency key is `(block_height, extrinsic_id, event_id)`.

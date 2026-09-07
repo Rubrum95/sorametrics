@@ -10280,6 +10280,7 @@ dependencies = [
  "hex",
  "num-bigint",
  "rust_decimal",
+ "scale-info",
  "serde",
  "serde_json",
  "sorametrics-core",

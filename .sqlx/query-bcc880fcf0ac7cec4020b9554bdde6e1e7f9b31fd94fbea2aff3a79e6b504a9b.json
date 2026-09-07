@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"count!\"\n        FROM sm.extrinsics\n        WHERE NOT (section = 'timestamp' AND method = 'set')\n          AND ($1::text IS NULL OR signer = $1)\n          AND ($2::text IS NULL OR section = $2)\n          AND ($3::text IS NULL OR method LIKE $3)\n          AND ($4::timestamptz IS NULL OR block_timestamp <= $4)\n          AND ($5::bigint IS NULL OR block_height = $5)\n          AND ($6::bool IS NULL OR success = $6)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bcc880fcf0ac7cec4020b9554bdde6e1e7f9b31fd94fbea2aff3a79e6b504a9b"
+}

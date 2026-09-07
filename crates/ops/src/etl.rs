@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 8] = [
+pub const ALL_TABLES: [&str; 9] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -55,6 +55,7 @@ pub const ALL_TABLES: [&str; 8] = [
     "fee_burns",
     "price_history",
     "liquidity",
+    "extrinsics",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -96,6 +97,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "fee_burns" => copy_fee_burns(&source, &target, opts.batch_size).await?,
             "price_history" => copy_price_history(&source, &target, opts.batch_size).await?,
             "liquidity" => copy_liquidity(&source, &target, opts.batch_size).await?,
+            "extrinsics" => copy_extrinsics(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -867,6 +869,97 @@ async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64) -> Result<
     Ok(copied)
 }
 
+const EXTRINSICS_FILTER: &str =
+    "x.block IS NOT NULL AND x.extrinsic_index IS NOT NULL AND x.section IS NOT NULL AND x.method IS NOT NULL AND x.signer IS NOT NULL AND x.timestamp IS NOT NULL";
+
+/// Rows of `sm.mv_extrinsics` → `sm.extrinsics` (origin 'legacy').
+/// The MV's `extrinsic_index` is SYNTHETIC (ROW_NUMBER per block) and it
+/// carries no args/events; that is the legacy contract for that era and
+/// is copied verbatim. `hash` = `he.id` (the tx hash for CALL rows).
+async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = format!(
+        r#"
+        SELECT x._row_id,
+               x.block::bigint AS block_height,
+               x.extrinsic_index::int AS extrinsic_index,
+               to_timestamp(x.timestamp / 1000.0) AS block_timestamp,
+               COALESCE(x.hash, '') AS hash,
+               x.section, x.method, x.signer,
+               (x.success = 1) AS success,
+               COALESCE(x.error_msg, '') AS error_msg
+        FROM sm.mv_extrinsics x
+        WHERE x._row_id > $1 AND {EXTRINSICS_FILTER}
+        ORDER BY x._row_id
+        LIMIT $2
+        "#
+    );
+    let mut copied = 0u64;
+    let mut cursor = get_cursor(target, "extrinsics").await?.unwrap_or_default();
+    loop {
+        let rows = sqlx::query(&sql)
+            .bind(&cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy mv_extrinsics batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut blocks = Vec::with_capacity(n);
+        let mut idxs = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        let mut hashes = Vec::with_capacity(n);
+        let mut sections = Vec::with_capacity(n);
+        let mut methods = Vec::with_capacity(n);
+        let mut signers = Vec::with_capacity(n);
+        let mut successes = Vec::with_capacity(n);
+        let mut errors = Vec::with_capacity(n);
+        for r in &rows {
+            blocks.push(r.try_get::<i64, _>("block_height")?);
+            idxs.push(r.try_get::<i32, _>("extrinsic_index")?);
+            tss.push(r.try_get::<DateTime<Utc>, _>("block_timestamp")?);
+            hashes.push(r.try_get::<String, _>("hash")?);
+            sections.push(r.try_get::<String, _>("section")?);
+            methods.push(r.try_get::<String, _>("method")?);
+            signers.push(r.try_get::<String, _>("signer")?);
+            successes.push(r.try_get::<bool, _>("success")?);
+            errors.push(r.try_get::<String, _>("error_msg")?);
+            cursor = r.try_get::<String, _>("_row_id")?;
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO sm.extrinsics (
+                block_height, extrinsic_index, block_timestamp, hash, section, method,
+                signer, success, error_msg, origin
+            )
+            SELECT b, i, t, h, s, m, sg, ok, e, 'legacy'
+            FROM UNNEST(
+                $1::bigint[], $2::int[], $3::timestamptz[], $4::text[], $5::text[], $6::text[],
+                $7::text[], $8::bool[], $9::text[]
+            ) AS x(b, i, t, h, s, m, sg, ok, e)
+            ON CONFLICT (block_height, extrinsic_index) DO NOTHING
+            "#,
+            &blocks,
+            &idxs,
+            &tss,
+            &hashes,
+            &sections,
+            &methods,
+            &signers,
+            &successes,
+            &errors,
+        )
+        .execute(target)
+        .await
+        .context("inserting extrinsics batch")?;
+        copied += n as u64;
+        set_cursor(target, "extrinsics", &cursor, n as i64).await?;
+        info!(copied, cursor = %cursor, "extrinsics progress");
+    }
+    Ok(copied)
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -1170,6 +1263,31 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 r#"SELECT (hour_bucket / 2592000) AS "bucket!", COUNT(*)::bigint AS "cnt!",
                    COALESCE(SUM(hour_bucket), 0)::numeric AS "checksum!"
                    FROM ts.price_history WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst: Buckets = dst_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            compare_buckets(table, &src, &dst)
+        }
+        "extrinsics" => {
+            report_skipped(source, table, "sm.mv_extrinsics x", EXTRINSICS_FILTER).await?;
+            // Checksum = SUM(block × 1000 + index): exact, order-independent.
+            let src = source_buckets(
+                source,
+                &format!(
+                    "SELECT (x.block / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                     COALESCE(SUM(x.block::numeric * 1000 + x.extrinsic_index), 0)::numeric AS checksum \
+                     FROM sm.mv_extrinsics x WHERE {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
+                ),
+            )
+            .await?;
+            let dst_rows = sqlx::query!(
+                r#"SELECT (block_height / 100000) AS "bucket!", COUNT(*)::bigint AS "cnt!",
+                   COALESCE(SUM(block_height::numeric * 1000 + extrinsic_index), 0)::numeric AS "checksum!"
+                   FROM sm.extrinsics WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
             )
             .fetch_all(target)
             .await?;

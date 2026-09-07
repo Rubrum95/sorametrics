@@ -59,6 +59,25 @@ impl Registry {
         self.by_symbol.get(symbol).map(String::as_str)
     }
 
+    /// `(symbol, canonical asset id)` for every symbol containing
+    /// `needle` (case-insensitive), sorted by symbol (Node `/search`).
+    pub fn symbols_matching(&self, needle: &str) -> Vec<(String, String)> {
+        let up = needle.to_uppercase();
+        let mut out: Vec<(String, String)> = self
+            .by_symbol
+            .iter()
+            .filter(|(sym, _)| sym.to_uppercase().contains(&up))
+            .map(|(s, id)| (s.clone(), id.clone()))
+            .collect();
+        // Exact symbol first, then alphabetical.
+        out.sort_by(|a, b| {
+            (a.0.to_uppercase() != up)
+                .cmp(&(b.0.to_uppercase() != up))
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        out
+    }
+
     /// The whitelisted assets (the Node's `ASSETS`), unordered.
     pub fn whitelisted(&self) -> Vec<&RegistryAsset> {
         self.by_id.values().filter(|a| a.whitelisted).collect()

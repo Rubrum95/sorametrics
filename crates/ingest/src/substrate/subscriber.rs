@@ -168,7 +168,7 @@ async fn fill_gap(
                 )))
             })?;
         let block = client.blocks().at(hash).await?;
-        let stats = decode_block_events(&block, db, prices).await?;
+        let stats = decode_block_events(&block, db, prices, &client.metadata()).await?;
         set_cursor(db, JOB_NAME_LIVE, BlockHeight(height), "running").await?;
 
         if stats.has_any() {
@@ -240,7 +240,7 @@ async fn try_subscribe_once(
                     }
                 }
 
-                let stats = decode_block_events(&block, db, &prices).await?;
+                let stats = decode_block_events(&block, db, &prices, &client.metadata()).await?;
                 // Never move the cursor backwards: a replayed older block
                 // (idempotent no-op in the DB) must not regress the resume
                 // point.

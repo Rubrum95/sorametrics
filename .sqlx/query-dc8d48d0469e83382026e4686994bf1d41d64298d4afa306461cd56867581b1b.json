@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_index, block_timestamp, hash, section, method,\n               signer, success, error_msg, NULL::jsonb AS \"args\", NULL::jsonb AS \"events\"\n        FROM sm.extrinsics\n        WHERE NOT (section = 'timestamp' AND method = 'set')\n          AND ($3::text IS NULL OR signer = $3)\n          AND ($4::text IS NULL OR section = $4)\n          AND ($5::text IS NULL OR method LIKE $5)\n          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)\n          AND ($7::bigint IS NULL OR block_height = $7)\n          AND ($8::bool IS NULL OR success = $8)\n        ORDER BY block_height DESC, extrinsic_index DESC\n        LIMIT $1 OFFSET $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "section",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "method",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "signer",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "success",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "error_msg",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "args",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "events",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Int8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "dc8d48d0469e83382026e4686994bf1d41d64298d4afa306461cd56867581b1b"
+}

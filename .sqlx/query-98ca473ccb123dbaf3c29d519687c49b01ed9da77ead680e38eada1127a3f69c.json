@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.extrinsics (\n                block_height, extrinsic_index, block_timestamp, hash, section, method,\n                signer, success, error_msg, origin\n            )\n            SELECT b, i, t, h, s, m, sg, ok, e, 'legacy'\n            FROM UNNEST(\n                $1::bigint[], $2::int[], $3::timestamptz[], $4::text[], $5::text[], $6::text[],\n                $7::text[], $8::bool[], $9::text[]\n            ) AS x(b, i, t, h, s, m, sg, ok, e)\n            ON CONFLICT (block_height, extrinsic_index) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "Int4Array",
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "BoolArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "98ca473ccb123dbaf3c29d519687c49b01ed9da77ead680e38eada1127a3f69c"
+}

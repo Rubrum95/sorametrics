@@ -101,7 +101,7 @@ enum Command {
         /// Comma-separated table list. Default: all.
         #[arg(
             long,
-            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity"
+            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics"
         )]
         tables: String,
 
@@ -204,7 +204,7 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
     let prices = PriceResolver::historical(db.clone())
         .await
         .context("loading asset registry for pricing")?;
-    let stats = decode_block_events(&block, &db, &prices)
+    let stats = decode_block_events(&block, &db, &prices, &client.metadata())
         .await
         .with_context(|| format!("decoding block at height {height}"))?;
 
@@ -223,6 +223,8 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         inserted_fees = stats.inserted_fees,
         decoded_liquidity = stats.decoded_liquidity,
         inserted_liquidity = stats.inserted_liquidity,
+        decoded_extrinsics = stats.decoded_extrinsics,
+        inserted_extrinsics = stats.inserted_extrinsics,
         "block decoded"
     );
 
@@ -392,7 +394,7 @@ async fn process_one_block(
         .at(hash)
         .await
         .with_context(|| format!("fetching block at height {height} ({hash:?})"))?;
-    decode_block_events(&block, db, prices)
+    decode_block_events(&block, db, prices, &client.metadata())
         .await
         .with_context(|| format!("decoding block {height}"))
 }
@@ -412,6 +414,8 @@ fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.inserted_fees += one.inserted_fees;
     total.decoded_liquidity += one.decoded_liquidity;
     total.inserted_liquidity += one.inserted_liquidity;
+    total.decoded_extrinsics += one.decoded_extrinsics;
+    total.inserted_extrinsics += one.inserted_extrinsics;
 }
 
 // =============================================================

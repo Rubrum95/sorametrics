@@ -16,7 +16,8 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2Fee, V2FeeBurn, V2Liquidity, V2Swap, V2Transfer,
+    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2Liquidity, V2Swap,
+    V2Transfer,
 };
 use sqlx::PgPool;
 
@@ -571,6 +572,70 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         &amounts,
         &usds as &[Option<bigdecimal::BigDecimal>],
         &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+// =============================================================
+// extrinsics
+// =============================================================
+
+/// Batch-insert extrinsic rows, idempotent on `(block, index)`. Returns NEW rows.
+pub async fn insert_extrinsics_batch(pool: &PgPool, rows: &[V2Extrinsic]) -> Result<u64, DbError> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let n = rows.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut idxs = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut hashes = Vec::with_capacity(n);
+    let mut sections = Vec::with_capacity(n);
+    let mut methods = Vec::with_capacity(n);
+    let mut signers = Vec::with_capacity(n);
+    let mut successes = Vec::with_capacity(n);
+    let mut errors = Vec::with_capacity(n);
+    let mut args = Vec::with_capacity(n);
+    let mut events = Vec::with_capacity(n);
+    for r in rows {
+        blocks.push(r.block_height.0 as i64);
+        idxs.push(r.extrinsic_index as i32);
+        tss.push(r.timestamp.0);
+        hashes.push(r.hash.clone());
+        sections.push(r.section.clone());
+        methods.push(r.method.clone());
+        signers.push(r.signer.clone());
+        successes.push(r.success);
+        errors.push(r.error_msg.clone());
+        args.push(r.args.clone());
+        events.push(r.events.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.extrinsics (
+            block_height, extrinsic_index, block_timestamp, hash, section, method,
+            signer, success, error_msg, args, events
+        )
+        SELECT b, i, t, h, s, m, sg, ok, e, a, ev
+        FROM UNNEST(
+            $1::bigint[], $2::int[], $3::timestamptz[], $4::text[], $5::text[], $6::text[],
+            $7::text[], $8::bool[], $9::text[], $10::jsonb[], $11::jsonb[]
+        ) AS x(b, i, t, h, s, m, sg, ok, e, a, ev)
+        ON CONFLICT (block_height, extrinsic_index) DO NOTHING
+        "#,
+        &blocks,
+        &idxs,
+        &tss,
+        &hashes,
+        &sections,
+        &methods,
+        &signers,
+        &successes,
+        &errors,
+        &args,
+        &events,
     )
     .execute(pool)
     .await?;

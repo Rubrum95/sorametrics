@@ -20,6 +20,7 @@ use crate::decoder::{
 use crate::eth_bridge::{
     decode_eth_incoming, decode_eth_outgoing, eth_incoming_hash, outgoing_calls,
 };
+use crate::extrinsics::{extrinsic_row, ExtrinsicFacts};
 use crate::fees::ExtrinsicFeeFacts;
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::price::{PriceError, PriceResolver};
@@ -28,8 +29,8 @@ use sorametrics_core::chain::AssetId;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
-    insert_bridges_batch, insert_fee_burns_batch, insert_fees_batch, insert_liquidity_batch,
-    insert_swaps_batch, insert_transfers_batch,
+    insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
+    insert_liquidity_batch, insert_swaps_batch, insert_transfers_batch,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -79,6 +80,10 @@ pub struct BlockDecodeStats {
     pub decoded_liquidity: u32,
     /// Number of liquidity rows that were new.
     pub inserted_liquidity: u32,
+    /// Extrinsics in the block (every one produces a row).
+    pub decoded_extrinsics: u32,
+    /// Extrinsic rows that were new.
+    pub inserted_extrinsics: u32,
 }
 
 impl BlockDecodeStats {
@@ -139,6 +144,7 @@ pub async fn decode_block_events(
     block: &Block<SubstrateConfig, OnlineClient<SubstrateConfig>>,
     db: &PgPool,
     prices: &PriceResolver,
+    metadata: &subxt::Metadata,
 ) -> Result<BlockDecodeStats, BlockProcessError> {
     let height = BlockHeight(block.number().into());
 
@@ -156,6 +162,8 @@ pub async fn decode_block_events(
     // amounts come from the transfer events of the same phase.
     let liq_calls = liquidity_calls(&extrinsics);
     let mut liq_facts: BTreeMap<u32, (LiquidityFacts, EventCoords)> = BTreeMap::new();
+    // Every extrinsic gets a row; its facts come from the phase's events.
+    let mut ext_facts: BTreeMap<u32, ExtrinsicFacts> = BTreeMap::new();
     let mut stats = BlockDecodeStats::default();
     let mut events_seen: u32 = 0;
 
@@ -191,6 +199,7 @@ pub async fn decode_block_events(
         events_seen += 1;
 
         if let Phase::ApplyExtrinsic(i) = ev.phase() {
+            ext_facts.entry(i).or_default().observe(&ev, metadata);
             if liq_calls.contains_key(&i) {
                 let entry = liq_facts
                     .entry(i)
@@ -311,6 +320,21 @@ pub async fn decode_block_events(
         .into_values()
         .filter_map(ExtrinsicFeeFacts::into_fee)
         .collect();
+    let extrinsic_rows: Vec<_> = extrinsics
+        .iter()
+        .map(|ext| {
+            let i = ext.index();
+            let facts = ext_facts.remove(&i).unwrap_or_default();
+            let coords = EventCoords {
+                block_height: height,
+                block_timestamp,
+                extrinsic_id: i,
+                event_id: 0,
+                extrinsic_hash: None,
+            };
+            extrinsic_row(&ext, facts, coords, metadata)
+        })
+        .collect();
     let mut liquidity: Vec<_> = liq_facts
         .into_iter()
         .filter_map(|(i, (facts, coords))| {
@@ -377,6 +401,8 @@ pub async fn decode_block_events(
     stats.inserted_fees = insert_fees_batch(db, &fees).await? as u32;
     stats.decoded_liquidity = liquidity.len() as u32;
     stats.inserted_liquidity = insert_liquidity_batch(db, &liquidity).await? as u32;
+    stats.decoded_extrinsics = extrinsic_rows.len() as u32;
+    stats.inserted_extrinsics = insert_extrinsics_batch(db, &extrinsic_rows).await? as u32;
 
     stats.events = events_seen;
     Ok(stats)

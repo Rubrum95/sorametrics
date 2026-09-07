@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_index, block_timestamp, hash, section, method,\n               signer, success, error_msg, args, events\n        FROM sm.extrinsics\n        WHERE block_height = $1 AND extrinsic_index = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "section",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "method",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "signer",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "success",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "error_msg",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "args",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "events",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "cf0eb9b2e2879e9f1237924556f72ac0aac0ccb676c6cb822c461eafed6ae36d"
+}

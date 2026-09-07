@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height,\n               SUM(amount_xor)              AS \"total_xor: bigdecimal::BigDecimal\",\n               COALESCE(SUM(usd_value), 0)  AS \"total_usd: bigdecimal::BigDecimal\",\n               COUNT(*)                     AS \"rows!\"\n        FROM sm.fees\n        WHERE block_height = ANY($1) AND amount_xor > 0 AND amount_xor <= 100\n        GROUP BY block_height\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_xor: bigdecimal::BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_usd: bigdecimal::BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "rows!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "ea230a855f730d4c392fc782a706f55476a72209809b6ad6c70d65c58161f544"
+}
