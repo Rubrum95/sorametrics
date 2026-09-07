@@ -101,7 +101,7 @@ enum Command {
         /// Comma-separated table list. Default: all.
         #[arg(
             long,
-            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics"
+            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book"
         )]
         tables: String,
 
@@ -223,6 +223,8 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         inserted_fees = stats.inserted_fees,
         decoded_liquidity = stats.decoded_liquidity,
         inserted_liquidity = stats.inserted_liquidity,
+        decoded_order_book = stats.decoded_order_book,
+        inserted_order_book = stats.inserted_order_book,
         decoded_extrinsics = stats.decoded_extrinsics,
         inserted_extrinsics = stats.inserted_extrinsics,
         "block decoded"
@@ -414,6 +416,8 @@ fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.inserted_fees += one.inserted_fees;
     total.decoded_liquidity += one.decoded_liquidity;
     total.inserted_liquidity += one.inserted_liquidity;
+    total.decoded_order_book += one.decoded_order_book;
+    total.inserted_order_book += one.inserted_order_book;
     total.decoded_extrinsics += one.decoded_extrinsics;
     total.inserted_extrinsics += one.inserted_extrinsics;
 }

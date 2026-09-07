@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 9] = [
+pub const ALL_TABLES: [&str; 10] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -56,6 +56,7 @@ pub const ALL_TABLES: [&str; 9] = [
     "price_history",
     "liquidity",
     "extrinsics",
+    "order_book",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -98,6 +99,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "price_history" => copy_price_history(&source, &target, opts.batch_size).await?,
             "liquidity" => copy_liquidity(&source, &target, opts.batch_size).await?,
             "extrinsics" => copy_extrinsics(&source, &target, opts.batch_size).await?,
+            "order_book" => copy_order_book(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -960,6 +962,175 @@ async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result
     Ok(copied)
 }
 
+/// Legacy `event_type` (call-based) → live vocabulary. `CancelBatch`
+/// is a batch of cancellations: one legacy row, `canceled`.
+fn legacy_order_event_type(raw: &str) -> Option<&'static str> {
+    match raw {
+        "Place" => Some("placed"),
+        "Cancel" | "CancelBatch" => Some("canceled"),
+        _ => None,
+    }
+}
+
+fn legacy_order_side(raw: &str) -> Option<&'static str> {
+    match raw {
+        "Buy" => Some("buy"),
+        "Sell" => Some("sell"),
+        _ => None,
+    }
+}
+
+/// Rows of `sm.mv_order_book_events` → `sm.order_book_events`. Symbols
+/// resolve through the target registry (whitelist first, lowest id);
+/// cancel rows legitimately carry no pair and are copied with NULL
+/// assets. Rows with an unknown event type, an unresolvable symbol, or
+/// unparsable price/amount are SKIPPED and counted — the reconciliation
+/// checks `source = copied + skipped`.
+async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let symbols = target_symbol_map(target).await?;
+    let sql = r#"
+        SELECT o._row_id,
+               o.block::bigint AS block_height,
+               to_timestamp(o.timestamp / 1000.0) AS block_timestamp,
+               o.event_type, o.wallet, o.order_id, o.base_asset, o.quote_asset,
+               o.side, o.price, o.amount,
+               o.usd_value::numeric(38,6) AS usd_value,
+               o.hash, o.extrinsic_id
+        FROM sm.mv_order_book_events o
+        WHERE o._row_id > $1 AND o.wallet IS NOT NULL
+        ORDER BY o._row_id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut skipped = 0u64;
+    let mut cursor = get_cursor(target, "order_book").await?.unwrap_or_default();
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(&cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy mv_order_book_events batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut blocks = Vec::with_capacity(n);
+        let mut ext_ids = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        let mut kinds = Vec::with_capacity(n);
+        let mut wallets = Vec::with_capacity(n);
+        let mut order_ids: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut bases: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut quotes: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut sides: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut prices: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
+        let mut amounts: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
+        let mut usds: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
+        let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+        for r in &rows {
+            cursor = r.try_get::<String, _>("_row_id")?;
+            let raw_kind: Option<String> = r.try_get("event_type")?;
+            let Some(kind) = raw_kind.as_deref().and_then(legacy_order_event_type) else {
+                skipped += 1;
+                continue;
+            };
+            let base_sym: Option<String> = r.try_get("base_asset")?;
+            let quote_sym: Option<String> = r.try_get("quote_asset")?;
+            let resolve = |sym: &Option<String>| match sym.as_deref().filter(|s| !s.is_empty()) {
+                None => Some(None),
+                Some(s) => symbols.get(s).map(|(id, _)| Some(id.clone())),
+            };
+            let (Some(base_id), Some(quote_id)) = (resolve(&base_sym), resolve(&quote_sym)) else {
+                skipped += 1;
+                continue;
+            };
+            let side: Option<String> = r.try_get("side")?;
+            let side = side.as_deref().and_then(legacy_order_side);
+            // Only rows with a side carry price / amount; the MV pads the
+            // rest with '0'.
+            let (price, amount) = if side.is_some() {
+                let p: Option<String> = r.try_get("price")?;
+                let a: Option<String> = r.try_get("amount")?;
+                let parsed = (
+                    p.as_deref()
+                        .and_then(|v| v.trim().parse::<BigDecimal>().ok()),
+                    a.as_deref()
+                        .and_then(|v| v.trim().parse::<BigDecimal>().ok()),
+                );
+                match parsed {
+                    (Some(p), Some(a)) => (Some(p), Some(a)),
+                    _ => {
+                        skipped += 1;
+                        continue;
+                    }
+                }
+            } else {
+                (None, None)
+            };
+            blocks.push(r.try_get::<i64, _>("block_height")?);
+            ext_ids.push(r.try_get::<String, _>("extrinsic_id")?);
+            tss.push(r.try_get::<DateTime<Utc>, _>("block_timestamp")?);
+            kinds.push(kind.to_string());
+            wallets.push(r.try_get::<String, _>("wallet")?);
+            let order_id: Option<String> = r.try_get("order_id")?;
+            order_ids.push(order_id.filter(|o| !o.is_empty()));
+            bases.push(base_id);
+            quotes.push(quote_id);
+            sides.push(side.map(str::to_string));
+            prices.push(price);
+            amounts.push(amount);
+            usds.push(r.try_get::<Option<BigDecimal>, _>("usd_value")?);
+            hashes.push(r.try_get::<Option<String>, _>("hash")?);
+        }
+        if !blocks.is_empty() {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.order_book_events (
+                    block_height, extrinsic_id, event_id, block_timestamp, event_type, wallet,
+                    order_id, base_asset_id, quote_asset_id, side, price, amount, usd_value,
+                    hash, origin
+                )
+                SELECT b, e, 0, t, k, w, o, ba, qa, s, p, a, u, h, 'legacy'
+                FROM UNNEST(
+                    $1::bigint[], $2::text[], $3::timestamptz[], $4::text[], $5::text[],
+                    $6::text[], $7::text[], $8::text[], $9::text[], $10::numeric[],
+                    $11::numeric[], $12::numeric[], $13::text[]
+                ) AS x(b, e, t, k, w, o, ba, qa, s, p, a, u, h)
+                ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+                "#,
+                &blocks,
+                &ext_ids,
+                &tss,
+                &kinds,
+                &wallets,
+                &order_ids as &[Option<String>],
+                &bases as &[Option<String>],
+                &quotes as &[Option<String>],
+                &sides as &[Option<String>],
+                &prices as &[Option<BigDecimal>],
+                &amounts as &[Option<BigDecimal>],
+                &usds as &[Option<BigDecimal>],
+                &hashes as &[Option<String>],
+            )
+            .execute(target)
+            .await
+            .context("inserting order book batch")?;
+        }
+        copied += blocks.len() as u64;
+        set_cursor(target, "order_book", &cursor, blocks.len() as i64).await?;
+        info!(copied, skipped, cursor = %cursor, "order_book progress");
+    }
+    if skipped > 0 {
+        warn!(
+            skipped,
+            "order book rows skipped (unknown event type / unresolvable symbol / unparsable price) — review before cutover"
+        );
+    }
+    set_skipped(target, "order_book", skipped).await?;
+    Ok(copied)
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -1313,6 +1484,35 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
             .await?;
             let skipped = sqlx::query_scalar!(
                 r#"SELECT skipped FROM sm.etl_skipped WHERE table_name = 'liquidity'"#
+            )
+            .fetch_optional(target)
+            .await?
+            .unwrap_or(0);
+            if src_cnt == dst_cnt + skipped {
+                true
+            } else {
+                warn!(
+                    table,
+                    src_cnt, dst_cnt, skipped, "RECONCILE FAIL: source ≠ copied + skipped"
+                );
+                false
+            }
+        }
+        "order_book" => {
+            // Symbol-keyed source, like liquidity: STRICT count equation.
+            let src_cnt: i64 = sqlx::query(
+                "SELECT COUNT(*)::bigint AS c FROM sm.mv_order_book_events WHERE wallet IS NOT NULL",
+            )
+            .fetch_one(source)
+            .await?
+            .try_get("c")?;
+            let dst_cnt = sqlx::query_scalar!(
+                r#"SELECT COUNT(*)::bigint AS "c!" FROM sm.order_book_events WHERE origin = 'legacy'"#
+            )
+            .fetch_one(target)
+            .await?;
+            let skipped = sqlx::query_scalar!(
+                r#"SELECT skipped FROM sm.etl_skipped WHERE table_name = 'order_book'"#
             )
             .fetch_optional(target)
             .await?

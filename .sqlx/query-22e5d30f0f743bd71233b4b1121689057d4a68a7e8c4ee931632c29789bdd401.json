@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.order_book_events (\n            block_height, extrinsic_id, event_id, block_timestamp, event_type, wallet,\n            order_id, base_asset_id, quote_asset_id, side, price, amount, usd_value, hash\n        )\n        SELECT b, e, ev, t, k, w, o, ba, qa, s, p, a, u, h\n        FROM UNNEST(\n            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[], $6::text[],\n            $7::text[], $8::text[], $9::text[], $10::text[], $11::numeric[], $12::numeric[],\n            $13::numeric[], $14::text[]\n        ) AS x(b, e, ev, t, k, w, o, ba, qa, s, p, a, u, h)\n        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "TextArray",
+        "Int4Array",
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "NumericArray",
+        "NumericArray",
+        "NumericArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "22e5d30f0f743bd71233b4b1121689057d4a68a7e8c4ee931632c29789bdd401"
+}

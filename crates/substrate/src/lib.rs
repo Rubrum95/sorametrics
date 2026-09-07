@@ -21,6 +21,7 @@ pub mod eth_bridge;
 pub mod extrinsics;
 pub mod fees;
 pub mod liquidity;
+pub mod order_book;
 pub mod price;
 pub mod runtime;
 

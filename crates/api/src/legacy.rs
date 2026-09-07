@@ -56,12 +56,26 @@ pub fn fmt_usd(usd: Option<&BigDecimal>) -> f64 {
 }
 
 /// `"<block>-<index>"`. Legacy ETL rows already carry that form (or a
-/// richer `block-idx-evt`); live rows store the bare in-block index.
+/// richer `block-idx-evt`, or the tx hash where the subsquid `he.id`
+/// was one — `mv_order_book_events`); live rows store the bare
+/// in-block index.
 pub fn fmt_extrinsic_id(block: i64, stored: &str) -> String {
-    if stored.contains('-') {
+    if stored.contains('-') || stored.starts_with("0x") {
         stored.to_string()
     } else {
         format!("{block}-{stored}")
+    }
+}
+
+/// Serialize an `f64` the way `JSON.stringify` prints a JS number:
+/// integral values without a fractional part (`100000000`, not
+/// `100000000.0`).
+pub fn ser_js_number<S: serde::Serializer>(v: &f64, s: S) -> Result<S::Ok, S::Error> {
+    const SAFE: f64 = 9_007_199_254_740_992.0;
+    if v.fract() == 0.0 && v.abs() < SAFE {
+        s.serialize_i64(*v as i64)
+    } else {
+        s.serialize_f64(*v)
     }
 }
 
@@ -178,6 +192,21 @@ mod tests {
     fn extrinsic_id_is_block_dash_index() {
         assert_eq!(fmt_extrinsic_id(27538740, "1"), "27538740-1");
         assert_eq!(fmt_extrinsic_id(27538740, "27538740-1"), "27538740-1");
+        assert_eq!(fmt_extrinsic_id(25025549, "0x9690ab"), "0x9690ab");
+    }
+
+    #[derive(serde::Serialize)]
+    struct N(#[serde(serialize_with = "ser_js_number")] f64);
+
+    #[test]
+    fn js_numbers_drop_the_zero_fraction() {
+        assert_eq!(
+            serde_json::to_string(&N(100_000_000.0)).unwrap(),
+            "100000000"
+        );
+        assert_eq!(serde_json::to_string(&N(0.0)).unwrap(), "0");
+        assert_eq!(serde_json::to_string(&N(0.001)).unwrap(), "0.001");
+        assert_eq!(serde_json::to_string(&N(541_760.5)).unwrap(), "541760.5");
     }
 
     #[test]

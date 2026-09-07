@@ -23,14 +23,17 @@ use crate::eth_bridge::{
 use crate::extrinsics::{extrinsic_row, ExtrinsicFacts};
 use crate::fees::ExtrinsicFeeFacts;
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
+use crate::order_book::decode_order_book;
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
 use sorametrics_core::chain::AssetId;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
     insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
-    insert_liquidity_batch, insert_swaps_batch, insert_transfers_batch,
+    insert_liquidity_batch, insert_order_book_batch, insert_swaps_batch, insert_transfers_batch,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -80,6 +83,10 @@ pub struct BlockDecodeStats {
     pub decoded_liquidity: u32,
     /// Number of liquidity rows that were new.
     pub inserted_liquidity: u32,
+    /// Number of `orderBook` events decoded.
+    pub decoded_order_book: u32,
+    /// Number of order book rows that were new.
+    pub inserted_order_book: u32,
     /// Extrinsics in the block (every one produces a row).
     pub decoded_extrinsics: u32,
     /// Extrinsic rows that were new.
@@ -95,6 +102,7 @@ impl BlockDecodeStats {
             + self.decoded_fee_burns
             + self.decoded_fees
             + self.decoded_liquidity
+            + self.decoded_order_book
             > 0
     }
 }
@@ -171,6 +179,7 @@ pub async fn decode_block_events(
     let mut transfers = Vec::new();
     let mut bridges = Vec::new();
     let mut fee_burns = Vec::new();
+    let mut order_book = Vec::new();
     // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
     let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
 
@@ -301,6 +310,20 @@ pub async fn decode_block_events(
             ),
         }
 
+        match decode_order_book(&ev, coords) {
+            Ok(Some(row)) => {
+                order_book.push(row);
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "order book decode failed"
+            ),
+        }
+
         match decode_fee_burn(&ev, coords) {
             Ok(Some(fee_burn)) => {
                 fee_burns.push(fee_burn);
@@ -388,6 +411,21 @@ pub async fn decode_block_events(
         };
     }
 
+    for row in order_book.iter_mut() {
+        // mv_order_book_events: amount × price × quote price. The
+        // quote-terms amount is human; scale to planck for the resolver.
+        let Some(q) = row.quote_amount.as_ref() else {
+            continue;
+        };
+        let planck = q * BigDecimal::new(
+            BigInt::from(1),
+            -(prices.decimals_of(&row.quote_asset) as i64),
+        );
+        row.usd_value = prices
+            .usd_value_at(&row.quote_asset, &planck, row.timestamp)
+            .await?;
+    }
+
     // Phase 3: one batched upsert per family.
     stats.decoded_swaps = swaps.len() as u32;
     stats.decoded_transfers = transfers.len() as u32;
@@ -401,6 +439,8 @@ pub async fn decode_block_events(
     stats.inserted_fees = insert_fees_batch(db, &fees).await? as u32;
     stats.decoded_liquidity = liquidity.len() as u32;
     stats.inserted_liquidity = insert_liquidity_batch(db, &liquidity).await? as u32;
+    stats.decoded_order_book = order_book.len() as u32;
+    stats.inserted_order_book = insert_order_book_batch(db, &order_book).await? as u32;
     stats.decoded_extrinsics = extrinsic_rows.len() as u32;
     stats.inserted_extrinsics = insert_extrinsics_batch(db, &extrinsic_rows).await? as u32;
 

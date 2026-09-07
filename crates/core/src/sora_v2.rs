@@ -250,6 +250,96 @@ pub struct V2Liquidity {
     pub timestamp: Timestamp,
 }
 
+/// Kind of order-book event (the Node's `live_order_book_events.event_type`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderBookEventType {
+    /// `orderBook.LimitOrderPlaced`.
+    Placed,
+    /// `orderBook.LimitOrderCanceled`.
+    Canceled,
+    /// `orderBook.LimitOrderExecuted` (a resting order matched).
+    Executed,
+    /// `orderBook.LimitOrderFilled` (a resting order fully consumed).
+    Filled,
+    /// `orderBook.MarketOrderExecuted`.
+    Market,
+}
+
+impl OrderBookEventType {
+    /// Lowercase label stored in `sm.order_book_events.event_type`.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Placed => "placed",
+            Self::Canceled => "canceled",
+            Self::Executed => "executed",
+            Self::Filled => "filled",
+            Self::Market => "market",
+        }
+    }
+}
+
+/// Order side; `None` for events without one (canceled / filled).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderSide {
+    /// Bid.
+    Buy,
+    /// Ask.
+    Sell,
+}
+
+impl OrderSide {
+    /// Lowercase label stored in `sm.order_book_events.side`.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Buy => "buy",
+            Self::Sell => "sell",
+        }
+    }
+}
+
+/// One `orderBook` pallet event (the Node's `live_order_book_events`
+/// row). Idempotency key is `(block_height, extrinsic_id, event_id)`.
+/// `price` and `amount` are the chain's 18-decimal fixed-point values
+/// already scaled to human units (the Node stores `inner / 1e18`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2OrderBookEvent {
+    /// Block of the event.
+    pub block_height: BlockHeight,
+    /// Extrinsic index within the block.
+    pub extrinsic_id: u32,
+    /// Event index within the block.
+    pub event_id: u32,
+    /// Extrinsic hash (`0x`-hex), if the event belongs to one.
+    pub extrinsic_hash: Option<String>,
+    /// Event kind.
+    pub event_type: OrderBookEventType,
+    /// Order owner (SS58).
+    pub wallet: Address,
+    /// Limit order id; `None` for market orders.
+    pub order_id: Option<u128>,
+    /// Order book base asset.
+    pub base_asset: AssetId,
+    /// Order book quote asset.
+    pub quote_asset: AssetId,
+    /// Side, when the event carries one.
+    pub side: Option<OrderSide>,
+    /// Price in quote per base (human units).
+    pub price: Option<BigDecimal>,
+    /// Amount in base units (human units).
+    pub amount: Option<BigDecimal>,
+    /// Amount expressed in the quote asset (human units) — the basis of
+    /// `usd_value`: `amount × price` for base-denominated amounts, the
+    /// amount itself when the chain reports it in quote.
+    pub quote_amount: Option<BigDecimal>,
+    /// USD value at index time (`quote_amount × quote price`).
+    pub usd_value: Option<BigDecimal>,
+    /// Wall-clock timestamp from the block's `timestamp.set` inherent.
+    pub timestamp: Timestamp,
+}
+
 /// One extrinsic of a block (the Node's `live_extrinsics` row).
 /// Idempotency key is `(block_height, extrinsic_index)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

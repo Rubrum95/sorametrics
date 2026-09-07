@@ -16,8 +16,8 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2Liquidity, V2Swap,
-    V2Transfer,
+    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2Liquidity,
+    V2OrderBookEvent, V2Swap, V2Transfer,
 };
 use sqlx::PgPool;
 
@@ -816,6 +816,84 @@ pub async fn insert_fee_burns_batch(pool: &PgPool, burns: &[V2FeeBurn]) -> Resul
 fn _types_smoke() {
     let _ = std::any::type_name::<Address>();
     let _ = std::any::type_name::<AssetId>();
+}
+
+// =============================================================
+// order_book_events
+// =============================================================
+
+/// Batch-insert order book rows, idempotent on `(block, extrinsic, event)`.
+/// Returns NEW rows.
+pub async fn insert_order_book_batch(
+    pool: &PgPool,
+    rows: &[V2OrderBookEvent],
+) -> Result<u64, DbError> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let n = rows.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut event_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut kinds = Vec::with_capacity(n);
+    let mut wallets = Vec::with_capacity(n);
+    let mut order_ids: Vec<Option<String>> = Vec::with_capacity(n);
+    let mut bases = Vec::with_capacity(n);
+    let mut quotes = Vec::with_capacity(n);
+    let mut sides: Vec<Option<String>> = Vec::with_capacity(n);
+    let mut prices: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut amounts: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for r in rows {
+        blocks.push(r.block_height.0 as i64);
+        ext_ids.push(r.extrinsic_id.to_string());
+        event_ids.push(r.event_id as i32);
+        tss.push(r.timestamp.0);
+        kinds.push(r.event_type.label().to_string());
+        wallets.push(r.wallet.0.clone());
+        order_ids.push(r.order_id.map(|id| id.to_string()));
+        bases.push(r.base_asset.0.clone());
+        quotes.push(r.quote_asset.0.clone());
+        sides.push(r.side.map(|s| s.label().to_string()));
+        prices.push(r.price.clone());
+        amounts.push(r.amount.clone());
+        usds.push(r.usd_value.clone());
+        hashes.push(r.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.order_book_events (
+            block_height, extrinsic_id, event_id, block_timestamp, event_type, wallet,
+            order_id, base_asset_id, quote_asset_id, side, price, amount, usd_value, hash
+        )
+        SELECT b, e, ev, t, k, w, o, ba, qa, s, p, a, u, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::int[], $4::timestamptz[], $5::text[], $6::text[],
+            $7::text[], $8::text[], $9::text[], $10::text[], $11::numeric[], $12::numeric[],
+            $13::numeric[], $14::text[]
+        ) AS x(b, e, ev, t, k, w, o, ba, qa, s, p, a, u, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &event_ids,
+        &tss,
+        &kinds,
+        &wallets,
+        &order_ids as &[Option<String>],
+        &bases,
+        &quotes,
+        &sides as &[Option<String>],
+        &prices as &[Option<bigdecimal::BigDecimal>],
+        &amounts as &[Option<bigdecimal::BigDecimal>],
+        &usds as &[Option<bigdecimal::BigDecimal>],
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
 }
 
 #[cfg(test)]

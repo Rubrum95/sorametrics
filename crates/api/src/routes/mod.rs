@@ -17,6 +17,7 @@ pub mod history;
 pub mod identity;
 pub mod liquidity;
 pub mod misc;
+pub mod order_book;
 pub mod pool_providers;
 pub mod prices;
 pub mod stats;
@@ -37,6 +38,7 @@ pub fn build(state: AppState) -> Router {
         .merge(extrinsics::router())
         .merge(identity::router())
         .merge(liquidity::router())
+        .merge(order_book::router())
         .merge(misc::router())
         .with_state(state)
 }

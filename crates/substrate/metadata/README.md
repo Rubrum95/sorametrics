@@ -30,6 +30,7 @@ Pinning the file (vs fetching at build time) gives us:
 | `PoolXYK` | `Reserves` storage for `/pools`. |
 | `Identity` | `IdentityOf` for `/identity`. |
 | `EthBridge` | Classic Ethereum bridge: `transfer_to_sidechain` call, `RequestRegistered` / `IncomingRequestFinalized` events, `requests` storage. |
+| `OrderBook` | `LimitOrderPlaced` / `Canceled` / `Executed` / `Filled`, `MarketOrderExecuted` events (order book history). |
 
 When Phase 1.2 expands to other event types, regenerate with the new pallet list.
 
@@ -42,7 +43,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook" \
   --format bytes \
   > sora-mainnet.scale
 ```
