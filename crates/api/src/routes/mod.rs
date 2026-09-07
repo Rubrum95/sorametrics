@@ -16,6 +16,7 @@ pub mod history;
 pub mod identity;
 pub mod liquidity;
 pub mod misc;
+pub mod pool_providers;
 pub mod prices;
 pub mod stats;
 pub mod tokens;
@@ -41,5 +42,7 @@ pub fn build(state: AppState) -> Router {
 /// Routes that walk whole storage maps (`/pools`, `/holders`); they get
 /// their own, longer timeout (the Node used 60 s + a 5 min cache).
 pub fn build_scans(state: AppState) -> Router {
-    chain_state::router().with_state(state)
+    chain_state::router()
+        .merge(pool_providers::router())
+        .with_state(state)
 }

@@ -25,6 +25,8 @@ pub struct ChainClient {
 #[derive(Clone)]
 struct Connected {
     client: OnlineClient<SubstrateConfig>,
+    /// Raw RPC on the same connection (batched `state_queryStorageAt`).
+    rpc: RpcClient,
     /// Same connection with SORA's raw `AccountId32` address type, for
     /// building extrinsics (fee samples).
     sora: OnlineClient<SoraConfig>,
@@ -123,10 +125,11 @@ impl ChainClient {
             client.genesis_hash(),
             client.runtime_version(),
             client.metadata(),
-            rpc,
+            rpc.clone(),
         )?;
         Ok(Connected {
             client,
+            rpc,
             sora,
             endpoint: url.clone(),
         })
@@ -139,6 +142,21 @@ impl ChainClient {
         guard
             .as_ref()
             .map(|c| c.sora.clone())
+            .ok_or(ChainError::Unreachable {
+                tried: self.endpoints.len(),
+            })
+    }
+
+    /// Legacy RPC methods on the current connection (`state_queryStorageAt`
+    /// batches — the polkadot-js `.multi` equivalent).
+    pub async fn legacy_rpc(
+        &self,
+    ) -> Result<subxt::backend::legacy::LegacyRpcMethods<SubstrateConfig>, ChainError> {
+        self.client().await?;
+        let guard = self.inner.lock().await;
+        guard
+            .as_ref()
+            .map(|c| subxt::backend::legacy::LegacyRpcMethods::new(c.rpc.clone()))
             .ok_or(ChainError::Unreachable {
                 tried: self.endpoints.len(),
             })
