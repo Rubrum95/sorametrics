@@ -21,14 +21,15 @@ use crate::eth_bridge::{
     decode_eth_incoming, decode_eth_outgoing, eth_incoming_hash, outgoing_calls,
 };
 use crate::fees::ExtrinsicFeeFacts;
+use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
 use sorametrics_core::chain::AssetId;
 use sorametrics_core::chain::BlockHeight;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
-    insert_bridges_batch, insert_fee_burns_batch, insert_fees_batch, insert_swaps_batch,
-    insert_transfers_batch,
+    insert_bridges_batch, insert_fee_burns_batch, insert_fees_batch, insert_liquidity_batch,
+    insert_swaps_batch, insert_transfers_batch,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -74,6 +75,10 @@ pub struct BlockDecodeStats {
     pub decoded_fees: u32,
     /// Number of fee rows that were new.
     pub inserted_fees: u32,
+    /// Number of successful poolXYK deposit/withdraw extrinsics decoded.
+    pub decoded_liquidity: u32,
+    /// Number of liquidity rows that were new.
+    pub inserted_liquidity: u32,
 }
 
 impl BlockDecodeStats {
@@ -84,6 +89,7 @@ impl BlockDecodeStats {
             + self.decoded_bridges
             + self.decoded_fee_burns
             + self.decoded_fees
+            + self.decoded_liquidity
             > 0
     }
 }
@@ -146,6 +152,10 @@ pub async fn decode_block_events(
     // Classic ETH bridge outgoing transfers are read from the call args
     // of `transfer_to_sidechain`, keyed by extrinsic index.
     let eth_outgoing = outgoing_calls(&extrinsics);
+    // poolXYK deposit / withdraw calls, keyed by extrinsic index; their
+    // amounts come from the transfer events of the same phase.
+    let liq_calls = liquidity_calls(&extrinsics);
+    let mut liq_facts: BTreeMap<u32, (LiquidityFacts, EventCoords)> = BTreeMap::new();
     let mut stats = BlockDecodeStats::default();
     let mut events_seen: u32 = 0;
 
@@ -181,6 +191,19 @@ pub async fn decode_block_events(
         events_seen += 1;
 
         if let Phase::ApplyExtrinsic(i) = ev.phase() {
+            if liq_calls.contains_key(&i) {
+                let entry = liq_facts
+                    .entry(i)
+                    .or_insert_with(|| (LiquidityFacts::default(), coords));
+                if let Err(e) = entry.0.observe(&ev) {
+                    warn!(
+                        error = %e,
+                        block = height.0,
+                        event_id = coords.event_id,
+                        "liquidity decode failed"
+                    );
+                }
+            }
             if let Err(e) = fee_facts.entry(i).or_default().observe(&ev, coords) {
                 warn!(
                     error = %e,
@@ -288,6 +311,18 @@ pub async fn decode_block_events(
         .into_values()
         .filter_map(ExtrinsicFeeFacts::into_fee)
         .collect();
+    let mut liquidity: Vec<_> = liq_facts
+        .into_iter()
+        .filter_map(|(i, (facts, coords))| {
+            let call = liq_calls.get(&i)?;
+            let coords = EventCoords {
+                extrinsic_id: i,
+                event_id: 0,
+                ..coords
+            };
+            facts.into_event(call, coords)
+        })
+        .collect();
 
     // Phase 2: USD valuation (swaps: both legs, as the legacy in_usd/out_usd).
     for swap in swaps.iter_mut() {
@@ -314,6 +349,20 @@ pub async fn decode_block_events(
             .usd_value_at(&xor, &fee.amount, fee.timestamp)
             .await?;
     }
+    for liq in liquidity.iter_mut() {
+        // Node: base × price + target × price; a leg without a price
+        // contributes nothing, the row still carries the other leg.
+        let base = prices
+            .usd_value_at(&liq.base_asset, &liq.base_amount, liq.timestamp)
+            .await?;
+        let target = prices
+            .usd_value_at(&liq.target_asset, &liq.target_amount, liq.timestamp)
+            .await?;
+        liq.usd_value = match (base, target) {
+            (None, None) => None,
+            (b, t) => Some(b.unwrap_or_default() + t.unwrap_or_default()),
+        };
+    }
 
     // Phase 3: one batched upsert per family.
     stats.decoded_swaps = swaps.len() as u32;
@@ -326,6 +375,8 @@ pub async fn decode_block_events(
     stats.inserted_fee_burns = insert_fee_burns_batch(db, &fee_burns).await? as u32;
     stats.decoded_fees = fees.len() as u32;
     stats.inserted_fees = insert_fees_batch(db, &fees).await? as u32;
+    stats.decoded_liquidity = liquidity.len() as u32;
+    stats.inserted_liquidity = insert_liquidity_batch(db, &liquidity).await? as u32;
 
     stats.events = events_seen;
     Ok(stats)

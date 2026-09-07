@@ -16,7 +16,7 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2Fee, V2FeeBurn, V2Swap, V2Transfer,
+    BridgeDirection, FeeBurnKind, V2Bridge, V2Fee, V2FeeBurn, V2Liquidity, V2Swap, V2Transfer,
 };
 use sqlx::PgPool;
 
@@ -570,6 +570,70 @@ pub async fn insert_bridges_batch(pool: &PgPool, bridges: &[V2Bridge]) -> Result
         &assets,
         &amounts,
         &usds as &[Option<bigdecimal::BigDecimal>],
+        &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+// =============================================================
+// liquidity_events
+// =============================================================
+
+/// Batch-insert liquidity events, idempotent on the PK. Returns NEW rows.
+pub async fn insert_liquidity_batch(pool: &PgPool, rows: &[V2Liquidity]) -> Result<u64, DbError> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let n = rows.len();
+    let mut blocks = Vec::with_capacity(n);
+    let mut ext_ids = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    let mut callers = Vec::with_capacity(n);
+    let mut bases = Vec::with_capacity(n);
+    let mut targets = Vec::with_capacity(n);
+    let mut base_amounts = Vec::with_capacity(n);
+    let mut target_amounts = Vec::with_capacity(n);
+    let mut usds: Vec<Option<bigdecimal::BigDecimal>> = Vec::with_capacity(n);
+    let mut kinds = Vec::with_capacity(n);
+    let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+    for r in rows {
+        blocks.push(r.block_height.0 as i64);
+        ext_ids.push(r.extrinsic_id.to_string());
+        tss.push(r.timestamp.0);
+        callers.push(r.caller.0.clone());
+        bases.push(r.base_asset.0.clone());
+        targets.push(r.target_asset.0.clone());
+        base_amounts.push(r.base_amount.clone());
+        target_amounts.push(r.target_amount.clone());
+        usds.push(r.usd_value.clone());
+        kinds.push(r.kind.label().to_string());
+        hashes.push(r.extrinsic_hash.clone());
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.liquidity_events (
+            block_height, extrinsic_id, event_id, block_timestamp, caller,
+            base_asset_id, target_asset_id, base_amount, target_amount, usd_value, kind, hash
+        )
+        SELECT b, e, 0, t, c, ba, ta, bam, tam, u, k, h
+        FROM UNNEST(
+            $1::bigint[], $2::text[], $3::timestamptz[], $4::text[],
+            $5::text[], $6::text[], $7::numeric[], $8::numeric[], $9::numeric[], $10::text[], $11::text[]
+        ) AS x(b, e, t, c, ba, ta, bam, tam, u, k, h)
+        ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+        "#,
+        &blocks,
+        &ext_ids,
+        &tss,
+        &callers,
+        &bases,
+        &targets,
+        &base_amounts,
+        &target_amounts,
+        &usds as &[Option<bigdecimal::BigDecimal>],
+        &kinds,
         &hashes as &[Option<String>],
     )
     .execute(pool)

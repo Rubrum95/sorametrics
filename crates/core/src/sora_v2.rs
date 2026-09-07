@@ -200,6 +200,56 @@ pub struct V2Fee {
     pub timestamp: Timestamp,
 }
 
+/// Direction of a pool liquidity event.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LiquidityKind {
+    /// `poolXYK.depositLiquidity`.
+    Deposit,
+    /// `poolXYK.withdrawLiquidity`.
+    Withdraw,
+}
+
+impl LiquidityKind {
+    /// Lowercase label stored in `sm.liquidity_events.kind`.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Deposit => "deposit",
+            Self::Withdraw => "withdraw",
+        }
+    }
+}
+
+/// One successful `poolXYK` deposit / withdraw extrinsic (the Node's
+/// `live_liquidity_events` row). Idempotency key is
+/// `(block_height, extrinsic_id, event_id)` with `event_id = 0`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2Liquidity {
+    /// Block of the extrinsic.
+    pub block_height: BlockHeight,
+    /// Extrinsic index within the block.
+    pub extrinsic_id: u32,
+    /// Extrinsic hash (`0x`-hex).
+    pub extrinsic_hash: Option<String>,
+    /// Signer.
+    pub caller: Address,
+    /// Pool base asset (`input_asset_a` / `output_asset_a`).
+    pub base_asset: AssetId,
+    /// Pool target asset (`input_asset_b` / `output_asset_b`).
+    pub target_asset: AssetId,
+    /// Base amount moved (raw planck), from the transfer events.
+    pub base_amount: BigDecimal,
+    /// Target amount moved (raw planck).
+    pub target_amount: BigDecimal,
+    /// USD value at index time (base × price + target × price).
+    pub usd_value: Option<BigDecimal>,
+    /// Deposit or withdraw.
+    pub kind: LiquidityKind,
+    /// Wall-clock timestamp from the block's `timestamp.set` inherent.
+    pub timestamp: Timestamp,
+}
+
 /// Bridge transfer (Hashi v2: substrate / parachain / TON).
 ///
 /// Idempotency key is `(block_height, extrinsic_id, event_id)`.

@@ -31,10 +31,9 @@
 //!   (`total_bought_usd`, `total_bought_amount`, `swap_count` as text,
 //!   `last_buy` ms as text — the legacy pg row shape).
 //!
-//! KNOWN NON-PARITY: `lpVolume` / `lp` are the net USD of pool
-//! liquidity events, which v33 does not index yet (no `poolXYK`
-//! decoder). Reported as `0` / `[]` until that family lands — see
-//! CLAUDE.md.
+//! `lpVolume` / `lp` are the net USD of pool liquidity events
+//! (`deposit` − `withdraw`, Node `getLpVolume` / `getNetworkTrend`)
+//! from `sm.liquidity_events`.
 
 use crate::legacy::logo_for;
 use crate::routes::tokens::{downsample, timeframe_ms, window_start_bucket, SparkPoint};
@@ -211,6 +210,19 @@ async fn overview(
 
     let net = network_stats(&state, since).await?;
 
+    let lp_volume = sqlx::query!(
+        r#"
+        SELECT COALESCE(SUM(CASE WHEN kind = 'deposit' THEN usd_value ELSE -usd_value END), 0)
+               AS "total: BigDecimal"
+        FROM sm.liquidity_events
+        WHERE block_timestamp >= $1
+        "#,
+        since,
+    )
+    .fetch_one(&state.db)
+    .await?
+    .total;
+
     let transfer_volume = sqlx::query!(
         r#"
         SELECT COALESCE(SUM(usd_value), 0) AS "total: BigDecimal"
@@ -280,7 +292,7 @@ async fn overview(
             volume: net.volume,
             users: net.users,
             tx_count: net.tx_count,
-            lp_volume: 0.0,
+            lp_volume: to_f64(lp_volume),
             transfer_volume: to_f64(transfer_volume),
         },
         trends,
@@ -503,6 +515,26 @@ async fn network_trend(
     })
     .collect();
 
+    let lp = sqlx::query!(
+        r#"
+        SELECT TO_CHAR(block_timestamp AT TIME ZONE $2, $3) AS "bucket!",
+               SUM(CASE WHEN kind = 'deposit' THEN usd_value ELSE -usd_value END) AS "val: BigDecimal"
+        FROM sm.liquidity_events WHERE block_timestamp >= $1
+        GROUP BY 1 ORDER BY 1
+        "#,
+        since,
+        zone,
+        fmt,
+    )
+    .fetch_all(&state.db)
+    .await?
+    .into_iter()
+    .map(|r| BucketVal {
+        bucket: r.bucket,
+        val: to_f64(r.val),
+    })
+    .collect();
+
     let accounts = sqlx::query!(
         r#"
         SELECT TO_CHAR(block_timestamp AT TIME ZONE $2, $3) AS "bucket!",
@@ -526,7 +558,7 @@ async fn network_trend(
     Ok(Json(NetworkTrend {
         swaps,
         transfers,
-        lp: Vec::new(),
+        lp,
         accounts,
     }))
 }

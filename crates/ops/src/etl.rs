@@ -39,13 +39,14 @@ use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
+use std::collections::HashMap;
 use std::time::Instant;
 use tracing::{info, warn};
 
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 7] = [
+pub const ALL_TABLES: [&str; 8] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -53,6 +54,7 @@ pub const ALL_TABLES: [&str; 7] = [
     "fees",
     "fee_burns",
     "price_history",
+    "liquidity",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -93,6 +95,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "fees" => copy_fees(&source, &target, opts.batch_size).await?,
             "fee_burns" => copy_fee_burns(&source, &target, opts.batch_size).await?,
             "price_history" => copy_price_history(&source, &target, opts.batch_size).await?,
+            "liquidity" => copy_liquidity(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -712,6 +715,175 @@ async fn copy_fee_burns(source: &PgPool, target: &PgPool, batch: i64) -> Result<
 // price_history (verbatim, composite keyset)
 // =============================================================
 
+/// Symbol → canonical asset id and decimals from the TARGET registry
+/// (whitelisted first, then the lowest id — the API's resolution rule).
+/// The legacy `mv_liquidity_events` only kept symbols.
+async fn target_symbol_map(target: &PgPool) -> Result<HashMap<String, (String, u32)>> {
+    let rows = sqlx::query!(
+        r#"SELECT asset_id, symbol, decimals, whitelisted FROM sm.asset_registry
+           ORDER BY whitelisted DESC, asset_id ASC"#
+    )
+    .fetch_all(target)
+    .await?;
+    let mut map = HashMap::new();
+    for r in rows {
+        map.entry(r.symbol)
+            .or_insert((r.asset_id, r.decimals.max(0) as u32));
+    }
+    Ok(map)
+}
+
+/// Human decimal text → exact planck (`BigDecimal × 10^decimals`),
+/// rejecting fractional planck.
+fn human_to_planck(text: &str, decimals: u32) -> Option<BigDecimal> {
+    let v: BigDecimal = text.trim().parse().ok()?;
+    let scaled = v * BigDecimal::new(1.into(), -(decimals as i64));
+    scaled.is_integer().then(|| scaled.with_scale(0))
+}
+
+/// Rows of `sm.mv_liquidity_events` → `sm.liquidity_events`. Symbols
+/// that do not resolve in the target registry (incl. the MV's `0xABCD`
+/// fallbacks) are SKIPPED and counted — the reconciliation checks
+/// `source = copied + skipped`.
+async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let symbols = target_symbol_map(target).await?;
+    let sql = r#"
+        SELECT l._row_id,
+               l.block::bigint AS block_height,
+               to_timestamp(l.timestamp / 1000.0) AS block_timestamp,
+               l.wallet, l.pool_base, l.pool_target,
+               l.base_amount, l.target_amount,
+               l.usd_value::numeric(38,6) AS usd_value,
+               lower(l.type) AS kind, l.hash, l.extrinsic_id
+        FROM sm.mv_liquidity_events l
+        WHERE l._row_id > $1 AND l.wallet IS NOT NULL
+        ORDER BY l._row_id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut skipped = 0u64;
+    let mut cursor = get_cursor(target, "liquidity").await?.unwrap_or_default();
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(&cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy mv_liquidity_events batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut blocks = Vec::with_capacity(n);
+        let mut ext_ids = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        let mut callers = Vec::with_capacity(n);
+        let mut bases = Vec::with_capacity(n);
+        let mut targets = Vec::with_capacity(n);
+        let mut base_amounts = Vec::with_capacity(n);
+        let mut target_amounts = Vec::with_capacity(n);
+        let mut usds: Vec<Option<BigDecimal>> = Vec::with_capacity(n);
+        let mut kinds = Vec::with_capacity(n);
+        let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+        for r in &rows {
+            cursor = r.try_get::<String, _>("_row_id")?;
+            let kind: String = r.try_get("kind")?;
+            let base_sym: Option<String> = r.try_get("pool_base")?;
+            let target_sym: Option<String> = r.try_get("pool_target")?;
+            let resolved = match (
+                base_sym.as_deref().and_then(|s| symbols.get(s)),
+                target_sym.as_deref().and_then(|s| symbols.get(s)),
+            ) {
+                (Some(b), Some(t)) if kind == "deposit" || kind == "withdraw" => Some((b, t)),
+                _ => None,
+            };
+            let Some(((base_id, base_dec), (target_id, target_dec))) = resolved else {
+                skipped += 1;
+                continue;
+            };
+            let ba: Option<String> = r.try_get("base_amount")?;
+            let ta: Option<String> = r.try_get("target_amount")?;
+            let (Some(ba), Some(ta)) = (
+                ba.as_deref().and_then(|v| human_to_planck(v, *base_dec)),
+                ta.as_deref().and_then(|v| human_to_planck(v, *target_dec)),
+            ) else {
+                skipped += 1;
+                continue;
+            };
+            blocks.push(r.try_get::<i64, _>("block_height")?);
+            ext_ids.push(r.try_get::<String, _>("extrinsic_id")?);
+            tss.push(r.try_get::<DateTime<Utc>, _>("block_timestamp")?);
+            callers.push(r.try_get::<String, _>("wallet")?);
+            bases.push(base_id.clone());
+            targets.push(target_id.clone());
+            base_amounts.push(ba);
+            target_amounts.push(ta);
+            usds.push(r.try_get::<Option<BigDecimal>, _>("usd_value")?);
+            kinds.push(kind);
+            hashes.push(r.try_get::<Option<String>, _>("hash")?);
+        }
+        if !blocks.is_empty() {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.liquidity_events (
+                    block_height, extrinsic_id, event_id, block_timestamp, caller,
+                    base_asset_id, target_asset_id, base_amount, target_amount,
+                    usd_value, kind, hash, origin
+                )
+                SELECT b, e, 0, t, c, ba, ta, bam, tam, u, k, h, 'legacy'
+                FROM UNNEST(
+                    $1::bigint[], $2::text[], $3::timestamptz[], $4::text[], $5::text[],
+                    $6::text[], $7::numeric[], $8::numeric[], $9::numeric[], $10::text[], $11::text[]
+                ) AS x(b, e, t, c, ba, ta, bam, tam, u, k, h)
+                ON CONFLICT (block_height, extrinsic_id, event_id) DO NOTHING
+                "#,
+                &blocks,
+                &ext_ids,
+                &tss,
+                &callers,
+                &bases,
+                &targets,
+                &base_amounts,
+                &target_amounts,
+                &usds as &[Option<BigDecimal>],
+                &kinds,
+                &hashes as &[Option<String>],
+            )
+            .execute(target)
+            .await
+            .context("inserting liquidity batch")?;
+        }
+        copied += blocks.len() as u64;
+        set_cursor(target, "liquidity", &cursor, blocks.len() as i64).await?;
+        info!(copied, skipped, cursor = %cursor, "liquidity progress");
+    }
+    if skipped > 0 {
+        warn!(
+            skipped,
+            "liquidity rows skipped (unresolvable symbol / non-integer planck) — review before cutover"
+        );
+    }
+    set_skipped(target, "liquidity", skipped).await?;
+    Ok(copied)
+}
+
+/// Accumulate the skipped count so reconciliation can check
+/// `source = copied + skipped` across resumed runs (each run only sees
+/// the rows past its cursor). A cursor reset implies truncating the
+/// target table AND this row.
+async fn set_skipped(target: &PgPool, table: &str, skipped: u64) -> Result<()> {
+    sqlx::query!(
+        r#"INSERT INTO sm.etl_skipped (table_name, skipped) VALUES ($1, $2)
+           ON CONFLICT (table_name) DO UPDATE
+               SET skipped = sm.etl_skipped.skipped + EXCLUDED.skipped"#,
+        table,
+        skipped as i64,
+    )
+    .execute(target)
+    .await?;
+    Ok(())
+}
+
 async fn copy_price_history(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
     let sql = r#"
         SELECT asset_id, hour_bucket::bigint AS hour_bucket,
@@ -1006,6 +1178,36 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 .map(|r| (r.bucket, r.cnt, r.checksum))
                 .collect();
             compare_buckets(table, &src, &dst)
+        }
+        "liquidity" => {
+            // Symbol-keyed source: no planck checksum is computable on the
+            // source side. STRICT count equation: source = copied + skipped.
+            let src_cnt: i64 = sqlx::query(
+                "SELECT COUNT(*)::bigint AS c FROM sm.mv_liquidity_events WHERE wallet IS NOT NULL",
+            )
+            .fetch_one(source)
+            .await?
+            .try_get("c")?;
+            let dst_cnt = sqlx::query_scalar!(
+                r#"SELECT COUNT(*)::bigint AS "c!" FROM sm.liquidity_events WHERE origin = 'legacy'"#
+            )
+            .fetch_one(target)
+            .await?;
+            let skipped = sqlx::query_scalar!(
+                r#"SELECT skipped FROM sm.etl_skipped WHERE table_name = 'liquidity'"#
+            )
+            .fetch_optional(target)
+            .await?
+            .unwrap_or(0);
+            if src_cnt == dst_cnt + skipped {
+                true
+            } else {
+                warn!(
+                    table,
+                    src_cnt, dst_cnt, skipped, "RECONCILE FAIL: source ≠ copied + skipped"
+                );
+                false
+            }
         }
         "asset_registry" => {
             let src_cnt: i64 = sqlx::query(

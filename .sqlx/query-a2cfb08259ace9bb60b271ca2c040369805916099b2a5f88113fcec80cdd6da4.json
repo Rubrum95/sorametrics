@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sm.etl_skipped (table_name, skipped) VALUES ($1, $2)\n           ON CONFLICT (table_name) DO UPDATE\n               SET skipped = sm.etl_skipped.skipped + EXCLUDED.skipped",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a2cfb08259ace9bb60b271ca2c040369805916099b2a5f88113fcec80cdd6da4"
+}
