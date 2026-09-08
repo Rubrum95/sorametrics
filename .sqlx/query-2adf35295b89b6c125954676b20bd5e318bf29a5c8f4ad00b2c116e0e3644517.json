@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_id, block_timestamp, caller, hash, kind,\n               base_asset_id, target_asset_id,\n               base_amount AS \"base_amount!: BigDecimal\",\n               target_amount AS \"target_amount!: BigDecimal\",\n               usd_value AS \"usd_value: BigDecimal\"\n        FROM sm.liquidity_events\n        WHERE caller = ANY($1::text[]) AND block_timestamp >= $2 AND block_timestamp <= $3\n        ORDER BY block_timestamp DESC, block_height DESC, event_id DESC\n        LIMIT $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "caller",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "base_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "target_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "base_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "target_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "2adf35295b89b6c125954676b20bd5e318bf29a5c8f4ad00b2c116e0e3644517"
+}

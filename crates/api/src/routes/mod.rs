@@ -9,6 +9,7 @@ use crate::AppState;
 use axum::Router;
 
 pub mod chain_state;
+pub mod export;
 pub mod extrinsics;
 pub mod fee_config;
 pub mod freshness;
@@ -35,6 +36,7 @@ pub fn build(state: AppState) -> Router {
         .merge(stats::router())
         .merge(wallet::router())
         .merge(fee_config::router())
+        .merge(export::router())
         .merge(extrinsics::router())
         .merge(identity::router())
         .merge(liquidity::router())

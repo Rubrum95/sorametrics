@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_id, block_timestamp, caller, hash,\n               input_asset_id, input_amount AS \"input_amount!: BigDecimal\",\n               output_asset_id, output_amount AS \"output_amount!: BigDecimal\",\n               usd_value AS \"usd_value: BigDecimal\",\n               output_usd_value AS \"output_usd_value: BigDecimal\"\n        FROM sm.swaps\n        WHERE caller = ANY($1::text[]) AND block_timestamp >= $2 AND block_timestamp <= $3\n        ORDER BY block_timestamp DESC, block_height DESC, event_id DESC\n        LIMIT $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "caller",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "input_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "input_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "output_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "output_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "output_usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Timestamptz",
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "e9f981ef9f499e80fba23885dc470d919bf4f31b77fcf6f2ccdd818c8f8d8d2e"
+}
