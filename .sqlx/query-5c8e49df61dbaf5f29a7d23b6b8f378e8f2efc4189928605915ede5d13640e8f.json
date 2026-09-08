@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ts_secs, total_supply FROM sm.supply_history\n           WHERE symbol = $1 AND ts_secs >= $2 AND ($3::bigint IS NULL OR ts_secs < $3)\n           ORDER BY ts_secs ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ts_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_supply",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5c8e49df61dbaf5f29a7d23b6b8f378e8f2efc4189928605915ede5d13640e8f"
+}

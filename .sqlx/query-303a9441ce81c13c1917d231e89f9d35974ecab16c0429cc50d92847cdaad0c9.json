@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sm.supply_snapshots (symbol, ts, asset_id, total_supply)\n           VALUES ($1, $2, $3, $4) ON CONFLICT (symbol, ts) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "303a9441ce81c13c1917d231e89f9d35974ecab16c0429cc50d92847cdaad0c9"
+}

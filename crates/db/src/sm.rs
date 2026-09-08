@@ -16,8 +16,8 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2Liquidity,
-    V2OrderBookEvent, V2Swap, V2Transfer, V2ValStakingReward,
+    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2FeeBurnAggregate,
+    V2Liquidity, V2OrderBookEvent, V2Swap, V2Transfer, V2ValStakingReward,
 };
 use sqlx::PgPool;
 
@@ -951,6 +951,71 @@ pub async fn insert_val_staking_rewards_batch(
     .execute(pool)
     .await?;
     Ok(res.rows_affected())
+}
+
+// =============================================================
+// fee_burns_aggregate
+// =============================================================
+
+/// The Node's `insertFeeBurnRow`: upsert the per-block aggregate.
+pub async fn upsert_fee_burns_aggregate(
+    pool: &PgPool,
+    row: &V2FeeBurnAggregate,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO sm.fee_burns_aggregate (
+            block_height, ts, fees_paid_xor, ref_paid_xor, ref_redirected_xor,
+            remint_xor_burned, remint_val_burned, remint_kusd_burned, remint_tbcd_burned
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (block_height) DO UPDATE SET
+            ts = EXCLUDED.ts,
+            fees_paid_xor = EXCLUDED.fees_paid_xor,
+            ref_paid_xor = EXCLUDED.ref_paid_xor,
+            ref_redirected_xor = EXCLUDED.ref_redirected_xor,
+            remint_xor_burned = EXCLUDED.remint_xor_burned,
+            remint_val_burned = EXCLUDED.remint_val_burned,
+            remint_kusd_burned = EXCLUDED.remint_kusd_burned,
+            remint_tbcd_burned = EXCLUDED.remint_tbcd_burned
+        "#,
+        row.block_height.0 as i64,
+        row.ts_millis,
+        row.fees_paid_xor,
+        row.ref_paid_xor,
+        row.ref_redirected_xor,
+        row.remint_xor_burned,
+        row.remint_val_burned,
+        row.remint_kusd_burned,
+        row.remint_tbcd_burned,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+// =============================================================
+// supply_snapshots
+// =============================================================
+
+/// One MOF circulating-supply sample (the Node's `insertSupplySnapshot`).
+pub async fn insert_supply_snapshot(
+    pool: &PgPool,
+    symbol: &str,
+    asset_id: Option<&str>,
+    at: chrono::DateTime<chrono::Utc>,
+    total_supply: f64,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"INSERT INTO sm.supply_snapshots (symbol, ts, asset_id, total_supply)
+           VALUES ($1, $2, $3, $4) ON CONFLICT (symbol, ts) DO NOTHING"#,
+        symbol,
+        at,
+        asset_id,
+        total_supply,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 #[cfg(test)]

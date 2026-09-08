@@ -348,6 +348,28 @@ struct FeeTypeTotals {
     total_usd: f64,
 }
 
+/// Node `getFeeStats` summed over types: `(total_xor, total_usd)` of
+/// the fees since `since`, with the legacy outlier caps.
+pub async fn fee_totals_since(
+    state: &AppState,
+    since: DateTime<Utc>,
+) -> Result<(f64, f64), ApiError> {
+    let r = sqlx::query!(
+        r#"
+        SELECT SUM(CASE WHEN usd_value > 0 AND usd_value <= $2 AND amount_xor <= $3 THEN amount_xor ELSE 0 END) AS "total_xor: BigDecimal",
+               SUM(CASE WHEN usd_value > 0 AND usd_value <= $2 AND amount_xor <= $3 THEN usd_value  ELSE 0 END) AS "total_usd: BigDecimal"
+        FROM sm.fees
+        WHERE block_timestamp >= $1
+        "#,
+        since,
+        BigDecimal::try_from(FEE_USD_CAP).unwrap_or_default(),
+        BigDecimal::try_from(FEE_AMOUNT_CAP).unwrap_or_default(),
+    )
+    .fetch_one(&state.db)
+    .await?;
+    Ok((to_f64(r.total_xor), to_f64(r.total_usd)))
+}
+
 async fn fees(
     State(state): State<AppState>,
     Query(q): Query<TimeframeQuery>,

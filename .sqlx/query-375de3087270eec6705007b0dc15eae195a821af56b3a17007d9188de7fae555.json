@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COALESCE(SUM(fees_paid_xor), 0)::float8 AS \"fees!\",\n               COALESCE(SUM(ref_paid_xor), 0)::float8 AS \"ref_paid!\",\n               COALESCE(SUM(ref_redirected_xor), 0)::float8 AS \"ref_redirected!\",\n               COALESCE(SUM(remint_xor_burned), 0)::float8 AS \"xor!\",\n               COALESCE(SUM(remint_val_burned), 0)::float8 AS \"val!\",\n               COALESCE(SUM(remint_kusd_burned), 0)::float8 AS \"kusd!\",\n               COUNT(*)::bigint AS \"rows!\",\n               COALESCE(MIN(ts), 0)::bigint AS \"min_ts!\",\n               COALESCE(MAX(ts), 0)::bigint AS \"max_ts!\"\n        FROM sm.fee_burns_aggregate\n        WHERE ts >= $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "fees!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "ref_paid!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "ref_redirected!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "xor!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "val!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "kusd!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "rows!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "min_ts!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "max_ts!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "375de3087270eec6705007b0dc15eae195a821af56b3a17007d9188de7fae555"
+}

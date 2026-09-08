@@ -8,6 +8,8 @@ rust-version.workspace = true
 description = "Core domain types for SoraMetrics v33"
 
 [dependencies]
+reqwest.workspace = true
+tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

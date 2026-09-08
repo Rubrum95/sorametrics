@@ -19,6 +19,7 @@ pub mod block;
 pub mod decoder;
 pub mod eth_bridge;
 pub mod extrinsics;
+pub mod fee_burns_agg;
 pub mod fees;
 pub mod liquidity;
 pub mod order_book;

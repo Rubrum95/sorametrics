@@ -27,6 +27,8 @@ subxt.workspace = true
 clap.workspace = true
 dotenvy.workspace = true
 url.workspace = true
+reqwest.workspace = true
+chrono.workspace = true
 sqlx.workspace = true
 
 [dev-dependencies]

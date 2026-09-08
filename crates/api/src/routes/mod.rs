@@ -8,6 +8,7 @@
 use crate::AppState;
 use axum::Router;
 
+pub mod burns;
 pub mod chain_state;
 pub mod export;
 pub mod extrinsics;
@@ -46,6 +47,7 @@ pub fn build(state: AppState) -> Router {
         .merge(liquidity::router())
         .merge(order_book::router())
         .merge(misc::router())
+        .merge(burns::router())
         .with_state(state)
 }
 
@@ -54,5 +56,6 @@ pub fn build(state: AppState) -> Router {
 pub fn build_scans(state: AppState) -> Router {
     chain_state::router()
         .merge(pool_providers::router())
+        .merge(burns::scan_router())
         .with_state(state)
 }

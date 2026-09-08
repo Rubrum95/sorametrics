@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.fee_burns_aggregate (\n            block_height, ts, fees_paid_xor, ref_paid_xor, ref_redirected_xor,\n            remint_xor_burned, remint_val_burned, remint_kusd_burned, remint_tbcd_burned\n        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n        ON CONFLICT (block_height) DO UPDATE SET\n            ts = EXCLUDED.ts,\n            fees_paid_xor = EXCLUDED.fees_paid_xor,\n            ref_paid_xor = EXCLUDED.ref_paid_xor,\n            ref_redirected_xor = EXCLUDED.ref_redirected_xor,\n            remint_xor_burned = EXCLUDED.remint_xor_burned,\n            remint_val_burned = EXCLUDED.remint_val_burned,\n            remint_kusd_burned = EXCLUDED.remint_kusd_burned,\n            remint_tbcd_burned = EXCLUDED.remint_tbcd_burned\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "14f154b1282f34b8bf524d2e6dcc8671fab0fe9391890115d3dff36c4862ebdc"
+}

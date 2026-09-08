@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 11] = [
+pub const ALL_TABLES: [&str; 13] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -58,6 +58,8 @@ pub const ALL_TABLES: [&str; 11] = [
     "extrinsics",
     "order_book",
     "val_staking_rewards",
+    "supply_snapshots",
+    "supply_history",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -104,6 +106,8 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "val_staking_rewards" => {
                 copy_val_staking_rewards(&source, &target, opts.batch_size).await?
             }
+            "supply_snapshots" => copy_supply_snapshots(&source, &target, opts.batch_size).await?,
+            "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -1214,6 +1218,222 @@ async fn copy_val_staking_rewards(source: &PgPool, target: &PgPool, batch: i64) 
     Ok(copied)
 }
 
+/// The Node's `sm.supply_snapshots` (MOF circulating supply every 30
+/// min; `timestamp` in ms) → v33's table, keyset on the serial `id`.
+/// Duplicate `(symbol, ts)` pairs collapse into one row.
+async fn copy_supply_snapshots(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, symbol, asset_id, total_supply::float8 AS total_supply,
+               to_timestamp(timestamp / 1000.0) AS ts
+        FROM sm.supply_snapshots
+        WHERE id > $1 AND symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL
+        ORDER BY id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "supply_snapshots")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy supply_snapshots batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut symbols = Vec::with_capacity(n);
+        let mut assets: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut supplies = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            symbols.push(r.try_get::<String, _>("symbol")?);
+            assets.push(r.try_get::<Option<String>, _>("asset_id")?);
+            supplies.push(r.try_get::<f64, _>("total_supply")?);
+            tss.push(r.try_get::<DateTime<Utc>, _>("ts")?);
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO sm.supply_snapshots (symbol, ts, asset_id, total_supply, origin)
+            SELECT s, t, a, v, 'legacy'
+            FROM UNNEST($1::text[], $2::timestamptz[], $3::text[], $4::float8[]) AS x(s, t, a, v)
+            ON CONFLICT (symbol, ts) DO NOTHING
+            "#,
+            &symbols,
+            &tss,
+            &assets as &[Option<String>],
+            &supplies,
+        )
+        .execute(target)
+        .await
+        .context("inserting supply_snapshots batch")?;
+        copied += n as u64;
+        set_cursor(target, "supply_snapshots", &cursor.to_string(), n as i64).await?;
+        info!(copied, cursor, "supply_snapshots progress");
+    }
+    Ok(copied)
+}
+
+/// Daily on-chain issuance points → `sm.supply_history`: the subsquid
+/// `asset_snapshot` (type DAY, `supply / 1e18`, symbol through the
+/// target registry) and the Node's `sm.supply_history` backfill
+/// (`total_issuance`), each tagged with its source. Both are copied in
+/// full in `(symbol, ts)` order with a composite cursor.
+async fn copy_supply_history(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let symbols = target_symbol_map(target).await?;
+    let by_id: HashMap<String, String> = symbols
+        .iter()
+        .map(|(sym, (id, _))| (id.clone(), sym.clone()))
+        .collect();
+    let mut copied = 0u64;
+
+    // Source 1: sm.supply_history (symbol, timestamp secs, total_issuance).
+    let sql = r#"
+        SELECT symbol, timestamp::bigint AS ts_secs, total_issuance::float8 AS total_supply
+        FROM sm.supply_history
+        WHERE (symbol, timestamp::bigint) > ($1, $2) AND total_issuance IS NOT NULL
+        ORDER BY symbol, timestamp
+        LIMIT $3
+        "#;
+    let mut cursor = get_cursor(target, "supply_history")
+        .await?
+        .and_then(|c| {
+            c.split_once('|')
+                .map(|(s, t)| (s.to_string(), t.parse::<i64>().unwrap_or(-1)))
+        })
+        .unwrap_or((String::new(), -1));
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(&cursor.0)
+            .bind(cursor.1)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy supply_history batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut syms = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        let mut vals = Vec::with_capacity(n);
+        for r in &rows {
+            let sym: String = r.try_get("symbol")?;
+            let ts: i64 = r.try_get("ts_secs")?;
+            cursor = (sym.clone(), ts);
+            syms.push(sym);
+            tss.push(ts);
+            vals.push(r.try_get::<f64, _>("total_supply")?);
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO sm.supply_history (symbol, ts_secs, total_supply, source)
+            SELECT s, t, v, 'supply_history'
+            FROM UNNEST($1::text[], $2::bigint[], $3::float8[]) AS x(s, t, v)
+            ON CONFLICT (symbol, ts_secs, source) DO NOTHING
+            "#,
+            &syms,
+            &tss,
+            &vals,
+        )
+        .execute(target)
+        .await
+        .context("inserting supply_history batch")?;
+        copied += n as u64;
+        set_cursor(
+            target,
+            "supply_history",
+            &format!("{}|{}", cursor.0, cursor.1),
+            n as i64,
+        )
+        .await?;
+        info!(copied, cursor = %format!("{}|{}", cursor.0, cursor.1), "supply_history progress");
+    }
+
+    // Source 2: public.asset_snapshot DAY rows (asset_id, timestamp secs, supply planck).
+    let sql2 = r#"
+        SELECT asset_id, timestamp::bigint AS ts_secs, (supply::numeric / 1e18)::float8 AS total_supply
+        FROM asset_snapshot
+        WHERE type = 'DAY' AND (asset_id, timestamp::bigint) > ($1, $2) AND supply IS NOT NULL
+        ORDER BY asset_id, timestamp
+        LIMIT $3
+        "#;
+    let mut cursor2 = get_cursor(target, "asset_snapshot")
+        .await?
+        .and_then(|c| {
+            c.split_once('|')
+                .map(|(s, t)| (s.to_string(), t.parse::<i64>().unwrap_or(-1)))
+        })
+        .unwrap_or((String::new(), -1));
+    let mut skipped = 0u64;
+    loop {
+        let rows = sqlx::query(sql2)
+            .bind(&cursor2.0)
+            .bind(cursor2.1)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy asset_snapshot batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut syms = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        let mut vals = Vec::with_capacity(n);
+        for r in &rows {
+            let id: String = r.try_get("asset_id")?;
+            let ts: i64 = r.try_get("ts_secs")?;
+            cursor2 = (id.clone(), ts);
+            let Some(sym) = by_id.get(&id) else {
+                skipped += 1;
+                continue;
+            };
+            syms.push(sym.clone());
+            tss.push(ts);
+            vals.push(r.try_get::<f64, _>("total_supply")?);
+        }
+        if !syms.is_empty() {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.supply_history (symbol, ts_secs, total_supply, source)
+                SELECT s, t, v, 'asset_snapshot'
+                FROM UNNEST($1::text[], $2::bigint[], $3::float8[]) AS x(s, t, v)
+                ON CONFLICT (symbol, ts_secs, source) DO NOTHING
+                "#,
+                &syms,
+                &tss,
+                &vals,
+            )
+            .execute(target)
+            .await
+            .context("inserting asset_snapshot batch")?;
+        }
+        copied += syms.len() as u64;
+        set_cursor(
+            target,
+            "asset_snapshot",
+            &format!("{}|{}", cursor2.0, cursor2.1),
+            syms.len() as i64,
+        )
+        .await?;
+        info!(copied, skipped, "asset_snapshot progress");
+    }
+    if skipped > 0 {
+        warn!(
+            skipped,
+            "asset_snapshot rows skipped (asset id not in the target registry)"
+        );
+    }
+    set_skipped(target, "asset_snapshot", skipped).await?;
+    Ok(copied)
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -1631,6 +1851,78 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 .map(|r| (r.bucket, r.cnt, r.checksum))
                 .collect();
             compare_buckets(table, &src, &dst)
+        }
+        "supply_snapshots" => {
+            // Distinct (symbol, ms) pairs per month bucket; checksum = SUM(ms).
+            let src = source_buckets(
+                source,
+                "SELECT (timestamp / 2592000000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                 COALESCE(SUM(timestamp), 0)::numeric AS checksum FROM ( \
+                   SELECT DISTINCT symbol, timestamp::bigint AS timestamp FROM sm.supply_snapshots \
+                   WHERE symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL) d \
+                 GROUP BY 1 ORDER BY 1",
+            )
+            .await?;
+            let dst_rows = sqlx::query!(
+                r#"SELECT ((EXTRACT(EPOCH FROM ts) * 1000)::bigint / 2592000000)::bigint AS "bucket!",
+                   COUNT(*)::bigint AS "cnt!",
+                   COALESCE(SUM((EXTRACT(EPOCH FROM ts) * 1000)::bigint), 0)::numeric AS "checksum!"
+                   FROM sm.supply_snapshots WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst: Buckets = dst_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            compare_buckets(table, &src, &dst)
+        }
+        "supply_history" => {
+            // Both sources: rows per year bucket, checksum = SUM(ts_secs).
+            let src_a = source_buckets(
+                source,
+                "SELECT (timestamp::bigint / 31536000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                 COALESCE(SUM(timestamp::bigint), 0)::numeric AS checksum \
+                 FROM sm.supply_history WHERE total_issuance IS NOT NULL GROUP BY 1 ORDER BY 1",
+            )
+            .await?;
+            let dst_a_rows = sqlx::query!(
+                r#"SELECT (ts_secs / 31536000)::bigint AS "bucket!", COUNT(*)::bigint AS "cnt!",
+                   COALESCE(SUM(ts_secs), 0)::numeric AS "checksum!"
+                   FROM sm.supply_history WHERE source = 'supply_history' GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst_a: Buckets = dst_a_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            let ok_a = compare_buckets("supply_history", &src_a, &dst_a);
+            let src_b: i64 = sqlx::query(
+                "SELECT COUNT(*)::bigint AS c FROM asset_snapshot WHERE type = 'DAY' AND supply IS NOT NULL",
+            )
+            .fetch_one(source)
+            .await?
+            .try_get("c")?;
+            let dst_b = sqlx::query_scalar!(
+                r#"SELECT COUNT(*)::bigint AS "c!" FROM sm.supply_history WHERE source = 'asset_snapshot'"#
+            )
+            .fetch_one(target)
+            .await?;
+            let skipped = sqlx::query_scalar!(
+                r#"SELECT skipped FROM sm.etl_skipped WHERE table_name = 'asset_snapshot'"#
+            )
+            .fetch_optional(target)
+            .await?
+            .unwrap_or(0);
+            let ok_b = src_b == dst_b + skipped;
+            if !ok_b {
+                warn!(
+                    table,
+                    src_b, dst_b, skipped, "RECONCILE FAIL: asset_snapshot ≠ copied + skipped"
+                );
+            }
+            ok_a && ok_b
         }
         "asset_registry" => {
             let src_cnt: i64 = sqlx::query(

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.supply_snapshots (symbol, ts, asset_id, total_supply, origin)\n            SELECT s, t, a, v, 'legacy'\n            FROM UNNEST($1::text[], $2::timestamptz[], $3::text[], $4::float8[]) AS x(s, t, a, v)\n            ON CONFLICT (symbol, ts) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8efed88db41e923bd4f6f620ae13c49106f7920c9a8fbd02a67823834d6e1220"
+}

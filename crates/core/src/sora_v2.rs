@@ -365,6 +365,45 @@ pub struct V2ValStakingReward {
     pub timestamp: Timestamp,
 }
 
+/// Per-block fee / burn aggregate (the Node's `fee_burns_live` row,
+/// `fee_burns_indexer.js`). Amounts are human units (planck / 1e18).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2FeeBurnAggregate {
+    /// Block.
+    pub block_height: BlockHeight,
+    /// Block time in unix milliseconds.
+    pub ts_millis: i64,
+    /// Σ `xorFee.FeeWithdrawn`.
+    pub fees_paid_xor: BigDecimal,
+    /// Σ `xorFee.ReferrerRewarded`.
+    pub ref_paid_xor: BigDecimal,
+    /// `max(0, fees × ref/total − ref_paid)`: the referrer share with no referrer.
+    pub ref_redirected_xor: BigDecimal,
+    /// `fees × xor/total`: XOR burnt directly.
+    pub remint_xor_burned: BigDecimal,
+    /// VAL withdrawn in a remint block.
+    pub remint_val_burned: BigDecimal,
+    /// KUSD withdrawn in a remint block.
+    pub remint_kusd_burned: BigDecimal,
+    /// TBCD withdrawn in a remint block.
+    pub remint_tbcd_burned: BigDecimal,
+}
+
+impl V2FeeBurnAggregate {
+    /// The Node only stores blocks with some activity.
+    pub fn has_activity(&self) -> bool {
+        use bigdecimal::Zero;
+        !(self.fees_paid_xor.is_zero()
+            && self.ref_paid_xor.is_zero()
+            && self.ref_redirected_xor.is_zero()
+            && self.remint_xor_burned.is_zero()
+            && self.remint_val_burned.is_zero()
+            && self.remint_kusd_burned.is_zero()
+            && self.remint_tbcd_burned.is_zero())
+    }
+}
+
 /// One extrinsic of a block (the Node's `live_extrinsics` row).
 /// Idempotency key is `(block_height, extrinsic_index)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

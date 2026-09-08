@@ -65,6 +65,8 @@ pub struct SubstrateConfig {
     pub price_sample_interval: Duration,
     /// How often the sampler quotes the whole whitelist.
     pub price_sweep_interval: Duration,
+    /// How often the MOF circulating-supply snapshots are taken.
+    pub supply_snapshot_interval: Duration,
 }
 
 impl SubstrateConfig {
@@ -79,6 +81,7 @@ impl SubstrateConfig {
         let connect_timeout = duration_secs("SUBSTRATE_CONNECT_TIMEOUT_SECS", 10)?;
         let price_sample_interval = duration_secs("PRICE_SAMPLE_INTERVAL_SECS", 60)?;
         let price_sweep_interval = duration_secs("PRICE_SWEEP_INTERVAL_SECS", 600)?;
+        let supply_snapshot_interval = duration_secs("SUPPLY_SNAPSHOT_INTERVAL_SECS", 1800)?;
 
         Ok(Self {
             ws_endpoints,
@@ -87,6 +90,7 @@ impl SubstrateConfig {
             connect_timeout,
             price_sample_interval,
             price_sweep_interval,
+            supply_snapshot_interval,
         })
     }
 }

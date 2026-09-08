@@ -55,7 +55,7 @@ const SCAN_POLL: Duration = Duration::from_millis(500);
 /// it. A scan that outlives the wait keeps running and lands in the
 /// cache for the next request, which is what makes the first call to a
 /// cold `/holders` survive a slow public node.
-async fn cached_or_scan<T, F, Fut>(
+pub async fn cached_or_scan<T, F, Fut>(
     state: &AppState,
     key: &str,
     ttl: Duration,
@@ -311,12 +311,16 @@ async fn pools(
 // /holders/:assetId
 // =============================================================
 
+/// One holder row of the `/holders` and `/burns/holders` scans.
 #[derive(Clone, Serialize, Deserialize)]
-struct Holder {
-    address: String,
-    balance: f64,
+pub struct Holder {
+    /// SS58 address.
+    pub address: String,
+    /// Human balance.
+    pub balance: f64,
+    /// `toFormat(2)` text.
     #[serde(rename = "balanceStr")]
-    balance_str: String,
+    pub balance_str: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -342,7 +346,9 @@ fn holder(account: &[u8; 32], amount: BigDecimal) -> Holder {
     }
 }
 
-async fn scan_holders(state: &AppState, asset_id: &str) -> Result<Vec<Holder>, ApiError> {
+/// Full chain scan of the holders of `asset_id`, sorted by balance desc
+/// (Node `refreshHoldersInBackground`).
+pub async fn scan_holders(state: &AppState, asset_id: &str) -> Result<Vec<Holder>, ApiError> {
     let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
     let decimals = {
         let registry: tokio::sync::RwLockReadGuard<'_, Registry> = state.registry.read().await;

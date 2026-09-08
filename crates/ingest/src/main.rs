@@ -20,7 +20,8 @@ use sorametrics_telemetry::{init as init_telemetry, LogFormat};
 use std::process;
 use std::time::Duration;
 use substrate::{
-    run_decoder_loop, run_health_loop, run_price_sampler, HealthOutcome, WsConnection,
+    run_decoder_loop, run_health_loop, run_price_sampler, run_supply_sampler, HealthOutcome,
+    WsConnection,
 };
 use tokio::sync::watch;
 use tracing::{info, warn};
@@ -140,6 +141,14 @@ async fn run_substrate() -> Result<()> {
         .await
     });
 
+    // Supply snapshot task: MOF circulating supply → sm.supply_snapshots.
+    let cancel_supply = cancel_rx.clone();
+    let db_for_supply = db.clone();
+    let supply_period = cfg.supply_snapshot_interval;
+    let supply_handle = tokio::spawn(async move {
+        run_supply_sampler(db_for_supply, supply_period, cancel_supply).await
+    });
+
     // Wait for: ctrl-c | healthcheck signals primary-recovery | subscriber
     // or sampler fatal err.
     tokio::select! {
@@ -172,6 +181,14 @@ async fn run_substrate() -> Result<()> {
             match inner {
                 Ok(()) => info!("price sampler exited cleanly"),
                 Err(e) => warn!(error = %e, "price sampler ended with error"),
+            }
+            let _ = cancel_tx.send(true);
+        }
+        result = supply_handle => {
+            let inner = result.context("supply sampler task panicked")?;
+            match inner {
+                Ok(()) => info!("supply sampler exited cleanly"),
+                Err(e) => warn!(error = %e, "supply sampler ended with error"),
             }
             let _ = cancel_tx.send(true);
         }

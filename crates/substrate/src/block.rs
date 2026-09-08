@@ -21,6 +21,7 @@ use crate::eth_bridge::{
     decode_eth_incoming, decode_eth_outgoing, eth_incoming_hash, outgoing_calls,
 };
 use crate::extrinsics::{extrinsic_row, ExtrinsicFacts};
+use crate::fee_burns_agg::{aggregate, is_remint, weights_for, WithdrawnByAsset};
 use crate::fees::ExtrinsicFeeFacts;
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::order_book::decode_order_book;
@@ -35,7 +36,7 @@ use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
     insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
     insert_liquidity_batch, insert_order_book_batch, insert_swaps_batch, insert_transfers_batch,
-    insert_val_staking_rewards_batch,
+    insert_val_staking_rewards_batch, upsert_fee_burns_aggregate,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -93,6 +94,8 @@ pub struct BlockDecodeStats {
     pub decoded_val_rewards: u32,
     /// Number of VAL payout rows that were new.
     pub inserted_val_rewards: u32,
+    /// 1 when the block produced a fee/burn aggregate row.
+    pub fee_burn_aggregates: u32,
     /// Extrinsics in the block (every one produces a row).
     pub decoded_extrinsics: u32,
     /// Extrinsic rows that were new.
@@ -160,6 +163,8 @@ pub async fn decode_block_events(
     db: &PgPool,
     prices: &PriceResolver,
     metadata: &subxt::Metadata,
+    spec_version: u32,
+    client: &OnlineClient<SubstrateConfig>,
 ) -> Result<BlockDecodeStats, BlockProcessError> {
     let height = BlockHeight(block.number().into());
     let block_hash: [u8; 32] = block.hash().0;
@@ -189,6 +194,7 @@ pub async fn decode_block_events(
     let mut fee_burns = Vec::new();
     let mut order_book = Vec::new();
     let mut val_rewards = Vec::new();
+    let mut withdrawn = WithdrawnByAsset::default();
     // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
     let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
 
@@ -215,6 +221,15 @@ pub async fn decode_block_events(
             extrinsic_hash,
         };
         events_seen += 1;
+
+        if let Err(e) = withdrawn.observe(&ev) {
+            warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "tokens withdrawn decode failed"
+            );
+        }
 
         if let Phase::ApplyExtrinsic(i) = ev.phase() {
             ext_facts.entry(i).or_default().observe(&ev, metadata);
@@ -464,6 +479,30 @@ pub async fn decode_block_events(
     stats.inserted_liquidity = insert_liquidity_batch(db, &liquidity).await? as u32;
     stats.decoded_order_book = order_book.len() as u32;
     stats.inserted_order_book = insert_order_book_batch(db, &order_book).await? as u32;
+    // Per-block fee/burn aggregate (fee_burns_indexer.js). A remint is a
+    // drop of the xorFee buckets vs the parent block; the buckets are
+    // read only when the block withdrew a remint asset.
+    let remint = if withdrawn.is_empty() {
+        false
+    } else {
+        let now = at_block_buckets(&block.storage()).await?;
+        let parent = client.storage().at(block.header().parent_hash);
+        let prev = at_block_buckets(&parent).await?;
+        is_remint(prev, now)
+    };
+    let agg = aggregate(
+        height,
+        block_timestamp.0.timestamp_millis(),
+        &fee_burns,
+        &withdrawn,
+        weights_for(spec_version),
+        remint,
+    );
+    if agg.has_activity() {
+        upsert_fee_burns_aggregate(db, &agg).await?;
+        stats.fee_burn_aggregates = 1;
+    }
+
     stats.decoded_val_rewards = val_rewards.len() as u32;
     stats.inserted_val_rewards = insert_val_staking_rewards_batch(db, &val_rewards).await? as u32;
     stats.decoded_extrinsics = extrinsic_rows.len() as u32;
@@ -480,6 +519,17 @@ pub async fn decode_block_events(
 ///
 /// This replaces the earlier `Timestamp::Now` storage fetch, which cost
 /// one additional RPC per block — irrelevant live, dominant in backfill.
+/// `(xorToVal, xorToBuyBack)` raw at a storage view.
+async fn at_block_buckets(
+    at: &subxt::storage::Storage<SubstrateConfig, OnlineClient<SubstrateConfig>>,
+) -> Result<(u128, u128), subxt::Error> {
+    let s = sora::storage();
+    Ok((
+        at.fetch(&s.xor_fee().xor_to_val()).await?.unwrap_or(0),
+        at.fetch(&s.xor_fee().xor_to_buy_back()).await?.unwrap_or(0),
+    ))
+}
+
 fn timestamp_from_inherent(
     extrinsics: &subxt::blocks::Extrinsics<SubstrateConfig, OnlineClient<SubstrateConfig>>,
     height: BlockHeight,

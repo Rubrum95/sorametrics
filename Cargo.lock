@@ -10201,10 +10201,12 @@ dependencies = [
  "bs58",
  "chrono",
  "hex",
+ "reqwest",
  "rust_decimal",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tracing",
  "uuid",
 ]
 
@@ -10230,9 +10232,11 @@ name = "sorametrics-ingest"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "dotenvy",
  "jsonrpsee",
+ "reqwest",
  "serde",
  "serde_json",
  "sorametrics-core",

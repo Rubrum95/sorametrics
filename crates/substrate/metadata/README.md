@@ -34,6 +34,7 @@ Pinning the file (vs fetching at build time) gives us:
 | `Staking` | Ledgers, nominations, era exposures, reward points, claimed pages (`/wallet/staking`, `/staking/*`). |
 | `Session` | `validators` (active set), `currentIndex`. |
 | `Babe` | `epochDuration` / `expectedBlockTime` constants, block author from the pre-runtime digest. |
+| `Denomination` | `denominator` (XOR denomination factor, `/burns/stats.denomFactor`). |
 
 When Phase 1.2 expands to other event types, regenerate with the new pallet list.
 
@@ -46,7 +47,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination" \
   --format bytes \
   > sora-mainnet.scale
 ```

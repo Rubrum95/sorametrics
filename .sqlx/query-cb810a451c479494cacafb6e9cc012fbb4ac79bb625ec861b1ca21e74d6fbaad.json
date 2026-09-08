@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.supply_history (symbol, ts_secs, total_supply, source)\n                SELECT s, t, v, 'asset_snapshot'\n                FROM UNNEST($1::text[], $2::bigint[], $3::float8[]) AS x(s, t, v)\n                ON CONFLICT (symbol, ts_secs, source) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8Array",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cb810a451c479494cacafb6e9cc012fbb4ac79bb625ec861b1ca21e74d6fbaad"
+}

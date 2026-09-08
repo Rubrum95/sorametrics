@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT (ts / 86400000)::bigint AS \"day!\",\n               COALESCE(SUM(remint_xor_burned), 0)::float8 AS \"xor!\",\n               COALESCE(SUM(remint_val_burned), 0)::float8 AS \"val!\",\n               COALESCE(SUM(remint_kusd_burned), 0)::float8 AS \"kusd!\",\n               COALESCE(SUM(remint_tbcd_burned), 0)::float8 AS \"tbcd!\"\n        FROM sm.fee_burns_aggregate\n        WHERE ts >= $1\n        GROUP BY 1 ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "day!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "xor!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "val!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "kusd!",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "tbcd!",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7774f6bb01df977c685fd5b78207f5647e67407ffa38b371a64e7d395c272869"
+}
