@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.val_staking_rewards (\n                era, page, validator_stash, destination, amount, block_height, block_hash,\n                block_timestamp, origin\n            )\n            SELECT e, p, s, d, a, b, h, t, 'legacy'\n            FROM UNNEST(\n                $1::int[], $2::int[], $3::text[], $4::text[], $5::numeric[], $6::bigint[],\n                $7::text[], $8::timestamptz[]\n            ) AS x(e, p, s, d, a, b, h, t)\n            ON CONFLICT (era, page, validator_stash, destination, block_height) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "TextArray",
+        "TextArray",
+        "NumericArray",
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c10d117e5e4e3ae205fa34567b46456d1553bf757bc3e5bc8da1279fdb122e43"
+}

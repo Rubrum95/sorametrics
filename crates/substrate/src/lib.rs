@@ -24,6 +24,7 @@ pub mod liquidity;
 pub mod order_book;
 pub mod price;
 pub mod runtime;
+pub mod val_staking;
 
 pub use block::{decode_block_events, BlockDecodeStats, BlockProcessError};
 pub use decoder::{

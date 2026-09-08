@@ -26,6 +26,7 @@ use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::order_book::decode_order_book;
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
+use crate::val_staking::decode_val_staking_reward;
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use sorametrics_core::chain::AssetId;
@@ -34,6 +35,7 @@ use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
     insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
     insert_liquidity_batch, insert_order_book_batch, insert_swaps_batch, insert_transfers_batch,
+    insert_val_staking_rewards_batch,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -87,6 +89,10 @@ pub struct BlockDecodeStats {
     pub decoded_order_book: u32,
     /// Number of order book rows that were new.
     pub inserted_order_book: u32,
+    /// Number of `xorFee.ValStakingRewardPaid` events decoded.
+    pub decoded_val_rewards: u32,
+    /// Number of VAL payout rows that were new.
+    pub inserted_val_rewards: u32,
     /// Extrinsics in the block (every one produces a row).
     pub decoded_extrinsics: u32,
     /// Extrinsic rows that were new.
@@ -103,6 +109,7 @@ impl BlockDecodeStats {
             + self.decoded_fees
             + self.decoded_liquidity
             + self.decoded_order_book
+            + self.decoded_val_rewards
             > 0
     }
 }
@@ -155,6 +162,7 @@ pub async fn decode_block_events(
     metadata: &subxt::Metadata,
 ) -> Result<BlockDecodeStats, BlockProcessError> {
     let height = BlockHeight(block.number().into());
+    let block_hash: [u8; 32] = block.hash().0;
 
     let extrinsics = block.extrinsics().await?;
     let block_timestamp = timestamp_from_inherent(&extrinsics, height)?;
@@ -180,6 +188,7 @@ pub async fn decode_block_events(
     let mut bridges = Vec::new();
     let mut fee_burns = Vec::new();
     let mut order_book = Vec::new();
+    let mut val_rewards = Vec::new();
     // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
     let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
 
@@ -324,6 +333,20 @@ pub async fn decode_block_events(
             ),
         }
 
+        match decode_val_staking_reward(&ev, coords, &block_hash) {
+            Ok(Some(row)) => {
+                val_rewards.push(row);
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "val staking reward decode failed"
+            ),
+        }
+
         match decode_fee_burn(&ev, coords) {
             Ok(Some(fee_burn)) => {
                 fee_burns.push(fee_burn);
@@ -441,6 +464,8 @@ pub async fn decode_block_events(
     stats.inserted_liquidity = insert_liquidity_batch(db, &liquidity).await? as u32;
     stats.decoded_order_book = order_book.len() as u32;
     stats.inserted_order_book = insert_order_book_batch(db, &order_book).await? as u32;
+    stats.decoded_val_rewards = val_rewards.len() as u32;
+    stats.inserted_val_rewards = insert_val_staking_rewards_batch(db, &val_rewards).await? as u32;
     stats.decoded_extrinsics = extrinsic_rows.len() as u32;
     stats.inserted_extrinsics = insert_extrinsics_batch(db, &extrinsic_rows).await? as u32;
 

@@ -17,7 +17,7 @@ use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
     BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2Liquidity,
-    V2OrderBookEvent, V2Swap, V2Transfer,
+    V2OrderBookEvent, V2Swap, V2Transfer, V2ValStakingReward,
 };
 use sqlx::PgPool;
 
@@ -890,6 +890,63 @@ pub async fn insert_order_book_batch(
         &amounts as &[Option<bigdecimal::BigDecimal>],
         &usds as &[Option<bigdecimal::BigDecimal>],
         &hashes as &[Option<String>],
+    )
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+// =============================================================
+// val_staking_rewards
+// =============================================================
+
+/// Batch-insert VAL payout rows, idempotent on the natural key. Returns NEW rows.
+pub async fn insert_val_staking_rewards_batch(
+    pool: &PgPool,
+    rows: &[V2ValStakingReward],
+) -> Result<u64, DbError> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let n = rows.len();
+    let mut eras = Vec::with_capacity(n);
+    let mut pages = Vec::with_capacity(n);
+    let mut stashes = Vec::with_capacity(n);
+    let mut dests = Vec::with_capacity(n);
+    let mut amounts = Vec::with_capacity(n);
+    let mut blocks = Vec::with_capacity(n);
+    let mut hashes = Vec::with_capacity(n);
+    let mut tss = Vec::with_capacity(n);
+    for r in rows {
+        eras.push(r.era as i32);
+        pages.push(r.page as i32);
+        stashes.push(r.validator_stash.0.clone());
+        dests.push(r.destination.0.clone());
+        amounts.push(r.amount.clone());
+        blocks.push(r.block_height.0 as i64);
+        hashes.push(r.block_hash.clone());
+        tss.push(r.timestamp.0);
+    }
+    let res = sqlx::query!(
+        r#"
+        INSERT INTO sm.val_staking_rewards (
+            era, page, validator_stash, destination, amount, block_height, block_hash, block_timestamp
+        )
+        SELECT e, p, s, d, a, b, h, t
+        FROM UNNEST(
+            $1::int[], $2::int[], $3::text[], $4::text[], $5::numeric[], $6::bigint[],
+            $7::text[], $8::timestamptz[]
+        ) AS x(e, p, s, d, a, b, h, t)
+        ON CONFLICT (era, page, validator_stash, destination, block_height) DO NOTHING
+        "#,
+        &eras,
+        &pages,
+        &stashes,
+        &dests,
+        &amounts,
+        &blocks,
+        &hashes,
+        &tss,
     )
     .execute(pool)
     .await?;

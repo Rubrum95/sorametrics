@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT destination,\n               COALESCE(SUM(amount), 0)::numeric AS \"total_amount!\",\n               COUNT(*)::int AS \"payout_count!\",\n               COUNT(DISTINCT validator_stash)::int AS \"validator_count!\"\n        FROM sm.val_staking_rewards\n        GROUP BY destination\n        ORDER BY SUM(amount) DESC\n        LIMIT 10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "destination",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_amount!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "payout_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "validator_count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "c459fd81bbda0d68edace3c4b93687ffdf48b6d893f9e64fe78b9237373b7244"
+}

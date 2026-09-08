@@ -1,0 +1,254 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n          COALESCE(SUM(amount), 0)::numeric AS \"a_all!\", COUNT(*)::bigint AS \"p_all!\",\n          COUNT(DISTINCT validator_stash)::bigint AS \"v_all!\", COUNT(DISTINCT destination)::bigint AS \"d_all!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '6 hours'), 0)::numeric AS \"a_h6!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '6 hours')::bigint AS \"p_h6!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '6 hours')::bigint AS \"v_h6!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '6 hours')::bigint AS \"d_h6!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '12 hours'), 0)::numeric AS \"a_h12!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '12 hours')::bigint AS \"p_h12!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '12 hours')::bigint AS \"v_h12!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '12 hours')::bigint AS \"d_h12!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '24 hours'), 0)::numeric AS \"a_h24!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '24 hours')::bigint AS \"p_h24!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '24 hours')::bigint AS \"v_h24!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '24 hours')::bigint AS \"d_h24!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '3 days'), 0)::numeric AS \"a_d3!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '3 days')::bigint AS \"p_d3!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '3 days')::bigint AS \"v_d3!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '3 days')::bigint AS \"d_d3!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '6 days'), 0)::numeric AS \"a_d6!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '6 days')::bigint AS \"p_d6!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '6 days')::bigint AS \"v_d6!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '6 days')::bigint AS \"d_d6!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '30 days'), 0)::numeric AS \"a_d30!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '30 days')::bigint AS \"p_d30!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '30 days')::bigint AS \"v_d30!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '30 days')::bigint AS \"d_d30!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '90 days'), 0)::numeric AS \"a_d90!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '90 days')::bigint AS \"p_d90!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '90 days')::bigint AS \"v_d90!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '90 days')::bigint AS \"d_d90!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '180 days'), 0)::numeric AS \"a_d180!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '180 days')::bigint AS \"p_d180!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '180 days')::bigint AS \"v_d180!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '180 days')::bigint AS \"d_d180!\",\n          COALESCE(SUM(amount) FILTER (WHERE block_timestamp > now() - interval '365 days'), 0)::numeric AS \"a_d365!\",\n          COUNT(*) FILTER (WHERE block_timestamp > now() - interval '365 days')::bigint AS \"p_d365!\",\n          COUNT(DISTINCT validator_stash) FILTER (WHERE block_timestamp > now() - interval '365 days')::bigint AS \"v_d365!\",\n          COUNT(DISTINCT destination) FILTER (WHERE block_timestamp > now() - interval '365 days')::bigint AS \"d_d365!\"\n        FROM sm.val_staking_rewards\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a_all!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "p_all!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "v_all!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "d_all!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "a_h6!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "p_h6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "v_h6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "d_h6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "a_h12!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "p_h12!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "v_h12!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "d_h12!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "a_h24!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 13,
+        "name": "p_h24!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 14,
+        "name": "v_h24!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "d_h24!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 16,
+        "name": "a_d3!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 17,
+        "name": "p_d3!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 18,
+        "name": "v_d3!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "d_d3!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 20,
+        "name": "a_d6!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 21,
+        "name": "p_d6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 22,
+        "name": "v_d6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 23,
+        "name": "d_d6!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 24,
+        "name": "a_d30!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 25,
+        "name": "p_d30!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 26,
+        "name": "v_d30!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 27,
+        "name": "d_d30!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 28,
+        "name": "a_d90!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 29,
+        "name": "p_d90!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 30,
+        "name": "v_d90!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 31,
+        "name": "d_d90!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 32,
+        "name": "a_d180!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 33,
+        "name": "p_d180!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 34,
+        "name": "v_d180!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 35,
+        "name": "d_d180!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 36,
+        "name": "a_d365!",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 37,
+        "name": "p_d365!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 38,
+        "name": "v_d365!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 39,
+        "name": "d_d365!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "81f9ea785e0b33a01e5b7d8b4341253d4b239b320a2d430b8f7f08d811e4408e"
+}

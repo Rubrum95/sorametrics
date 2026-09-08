@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 10] = [
+pub const ALL_TABLES: [&str; 11] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -57,6 +57,7 @@ pub const ALL_TABLES: [&str; 10] = [
     "liquidity",
     "extrinsics",
     "order_book",
+    "val_staking_rewards",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -100,6 +101,9 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "liquidity" => copy_liquidity(&source, &target, opts.batch_size).await?,
             "extrinsics" => copy_extrinsics(&source, &target, opts.batch_size).await?,
             "order_book" => copy_order_book(&source, &target, opts.batch_size).await?,
+            "val_staking_rewards" => {
+                copy_val_staking_rewards(&source, &target, opts.batch_size).await?
+            }
             _ => unreachable!("validated above"),
         };
         info!(
@@ -1131,6 +1135,85 @@ async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result
     Ok(copied)
 }
 
+/// Rows of the Node's live `sm.val_staking_rewards` → v33's table,
+/// verbatim (same natural key); keyset on the legacy serial `id`.
+/// The Node's `ts` (insert time) becomes `block_timestamp`.
+async fn copy_val_staking_rewards(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, era, page, validator_stash, destination, amount,
+               block_num::bigint AS block_height, block_hash, ts
+        FROM sm.val_staking_rewards
+        WHERE id > $1
+        ORDER BY id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "val_staking_rewards")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy val_staking_rewards batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut eras = Vec::with_capacity(n);
+        let mut pages = Vec::with_capacity(n);
+        let mut stashes = Vec::with_capacity(n);
+        let mut dests = Vec::with_capacity(n);
+        let mut amounts = Vec::with_capacity(n);
+        let mut blocks = Vec::with_capacity(n);
+        let mut hashes: Vec<Option<String>> = Vec::with_capacity(n);
+        let mut tss = Vec::with_capacity(n);
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            eras.push(r.try_get::<i32, _>("era")?);
+            pages.push(r.try_get::<i32, _>("page")?);
+            stashes.push(r.try_get::<String, _>("validator_stash")?);
+            dests.push(r.try_get::<String, _>("destination")?);
+            amounts.push(r.try_get::<BigDecimal, _>("amount")?);
+            blocks.push(r.try_get::<i64, _>("block_height")?);
+            hashes.push(r.try_get::<Option<String>, _>("block_hash")?);
+            tss.push(r.try_get::<DateTime<Utc>, _>("ts")?);
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO sm.val_staking_rewards (
+                era, page, validator_stash, destination, amount, block_height, block_hash,
+                block_timestamp, origin
+            )
+            SELECT e, p, s, d, a, b, h, t, 'legacy'
+            FROM UNNEST(
+                $1::int[], $2::int[], $3::text[], $4::text[], $5::numeric[], $6::bigint[],
+                $7::text[], $8::timestamptz[]
+            ) AS x(e, p, s, d, a, b, h, t)
+            ON CONFLICT (era, page, validator_stash, destination, block_height) DO NOTHING
+            "#,
+            &eras,
+            &pages,
+            &stashes,
+            &dests,
+            &amounts,
+            &blocks,
+            &hashes as &[Option<String>],
+            &tss,
+        )
+        .execute(target)
+        .await
+        .context("inserting val_staking_rewards batch")?;
+        copied += n as u64;
+        set_cursor(target, "val_staking_rewards", &cursor.to_string(), n as i64).await?;
+        info!(copied, cursor, "val_staking_rewards progress");
+    }
+    Ok(copied)
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -1526,6 +1609,28 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 );
                 false
             }
+        }
+        "val_staking_rewards" => {
+            // Buckets of 100 eras; checksum = SUM(amount) (exact numeric).
+            let src = source_buckets(
+                source,
+                "SELECT (era / 100)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                 COALESCE(SUM(amount), 0)::numeric AS checksum \
+                 FROM sm.val_staking_rewards GROUP BY 1 ORDER BY 1",
+            )
+            .await?;
+            let dst_rows = sqlx::query!(
+                r#"SELECT (era / 100)::bigint AS "bucket!", COUNT(*)::bigint AS "cnt!",
+                   COALESCE(SUM(amount), 0)::numeric AS "checksum!"
+                   FROM sm.val_staking_rewards WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst: Buckets = dst_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            compare_buckets(table, &src, &dst)
         }
         "asset_registry" => {
             let src_cnt: i64 = sqlx::query(

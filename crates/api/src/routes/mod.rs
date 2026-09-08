@@ -22,6 +22,7 @@ pub mod order_book;
 pub mod pool_providers;
 pub mod prices;
 pub mod staking;
+pub mod staking_rewards;
 pub mod stats;
 pub mod tokens;
 pub mod wallet;
@@ -35,6 +36,7 @@ pub fn build(state: AppState) -> Router {
         .merge(tokens::router())
         .merge(prices::router())
         .merge(staking::router())
+        .merge(staking_rewards::router())
         .merge(stats::router())
         .merge(wallet::router())
         .merge(fee_config::router())

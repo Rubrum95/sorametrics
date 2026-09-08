@@ -340,6 +340,31 @@ pub struct V2OrderBookEvent {
     pub timestamp: Timestamp,
 }
 
+/// One `xorFee.ValStakingRewardPaid` event (the Node's
+/// `sm.val_staking_rewards` row): a VAL payout of `era` / `page` from
+/// `validator_stash` to `destination`. Idempotency key is
+/// `(era, page, validator_stash, destination, block_height)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2ValStakingReward {
+    /// Block of the payout.
+    pub block_height: BlockHeight,
+    /// Block hash (`0x`-hex).
+    pub block_hash: String,
+    /// Era paid.
+    pub era: u32,
+    /// Exposure page paid.
+    pub page: u32,
+    /// Validator stash (SS58).
+    pub validator_stash: Address,
+    /// Reward destination (SS58).
+    pub destination: Address,
+    /// VAL amount (raw planck).
+    pub amount: BigDecimal,
+    /// Wall-clock timestamp from the block's `timestamp.set` inherent.
+    pub timestamp: Timestamp,
+}
+
 /// One extrinsic of a block (the Node's `live_extrinsics` row).
 /// Idempotency key is `(block_height, extrinsic_index)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

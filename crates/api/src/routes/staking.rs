@@ -119,14 +119,24 @@ struct EraConsts {
     history_depth: u32,
 }
 
-fn era_consts(client: &OnlineClient<SubstrateConfig>) -> Result<EraConsts, Box<subxt::Error>> {
+fn era_consts(client: &OnlineClient<SubstrateConfig>) -> Result<EraConsts, ApiError> {
     let c = client.constants();
     Ok(EraConsts {
-        sessions_per_era: c.at(&sora::constants().staking().sessions_per_era())?,
-        epoch_duration: c.at(&sora::constants().babe().epoch_duration())?,
-        expected_block_time: c.at(&sora::constants().babe().expected_block_time())?,
-        bonding_duration: c.at(&sora::constants().staking().bonding_duration())?,
-        history_depth: c.at(&sora::constants().staking().history_depth())?,
+        sessions_per_era: c
+            .at(&sora::constants().staking().sessions_per_era())
+            .map_err(ChainErr)?,
+        epoch_duration: c
+            .at(&sora::constants().babe().epoch_duration())
+            .map_err(ChainErr)?,
+        expected_block_time: c
+            .at(&sora::constants().babe().expected_block_time())
+            .map_err(ChainErr)?,
+        bonding_duration: c
+            .at(&sora::constants().staking().bonding_duration())
+            .map_err(ChainErr)?,
+        history_depth: c
+            .at(&sora::constants().staking().history_depth())
+            .map_err(ChainErr)?,
     })
 }
 
@@ -352,7 +362,7 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
                 Ok((era, set))
             })
             .await?;
-        let consts = era_consts(&client).map_err(boxed_chain)?;
+        let consts = era_consts(&client)?;
         let era_ms =
             u64::from(consts.sessions_per_era) * consts.epoch_duration * consts.expected_block_time;
         let addresses: Vec<String> = set.iter().map(|a| ss58_encode_sora(&a.0)).collect();
@@ -412,10 +422,6 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
 #[allow(non_snake_case)]
 fn ChainErr(e: subxt::Error) -> ApiError {
     ApiError::Chain(e.into())
-}
-
-fn boxed_chain(e: Box<subxt::Error>) -> ApiError {
-    ApiError::Chain((*e).into())
 }
 
 // ---------------------------------------------------------------------
@@ -525,7 +531,7 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
     let v = cached(&state, "staking:network", NETWORK_TTL, || async {
         let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
         let client = chain.client().await?;
-        let consts = era_consts(&client).map_err(boxed_chain)?;
+        let consts = era_consts(&client)?;
         let legacy = chain.legacy_rpc().await?;
         let best = head_number(&legacy).await?;
         let finalized_hash = legacy.chain_get_finalized_head().await.map_err(ChainErr)?;

@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH x AS (SELECT hour_bucket h, price_usd xp FROM ts.price_history WHERE asset_id = $1 AND price_usd > 0),\n             v AS (SELECT hour_bucket h, price_usd vp FROM ts.price_history WHERE asset_id = $2 AND price_usd > 0),\n             r AS (SELECT x.h, v.vp / x.xp AS ratio FROM x JOIN v ON v.h = x.h),\n             n AS (SELECT EXTRACT(EPOCH FROM NOW())::bigint nh)\n        SELECT\n            MIN(ratio) FILTER (WHERE h >= nh - 86400)   AS \"min_h24: f64\",\n            MAX(ratio) FILTER (WHERE h >= nh - 86400)   AS \"max_h24: f64\",\n            MIN(ratio) FILTER (WHERE h >= nh - 604800)  AS \"min_d7: f64\",\n            MAX(ratio) FILTER (WHERE h >= nh - 604800)  AS \"max_d7: f64\",\n            MIN(ratio) FILTER (WHERE h >= nh - 2592000) AS \"min_d30: f64\",\n            MAX(ratio) FILTER (WHERE h >= nh - 2592000) AS \"max_d30: f64\"\n        FROM r, n\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min_h24: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 1,
+        "name": "max_h24: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 2,
+        "name": "min_d7: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_d7: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "min_d30: f64",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 5,
+        "name": "max_d30: f64",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "5f8ced521ea1706dddc3d0a0b9c2bd661fe1e6cf1a4607419880091e7fb88589"
+}

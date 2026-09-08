@@ -202,3 +202,66 @@ pub async fn price_series(
     .await?;
     Ok(rows)
 }
+
+/// Min / max of the VAL/XOR USD price ratio over a window.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RateWindow {
+    /// Lowest ratio in the window, `None` without data.
+    pub min: Option<f64>,
+    /// Highest ratio in the window.
+    pub max: Option<f64>,
+}
+
+/// The Node's `getValXorRateWindows`: 24 h / 7 d / 30 d.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RateWindows {
+    /// Last 24 hours.
+    pub h24: RateWindow,
+    /// Last 7 days.
+    pub d7: RateWindow,
+    /// Last 30 days.
+    pub d30: RateWindow,
+}
+
+/// `price(b) / price(a)` per shared hourly bucket, min/max over the
+/// three windows (Node: VAL per XOR from `sm.price_history`).
+pub async fn val_xor_rate_windows(
+    pool: &PgPool,
+    xor_asset_id: &str,
+    val_asset_id: &str,
+) -> Result<RateWindows, DbError> {
+    let r = sqlx::query!(
+        r#"
+        WITH x AS (SELECT hour_bucket h, price_usd xp FROM ts.price_history WHERE asset_id = $1 AND price_usd > 0),
+             v AS (SELECT hour_bucket h, price_usd vp FROM ts.price_history WHERE asset_id = $2 AND price_usd > 0),
+             r AS (SELECT x.h, v.vp / x.xp AS ratio FROM x JOIN v ON v.h = x.h),
+             n AS (SELECT EXTRACT(EPOCH FROM NOW())::bigint nh)
+        SELECT
+            MIN(ratio) FILTER (WHERE h >= nh - 86400)   AS "min_h24: f64",
+            MAX(ratio) FILTER (WHERE h >= nh - 86400)   AS "max_h24: f64",
+            MIN(ratio) FILTER (WHERE h >= nh - 604800)  AS "min_d7: f64",
+            MAX(ratio) FILTER (WHERE h >= nh - 604800)  AS "max_d7: f64",
+            MIN(ratio) FILTER (WHERE h >= nh - 2592000) AS "min_d30: f64",
+            MAX(ratio) FILTER (WHERE h >= nh - 2592000) AS "max_d30: f64"
+        FROM r, n
+        "#,
+        xor_asset_id,
+        val_asset_id,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(RateWindows {
+        h24: RateWindow {
+            min: r.min_h24,
+            max: r.max_h24,
+        },
+        d7: RateWindow {
+            min: r.min_d7,
+            max: r.max_d7,
+        },
+        d30: RateWindow {
+            min: r.min_d30,
+            max: r.max_d30,
+        },
+    })
+}

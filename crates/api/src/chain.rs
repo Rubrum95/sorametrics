@@ -147,6 +147,19 @@ impl ChainClient {
             })
     }
 
+    /// The raw RPC client of the current connection (custom SORA RPCs
+    /// such as `liquidityProxy_quote`).
+    pub async fn rpc(&self) -> Result<RpcClient, ChainError> {
+        self.client().await?;
+        let guard = self.inner.lock().await;
+        guard
+            .as_ref()
+            .map(|c| c.rpc.clone())
+            .ok_or(ChainError::Unreachable {
+                tried: self.endpoints.len(),
+            })
+    }
+
     /// Legacy RPC methods on the current connection (`state_queryStorageAt`
     /// batches — the polkadot-js `.multi` equivalent).
     pub async fn legacy_rpc(
