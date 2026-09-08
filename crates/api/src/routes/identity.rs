@@ -94,6 +94,21 @@ async fn resolve(state: &AppState, address: &str) -> Result<Identity, ApiError> 
     Ok(ident)
 }
 
+/// Display names for `addresses` (Node `attachIdentities`): only the
+/// accounts with a display are present. Lookup failures leave the
+/// address out, as the Node's cache miss did.
+pub async fn display_names(state: &AppState, addresses: &[String]) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for a in addresses {
+        if let Ok(id) = resolve(state, a).await {
+            if let Some(d) = id.display {
+                out.insert(a.clone(), d);
+            }
+        }
+    }
+    out
+}
+
 async fn identity(State(state): State<AppState>, Path(address): Path<String>) -> Json<Identity> {
     // Node: any failure → `{ display: null }`.
     match resolve(&state, &address).await {

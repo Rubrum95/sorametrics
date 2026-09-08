@@ -162,6 +162,43 @@ impl ChainClient {
             })
     }
 
+    /// Fetch many storage entries in ONE `state_queryStorageAt` (the
+    /// polkadot-js `.multi` equivalent); each result is `None` when the
+    /// key is absent. Values are SCALE-decoded as `T`.
+    pub async fn fetch_many<T: subxt::ext::codec::Decode>(
+        &self,
+        keys: &[Vec<u8>],
+    ) -> Result<Vec<Option<T>>, ChainError> {
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+        let legacy = self.legacy_rpc().await?;
+        let sets = legacy
+            .state_query_storage_at(keys.iter().map(Vec::as_slice), None)
+            .await?;
+        let mut by_key: std::collections::HashMap<Vec<u8>, Vec<u8>> =
+            std::collections::HashMap::new();
+        for set in sets {
+            for (k, v) in set.changes {
+                if let Some(bytes) = v {
+                    by_key.insert(k.0, bytes.0);
+                }
+            }
+        }
+        let mut out = Vec::with_capacity(keys.len());
+        for k in keys {
+            match by_key.get(k) {
+                Some(bytes) => {
+                    let v = T::decode(&mut &bytes[..])
+                        .map_err(|e| subxt::Error::Decode(subxt::error::DecodeError::from(e)))?;
+                    out.push(Some(v));
+                }
+                None => out.push(None),
+            }
+        }
+        Ok(out)
+    }
+
     /// Forget the current connection so the next call reconnects.
     pub async fn invalidate(&self) {
         *self.inner.lock().await = None;
