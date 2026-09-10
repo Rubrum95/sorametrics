@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.market_id, m.question, m.status, m.resolution,\n               SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) AS \"yes_shares: BigDecimal\",\n               SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares ELSE 0 END) AS \"no_shares: BigDecimal\",\n               SUM(CASE WHEN t.side = 'Buy' THEN t.collateral ELSE -t.collateral END) AS \"net_collateral: BigDecimal\"\n        FROM sm.polkamarkt_trades t\n        JOIN sm.polkamarkt_markets m ON m.market_id = t.market_id\n        WHERE t.trader = $1\n        GROUP BY t.market_id, m.question, m.status, m.resolution\n        HAVING SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) > 0\n            OR SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares ELSE 0 END) > 0\n        ORDER BY t.market_id DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "market_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "question",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "resolution",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "yes_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 5,
+        "name": "no_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "net_collateral: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f7f20088150e0ba741285a1183d9800257d814d4575ebe382929330074aefd9f"
+}

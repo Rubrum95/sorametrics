@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT market_id FROM sm.polkamarkt_markets WHERE origin = 'legacy' ORDER BY market_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "market_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4c14d1466eced27949e39fcd8d83fe7c8cba6db9a6dc4e5944ba1d86287dc496"
+}

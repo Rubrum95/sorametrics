@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.polkamarkt_markets (\n            market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,\n            status, question, oracle, resolution_source, created_at_block, created_at_ts, mechanism\n        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n        ON CONFLICT (market_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int4",
+        "Text",
+        "Numeric",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9cb71f963b13640e442aa523ca4a19c5f8acae8099b9718bf50e65563e7452f5"
+}

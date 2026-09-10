@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT block, ts, hash, kusd_spent, xor_burned FROM sm.polkamarkt_buybacks ORDER BY ts DESC LIMIT $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "kusd_spent",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "xor_burned",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d97e864d898dde019c9e54c58a2f6089fd9d25b24421c0cbdf6470212b045cb3"
+}

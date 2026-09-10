@@ -25,6 +25,7 @@ use crate::fee_burns_agg::{aggregate, is_remint, weights_for, WithdrawnByAsset};
 use crate::fees::ExtrinsicFeeFacts;
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::order_book::decode_order_book;
+use crate::polkamarkt::{decode_polkamarkt, hydrate_market};
 use crate::price::{PriceError, PriceResolver};
 use crate::runtime::sora;
 use crate::val_staking::decode_val_staking_reward;
@@ -32,11 +33,12 @@ use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use sorametrics_core::chain::AssetId;
 use sorametrics_core::chain::BlockHeight;
+use sorametrics_core::sora_v2::PmChange;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
     insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
     insert_liquidity_batch, insert_order_book_batch, insert_swaps_batch, insert_transfers_batch,
-    insert_val_staking_rewards_batch, upsert_fee_burns_aggregate,
+    insert_val_staking_rewards_batch, pm_apply_event, pm_insert_market, upsert_fee_burns_aggregate,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -96,6 +98,8 @@ pub struct BlockDecodeStats {
     pub inserted_val_rewards: u32,
     /// 1 when the block produced a fee/burn aggregate row.
     pub fee_burn_aggregates: u32,
+    /// Number of `polkamarkt` events applied to the replica.
+    pub polkamarkt_events: u32,
     /// Extrinsics in the block (every one produces a row).
     pub decoded_extrinsics: u32,
     /// Extrinsic rows that were new.
@@ -194,6 +198,7 @@ pub async fn decode_block_events(
     let mut fee_burns = Vec::new();
     let mut order_book = Vec::new();
     let mut val_rewards = Vec::new();
+    let mut polkamarkt = Vec::new();
     let mut withdrawn = WithdrawnByAsset::default();
     // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
     let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
@@ -345,6 +350,20 @@ pub async fn decode_block_events(
                 block = height.0,
                 event_id = coords.event_id,
                 "order book decode failed"
+            ),
+        }
+
+        match decode_polkamarkt(&ev, coords) {
+            Ok(Some(row)) => {
+                polkamarkt.push(row);
+                continue;
+            }
+            Ok(None) => {}
+            Err(e) => warn!(
+                error = %e,
+                block = height.0,
+                event_id = coords.event_id,
+                "polkamarkt decode failed"
             ),
         }
 
@@ -502,6 +521,30 @@ pub async fn decode_block_events(
         upsert_fee_burns_aggregate(db, &agg).await?;
         stats.fee_burn_aggregates = 1;
     }
+
+    // Polkamarkt replica: MarketCreated is hydrated from storage at this
+    // block, the rest applied in event order.
+    for ev in &polkamarkt {
+        if let PmChange::MarketCreated {
+            market_id,
+            seed_liquidity,
+        } = &ev.change
+        {
+            let m = hydrate_market(
+                client,
+                block.hash(),
+                *market_id,
+                seed_liquidity.clone(),
+                height,
+                ev.ts_millis,
+            )
+            .await?;
+            pm_insert_market(db, &m).await?;
+        } else {
+            pm_apply_event(db, ev).await?;
+        }
+    }
+    stats.polkamarkt_events = polkamarkt.len() as u32;
 
     stats.decoded_val_rewards = val_rewards.len() as u32;
     stats.inserted_val_rewards = insert_val_staking_rewards_batch(db, &val_rewards).await? as u32;

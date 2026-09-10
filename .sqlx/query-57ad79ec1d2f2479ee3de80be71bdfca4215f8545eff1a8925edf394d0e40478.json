@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*)::bigint AS \"sweep_count!\",\n                  COALESCE(SUM(kusd_spent), 0) AS \"kusd: BigDecimal\",\n                  COALESCE(SUM(xor_burned), 0) AS \"xor: BigDecimal\",\n                  MAX(ts) AS \"last_ts\", MAX(block) AS \"last_block\"\n           FROM sm.polkamarkt_buybacks",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sweep_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "kusd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "xor: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_block",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "57ad79ec1d2f2479ee3de80be71bdfca4215f8545eff1a8925edf394d0e40478"
+}

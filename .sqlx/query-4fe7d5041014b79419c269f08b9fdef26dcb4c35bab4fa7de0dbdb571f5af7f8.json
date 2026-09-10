@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT legacy_id AS \"id!\" FROM sm.polkamarkt_trades WHERE legacy_id IS NOT NULL ORDER BY 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "4fe7d5041014b79419c269f08b9fdef26dcb4c35bab4fa7de0dbdb571f5af7f8"
+}

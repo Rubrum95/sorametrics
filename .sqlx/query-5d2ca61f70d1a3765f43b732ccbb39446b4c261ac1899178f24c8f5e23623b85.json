@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE sm.polkamarkt_markets\n        SET status     = COALESCE($2::text, status),\n            resolution = COALESCE($3::text, resolution),\n            mechanism  = COALESCE($4::text, mechanism)\n        WHERE market_id = $1\n          AND ( ($2::text IS NOT NULL AND status     IS DISTINCT FROM $2::text)\n             OR ($3::text IS NOT NULL AND resolution IS DISTINCT FROM $3::text)\n             OR ($4::text IS NOT NULL AND mechanism  IS DISTINCT FROM $4::text) )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5d2ca61f70d1a3765f43b732ccbb39446b4c261ac1899178f24c8f5e23623b85"
+}

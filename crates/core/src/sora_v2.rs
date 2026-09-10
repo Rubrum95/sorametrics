@@ -404,6 +404,128 @@ impl V2FeeBurnAggregate {
     }
 }
 
+/// A Polkamarkt market as the Node's `sm.polkamarkt_markets` row
+/// (hydrated from `Markets` / `Conditions` storage on `MarketCreated`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct PmMarket {
+    /// Market id.
+    pub market_id: u32,
+    /// Condition id.
+    pub condition_id: u32,
+    /// Creator (SS58), `Unknown` when storage was unavailable.
+    pub creator: String,
+    /// Close block.
+    pub close_block: u32,
+    /// Collateral asset id (`0x`-hex), `""` when unavailable.
+    pub collateral_asset: String,
+    /// Seed liquidity (raw).
+    pub seed_liquidity: BigDecimal,
+    /// `Open | Locked | Resolved | Cancelled`.
+    pub status: String,
+    /// Question text.
+    pub question: Option<String>,
+    /// Oracle text.
+    pub oracle: Option<String>,
+    /// Resolution source text.
+    pub resolution_source: Option<String>,
+    /// `LegacyAmm | OrderBook | DynamicPariMutuel | MigratedLegacy`.
+    pub mechanism: Option<String>,
+    /// Block of `MarketCreated`.
+    pub block_height: BlockHeight,
+    /// Block time in unix milliseconds.
+    pub ts_millis: i64,
+}
+
+/// One `polkamarkt` event that changes the replica.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PmChange {
+    /// `MarketCreated(market_id, seed_liquidity)` — hydrated by the processor.
+    MarketCreated {
+        /// Market id.
+        market_id: u32,
+        /// Seed liquidity (raw).
+        seed_liquidity: BigDecimal,
+    },
+    /// `TradeExecuted`.
+    Trade {
+        /// Market id.
+        market_id: u32,
+        /// Trader (SS58).
+        trader: String,
+        /// `Buy | Sell`.
+        side: String,
+        /// `Yes | No`.
+        outcome: String,
+        /// Collateral (raw).
+        collateral: BigDecimal,
+        /// Shares (raw).
+        shares: BigDecimal,
+        /// Fee (raw).
+        fee: BigDecimal,
+    },
+    /// `MarketLocked` / `MarketResolved` / `MarketCancelled` / `MarketEmergencyCancelled`.
+    Status {
+        /// Market id.
+        market_id: u32,
+        /// New status.
+        status: String,
+        /// `Yes | No` on resolution.
+        resolution: Option<String>,
+    },
+    /// `LegacyMarketMigrated(market_id, status)` → reconcile status + `MigratedLegacy`.
+    LegacyMigrated {
+        /// Market id.
+        market_id: u32,
+        /// Final status stamped by the migration.
+        status: String,
+    },
+    /// `MarketClaimed` (`payout`) / `CreatorFeesClaimed` (`creator_fees`).
+    Claim {
+        /// Market id.
+        market_id: u32,
+        /// Account (SS58).
+        account: String,
+        /// `payout | creator_fees`.
+        kind: String,
+        /// Amount (raw).
+        amount: BigDecimal,
+    },
+    /// `DpmResidualBurned` (`dpm_residual`) / `LegacyMigrationResidualRouted` (`legacy_migration_residual`).
+    Burn {
+        /// Market id, `None` for the migration residual.
+        market_id: Option<u32>,
+        /// Kind label.
+        kind: String,
+        /// Amount (raw).
+        amount: BigDecimal,
+    },
+    /// `XorBuybackSwept(collateral, xor_burned)`.
+    Buyback {
+        /// KUSD spent (raw).
+        kusd_spent: BigDecimal,
+        /// XOR burned (raw).
+        xor_burned: BigDecimal,
+    },
+}
+
+/// A decoded `polkamarkt` event with its coordinates.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2PolkamarktEvent {
+    /// Block.
+    pub block_height: BlockHeight,
+    /// Event index within the block.
+    pub event_id: u32,
+    /// Extrinsic hash (`0x`-hex), if any.
+    pub extrinsic_hash: Option<String>,
+    /// Block time in unix milliseconds.
+    pub ts_millis: i64,
+    /// The change.
+    pub change: PmChange,
+}
+
 /// One extrinsic of a block (the Node's `live_extrinsics` row).
 /// Idempotency key is `(block_height, extrinsic_index)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

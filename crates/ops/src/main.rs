@@ -101,7 +101,7 @@ enum Command {
         /// Comma-separated table list. Default: all.
         #[arg(
             long,
-            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes"
+            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns"
         )]
         tables: String,
 
@@ -234,6 +234,7 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         inserted_order_book = stats.inserted_order_book,
         decoded_val_rewards = stats.decoded_val_rewards,
         fee_burn_aggregates = stats.fee_burn_aggregates,
+        polkamarkt_events = stats.polkamarkt_events,
         inserted_val_rewards = stats.inserted_val_rewards,
         decoded_extrinsics = stats.decoded_extrinsics,
         inserted_extrinsics = stats.inserted_extrinsics,
@@ -437,6 +438,7 @@ fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.inserted_order_book += one.inserted_order_book;
     total.decoded_val_rewards += one.decoded_val_rewards;
     total.fee_burn_aggregates += one.fee_burn_aggregates;
+    total.polkamarkt_events += one.polkamarkt_events;
     total.inserted_val_rewards += one.inserted_val_rewards;
     total.decoded_extrinsics += one.decoded_extrinsics;
     total.inserted_extrinsics += one.inserted_extrinsics;

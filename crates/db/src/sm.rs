@@ -16,8 +16,9 @@
 use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
-    BridgeDirection, FeeBurnKind, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn, V2FeeBurnAggregate,
-    V2Liquidity, V2OrderBookEvent, V2Swap, V2Transfer, V2ValStakingReward,
+    BridgeDirection, FeeBurnKind, PmChange, PmMarket, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn,
+    V2FeeBurnAggregate, V2Liquidity, V2OrderBookEvent, V2PolkamarktEvent, V2Swap, V2Transfer,
+    V2ValStakingReward,
 };
 use sqlx::PgPool;
 
@@ -1015,6 +1016,224 @@ pub async fn insert_supply_snapshot(
     )
     .execute(pool)
     .await?;
+    Ok(())
+}
+
+// =============================================================
+// polkamarkt
+// =============================================================
+
+/// Node `pmInsertMarket` (`ON CONFLICT DO NOTHING`).
+pub async fn pm_insert_market(pool: &PgPool, m: &PmMarket) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO sm.polkamarkt_markets (
+            market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,
+            status, question, oracle, resolution_source, created_at_block, created_at_ts, mechanism
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        ON CONFLICT (market_id) DO NOTHING
+        "#,
+        m.market_id as i64,
+        m.condition_id as i64,
+        m.creator,
+        m.close_block as i32,
+        m.collateral_asset,
+        m.seed_liquidity,
+        m.status,
+        m.question,
+        m.oracle,
+        m.resolution_source,
+        m.block_height.0 as i32,
+        m.ts_millis,
+        m.mechanism,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Node `pmUpdateMarketStatus`: `resolved_at_*` only for Resolved / Cancelled.
+pub async fn pm_update_status(
+    pool: &PgPool,
+    market_id: u32,
+    status: &str,
+    resolution: Option<&str>,
+    block: i64,
+    ts_millis: i64,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"
+        UPDATE sm.polkamarkt_markets
+        SET status = $2, resolution = $3,
+            resolved_at_block = CASE WHEN $2 IN ('Resolved', 'Cancelled') THEN $4::int ELSE resolved_at_block END,
+            resolved_at_ts    = CASE WHEN $2 IN ('Resolved', 'Cancelled') THEN $5::bigint ELSE resolved_at_ts END
+        WHERE market_id = $1
+        "#,
+        market_id as i64,
+        status,
+        resolution,
+        block as i32,
+        ts_millis,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Node `pmReconcileMarketStatus`: coalesce the given fields when they
+/// differ; returns whether a row changed.
+pub async fn pm_reconcile_status(
+    pool: &PgPool,
+    market_id: u32,
+    status: Option<&str>,
+    resolution: Option<&str>,
+    mechanism: Option<&str>,
+) -> Result<bool, DbError> {
+    let r = sqlx::query!(
+        r#"
+        UPDATE sm.polkamarkt_markets
+        SET status     = COALESCE($2::text, status),
+            resolution = COALESCE($3::text, resolution),
+            mechanism  = COALESCE($4::text, mechanism)
+        WHERE market_id = $1
+          AND ( ($2::text IS NOT NULL AND status     IS DISTINCT FROM $2::text)
+             OR ($3::text IS NOT NULL AND resolution IS DISTINCT FROM $3::text)
+             OR ($4::text IS NOT NULL AND mechanism  IS DISTINCT FROM $4::text) )
+        "#,
+        market_id as i64,
+        status,
+        resolution,
+        mechanism,
+    )
+    .execute(pool)
+    .await?;
+    Ok(r.rows_affected() > 0)
+}
+
+/// Apply one decoded event (all but `MarketCreated`, which the processor
+/// hydrates and inserts through [`pm_insert_market`]). Idempotent on
+/// `(block, event_id)` for the append tables.
+pub async fn pm_apply_event(pool: &PgPool, ev: &V2PolkamarktEvent) -> Result<(), DbError> {
+    let block = ev.block_height.0 as i64;
+    let event_id = ev.event_id as i32;
+    match &ev.change {
+        PmChange::MarketCreated { .. } => {}
+        PmChange::Trade {
+            market_id,
+            trader,
+            side,
+            outcome,
+            collateral,
+            shares,
+            fee,
+        } => {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_trades
+                    (market_id, trader, side, outcome, collateral, shares, fee, block, ts, hash, event_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ON CONFLICT (block, event_id) WHERE event_id IS NOT NULL DO NOTHING
+                "#,
+                *market_id as i64,
+                trader,
+                side,
+                outcome,
+                collateral,
+                shares,
+                fee,
+                block as i32,
+                ev.ts_millis,
+                ev.extrinsic_hash,
+                event_id,
+            )
+            .execute(pool)
+            .await?;
+        }
+        PmChange::Status {
+            market_id,
+            status,
+            resolution,
+        } => {
+            pm_update_status(
+                pool,
+                *market_id,
+                status,
+                resolution.as_deref(),
+                block,
+                ev.ts_millis,
+            )
+            .await?;
+        }
+        PmChange::LegacyMigrated { market_id, status } => {
+            pm_reconcile_status(pool, *market_id, Some(status), None, Some("MigratedLegacy"))
+                .await?;
+        }
+        PmChange::Claim {
+            market_id,
+            account,
+            kind,
+            amount,
+        } => {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_claims (market_id, account, kind, amount, block, ts, event_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (block, event_id) WHERE event_id IS NOT NULL DO NOTHING
+                "#,
+                *market_id as i64,
+                account,
+                kind,
+                amount,
+                block as i32,
+                ev.ts_millis,
+                event_id,
+            )
+            .execute(pool)
+            .await?;
+        }
+        PmChange::Burn {
+            market_id,
+            kind,
+            amount,
+        } => {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_burns (block, ts, hash, market_id, kind, amount, event_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (block, event_id) WHERE event_id IS NOT NULL DO NOTHING
+                "#,
+                block as i32,
+                ev.ts_millis,
+                ev.extrinsic_hash,
+                market_id.map(|m| m as i64),
+                kind,
+                amount,
+                event_id,
+            )
+            .execute(pool)
+            .await?;
+        }
+        PmChange::Buyback {
+            kusd_spent,
+            xor_burned,
+        } => {
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_buybacks (block, ts, hash, kusd_spent, xor_burned, event_id)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (block, event_id) WHERE event_id IS NOT NULL DO NOTHING
+                "#,
+                block as i32,
+                ev.ts_millis,
+                ev.extrinsic_hash,
+                kusd_spent,
+                xor_burned,
+                event_id,
+            )
+            .execute(pool)
+            .await?;
+        }
+    }
     Ok(())
 }
 

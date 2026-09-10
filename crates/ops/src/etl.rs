@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 14] = [
+pub const ALL_TABLES: [&str; 19] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -61,6 +61,11 @@ pub const ALL_TABLES: [&str; 14] = [
     "supply_snapshots",
     "supply_history",
     "news_episodes",
+    "polkamarkt_markets",
+    "polkamarkt_trades",
+    "polkamarkt_claims",
+    "polkamarkt_buybacks",
+    "polkamarkt_burns",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -110,6 +115,11 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "supply_snapshots" => copy_supply_snapshots(&source, &target, opts.batch_size).await?,
             "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
             "news_episodes" => copy_news_episodes(&source, &target, opts.batch_size).await?,
+            "polkamarkt_markets" => copy_pm_markets(&source, &target, opts.batch_size).await?,
+            "polkamarkt_trades" => copy_pm_trades(&source, &target, opts.batch_size).await?,
+            "polkamarkt_claims" => copy_pm_claims(&source, &target, opts.batch_size).await?,
+            "polkamarkt_buybacks" => copy_pm_buybacks(&source, &target, opts.batch_size).await?,
+            "polkamarkt_burns" => copy_pm_burns(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -1499,6 +1509,328 @@ async fn copy_news_episodes(source: &PgPool, target: &PgPool, batch: i64) -> Res
     Ok(copied)
 }
 
+// =============================================================
+// polkamarkt_* (the Node's live tables, verbatim; keyset on their ids)
+// =============================================================
+
+async fn copy_pm_markets(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,
+               status, resolution, question, oracle, resolution_source,
+               opengov_network, opengov_parachain, opengov_track, opengov_referendum,
+               created_at_block, created_at_ts, resolved_at_block, resolved_at_ts, mechanism
+        FROM sm.polkamarkt_markets
+        WHERE market_id > $1
+        ORDER BY market_id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "polkamarkt_markets")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy polkamarkt_markets batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("market_id")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_markets (
+                    market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,
+                    status, resolution, question, oracle, resolution_source,
+                    opengov_network, opengov_parachain, opengov_track, opengov_referendum,
+                    created_at_block, created_at_ts, resolved_at_block, resolved_at_ts, mechanism, origin
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'legacy')
+                ON CONFLICT (market_id) DO NOTHING
+                "#,
+                cursor,
+                r.try_get::<i64, _>("condition_id")?,
+                r.try_get::<String, _>("creator")?,
+                r.try_get::<i32, _>("close_block")?,
+                r.try_get::<String, _>("collateral_asset")?,
+                r.try_get::<BigDecimal, _>("seed_liquidity")?,
+                r.try_get::<String, _>("status")?,
+                r.try_get::<Option<String>, _>("resolution")?,
+                r.try_get::<Option<String>, _>("question")?,
+                r.try_get::<Option<String>, _>("oracle")?,
+                r.try_get::<Option<String>, _>("resolution_source")?,
+                r.try_get::<Option<String>, _>("opengov_network")?,
+                r.try_get::<Option<i32>, _>("opengov_parachain")?,
+                r.try_get::<Option<i32>, _>("opengov_track")?,
+                r.try_get::<Option<i32>, _>("opengov_referendum")?,
+                r.try_get::<i32, _>("created_at_block")?,
+                r.try_get::<i64, _>("created_at_ts")?,
+                r.try_get::<Option<i32>, _>("resolved_at_block")?,
+                r.try_get::<Option<i64>, _>("resolved_at_ts")?,
+                r.try_get::<Option<String>, _>("mechanism")?,
+            )
+            .execute(target)
+            .await
+            .context("inserting polkamarkt market")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(
+            target,
+            "polkamarkt_markets",
+            &cursor.to_string(),
+            rows.len() as i64,
+        )
+        .await?;
+        info!(copied, cursor, "polkamarkt_markets progress");
+    }
+    Ok(copied)
+}
+
+async fn copy_pm_trades(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, market_id, trader, side, outcome, collateral, shares, fee, block, ts, hash
+        FROM sm.polkamarkt_trades WHERE id > $1 ORDER BY id LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "polkamarkt_trades")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy polkamarkt_trades batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_trades
+                    (market_id, trader, side, outcome, collateral, shares, fee, block, ts, hash, legacy_id, origin)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'legacy')
+                ON CONFLICT (legacy_id) DO NOTHING
+                "#,
+                r.try_get::<i64, _>("market_id")?,
+                r.try_get::<String, _>("trader")?,
+                r.try_get::<String, _>("side")?,
+                r.try_get::<String, _>("outcome")?,
+                r.try_get::<BigDecimal, _>("collateral")?,
+                r.try_get::<BigDecimal, _>("shares")?,
+                r.try_get::<BigDecimal, _>("fee")?,
+                r.try_get::<i32, _>("block")?,
+                r.try_get::<i64, _>("ts")?,
+                r.try_get::<Option<String>, _>("hash")?,
+                cursor,
+            )
+            .execute(target)
+            .await
+            .context("inserting polkamarkt trade")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(
+            target,
+            "polkamarkt_trades",
+            &cursor.to_string(),
+            rows.len() as i64,
+        )
+        .await?;
+        info!(copied, cursor, "polkamarkt_trades progress");
+    }
+    Ok(copied)
+}
+
+async fn copy_pm_claims(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, market_id, account, kind, amount, block, ts
+        FROM sm.polkamarkt_claims WHERE id > $1 ORDER BY id LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "polkamarkt_claims")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy polkamarkt_claims batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_claims (market_id, account, kind, amount, block, ts, legacy_id, origin)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'legacy')
+                ON CONFLICT (legacy_id) DO NOTHING
+                "#,
+                r.try_get::<i64, _>("market_id")?,
+                r.try_get::<String, _>("account")?,
+                r.try_get::<String, _>("kind")?,
+                r.try_get::<BigDecimal, _>("amount")?,
+                r.try_get::<i32, _>("block")?,
+                r.try_get::<i64, _>("ts")?,
+                cursor,
+            )
+            .execute(target)
+            .await
+            .context("inserting polkamarkt claim")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(
+            target,
+            "polkamarkt_claims",
+            &cursor.to_string(),
+            rows.len() as i64,
+        )
+        .await?;
+        info!(copied, cursor, "polkamarkt_claims progress");
+    }
+    Ok(copied)
+}
+
+async fn copy_pm_buybacks(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, block, ts, hash, kusd_spent, xor_burned
+        FROM sm.polkamarkt_buybacks WHERE id > $1 ORDER BY id LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "polkamarkt_buybacks")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy polkamarkt_buybacks batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_buybacks (block, ts, hash, kusd_spent, xor_burned, legacy_id, origin)
+                VALUES ($1, $2, $3, $4, $5, $6, 'legacy')
+                ON CONFLICT (legacy_id) DO NOTHING
+                "#,
+                r.try_get::<i32, _>("block")?,
+                r.try_get::<i64, _>("ts")?,
+                r.try_get::<Option<String>, _>("hash")?,
+                r.try_get::<BigDecimal, _>("kusd_spent")?,
+                r.try_get::<BigDecimal, _>("xor_burned")?,
+                cursor,
+            )
+            .execute(target)
+            .await
+            .context("inserting polkamarkt buyback")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(
+            target,
+            "polkamarkt_buybacks",
+            &cursor.to_string(),
+            rows.len() as i64,
+        )
+        .await?;
+        info!(copied, cursor, "polkamarkt_buybacks progress");
+    }
+    Ok(copied)
+}
+
+async fn copy_pm_burns(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, block, ts, hash, market_id, kind, amount
+        FROM sm.polkamarkt_burns WHERE id > $1 ORDER BY id LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "polkamarkt_burns")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(-1);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy polkamarkt_burns batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.polkamarkt_burns (block, ts, hash, market_id, kind, amount, legacy_id, origin)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'legacy')
+                ON CONFLICT (legacy_id) DO NOTHING
+                "#,
+                r.try_get::<i32, _>("block")?,
+                r.try_get::<i64, _>("ts")?,
+                r.try_get::<Option<String>, _>("hash")?,
+                r.try_get::<Option<i64>, _>("market_id")?,
+                r.try_get::<String, _>("kind")?,
+                r.try_get::<BigDecimal, _>("amount")?,
+                cursor,
+            )
+            .execute(target)
+            .await
+            .context("inserting polkamarkt burn")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(
+            target,
+            "polkamarkt_burns",
+            &cursor.to_string(),
+            rows.len() as i64,
+        )
+        .await?;
+        info!(copied, cursor, "polkamarkt_burns progress");
+    }
+    Ok(copied)
+}
+
+/// Exact id-set comparison for a small serial-keyed legacy table.
+async fn reconcile_ids(
+    source: &PgPool,
+    table: &str,
+    source_sql: &str,
+    target_ids: Vec<i64>,
+) -> Result<bool> {
+    let src: Vec<i64> = sqlx::query(source_sql)
+        .fetch_all(source)
+        .await?
+        .iter()
+        .map(|r| r.try_get::<i64, _>("id"))
+        .collect::<Result<_, _>>()?;
+    let missing: Vec<i64> = src
+        .iter()
+        .filter(|i| !target_ids.contains(i))
+        .copied()
+        .collect();
+    if missing.is_empty() {
+        Ok(true)
+    } else {
+        warn!(table, ?missing, "RECONCILE FAIL: ids missing in target");
+        Ok(false)
+    }
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -2008,6 +2340,76 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 warn!(table, missing = ?missing, "RECONCILE FAIL: slugs missing in target");
                 false
             }
+        }
+        "polkamarkt_markets" => {
+            let dst = sqlx::query_scalar!(
+                r#"SELECT market_id FROM sm.polkamarkt_markets WHERE origin = 'legacy' ORDER BY market_id"#
+            )
+            .fetch_all(target)
+            .await?;
+            reconcile_ids(
+                source,
+                table,
+                "SELECT market_id AS id FROM sm.polkamarkt_markets ORDER BY 1",
+                dst,
+            )
+            .await?
+        }
+        "polkamarkt_trades" => {
+            let dst = sqlx::query_scalar!(
+                r#"SELECT legacy_id AS "id!" FROM sm.polkamarkt_trades WHERE legacy_id IS NOT NULL ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            reconcile_ids(
+                source,
+                table,
+                "SELECT id FROM sm.polkamarkt_trades ORDER BY 1",
+                dst,
+            )
+            .await?
+        }
+        "polkamarkt_claims" => {
+            let dst = sqlx::query_scalar!(
+                r#"SELECT legacy_id AS "id!" FROM sm.polkamarkt_claims WHERE legacy_id IS NOT NULL ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            reconcile_ids(
+                source,
+                table,
+                "SELECT id FROM sm.polkamarkt_claims ORDER BY 1",
+                dst,
+            )
+            .await?
+        }
+        "polkamarkt_buybacks" => {
+            let dst = sqlx::query_scalar!(
+                r#"SELECT legacy_id AS "id!" FROM sm.polkamarkt_buybacks WHERE legacy_id IS NOT NULL ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            reconcile_ids(
+                source,
+                table,
+                "SELECT id FROM sm.polkamarkt_buybacks ORDER BY 1",
+                dst,
+            )
+            .await?
+        }
+        "polkamarkt_burns" => {
+            let dst = sqlx::query_scalar!(
+                r#"SELECT legacy_id AS "id!" FROM sm.polkamarkt_burns WHERE legacy_id IS NOT NULL ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            reconcile_ids(
+                source,
+                table,
+                "SELECT id FROM sm.polkamarkt_burns ORDER BY 1",
+                dst,
+            )
+            .await?
         }
         "asset_registry" => {
             let src_cnt: i64 = sqlx::query(

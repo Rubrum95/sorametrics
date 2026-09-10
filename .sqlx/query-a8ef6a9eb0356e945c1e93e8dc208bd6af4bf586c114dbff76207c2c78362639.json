@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::bigint AS \"markets!\",\n               COUNT(*) FILTER (WHERE status = 'Open')::bigint AS \"active!\",\n               COUNT(*) FILTER (WHERE status = 'Resolved')::bigint AS \"resolved!\",\n               (SELECT COALESCE(SUM(collateral), 0) FROM sm.polkamarkt_trades) AS \"volume: BigDecimal\"\n        FROM sm.polkamarkt_markets\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "markets!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "active!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "resolved!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "volume: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "a8ef6a9eb0356e945c1e93e8dc208bd6af4bf586c114dbff76207c2c78362639"
+}

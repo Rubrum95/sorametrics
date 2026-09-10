@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.polkamarkt_buybacks (block, ts, hash, kusd_spent, xor_burned, legacy_id, origin)\n                VALUES ($1, $2, $3, $4, $5, $6, 'legacy')\n                ON CONFLICT (legacy_id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8",
+        "Text",
+        "Numeric",
+        "Numeric",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dd8435d64afd1639618e5cedf79fce147866355e1529d8b2a754e810a1a2cdaf"
+}

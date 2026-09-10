@@ -47,6 +47,7 @@ async fn main() -> Result<()> {
         .with_chain(chain);
     state.spawn_registry_refresh();
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
+    sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
     let app = build_router(state);
 
     let listener = TcpListener::bind(bind)

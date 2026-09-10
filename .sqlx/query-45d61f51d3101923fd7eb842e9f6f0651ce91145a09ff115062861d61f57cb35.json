@@ -1,0 +1,169 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT m.market_id, m.condition_id, m.creator, m.close_block, m.collateral_asset,\n               m.seed_liquidity, m.status, m.resolution, m.question, m.oracle, m.resolution_source,\n               m.opengov_network, m.opengov_parachain, m.opengov_track, m.opengov_referendum,\n               m.created_at_block, m.created_at_ts, m.resolved_at_block, m.resolved_at_ts, m.mechanism,\n               v.volume AS \"volume: BigDecimal\", v.yes_shares AS \"yes_shares: BigDecimal\",\n               v.no_shares AS \"no_shares: BigDecimal\", v.coll_yes AS \"coll_yes: BigDecimal\",\n               v.coll_no AS \"coll_no: BigDecimal\"\n        FROM sm.polkamarkt_markets m\n        LEFT JOIN LATERAL (\n            SELECT COALESCE(SUM(collateral), 0) AS volume,\n                   COALESCE(SUM(CASE WHEN side = 'Buy'  AND outcome = 'Yes' THEN shares ELSE 0 END)\n                          - SUM(CASE WHEN side = 'Sell' AND outcome = 'Yes' THEN shares ELSE 0 END), 0) AS yes_shares,\n                   COALESCE(SUM(CASE WHEN side = 'Buy'  AND outcome = 'No'  THEN shares ELSE 0 END)\n                          - SUM(CASE WHEN side = 'Sell' AND outcome = 'No'  THEN shares ELSE 0 END), 0) AS no_shares,\n                   COALESCE(SUM(CASE WHEN outcome = 'Yes' THEN (CASE WHEN side = 'Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0) AS coll_yes,\n                   COALESCE(SUM(CASE WHEN outcome = 'No'  THEN (CASE WHEN side = 'Sell' THEN -collateral ELSE collateral END) ELSE 0 END), 0) AS coll_no\n            FROM sm.polkamarkt_trades t WHERE t.market_id = m.market_id\n        ) v ON true\n        WHERE ($1::text IS NULL OR m.status = $1)\n          AND ($2::bigint IS NULL OR m.market_id = $2)\n        ORDER BY m.market_id DESC\n        LIMIT $3 OFFSET $4\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "market_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "condition_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "creator",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "close_block",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "collateral_asset",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "seed_liquidity",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "resolution",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "question",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "oracle",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "resolution_source",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "opengov_network",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "opengov_parachain",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 13,
+        "name": "opengov_track",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 14,
+        "name": "opengov_referendum",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 15,
+        "name": "created_at_block",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 16,
+        "name": "created_at_ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 17,
+        "name": "resolved_at_block",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 18,
+        "name": "resolved_at_ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 19,
+        "name": "mechanism",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 20,
+        "name": "volume: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 21,
+        "name": "yes_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 22,
+        "name": "no_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 23,
+        "name": "coll_yes: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 24,
+        "name": "coll_no: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "45d61f51d3101923fd7eb842e9f6f0651ce91145a09ff115062861d61f57cb35"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*)::bigint AS \"cnt!\", COALESCE(SUM(amount), 0) AS \"total: BigDecimal\" FROM sm.polkamarkt_burns",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cnt!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "total: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "50830a744d43cebe771dc774436310e16d9ddf46e64663a59c115929374e8968"
+}

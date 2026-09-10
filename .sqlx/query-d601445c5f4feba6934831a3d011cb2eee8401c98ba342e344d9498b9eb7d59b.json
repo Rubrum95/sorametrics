@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.polkamarkt_markets (\n                    market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,\n                    status, resolution, question, oracle, resolution_source,\n                    opengov_network, opengov_parachain, opengov_track, opengov_referendum,\n                    created_at_block, created_at_ts, resolved_at_block, resolved_at_ts, mechanism, origin\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'legacy')\n                ON CONFLICT (market_id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int4",
+        "Text",
+        "Numeric",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d601445c5f4feba6934831a3d011cb2eee8401c98ba342e344d9498b9eb7d59b"
+}

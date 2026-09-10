@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.polkamarkt_claims (market_id, account, kind, amount, block, ts, event_id)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                ON CONFLICT (block, event_id) WHERE event_id IS NOT NULL DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Numeric",
+        "Int4",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bdfcdd53855cda3307728f3c97f6dd9cf14ec68b115a7a34ff5554d19779ebe6"
+}

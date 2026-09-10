@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE sm.polkamarkt_markets\n        SET status = $2, resolution = $3,\n            resolved_at_block = CASE WHEN $2 IN ('Resolved', 'Cancelled') THEN $4::int ELSE resolved_at_block END,\n            resolved_at_ts    = CASE WHEN $2 IN ('Resolved', 'Cancelled') THEN $5::bigint ELSE resolved_at_ts END\n        WHERE market_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5456aa15b4ff4df0fa09d6153d6c430ceb37ae56618f391d06c2521b4c5e24f"
+}

@@ -1,0 +1,82 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, market_id, trader, side, outcome, collateral, shares, fee, block, ts, hash\n           FROM sm.polkamarkt_trades WHERE market_id = $1 ORDER BY ts DESC LIMIT 20",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "market_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "trader",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "side",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "outcome",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "collateral",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "shares",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "fee",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "block",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "hash",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "1ae5f90ba4ec127ca5c86c02c93e22f2e2987953b84c0cbec42e0dd419b7ff75"
+}

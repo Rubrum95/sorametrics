@@ -22,6 +22,7 @@ pub mod lookup;
 pub mod media;
 pub mod misc;
 pub mod order_book;
+pub mod polkamarkt;
 pub mod pool_providers;
 pub mod prices;
 pub mod staking;
@@ -51,6 +52,7 @@ pub fn build(state: AppState) -> Router {
         .merge(misc::router())
         .merge(lookup::router())
         .merge(media::router())
+        .merge(polkamarkt::router())
         .merge(burns::router())
         .with_state(state)
 }

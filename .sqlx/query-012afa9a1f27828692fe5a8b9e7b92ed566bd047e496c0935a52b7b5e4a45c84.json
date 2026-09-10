@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT collateral_asset FROM sm.polkamarkt_markets WHERE collateral_asset LIKE '0x%'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "collateral_asset",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "012afa9a1f27828692fe5a8b9e7b92ed566bd047e496c0935a52b7b5e4a45c84"
+}

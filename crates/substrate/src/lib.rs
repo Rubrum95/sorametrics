@@ -23,6 +23,7 @@ pub mod fee_burns_agg;
 pub mod fees;
 pub mod liquidity;
 pub mod order_book;
+pub mod polkamarkt;
 pub mod price;
 pub mod runtime;
 pub mod val_staking;

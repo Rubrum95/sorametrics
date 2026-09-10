@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT trader,\n               SUM(CASE WHEN side = 'Buy'  AND outcome = 'Yes' THEN shares ELSE 0 END)\n             - SUM(CASE WHEN side = 'Sell' AND outcome = 'Yes' THEN shares ELSE 0 END) AS \"yes_shares: BigDecimal\",\n               SUM(CASE WHEN side = 'Buy'  AND outcome = 'No'  THEN shares ELSE 0 END)\n             - SUM(CASE WHEN side = 'Sell' AND outcome = 'No'  THEN shares ELSE 0 END) AS \"no_shares: BigDecimal\",\n               SUM(CASE WHEN side = 'Buy' THEN collateral ELSE -collateral END) AS \"net_collateral: BigDecimal\"\n        FROM sm.polkamarkt_trades WHERE market_id = $1\n        GROUP BY trader\n        ORDER BY ABS(SUM(CASE WHEN side = 'Buy' THEN collateral ELSE -collateral END)) DESC\n        LIMIT 10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "trader",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "yes_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "no_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "net_collateral: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "00c01e8a316a1c8f446fe4361aa3dcf2dba806b16f504fa64eeacb3be5d9d8e3"
+}
