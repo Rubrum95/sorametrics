@@ -21,6 +21,9 @@ from urllib.parse import parse_qs, urlparse
 
 FIX = sys.argv[1]
 PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8085
+# `--legacy`: the page/per_page generation Minamoto ran until 2026-06
+# (no build.git_commit_sha, /v1/explorer/metrics, /peers, per_page <= 7 on blocks).
+LEGACY = "--legacy" in sys.argv
 
 
 def items(pattern):
@@ -86,7 +89,19 @@ def def_dto(d):
             "total_quantity": d["total_quantity"], "owned_by": d["owned_by"]}
 
 
+def legacy_page(rows, dto, q, blocks_cap):
+    page = int(q.get("page", ["1"])[0]); per_page = int(q.get("per_page", ["10"])[0])
+    if blocks_cap and (page > 1 or per_page > 7):
+        return 404, {"error": "query_validation_failed: Query not found in the live query store"}
+    total = len(rows); pages = max(1, -(-total // per_page))
+    chunk = rows[(page - 1) * per_page:page * per_page]
+    return 200, {"pagination": {"page": page, "per_page": per_page, "total_pages": pages, "total_items": total},
+                 "items": [dto(r) for r in chunk]}
+
+
 def history_page(rows, dto, q, snapshot):
+    if LEGACY:
+        return legacy_page(rows, dto, q, snapshot and rows is BLOCKS)
     limit = int(q.get("limit", ["25"])[0])
     if "page" in q or "per_page" in q:
         return 400, {"error": "unknown query fields: page/per_page"}
@@ -120,9 +135,17 @@ class H(BaseHTTPRequestHandler):
         p = u.path
         if p == "/health":
             return self.send(200, "Healthy", "text/plain")
+        if p == "/v1/explorer/metrics" and LEGACY:
+            return self.send(200, {"peers": NS["peers"], "domains": NS["domains"], "accounts": NS["accounts"], "assets": NS["assets"],
+                                   "transactions_accepted": int(NS["transactions_accepted"]), "transactions_rejected": int(NS["transactions_rejected"]),
+                                   "block": TOP, "block_created_at": BLOCKS[0]["created_at"] if BLOCKS else None, "finalized_block": TOP,
+                                   "avg_commit_time": {"ms": NS["avg_commit_time_ms"]}, "avg_block_time": {"ms": int(NS["avg_block_time_ms"])}})
+        if p == "/peers" and LEGACY:
+            return self.send(200, [a["multiaddr"] + "@127.0.0.1:1337" for a in items("peers.json")])
         if p == "/status":
+            build = {"version": NS["iroha_version"]} if LEGACY else {"version": NS["iroha_version"], "git_commit_sha": "cfa5e8ce77mock", "dpn_validator_release_commit": "", "cargo_features": "telemetry", "target_triple": "mock"}
             return self.send(200, {
-                "build": {"version": NS["iroha_version"], "git_commit_sha": "cfa5e8ce77mock", "dpn_validator_release_commit": "", "cargo_features": "telemetry", "target_triple": "mock"},
+                "build": build,
                 "observed_at_ms": 0, "peers": NS["peers"], "blocks": TOP, "blocks_non_empty": TOP, "commit_time_ms": NS["avg_commit_time_ms"],
                 "txs_approved": int(NS["transactions_accepted"]), "txs_rejected": int(NS["transactions_rejected"]),
                 "uptime": {"secs": 1, "nanos": 0}, "view_changes": 0, "queue_size": 0, "queue_queued": 0, "queue_inflight": 0,
@@ -146,6 +169,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(*history_page(DOMAINS, domain_dto, q, False))
         if p == "/v1/explorer/assets":
             return self.send(*history_page(ASSETS, asset_dto, q, False))
+        if p == "/v1/assets/definitions" and LEGACY:
+            return self.send(200, {"items": [def_dto(d) for d in DEFS], "total": len(DEFS)})
         if p == "/v1/assets/definitions":
             limit = int(q.get("limit", ["25"])[0]); offset = int(q.get("offset", ["0"])[0])
             chunk = DEFS[offset:offset + limit]
@@ -166,5 +191,5 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"torii mock on 127.0.0.1:{PORT} — {len(BLOCKS)} blocks, {len(TXS)} txs, {len(ISIS)} instructions", flush=True)
+    print(f"torii mock ({'legacy page/per_page' if LEGACY else 'cursor'}) on 127.0.0.1:{PORT} — {len(BLOCKS)} blocks, {len(TXS)} txs, {len(ISIS)} instructions", flush=True)
     HTTPServer(("127.0.0.1", PORT), H).serve_forever()
