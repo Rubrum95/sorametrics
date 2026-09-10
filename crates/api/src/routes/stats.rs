@@ -469,12 +469,20 @@ struct BucketVal {
     val: f64,
 }
 
+/// `accounts` buckets: the Node returns the `COUNT(DISTINCT …)` as the
+/// `pg` bigint string.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+struct BucketCount {
+    bucket: String,
+    val: String,
+}
+
 #[derive(Serialize)]
 struct NetworkTrend {
     swaps: Vec<BucketVal>,
     transfers: Vec<BucketVal>,
     lp: Vec<BucketVal>,
-    accounts: Vec<BucketVal>,
+    accounts: Vec<BucketCount>,
 }
 
 /// Node `/stats/network/trend`: `(start, day-interval)` from the
@@ -571,9 +579,9 @@ async fn network_trend(
     .fetch_all(&state.db)
     .await?
     .into_iter()
-    .map(|r| BucketVal {
+    .map(|r| BucketCount {
         bucket: r.bucket,
-        val: r.val as f64,
+        val: r.val.to_string(),
     })
     .collect();
 

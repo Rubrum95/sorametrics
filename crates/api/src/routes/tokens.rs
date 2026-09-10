@@ -305,9 +305,7 @@ async fn get_asset(
     State(state): State<AppState>,
     Path(asset_id): Path<String>,
 ) -> Result<Json<AssetItem>, ApiError> {
-    // Asset IDs are 0x + 64 hex chars — same shape constraint as wallet
-    // addresses. Reuse the validator for consistency.
-    let asset_id = crate::util::validate_address(&asset_id)?;
+    let asset_id = crate::util::validate_asset_id(&asset_id)?;
 
     let item = sqlx::query_as!(
         AssetItem,
