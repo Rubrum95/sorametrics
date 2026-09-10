@@ -220,10 +220,12 @@ fn primitive_bits(types: &Types, id: u32) -> Option<u32> {
     }
 }
 
-const JS_SAFE: u128 = 9_007_199_254_740_991;
+/// polkadot-js switches to hex above 52 bits (`4712602945397992` is hex
+/// in prod, `4123527577223243` a number).
+const JS_SAFE: u128 = (1u128 << 52) - 1;
 
-/// polkadot-js number `toJSON`: a JS number when safe, else `0x` hex
-/// padded to the type width (`0x000000000000000001e6fe8087a8b33c`).
+/// polkadot-js number `toJSON`: a JS number up to 52 bits, else `0x`
+/// hex padded to the type width (`0x000000000000000001e6fe8087a8b33c`).
 pub fn json_number(n: u128, bits: u32) -> Json {
     if n <= JS_SAFE {
         Json::Number(serde_json::Number::from(n as u64))
@@ -417,6 +419,14 @@ mod tests {
     fn js_numbers_switch_to_padded_hex_above_2_53() {
         assert_eq!(json_number(0, 128), json!(0));
         assert_eq!(json_number(947, 32), json!(947));
+        assert_eq!(
+            json_number(4_123_527_577_223_243, 128),
+            json!(4_123_527_577_223_243u64)
+        );
+        assert_eq!(
+            json_number(4_712_602_945_397_992, 128),
+            json!("0x00000000000000000010be16608724e8")
+        );
         assert_eq!(
             json_number(0x1e6fe8087a8b33c, 128),
             json!("0x000000000000000001e6fe8087a8b33c")

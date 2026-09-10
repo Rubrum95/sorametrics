@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MIN(block_timestamp) AS \"first\", MAX(block_timestamp) AS \"last\", COUNT(*)::bigint AS \"tx_count!\",\n                  COUNT(*) FILTER (WHERE success)::bigint AS \"success_count!\",\n                  COUNT(DISTINCT FLOOR(EXTRACT(EPOCH FROM block_timestamp) / 86400))::bigint AS \"days_active!\"\n           FROM sm.extrinsics WHERE signer = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "last",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "tx_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "success_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "days_active!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8d1289d8610af545285d8762d0627198e72e98643b1e4a3ad277997542080401"
+}

@@ -42,6 +42,7 @@ Pinning the file (vs fetching at build time) gives us:
 | `ElectionsPhragmen` | `members` / `candidates` / `runnersUp` / `electionRounds` + constants (`/governance/elections`). |
 | `Democracy` | `referendumInfoOf` / `publicProps` / `votingOf` + constants (`/governance/democracy`, `/governance/votes`). |
 | `Utility` | `batch*` calls decoded inside proposals. |
+| `Technical` | `techAccounts` (`/api/tech-accounts` labels). |
 
 When Phase 1.2 expands to other event types, regenerate with the new pallet list.
 
@@ -54,7 +55,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt,Preimage,Scheduler,Council,TechnicalCommittee,ElectionsPhragmen,Democracy,Utility" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt,Preimage,Scheduler,Council,TechnicalCommittee,ElectionsPhragmen,Democracy,Utility,Technical" \
   --format bytes \
   > sora-mainnet.scale
 ```

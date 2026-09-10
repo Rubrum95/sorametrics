@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*)::bigint AS \"swap_count!\", COALESCE(AVG(usd_value), 0) AS \"avg_usd: BigDecimal\",\n                  COALESCE(MAX(usd_value), 0) AS \"max_usd: BigDecimal\", COALESCE(SUM(usd_value), 0) AS \"total_vol: BigDecimal\"\n           FROM sm.swaps WHERE caller = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "swap_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "avg_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_vol: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3641dd57edf162005e13d13845d2d10e7e09517b0343ca2838cd3cf2211827c0"
+}

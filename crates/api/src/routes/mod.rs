@@ -10,6 +10,7 @@ use axum::Router;
 
 pub mod burns;
 pub mod chain_state;
+pub mod explorer;
 pub mod export;
 pub mod extrinsics;
 pub mod fee_config;
@@ -55,6 +56,7 @@ pub fn build(state: AppState) -> Router {
         .merge(media::router())
         .merge(polkamarkt::router())
         .merge(governance::router())
+        .merge(explorer::router())
         .merge(burns::router())
         .with_state(state)
 }

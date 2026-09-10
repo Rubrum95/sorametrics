@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FILTER (WHERE from_address = $1)::bigint AS \"out_count!\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE from_address = $1), 0) AS \"out_usd: BigDecimal\",\n                  COUNT(*) FILTER (WHERE to_address = $1)::bigint AS \"in_count!\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE to_address = $1), 0) AS \"in_usd: BigDecimal\",\n                  MIN(block_timestamp) AS \"first\", MAX(block_timestamp) AS \"last\"\n           FROM sm.transfers WHERE from_address = $1 OR to_address = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "out_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "out_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "in_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "in_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "first",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "last",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "91bb880bb325725b5bb01dd4604f9190fb246ad9747958a368ff6b2f84faf014"
+}

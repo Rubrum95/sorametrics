@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FILTER (WHERE kind = 'deposit')::bigint AS \"deposits!\",\n                  COUNT(*) FILTER (WHERE kind = 'withdraw')::bigint AS \"withdrawals!\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE kind = 'deposit'), 0) AS \"deposited_usd: BigDecimal\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE kind = 'withdraw'), 0) AS \"withdrawn_usd: BigDecimal\",\n                  COUNT(DISTINCT base_asset_id || '-' || target_asset_id)::bigint AS \"unique_pools!\"\n           FROM sm.liquidity_events WHERE caller = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "deposits!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "withdrawals!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "deposited_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "withdrawn_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "unique_pools!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "4eb4440886e961ba7f6aef926adf58245645963747945eb97ca485d1d5eb1f17"
+}

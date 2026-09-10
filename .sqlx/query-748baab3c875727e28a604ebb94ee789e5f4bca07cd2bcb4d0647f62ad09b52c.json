@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*)::bigint AS \"c!\" FROM sm.extrinsics WHERE signer = $1\n           AND section IN ('democracy', 'council', 'electionsPhragmen', 'technicalCommittee')",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "748baab3c875727e28a604ebb94ee789e5f4bca07cd2bcb4d0647f62ad09b52c"
+}

@@ -35,6 +35,98 @@ pub fn router() -> Router<AppState> {
         .route("/currency-rates", get(currency_rates))
         .route("/mof/qty/:symbol", get(mof_qty))
         .route("/proxy-image", get(proxy_image))
+        .route("/api/tech-accounts", get(tech_accounts))
+}
+
+// ---------------------------------------------------------------------
+// /api/tech-accounts
+// ---------------------------------------------------------------------
+
+const TECH_ACCOUNTS_TTL: Duration = Duration::from_secs(6 * 3600);
+
+fn label_bytes(b: &[u8]) -> String {
+    if !b.is_empty() && b.iter().all(|c| (0x20..0x7f).contains(c)) {
+        String::from_utf8_lossy(b).to_string()
+    } else {
+        format!("0x{}", hex::encode(b))
+    }
+}
+
+/// Node `buildTechAccountsMap` label of a `TechAccountId`.
+pub fn tech_label(
+    id: &sorametrics_substrate::runtime::sora::runtime_types::common::primitives::TechAccountId<
+        subxt::utils::AccountId32,
+        sorametrics_substrate::runtime::sora::runtime_types::common::primitives::TechAssetId<
+            sorametrics_substrate::runtime::sora::runtime_types::common::primitives::_allowed_deprecated::PredefinedAssetId,
+        >,
+        u32,
+    >,
+) -> String {
+    use sorametrics_substrate::runtime::sora::runtime_types::common::primitives::{
+        TechAccountId as T, TechPurpose as P,
+    };
+    match id {
+        T::Generic(a, b) => {
+            let l = format!("{}/{}", label_bytes(a), label_bytes(b));
+            if l == "/" {
+                "Generic".into()
+            } else {
+                l
+            }
+        }
+        T::Pure(_, purpose) => match purpose {
+            P::FeeCollector => "FeeCollector",
+            P::FeeCollectorForPair(_) => "FeeCollectorForPair",
+            P::XykLiquidityKeeper(_) => "XykLiquidityKeeper",
+            P::Identifier(_) => "Identifier",
+            P::OrderBookLiquidityKeeper(_) => "OrderBookLiquidityKeeper",
+        }
+        .into(),
+        T::Wrapped(_) => "Wrapped".into(),
+        T::WrappedRepr(_) => "WrappedRepr".into(),
+        T::None => "None".into(),
+    }
+}
+
+async fn tech_accounts(State(state): State<AppState>) -> Result<Response, ApiError> {
+    let map = match state.cached_scan("tech-accounts", TECH_ACCOUNTS_TTL).await {
+        Some(v) => v,
+        None => {
+            let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+            let out: std::collections::BTreeMap<String, String> = chain
+                .with_client(|client| async move {
+                    let at = client.storage().at_latest().await?;
+                    let mut stream = at
+                        .iter(
+                            sorametrics_substrate::runtime::sora::storage()
+                                .technical()
+                                .tech_accounts_iter(),
+                        )
+                        .await?;
+                    let mut out = std::collections::BTreeMap::new();
+                    while let Some(kv) = stream.next().await {
+                        let kv = kv?;
+                        let n = kv.key_bytes.len();
+                        let acc: [u8; 32] = kv.key_bytes[n - 32..].try_into().unwrap_or([0; 32]);
+                        out.insert(
+                            sorametrics_core::chain::ss58_encode_sora(&acc),
+                            tech_label(&kv.value),
+                        );
+                    }
+                    Ok(out)
+                })
+                .await?;
+            let v = serde_json::to_value(&out).map_err(|e| ApiError::Internal(e.to_string()))?;
+            state.store_scan("tech-accounts", v.clone()).await;
+            v
+        }
+    };
+    let mut r = Json(map).into_response();
+    r.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("public, max-age=3600"),
+    );
+    Ok(r)
 }
 
 // ---------------------------------------------------------------------

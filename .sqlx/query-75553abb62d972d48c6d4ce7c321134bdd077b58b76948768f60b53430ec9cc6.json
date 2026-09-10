@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT section, COUNT(*)::bigint AS \"count!\" FROM sm.extrinsics WHERE signer = $1\n           GROUP BY section ORDER BY COUNT(*) DESC LIMIT 10",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "section",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "75553abb62d972d48c6d4ce7c321134bdd077b58b76948768f60b53430ec9cc6"
+}

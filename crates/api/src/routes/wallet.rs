@@ -34,6 +34,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/balances", post(balances))
         .route("/balance/:address", get(balance))
+        .route("/wallet/info/:address", get(wallet_info))
 }
 
 const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
@@ -317,5 +318,318 @@ mod tests {
             "1.5"
         );
         assert_eq!(human(1234, 2).normalized().to_string(), "12.34");
+    }
+}
+
+// ---------------------------------------------------------------------
+// /wallet/info/:address  (db_pg.js::getWalletInfo + the whale score)
+// ---------------------------------------------------------------------
+
+const WALLET_INFO_TTL: std::time::Duration = std::time::Duration::from_secs(15 * 60);
+
+#[derive(Serialize, Deserialize)]
+struct ModuleCount {
+    section: String,
+    count: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TopToken {
+    symbol: String,
+    total_usd: f64,
+    trades: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Contact {
+    counterparty: String,
+    tx_count: String,
+    total_usd: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct CountUsd {
+    count: i64,
+    usd: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct WhaleBreakdown {
+    volume: i64,
+    frequency: i64,
+    diversity: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct WalletInfo {
+    #[serde(rename = "firstTx")]
+    first_tx: Option<String>,
+    #[serde(rename = "lastTx")]
+    last_tx: Option<String>,
+    #[serde(rename = "txCount")]
+    tx_count: i64,
+    #[serde(rename = "successCount")]
+    success_count: i64,
+    #[serde(rename = "daysActive")]
+    days_active: i64,
+    modules: Vec<ModuleCount>,
+    #[serde(rename = "governanceTx")]
+    governance_tx: i64,
+    #[serde(rename = "swapCount")]
+    swap_count: i64,
+    #[serde(rename = "swapAvgUsd")]
+    swap_avg_usd: f64,
+    #[serde(rename = "swapMaxUsd")]
+    swap_max_usd: f64,
+    #[serde(rename = "swapTotalVolume")]
+    swap_total_volume: f64,
+    #[serde(rename = "topTokens")]
+    top_tokens: Vec<TopToken>,
+    #[serde(rename = "uniqueTokens")]
+    unique_tokens: i64,
+    #[serde(rename = "topContacts")]
+    top_contacts: Vec<Contact>,
+    #[serde(rename = "transfersOut")]
+    transfers_out: CountUsd,
+    #[serde(rename = "transfersIn")]
+    transfers_in: CountUsd,
+    #[serde(rename = "lpDeposits")]
+    lp_deposits: i64,
+    #[serde(rename = "lpWithdrawals")]
+    lp_withdrawals: i64,
+    #[serde(rename = "lpDepositedUsd")]
+    lp_deposited_usd: f64,
+    #[serde(rename = "lpWithdrawnUsd")]
+    lp_withdrawn_usd: f64,
+    #[serde(rename = "lpUniquePools")]
+    lp_unique_pools: i64,
+    #[serde(rename = "bridgeIncoming")]
+    bridge_incoming: CountUsd,
+    #[serde(rename = "bridgeOutgoing")]
+    bridge_outgoing: CountUsd,
+    #[serde(rename = "bridgeUniqueNetworks")]
+    bridge_unique_networks: i64,
+    #[serde(rename = "whaleScore")]
+    whale_score: i64,
+    #[serde(rename = "whaleTier")]
+    whale_tier: String,
+    #[serde(rename = "whaleBreakdown")]
+    whale_breakdown: WhaleBreakdown,
+}
+
+/// Node whale score: `min(40, round(volume/500000×40)) + min(30,
+/// round(tx/5000×30)) + min(30, round(diversity/30×30))`.
+pub fn whale(volume: f64, tx_count: i64, diversity: i64) -> (i64, i64, i64, &'static str) {
+    let v = ((volume / 500_000.0) * 40.0).round().min(40.0) as i64;
+    let f = ((tx_count as f64 / 5000.0) * 30.0).round().min(30.0) as i64;
+    let d = ((diversity as f64 / 30.0) * 30.0).round().min(30.0) as i64;
+    let score = v + f + d;
+    let tier = if score > 90 {
+        "Megawhale"
+    } else if score > 75 {
+        "Whale"
+    } else if score > 50 {
+        "Dolphin"
+    } else if score > 25 {
+        "Fish"
+    } else {
+        "Shrimp"
+    };
+    (v, f, d, tier)
+}
+
+fn f(v: Option<BigDecimal>) -> f64 {
+    v.and_then(|b| bigdecimal::ToPrimitive::to_f64(&b))
+        .unwrap_or(0.0)
+}
+
+async fn wallet_info(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+) -> Result<Json<WalletInfo>, ApiError> {
+    let address = crate::util::validate_address(&address)?;
+    let key = format!("wallet-info:{address}");
+    if let Some(v) = state.cached_scan(&key, WALLET_INFO_TTL).await {
+        return serde_json::from_value(v)
+            .map(Json)
+            .map_err(|e| ApiError::Internal(e.to_string()));
+    }
+    let ext = sqlx::query!(
+        r#"SELECT MIN(block_timestamp) AS "first", MAX(block_timestamp) AS "last", COUNT(*)::bigint AS "tx_count!",
+                  COUNT(*) FILTER (WHERE success)::bigint AS "success_count!",
+                  COUNT(DISTINCT FLOOR(EXTRACT(EPOCH FROM block_timestamp) / 86400))::bigint AS "days_active!"
+           FROM sm.extrinsics WHERE signer = $1"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let modules = sqlx::query!(
+        r#"SELECT section, COUNT(*)::bigint AS "count!" FROM sm.extrinsics WHERE signer = $1
+           GROUP BY section ORDER BY COUNT(*) DESC LIMIT 10"#,
+        address
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let governance = sqlx::query_scalar!(
+        r#"SELECT COUNT(*)::bigint AS "c!" FROM sm.extrinsics WHERE signer = $1
+           AND section IN ('democracy', 'council', 'electionsPhragmen', 'technicalCommittee')"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let swaps = sqlx::query!(
+        r#"SELECT COUNT(*)::bigint AS "swap_count!", COALESCE(AVG(usd_value), 0) AS "avg_usd: BigDecimal",
+                  COALESCE(MAX(usd_value), 0) AS "max_usd: BigDecimal", COALESCE(SUM(usd_value), 0) AS "total_vol: BigDecimal"
+           FROM sm.swaps WHERE caller = $1"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let token_rows = sqlx::query!(
+        r#"SELECT asset_id AS "asset_id!", SUM(usd) AS "total_usd: BigDecimal", COUNT(*)::bigint AS "trades!" FROM (
+               SELECT input_asset_id AS asset_id, usd_value AS usd FROM sm.swaps WHERE caller = $1
+               UNION ALL SELECT output_asset_id, output_usd_value FROM sm.swaps WHERE caller = $1
+           ) u GROUP BY asset_id ORDER BY SUM(usd) DESC NULLS LAST LIMIT 10"#,
+        address
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let unique_tokens = sqlx::query_scalar!(
+        r#"SELECT COUNT(DISTINCT a)::bigint AS "c!" FROM (
+               SELECT input_asset_id AS a FROM sm.swaps WHERE caller = $1
+               UNION SELECT output_asset_id FROM sm.swaps WHERE caller = $1) u"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let contacts = sqlx::query!(
+        r#"SELECT counterparty AS "counterparty!", COUNT(*)::bigint AS "tx_count!", SUM(usd_value) AS "total_usd: BigDecimal" FROM (
+               SELECT to_address AS counterparty, usd_value FROM sm.transfers WHERE from_address = $1
+               UNION ALL SELECT from_address, usd_value FROM sm.transfers WHERE to_address = $1
+           ) u GROUP BY counterparty ORDER BY SUM(usd_value) DESC NULLS LAST LIMIT 10"#,
+        address
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let tr = sqlx::query!(
+        r#"SELECT COUNT(*) FILTER (WHERE from_address = $1)::bigint AS "out_count!",
+                  COALESCE(SUM(usd_value) FILTER (WHERE from_address = $1), 0) AS "out_usd: BigDecimal",
+                  COUNT(*) FILTER (WHERE to_address = $1)::bigint AS "in_count!",
+                  COALESCE(SUM(usd_value) FILTER (WHERE to_address = $1), 0) AS "in_usd: BigDecimal",
+                  MIN(block_timestamp) AS "first", MAX(block_timestamp) AS "last"
+           FROM sm.transfers WHERE from_address = $1 OR to_address = $1"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let lp = sqlx::query!(
+        r#"SELECT COUNT(*) FILTER (WHERE kind = 'deposit')::bigint AS "deposits!",
+                  COUNT(*) FILTER (WHERE kind = 'withdraw')::bigint AS "withdrawals!",
+                  COALESCE(SUM(usd_value) FILTER (WHERE kind = 'deposit'), 0) AS "deposited_usd: BigDecimal",
+                  COALESCE(SUM(usd_value) FILTER (WHERE kind = 'withdraw'), 0) AS "withdrawn_usd: BigDecimal",
+                  COUNT(DISTINCT base_asset_id || '-' || target_asset_id)::bigint AS "unique_pools!"
+           FROM sm.liquidity_events WHERE caller = $1"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let br = sqlx::query!(
+        r#"SELECT COUNT(*) FILTER (WHERE direction = 'in')::bigint AS "incoming_count!",
+                  COUNT(*) FILTER (WHERE direction = 'out')::bigint AS "outgoing_count!",
+                  COALESCE(SUM(usd_value) FILTER (WHERE direction = 'in'), 0) AS "incoming_usd: BigDecimal",
+                  COALESCE(SUM(usd_value) FILTER (WHERE direction = 'out'), 0) AS "outgoing_usd: BigDecimal",
+                  COUNT(DISTINCT network)::bigint AS "unique_networks!"
+           FROM sm.bridges WHERE caller = $1 OR counterparty = $1"#,
+        address
+    )
+    .fetch_one(&state.db)
+    .await?;
+    let ms = |t: Option<chrono::DateTime<chrono::Utc>>| t.map(|t| t.timestamp_millis().to_string());
+    let registry = state.registry.read().await;
+    let top_tokens = token_rows
+        .into_iter()
+        .map(|r| TopToken {
+            symbol: symbol_for(&registry, &r.asset_id),
+            total_usd: f(r.total_usd),
+            trades: r.trades.to_string(),
+        })
+        .collect();
+    let swap_total = f(swaps.total_vol);
+    let diversity = unique_tokens + lp.unique_pools + br.unique_networks;
+    let (v, fq, d, tier) = whale(swap_total, ext.tx_count, diversity);
+    let info = WalletInfo {
+        first_tx: ms(ext.first).or_else(|| ms(tr.first)),
+        last_tx: ms(ext.last).or_else(|| ms(tr.last)),
+        tx_count: ext.tx_count,
+        success_count: ext.success_count,
+        days_active: ext.days_active,
+        modules: modules
+            .into_iter()
+            .map(|m| ModuleCount {
+                section: m.section,
+                count: m.count.to_string(),
+            })
+            .collect(),
+        governance_tx: governance,
+        swap_count: swaps.swap_count,
+        swap_avg_usd: f(swaps.avg_usd),
+        swap_max_usd: f(swaps.max_usd),
+        swap_total_volume: swap_total,
+        top_tokens,
+        unique_tokens,
+        top_contacts: contacts
+            .into_iter()
+            .map(|c| Contact {
+                counterparty: c.counterparty,
+                tx_count: c.tx_count.to_string(),
+                total_usd: f(c.total_usd),
+            })
+            .collect(),
+        transfers_out: CountUsd {
+            count: tr.out_count,
+            usd: f(tr.out_usd),
+        },
+        transfers_in: CountUsd {
+            count: tr.in_count,
+            usd: f(tr.in_usd),
+        },
+        lp_deposits: lp.deposits,
+        lp_withdrawals: lp.withdrawals,
+        lp_deposited_usd: f(lp.deposited_usd),
+        lp_withdrawn_usd: f(lp.withdrawn_usd),
+        lp_unique_pools: lp.unique_pools,
+        bridge_incoming: CountUsd {
+            count: br.incoming_count,
+            usd: f(br.incoming_usd),
+        },
+        bridge_outgoing: CountUsd {
+            count: br.outgoing_count,
+            usd: f(br.outgoing_usd),
+        },
+        bridge_unique_networks: br.unique_networks,
+        whale_score: v + fq + d,
+        whale_tier: tier.to_string(),
+        whale_breakdown: WhaleBreakdown {
+            volume: v,
+            frequency: fq,
+            diversity: d,
+        },
+    };
+    if let Ok(v) = serde_json::to_value(&info) {
+        state.store_scan(&key, v).await;
+    }
+    Ok(Json(info))
+}
+
+#[cfg(test)]
+mod info_tests {
+    use super::*;
+
+    #[test]
+    fn whale_score_matches_prod_wallet() {
+        // prod: volume 8783.83, 1617 tx, 38 tokens + 28 pools + 0 networks → 1 + 10 + 30 = 41 "Fish"
+        let (v, f, d, tier) = whale(8783.830666506332, 1617, 38 + 28);
+        assert_eq!((v, f, d, tier), (1, 10, 30, "Fish"));
+        assert_eq!(whale(0.0, 0, 0).3, "Shrimp");
     }
 }

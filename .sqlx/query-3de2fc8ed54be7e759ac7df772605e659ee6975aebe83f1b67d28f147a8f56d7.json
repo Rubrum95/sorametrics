@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) FILTER (WHERE direction = 'in')::bigint AS \"incoming_count!\",\n                  COUNT(*) FILTER (WHERE direction = 'out')::bigint AS \"outgoing_count!\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE direction = 'in'), 0) AS \"incoming_usd: BigDecimal\",\n                  COALESCE(SUM(usd_value) FILTER (WHERE direction = 'out'), 0) AS \"outgoing_usd: BigDecimal\",\n                  COUNT(DISTINCT network)::bigint AS \"unique_networks!\"\n           FROM sm.bridges WHERE caller = $1 OR counterparty = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "incoming_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "outgoing_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "incoming_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "outgoing_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "unique_networks!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3de2fc8ed54be7e759ac7df772605e659ee6975aebe83f1b67d28f147a8f56d7"
+}

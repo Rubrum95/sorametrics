@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(DISTINCT a)::bigint AS \"c!\" FROM (\n               SELECT input_asset_id AS a FROM sm.swaps WHERE caller = $1\n               UNION SELECT output_asset_id FROM sm.swaps WHERE caller = $1) u",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "647cc70a9ee9aff2db06cbfda26cbc2d966b60ccbe2871f822b6dcbcb99f0add"
+}
