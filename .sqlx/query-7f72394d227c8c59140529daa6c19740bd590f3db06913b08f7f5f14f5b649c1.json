@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO mn.metrics_snapshots (ts, metric_name, labels, value)\n            SELECT $1, * FROM UNNEST($2::TEXT[], $3::JSONB[], $4::FLOAT8[])\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "TextArray",
+        "JsonbArray",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f72394d227c8c59140529daa6c19740bd590f3db06913b08f7f5f14f5b649c1"
+}

@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"total!\",\n               COUNT(*) FILTER (WHERE multisig_quorum IS NOT NULL)::INT AS \"multisig!\",\n               COUNT(*) FILTER (WHERE has_primary_alias)::INT AS \"aliased!\",\n               COUNT(*) FILTER (WHERE last_seen_at >= NOW() - INTERVAL '24 hours')::INT AS \"active_24h!\",\n               COUNT(*) FILTER (WHERE first_seen_at >= NOW() - INTERVAL '7 days')::INT AS \"new_7d!\",\n               MAX(last_seen_at) AS last_activity\n        FROM mn.accounts\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "multisig!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "aliased!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "active_24h!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "new_7d!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "last_activity",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b53fd776e9c74656268bd34498b0109dd426e1796c2591dd8c317df939f89592"
+}

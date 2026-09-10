@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mn.transactions SET sora_v2_block = $2, sora_v2_signer = $3 WHERE hash = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "af3171662404b126e261fbb9da388e05c8cef8228b83923a45d8134233065463"
+}

@@ -20,6 +20,7 @@ sorametrics-core.workspace = true
 hex.workspace = true
 sorametrics-db.workspace = true
 sorametrics-substrate.workspace = true
+sorametrics-iroha.workspace = true
 subxt.workspace = true
 url.workspace = true
 reqwest.workspace = true

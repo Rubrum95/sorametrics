@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO mn.indexer_state (name, last_value, last_run_at, last_run_status, error_count, last_error)\n            VALUES ($1, $2, $3, $4, $5, $6)\n            ON CONFLICT (name) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Timestamptz",
+        "Text",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48a2fde2dc5d34114d4043e60531797ab3f3e8072a613703ccc952767f088036"
+}

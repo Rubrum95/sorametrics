@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.assets (definition_id, account_id, value, updated_at)\n        VALUES ($1, $2, $3::TEXT::NUMERIC, NOW())\n        ON CONFLICT (definition_id, account_id) DO UPDATE SET\n            value = EXCLUDED.value,\n            updated_at = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4c93abfefba4938ae64bbfe22c3229750470fed41aac4b24737c48a393161e6a"
+}

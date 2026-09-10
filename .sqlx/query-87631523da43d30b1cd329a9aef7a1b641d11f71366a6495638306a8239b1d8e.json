@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE mn.peers SET is_active = FALSE WHERE is_active = TRUE AND multiaddr <> ALL($1::TEXT[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "87631523da43d30b1cd329a9aef7a1b641d11f71366a6495638306a8239b1d8e"
+}

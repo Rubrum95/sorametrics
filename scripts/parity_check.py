@@ -46,6 +46,50 @@ GLOBAL_VOLATILE = {
     "valBucketUnassigned", "xorTotalSupply", "totalStaked", "in_usd", "out_usd", "wsConnected",
 }
 
+from urllib.parse import quote as _q
+MN_AUTH = _q("sorauﾛ1NﾖFjﾇDbhｦﾐﾉﾘkﾎｿPｵﾐﾒ7czﾃｴｦｶｻRﾋrcﾚeﾚｵｲDycFPRDKK")
+MN_XOR = "6TEAJqbb8oEPmLncoNiMRbLEK6tw"
+# --- /api/minamoto (mn.* frozen in prod since 2026-06-18: full parity expected on DB-backed routes;
+#     Torii passthroughs are not listed while minamoto.sora.org is down) ---
+MN_ROUTES = [
+    dict(path="/api/minamoto/health", mode="full", ignore=["db"]),
+    dict(path="/api/minamoto/network-state", mode="full"),
+    dict(path="/api/minamoto/blocks?per_page=5", mode="full"),
+    dict(path="/api/minamoto/blocks?page=3&per_page=50", mode="full"),
+    dict(path="/api/minamoto/blocks/stats", mode="full"),
+    dict(path="/api/minamoto/transactions?per_page=5", mode="full"),
+    dict(path="/api/minamoto/transactions?page=2&per_page=100", mode="full"),
+    dict(path="/api/minamoto/transactions?status=Rejected&per_page=5", mode="full"),
+    dict(path=f"/api/minamoto/transactions?authority={MN_AUTH}&per_page=3", mode="full"),
+    dict(path="/api/minamoto/transactions/stats", mode="full"),
+    dict(path="/api/minamoto/transactions/fee-sponsorship", mode="full"),
+    dict(path=f"/api/minamoto/wallet/{MN_AUTH}/info", mode="full"),
+    dict(path="/api/minamoto/accounts?per_page=100", mode="unordered", key="id"),
+    dict(path="/api/minamoto/accounts/stats", mode="full"),
+    dict(path="/api/minamoto/domains", mode="full"),
+    dict(path="/api/minamoto/domains/stats", mode="full"),
+    dict(path="/api/minamoto/assets?per_page=100", mode="unordered", key="definition_id+account_id"),
+    dict(path="/api/minamoto/asset-definitions", mode="full"),
+    dict(path="/api/minamoto/asset-definitions/stats", mode="full"),
+    dict(path="/api/minamoto/asset/XOR", mode="full"),
+    dict(path=f"/api/minamoto/asset/{MN_XOR}/holders", mode="full"),
+    dict(path="/api/minamoto/instructions?per_page=5", mode="full"),
+    dict(path="/api/minamoto/instructions?kind=Mint&per_page=100", mode="full"),
+    dict(path="/api/minamoto/instructions?block=429", mode="full"),
+    dict(path="/api/minamoto/instructions/kinds", mode="full"),
+    dict(path="/api/minamoto/transfers/stats", mode="full"),
+    dict(path="/api/minamoto/permissions/stats", mode="full"),
+    dict(path="/api/minamoto/permissions/grants?per_page=100", mode="full"),
+    dict(path="/api/minamoto/lane-staking/lifecycle", mode="full"),
+    dict(path="/api/minamoto/cross-chain/stats", mode="full"),
+    dict(path="/api/minamoto/cross-chain/timeseries?hours=720", mode="full"),
+    dict(path="/api/minamoto/cross-chain/claims?per_page=100", mode="full"),
+    dict(path="/api/minamoto/cross-chain/mint-history", mode="full"),
+    dict(path="/api/minamoto/cross-chain/pending-burns?status=all", mode="structure"),
+    dict(path="/api/minamoto/peers", mode="full"),
+    dict(path="/api/minamoto/indexer/state", mode="structure"),
+    dict(path="/api/minamoto/prometheus/metric/blocks?hours=24", mode="full"),
+]
 ROUTES = [
     # --- health / meta ---
     dict(path="/health", mode="structure"),
@@ -147,6 +191,8 @@ ROUTES = [
 WARNINGS = []
 
 
+ROUTES = ROUTES + MN_ROUTES
+
 def fetch(base, route, timeout, retries=0):
     url = base + route["path"]
     data = None
@@ -228,10 +274,12 @@ def diff(a, b, mode, ignore, volatile, path="", out=None, key=None, strict=False
             elif bool(a) != bool(b):
                 (out if strict else WARNINGS).append(f"{path}: v33 has {len(a)} rows, prod {len(b)} (row structure not comparable)")
             return out
-        if key and a and isinstance(a[0], dict) and (key in a[0] or key == "pool"):
+        if key and a and isinstance(a[0], dict) and (key in a[0] or key == "pool" or "+" in key):
             def k_of(x):
                 if key == "pool":
                     return f"{x.get('base', {}).get('symbol')}/{x.get('target', {}).get('symbol')}"
+                if "+" in key:
+                    return "+".join(str(x.get(part)) for part in key.split("+"))
                 return x.get(key)
             am = {k_of(x): x for x in a}
             bm = {k_of(x): x for x in b}

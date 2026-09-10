@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE mn.transactions\n        SET sora_v2_claim_tx_hash = $2,\n            sora_nexus_claim_recipient = $3,\n            fee_sponsor = $4\n        WHERE hash = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d1868deffa21672b3933fdf35e94e9f65f9dcebb666b96b451c577ed8d4d5410"
+}

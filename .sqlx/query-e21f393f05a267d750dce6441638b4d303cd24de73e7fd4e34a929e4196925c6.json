@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"tx_24h!\", COUNT(DISTINCT block_height)::INT AS \"blocks_with_tx_24h!\"\n        FROM mn.transactions WHERE created_at >= NOW() - INTERVAL '24 hours'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tx_24h!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "blocks_with_tx_24h!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "e21f393f05a267d750dce6441638b4d303cd24de73e7fd4e34a929e4196925c6"
+}

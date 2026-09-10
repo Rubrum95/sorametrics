@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT hash FROM mn.transactions\n        WHERE sora_v2_claim_tx_hash IS NULL AND status = 'Committed'\n        ORDER BY created_at DESC\n        LIMIT $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash",
+        "type_info": "Bytea"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d6bc29d63566c51ad60649bb4d9ff4a38203a12050a475bd626f5aa89796a607"
+}

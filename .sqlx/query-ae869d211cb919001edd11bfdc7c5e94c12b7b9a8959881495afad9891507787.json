@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.transactions\n            (hash, block_height, authority, created_at, executable_kind, status)\n        SELECT u.hash, u.block_height, u.authority, u.created_at, u.executable_kind, u.status\n        FROM UNNEST($1::BYTEA[], $2::BIGINT[], $3::TEXT[], $4::TIMESTAMPTZ[], $5::TEXT[], $6::TEXT[])\n             AS u(hash, block_height, authority, created_at, executable_kind, status)\n        WHERE EXISTS (SELECT 1 FROM mn.blocks b WHERE b.height = u.block_height)\n        ON CONFLICT (hash) DO UPDATE SET\n            block_height = EXCLUDED.block_height,\n            authority = EXCLUDED.authority,\n            created_at = EXCLUDED.created_at,\n            executable_kind = EXCLUDED.executable_kind,\n            status = EXCLUDED.status\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "ByteaArray",
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ae869d211cb919001edd11bfdc7c5e94c12b7b9a8959881495afad9891507787"
+}

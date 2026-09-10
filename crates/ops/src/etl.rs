@@ -84,8 +84,12 @@ pub struct EtlOpts {
 /// Entry point for the `migrate-legacy` subcommand.
 pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
     for t in &opts.tables {
-        if !ALL_TABLES.contains(&t.as_str()) {
-            bail!("unknown table '{t}' — valid: {}", ALL_TABLES.join(","));
+        if !ALL_TABLES.contains(&t.as_str()) && !crate::etl_mn::MN_TABLES.contains(&t.as_str()) {
+            bail!(
+                "unknown table '{t}' — valid: {},{}",
+                ALL_TABLES.join(","),
+                crate::etl_mn::MN_TABLES.join(",")
+            );
         }
     }
 
@@ -120,6 +124,9 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "polkamarkt_claims" => copy_pm_claims(&source, &target, opts.batch_size).await?,
             "polkamarkt_buybacks" => copy_pm_buybacks(&source, &target, opts.batch_size).await?,
             "polkamarkt_burns" => copy_pm_burns(&source, &target, opts.batch_size).await?,
+            t if t.starts_with("mn_") => {
+                crate::etl_mn::copy(&source, &target, t, opts.batch_size).await?
+            }
             _ => unreachable!("validated above"),
         };
         info!(
@@ -1996,6 +2003,9 @@ fn compare_buckets(table: &str, src: &Buckets, dst: &Buckets) -> bool {
 }
 
 async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Result<bool> {
+    if table.starts_with("mn_") {
+        return crate::etl_mn::reconcile(source, target, table).await;
+    }
     let ok = match table {
         "swaps" => {
             let src = source_buckets(

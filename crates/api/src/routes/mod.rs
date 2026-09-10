@@ -22,6 +22,7 @@ pub mod identity;
 pub mod liquidity;
 pub mod lookup;
 pub mod media;
+pub mod minamoto;
 pub mod misc;
 pub mod order_book;
 pub mod polkamarkt;
@@ -58,6 +59,7 @@ pub fn build(state: AppState) -> Router {
         .merge(governance::router())
         .merge(explorer::router())
         .merge(burns::router())
+        .merge(minamoto::router())
         .with_state(state)
 }
 

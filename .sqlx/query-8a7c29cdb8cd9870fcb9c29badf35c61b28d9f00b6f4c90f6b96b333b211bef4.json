@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT height, hash, prev_hash, transactions_hash, created_at,\n               transactions_committed, transactions_rejected, indexed_at\n        FROM mn.blocks ORDER BY height DESC LIMIT $1 OFFSET $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "prev_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 3,
+        "name": "transactions_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "transactions_committed",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "transactions_rejected",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "indexed_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8a7c29cdb8cd9870fcb9c29badf35c61b28d9f00b6f4c90f6b96b333b211bef4"
+}

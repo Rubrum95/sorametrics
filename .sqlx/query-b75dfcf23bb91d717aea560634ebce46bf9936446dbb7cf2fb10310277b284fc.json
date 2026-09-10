@@ -1,0 +1,98 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM mn.network_state WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "peers",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "domains",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "accounts",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "assets",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "transactions_accepted",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "transactions_rejected",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "finalized_block",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "avg_commit_time_ms",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "avg_block_time_ms",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "last_block_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 12,
+        "name": "iroha_version",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "b75dfcf23bb91d717aea560634ebce46bf9936446dbb7cf2fb10310277b284fc"
+}

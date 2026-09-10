@@ -10198,6 +10198,7 @@ dependencies = [
  "socketioxide",
  "sorametrics-core",
  "sorametrics-db",
+ "sorametrics-iroha",
  "sorametrics-substrate",
  "sorametrics-telemetry",
  "sqlx",
@@ -10239,6 +10240,7 @@ dependencies = [
  "num-bigint",
  "rust_decimal",
  "serde",
+ "serde_json",
  "sorametrics-core",
  "sqlx",
  "thiserror 1.0.69",
@@ -10254,16 +10256,31 @@ dependencies = [
  "chrono",
  "clap",
  "dotenvy",
+ "futures",
  "jsonrpsee",
  "reqwest",
  "serde",
  "serde_json",
  "sorametrics-core",
  "sorametrics-db",
+ "sorametrics-iroha",
  "sorametrics-substrate",
  "sorametrics-telemetry",
  "sqlx",
  "subxt",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "sorametrics-iroha"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "tokio",
  "tracing",

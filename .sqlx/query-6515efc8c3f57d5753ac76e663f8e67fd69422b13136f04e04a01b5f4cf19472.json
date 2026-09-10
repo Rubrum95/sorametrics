@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, alias, name, total_quantity::TEXT AS total_quantity, confidential_mode, mintable, owned_by\n        FROM mn.asset_definitions\n        WHERE alias = $1 OR id = $1 OR LOWER(name) = LOWER($1)\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "alias",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_quantity",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "confidential_mode",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "mintable",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "owned_by",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      null,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "6515efc8c3f57d5753ac76e663f8e67fd69422b13136f04e04a01b5f4cf19472"
+}

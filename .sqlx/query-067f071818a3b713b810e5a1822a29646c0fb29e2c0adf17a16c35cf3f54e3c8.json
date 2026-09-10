@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT hash, sora_v2_claim_tx_hash AS \"v2_hash!\"\n        FROM mn.transactions\n        WHERE sora_v2_claim_tx_hash IS NOT NULL AND sora_v2_signer IS NULL\n        ORDER BY created_at DESC\n        LIMIT $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "v2_hash!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "067f071818a3b713b810e5a1822a29646c0fb29e2c0adf17a16c35cf3f54e3c8"
+}

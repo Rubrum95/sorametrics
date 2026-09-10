@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, alias, name, total_quantity::TEXT AS total_quantity, confidential_mode FROM mn.asset_definitions WHERE owned_by = $1 ORDER BY name COLLATE \"en-US-x-icu\" NULLS LAST",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "alias",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_quantity",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "confidential_mode",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      null,
+      true
+    ]
+  },
+  "hash": "91525bae392fbca271263724b51e9a7f7278bb0ce4a69f0f9a3037aea8161c13"
+}

@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.hash AS \"v2_tx_hash!\", e.block_height AS \"v2_block!\", e.signer AS \"v2_signer!\",\n               e.block_timestamp AS \"v2_at!\",\n               (SELECT c->'args'->>'amount' FROM jsonb_array_elements(e.args->'calls') c\n                 WHERE c->>'section' = 'assets' AND c->>'method' = 'burn' LIMIT 1) AS raw_amount,\n               (SELECT convert_from(decode(substring(c->'args'->>'remark' FROM 3), 'hex'), 'UTF8')::jsonb->>'recipient'\n                  FROM jsonb_array_elements(e.args->'calls') c\n                 WHERE c->>'section' = 'system' AND c->>'method' = 'remark'\n                   AND c->'args'->>'remark' LIKE '0x7b%736f72614e65787573586f72436c61696d%' LIMIT 1) AS recipient_i105,\n               t.hash AS \"mn_tx_hash?\", t.block_height AS \"mn_block?\", t.created_at AS \"mn_at?\"\n        FROM sm.extrinsics e\n        LEFT JOIN mn.transactions t ON t.sora_v2_claim_tx_hash = e.hash\n        WHERE e.block_height >= $1\n          AND e.section = 'utility'\n          AND jsonb_typeof(e.args->'calls') = 'array'\n          AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.args->'calls') c\n                       WHERE c->>'section' = 'system' AND c->>'method' = 'remark'\n                         AND c->'args'->>'remark' LIKE '0x7b%736f72614e65787573586f72436c61696d%')\n          AND EXISTS (SELECT 1 FROM jsonb_array_elements(e.args->'calls') c\n                       WHERE c->>'section' = 'assets' AND c->>'method' = 'burn')\n        ORDER BY e.block_height DESC\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "v2_tx_hash!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "v2_block!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "v2_signer!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "v2_at!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "raw_amount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "recipient_i105",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "mn_tx_hash?",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 7,
+        "name": "mn_block?",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "mn_at?",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4eb47d89ba0b1243ee1ae97732bf32f1f2a92f45ea7ba05a2aaf0f2198cc332d"
+}

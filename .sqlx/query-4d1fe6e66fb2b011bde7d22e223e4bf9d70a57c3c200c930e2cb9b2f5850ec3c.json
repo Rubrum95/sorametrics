@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, network_prefix, has_primary_alias, primary_alias, primary_alias_dataspace,\n               primary_alias_domain, primary_alias_name, multisig_quorum, multisig_signatories_count,\n               metadata, first_seen_at, last_seen_at\n        FROM mn.accounts ORDER BY last_seen_at DESC LIMIT $1 OFFSET $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "network_prefix",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "has_primary_alias",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "primary_alias",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "primary_alias_dataspace",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "primary_alias_domain",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "primary_alias_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "multisig_quorum",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "multisig_signatories_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 11,
+        "name": "last_seen_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4d1fe6e66fb2b011bde7d22e223e4bf9d70a57c3c200c930e2cb9b2f5850ec3c"
+}

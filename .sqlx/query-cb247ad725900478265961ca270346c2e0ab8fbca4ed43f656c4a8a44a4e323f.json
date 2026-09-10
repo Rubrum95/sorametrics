@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, owned_by, accounts_count, assets_count, nfts_count, metadata, updated_at FROM mn.domains ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "owned_by",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "accounts_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "assets_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "nfts_count",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cb247ad725900478265961ca270346c2e0ab8fbca4ed43f656c4a8a44a4e323f"
+}

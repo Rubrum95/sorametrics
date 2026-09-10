@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.instructions\n            (transaction_hash, instruction_index, block_height, authority,\n             kind, payload, transaction_status, created_at)\n        SELECT * FROM UNNEST($1::BYTEA[], $2::INT[], $3::BIGINT[], $4::TEXT[],\n                             $5::TEXT[], $6::JSONB[], $7::TEXT[], $8::TIMESTAMPTZ[])\n        ON CONFLICT (transaction_hash, instruction_index) DO UPDATE SET\n            block_height = EXCLUDED.block_height,\n            authority = EXCLUDED.authority,\n            kind = EXCLUDED.kind,\n            payload = EXCLUDED.payload,\n            transaction_status = EXCLUDED.transaction_status,\n            created_at = EXCLUDED.created_at\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "ByteaArray",
+        "Int4Array",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "JsonbArray",
+        "TextArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c35f31ad46a38607d183cc4e0d46fed3102c511536e4a3620585b90647890370"
+}

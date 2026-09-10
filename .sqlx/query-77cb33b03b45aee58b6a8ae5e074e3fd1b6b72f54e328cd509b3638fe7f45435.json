@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"total!\",\n               COALESCE(SUM(accounts_count), 0)::INT AS \"accounts_total!\",\n               COALESCE(SUM(assets_count), 0)::INT AS \"assets_total!\",\n               COALESCE(SUM(nfts_count), 0)::INT AS \"nfts_total!\"\n        FROM mn.domains\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "accounts_total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "assets_total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "nfts_total!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "77cb33b03b45aee58b6a8ae5e074e3fd1b6b72f54e328cd509b3638fe7f45435"
+}

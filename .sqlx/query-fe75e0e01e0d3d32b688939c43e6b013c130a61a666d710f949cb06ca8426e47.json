@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT fee_sponsor AS \"sponsor!\", COUNT(*)::INT AS \"count!\" FROM mn.transactions WHERE fee_sponsor IS NOT NULL GROUP BY fee_sponsor ORDER BY COUNT(*) DESC LIMIT 10",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sponsor!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "fe75e0e01e0d3d32b688939c43e6b013c130a61a666d710f949cb06ca8426e47"
+}

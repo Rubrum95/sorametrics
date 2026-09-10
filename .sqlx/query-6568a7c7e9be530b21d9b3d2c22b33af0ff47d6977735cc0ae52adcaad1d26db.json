@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO mn.transactions (hash, block_height, authority, created_at, executable_kind, status,\n                                             indexed_at, sora_v2_claim_tx_hash, sora_nexus_claim_recipient,\n                                             fee_sponsor, sora_v2_block, sora_v2_signer)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n                ON CONFLICT (hash) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int8",
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6568a7c7e9be530b21d9b3d2c22b33af0ff47d6977735cc0ae52adcaad1d26db"
+}

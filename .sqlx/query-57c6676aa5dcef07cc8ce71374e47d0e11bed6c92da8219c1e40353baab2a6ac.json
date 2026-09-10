@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.indexer_state (name, last_value, last_run_at, last_run_status, error_count, last_error)\n        VALUES ($1, $2, NOW(), $3, CASE WHEN $3 = 'ok' THEN 0 ELSE 1 END, $4)\n        ON CONFLICT (name) DO UPDATE SET\n            last_value = EXCLUDED.last_value,\n            last_run_at = NOW(),\n            last_run_status = EXCLUDED.last_run_status,\n            error_count = CASE WHEN EXCLUDED.last_run_status = 'ok' THEN 0\n                               ELSE mn.indexer_state.error_count + 1 END,\n            last_error = EXCLUDED.last_error\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Jsonb",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "57c6676aa5dcef07cc8ce71374e47d0e11bed6c92da8219c1e40353baab2a6ac"
+}

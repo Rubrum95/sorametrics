@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"claims_received!\",\n               COALESCE((\n                   SELECT SUM((i.payload->'value'->>'object')::NUMERIC)\n                   FROM mn.transactions t\n                   JOIN mn.instructions i ON i.transaction_hash = t.hash\n                   WHERE t.sora_nexus_claim_recipient = $1 AND i.kind = 'Mint'\n               ), 0)::TEXT AS \"xor_claimed!\"\n        FROM mn.transactions WHERE sora_nexus_claim_recipient = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "claims_received!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "xor_claimed!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "7319261588d5bd678506d208ebcc9ee335ef3f9410cbee1ac74724e0379c8b91"
+}

@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT CASE WHEN i.block_height = 1 THEN 'genesis_premint'\n                    WHEN t.sora_v2_claim_tx_hash IS NOT NULL THEN 'cross_chain_claim'\n                    ELSE 'other_mint' END AS \"source!\",\n               i.block_height, i.created_at,\n               (i.payload->'value'->>'object')::TEXT AS amount_raw,\n               i.authority AS minter,\n               SUBSTRING(i.payload->'value'->>'destination' FROM POSITION('#' IN i.payload->'value'->>'destination') + 1) AS recipient,\n               encode(i.transaction_hash, 'hex') AS \"tx_hash!\",\n               t.sora_v2_claim_tx_hash AS v2_burn_tx, t.sora_v2_block AS v2_block, t.sora_v2_signer AS v2_signer\n        FROM mn.instructions i\n        JOIN mn.transactions t ON t.hash = i.transaction_hash\n        WHERE i.kind = 'Mint' AND i.payload->'value'->>'destination' LIKE $1 || '#%'\n        ORDER BY i.created_at ASC, i.block_height ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "amount_raw",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "minter",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "recipient",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "tx_hash!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "v2_burn_tx",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "v2_block",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "v2_signer",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      null,
+      false,
+      null,
+      null,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "2c5ec98861fa15ae1805204beb1bed8e5d2218b3436c71a8760a95bb77be4ed4"
+}

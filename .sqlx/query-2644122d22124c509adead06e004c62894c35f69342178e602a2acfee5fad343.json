@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO mn.accounts (id, network_prefix, has_primary_alias, primary_alias, primary_alias_dataspace,\n                                         primary_alias_domain, primary_alias_name, multisig_quorum,\n                                         multisig_signatories_count, metadata, first_seen_at, last_seen_at)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n                ON CONFLICT (id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Bool",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Jsonb",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2644122d22124c509adead06e004c62894c35f69342178e602a2acfee5fad343"
+}

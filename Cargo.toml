@@ -5,6 +5,7 @@ members = [
     "crates/db",
     "crates/telemetry",
     "crates/substrate",
+    "crates/iroha",
     "crates/ingest",
     "crates/api",
     "crates/ops",
@@ -99,6 +100,7 @@ sorametrics-core = { path = "crates/core" }
 sorametrics-db = { path = "crates/db" }
 sorametrics-telemetry = { path = "crates/telemetry" }
 sorametrics-substrate = { path = "crates/substrate" }
+sorametrics-iroha = { path = "crates/iroha" }
 
 [profile.release]
 lto = "thin"

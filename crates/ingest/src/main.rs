@@ -10,6 +10,7 @@
 #![deny(rust_2018_idioms)]
 
 mod config;
+mod iroha;
 mod substrate;
 
 use anyhow::{Context, Result};
@@ -36,14 +37,39 @@ async fn main() -> Result<()> {
 
     match cli.source {
         Source::Substrate => run_substrate().await,
-        Source::Iroha => {
-            warn!("--source=iroha not yet implemented (Phase 2)");
-            Ok(())
-        }
+        Source::Iroha => run_iroha().await,
         Source::Sorafs => {
             warn!("--source=sorafs not yet implemented (Phase ≥ 6)");
             Ok(())
         }
+    }
+}
+
+async fn run_iroha() -> Result<()> {
+    let cfg = iroha::IrohaConfig::from_env().context("loading iroha config from env")?;
+    let db_url =
+        std::env::var("DATABASE_URL").context("DATABASE_URL must be set for iroha ingest")?;
+    let db = db_connect(&DbConfig {
+        url: db_url,
+        ..DbConfig::default()
+    })
+    .await
+    .context("connecting to PostgreSQL")?;
+    db_migrate(&db)
+        .await
+        .context("applying pending migrations")?;
+    info!("DB ready");
+
+    let (cancel_tx, cancel_rx) = watch::channel(false);
+    let runner = tokio::spawn(iroha::run_iroha(cfg, db, cancel_rx));
+    tokio::signal::ctrl_c()
+        .await
+        .context("listening for ctrl-c")?;
+    info!("ctrl-c received, stopping iroha ingest");
+    let _ = cancel_tx.send(true);
+    match runner.await {
+        Ok(r) => r,
+        Err(e) => Err(anyhow::anyhow!("iroha runner task failed: {e}")),
     }
 }
 

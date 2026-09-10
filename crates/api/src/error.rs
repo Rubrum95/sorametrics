@@ -30,6 +30,9 @@ pub enum ErrorCode {
     Internal,
     /// A dependency (chain RPC) is not configured or not reachable.
     Unavailable,
+    /// Minamoto Torii failed; the HTTP status is Torii's own when it
+    /// produced one, else 502.
+    Upstream,
 }
 
 impl ErrorCode {
@@ -39,6 +42,7 @@ impl ErrorCode {
             Self::BadRequest => StatusCode::BAD_REQUEST,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Upstream => StatusCode::BAD_GATEWAY,
         }
     }
 }
@@ -78,6 +82,21 @@ pub enum ApiError {
     /// A full-storage scan is still running; retry shortly.
     #[error("scan in progress")]
     ScanPending,
+
+    /// Minamoto Torii answered an error or is unreachable; the status
+    /// is forwarded when Torii produced one (the Node's `err.status`).
+    #[error("torii: {0}")]
+    Torii(#[from] sorametrics_iroha::ToriiError),
+
+    /// `/api/minamoto/*` routes without a configured Torii client.
+    #[error("torii client not configured")]
+    NoTorii,
+
+    /// The Torii route a legacy endpoint proxied no longer exists or is
+    /// operator-only in the current Iroha API; answered as 503 with the
+    /// reason, never with invented data.
+    #[error("torii route unavailable: {0}")]
+    ToriiRouteGone(&'static str),
 }
 
 impl ApiError {
@@ -87,7 +106,12 @@ impl ApiError {
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::NotFound(_) => ErrorCode::NotFound,
             Self::Internal(_) => ErrorCode::Internal,
-            Self::Chain(_) | Self::NoChain | Self::ScanPending => ErrorCode::Unavailable,
+            Self::Chain(_)
+            | Self::NoChain
+            | Self::ScanPending
+            | Self::NoTorii
+            | Self::ToriiRouteGone(_) => ErrorCode::Unavailable,
+            Self::Torii(_) => ErrorCode::Upstream,
         }
     }
 
@@ -102,6 +126,9 @@ impl ApiError {
             Self::Chain(_) => "chain rpc unavailable".to_string(),
             Self::NoChain => "chain client not configured".to_string(),
             Self::ScanPending => "scan in progress, retry shortly".to_string(),
+            Self::Torii(e) => e.to_string(),
+            Self::NoTorii => "torii client not configured".to_string(),
+            Self::ToriiRouteGone(reason) => (*reason).to_string(),
         }
     }
 }
@@ -123,7 +150,15 @@ impl IntoResponse for ApiError {
             code,
             message: &self.public_message(),
         };
-        let mut resp = (code.http_status(), Json(body)).into_response();
+        let status = match &self {
+            Self::Torii(e) => e
+                .status()
+                .and_then(|s| StatusCode::from_u16(s).ok())
+                .filter(|s| s.is_client_error() || s.is_server_error())
+                .unwrap_or_else(|| code.http_status()),
+            _ => code.http_status(),
+        };
+        let mut resp = (status, Json(body)).into_response();
         if matches!(self, Self::ScanPending) {
             resp.headers_mut().insert(
                 axum::http::header::RETRY_AFTER,

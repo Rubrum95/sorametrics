@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.blocks\n            (height, hash, prev_hash, transactions_hash, created_at,\n             transactions_committed, transactions_rejected)\n        SELECT * FROM UNNEST($1::BIGINT[], $2::BYTEA[], $3::BYTEA[], $4::BYTEA[],\n                             $5::TIMESTAMPTZ[], $6::INT[], $7::INT[])\n        ON CONFLICT (height) DO UPDATE SET\n            hash = EXCLUDED.hash,\n            prev_hash = EXCLUDED.prev_hash,\n            transactions_hash = EXCLUDED.transactions_hash,\n            created_at = EXCLUDED.created_at,\n            transactions_committed = EXCLUDED.transactions_committed,\n            transactions_rejected = EXCLUDED.transactions_rejected\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array",
+        "ByteaArray",
+        "ByteaArray",
+        "ByteaArray",
+        "TimestamptzArray",
+        "Int4Array",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "918ac07988e6a6731e44030a9b2fd3b0a144466512995b76b2c7335a14295eec"
+}

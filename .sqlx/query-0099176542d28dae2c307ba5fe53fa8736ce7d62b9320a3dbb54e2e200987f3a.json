@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"total!\",\n               COALESCE(SUM(CASE WHEN status = 'Committed' THEN 1 ELSE 0 END), 0)::INT AS \"committed!\",\n               COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::INT AS \"total_24h!\",\n               COALESCE(SUM(CASE WHEN status = 'Committed' AND created_at >= NOW() - INTERVAL '24 hours' THEN 1 ELSE 0 END), 0)::INT AS \"committed_24h!\",\n               COUNT(DISTINCT authority)::INT AS \"unique_signers!\"\n        FROM mn.transactions\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "committed!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_24h!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "committed_24h!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "unique_signers!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0099176542d28dae2c307ba5fe53fa8736ce7d62b9320a3dbb54e2e200987f3a"
+}

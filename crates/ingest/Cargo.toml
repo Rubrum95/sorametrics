@@ -15,6 +15,7 @@ path = "src/main.rs"
 sorametrics-core.workspace = true
 sorametrics-db.workspace = true
 sorametrics-substrate.workspace = true
+sorametrics-iroha.workspace = true
 sorametrics-telemetry.workspace = true
 tokio.workspace = true
 anyhow.workspace = true
@@ -28,6 +29,7 @@ clap.workspace = true
 dotenvy.workspace = true
 url.workspace = true
 reqwest.workspace = true
+futures.workspace = true
 chrono.workspace = true
 sqlx.workspace = true
 

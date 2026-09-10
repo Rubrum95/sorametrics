@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT (SELECT COUNT(*)::INT FROM mn.transactions WHERE sora_v2_claim_tx_hash IS NOT NULL) AS \"total_claims!\",\n               (SELECT COUNT(DISTINCT sora_nexus_claim_recipient)::INT FROM mn.transactions WHERE sora_nexus_claim_recipient IS NOT NULL) AS \"unique_recipients!\",\n               (SELECT COALESCE(SUM((i.payload->'value'->>'object')::NUMERIC), 0)\n                FROM mn.transactions t JOIN mn.instructions i ON i.transaction_hash = t.hash\n                WHERE t.sora_v2_claim_tx_hash IS NOT NULL AND i.kind = 'Mint')::TEXT AS \"total_xor_claimed!\",\n               (SELECT MIN(created_at) FROM mn.transactions WHERE sora_v2_claim_tx_hash IS NOT NULL) AS first_claim_at,\n               (SELECT MAX(created_at) FROM mn.transactions WHERE sora_v2_claim_tx_hash IS NOT NULL) AS last_claim_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total_claims!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "unique_recipients!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "total_xor_claimed!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "first_claim_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_claim_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "5536b9eda28712d0352fd4a426fad602ce51264e4caa5afed75d38691f214224"
+}

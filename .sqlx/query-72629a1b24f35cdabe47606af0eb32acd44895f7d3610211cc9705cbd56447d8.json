@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH involved AS (\n            SELECT SPLIT_PART(payload->'value'->>'source', '#', 1)::TEXT AS asset_token,\n                   COALESCE((payload->'value'->>'object')::NUMERIC, 0) AS amount\n            FROM mn.instructions\n            WHERE kind = 'Transfer' AND (authority = $1 OR payload->'value'->>'destination' = $1)\n            UNION ALL\n            SELECT SPLIT_PART(payload->'value'->>'destination', '#', 1)::TEXT AS asset_token,\n                   COALESCE((payload->'value'->>'object')::NUMERIC, 0) AS amount\n            FROM mn.instructions\n            WHERE kind = 'Mint' AND payload->'value'->>'destination' LIKE '%#' || $1\n        )\n        SELECT i.asset_token AS \"asset_token!\", ad.alias, ad.name,\n               COUNT(*)::INT AS \"trades!\", SUM(i.amount)::TEXT AS \"volume!\"\n        FROM involved i\n        LEFT JOIN mn.asset_definitions ad ON ad.id = i.asset_token\n        WHERE i.asset_token IS NOT NULL AND i.asset_token <> ''\n        GROUP BY i.asset_token, ad.alias, ad.name\n        ORDER BY COUNT(*) DESC, SUM(i.amount) DESC NULLS LAST\n        LIMIT 10\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "asset_token!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "alias",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "trades!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "volume!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      true,
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "72629a1b24f35cdabe47606af0eb32acd44895f7d3610211cc9705cbd56447d8"
+}

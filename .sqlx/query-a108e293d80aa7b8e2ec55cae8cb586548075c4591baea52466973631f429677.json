@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.network_state\n            (id, peers, domains, accounts, assets,\n             transactions_accepted, transactions_rejected,\n             block_height, finalized_block,\n             avg_commit_time_ms, avg_block_time_ms,\n             last_block_at, iroha_version, updated_at)\n        VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())\n        ON CONFLICT (id) DO UPDATE SET\n            peers = EXCLUDED.peers,\n            domains = EXCLUDED.domains,\n            accounts = EXCLUDED.accounts,\n            assets = EXCLUDED.assets,\n            transactions_accepted = EXCLUDED.transactions_accepted,\n            transactions_rejected = EXCLUDED.transactions_rejected,\n            block_height = EXCLUDED.block_height,\n            finalized_block = EXCLUDED.finalized_block,\n            avg_commit_time_ms = EXCLUDED.avg_commit_time_ms,\n            avg_block_time_ms = EXCLUDED.avg_block_time_ms,\n            last_block_at = EXCLUDED.last_block_at,\n            iroha_version = EXCLUDED.iroha_version,\n            updated_at = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a108e293d80aa7b8e2ec55cae8cb586548075c4591baea52466973631f429677"
+}

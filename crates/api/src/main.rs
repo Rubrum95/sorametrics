@@ -11,6 +11,7 @@ use sorametrics_api::chain::ChainClient;
 use sorametrics_api::state::time_zone_from_env;
 use sorametrics_api::{build_router, AppState};
 use sorametrics_db::{connect as db_connect, DbConfig};
+use sorametrics_iroha::{ToriiClient, ToriiConfig};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -41,10 +42,14 @@ async fn main() -> Result<()> {
         Some(c) => info!(endpoints = c.endpoints().len(), "chain client configured"),
         None => info!("WS_ENDPOINTS unset — chain-state routes will answer 503"),
     }
+    let torii_cfg = ToriiConfig::from_env().map_err(anyhow::Error::msg)?;
+    let torii = ToriiClient::new(torii_cfg).map_err(anyhow::Error::msg)?;
+    info!(base = %torii.base_url(), "torii client configured");
     let state = AppState::with_registry(db, time_zone)
         .await
         .context("loading asset registry")?
-        .with_chain(chain);
+        .with_chain(chain)
+        .with_torii(Some(torii));
     state.spawn_registry_refresh();
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());

@@ -5,6 +5,7 @@ use crate::chain::ChainClient;
 use chrono_tz::Tz;
 use sorametrics_db::sm::{load_asset_registry, RegistryAsset};
 use sorametrics_db::DbError;
+use sorametrics_iroha::ToriiClient;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -124,6 +125,8 @@ pub struct AppState {
     pub time_zone: Tz,
     /// Read-only chain access for group D routes; `None` = not configured.
     pub chain: Option<ChainClient>,
+    /// Minamoto Torii client for `/api/minamoto/*`; `None` = not configured.
+    pub torii: Option<ToriiClient>,
     /// Process start, for `/health.uptime`.
     pub started_at: std::time::Instant,
     /// In-process TTL caches for the heavy chain scans (`/pools`,
@@ -183,6 +186,7 @@ impl AppState {
             registry: Arc::new(RwLock::new(Registry::default())),
             time_zone: DEFAULT_TIME_ZONE,
             chain: None,
+            torii: None,
             started_at: std::time::Instant::now(),
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
@@ -192,6 +196,12 @@ impl AppState {
     /// Attach a chain client.
     pub fn with_chain(mut self, chain: Option<ChainClient>) -> Self {
         self.chain = chain;
+        self
+    }
+
+    /// Attach a Torii client.
+    pub fn with_torii(mut self, torii: Option<ToriiClient>) -> Self {
+        self.torii = torii;
         self
     }
 
@@ -205,6 +215,7 @@ impl AppState {
             registry: Arc::new(RwLock::new(Registry::from_rows(rows))),
             time_zone,
             chain: None,
+            torii: None,
             started_at: std::time::Instant::now(),
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),

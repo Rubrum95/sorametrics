@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"tx_count!\",\n               COALESCE(SUM(CASE WHEN status = 'Committed' THEN 1 ELSE 0 END), 0)::INT AS \"tx_committed!\",\n               MIN(created_at) AS first_tx_at,\n               MAX(created_at) AS last_tx_at,\n               COUNT(DISTINCT DATE(created_at))::INT AS \"days_active!\"\n        FROM mn.transactions WHERE authority = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tx_count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "tx_committed!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "first_tx_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_tx_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "days_active!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "057f8e4596d6f8d9254a4eab12ef55f8c2dddeed075f727893efa8671d690e72"
+}

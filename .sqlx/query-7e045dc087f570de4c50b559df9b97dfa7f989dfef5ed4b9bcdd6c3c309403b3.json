@@ -1,0 +1,69 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT transaction_hash, instruction_index, block_height, authority, kind, payload, transaction_status, created_at\n        FROM mn.instructions\n        WHERE ($1::TEXT IS NULL OR kind = $1)\n          AND ($2::TEXT IS NULL OR authority = $2)\n          AND ($3::BIGINT IS NULL OR block_height = $3)\n          AND ($4::BYTEA IS NULL OR transaction_hash = $4)\n        ORDER BY created_at DESC, instruction_index ASC\n        LIMIT $5 OFFSET $6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "transaction_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "instruction_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "authority",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "payload",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "transaction_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8",
+        "Bytea",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7e045dc087f570de4c50b559df9b97dfa7f989dfef5ed4b9bcdd6c3c309403b3"
+}

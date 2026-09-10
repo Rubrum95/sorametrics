@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM mn.metrics_snapshots WHERE ts < NOW() - make_interval(days => $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2cf6b52f9de0866efe1707d446b5e49f0fcb83295cdbd863b46566ee6ba3bade"
+}

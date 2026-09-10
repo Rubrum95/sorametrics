@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO mn.accounts\n            (id, network_prefix, has_primary_alias,\n             primary_alias, primary_alias_dataspace, primary_alias_domain, primary_alias_name,\n             multisig_quorum, multisig_signatories_count, metadata, last_seen_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())\n        ON CONFLICT (id) DO UPDATE SET\n            network_prefix = EXCLUDED.network_prefix,\n            has_primary_alias = EXCLUDED.has_primary_alias,\n            primary_alias = EXCLUDED.primary_alias,\n            primary_alias_dataspace = EXCLUDED.primary_alias_dataspace,\n            primary_alias_domain = EXCLUDED.primary_alias_domain,\n            primary_alias_name = EXCLUDED.primary_alias_name,\n            multisig_quorum = EXCLUDED.multisig_quorum,\n            multisig_signatories_count = EXCLUDED.multisig_signatories_count,\n            metadata = EXCLUDED.metadata,\n            last_seen_at = NOW()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Bool",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6f772b30dd3740f682d71bbc1801bf3284c849c6e6a0db1d3cf1dbd3f1364d4e"
+}

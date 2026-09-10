@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kind, COUNT(*)::INT AS \"count!\" FROM mn.instructions WHERE authority = $1 GROUP BY kind ORDER BY COUNT(*) DESC LIMIT 10",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "63c2365c910f6ceebad42e1a0ebf804a8baaed2ec2847f5197b42d7ea9d2332d"
+}

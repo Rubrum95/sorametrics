@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) FILTER (WHERE kind = 'Transfer')::INT AS \"in_transfers!\",\n               COUNT(*) FILTER (WHERE kind = 'Mint')::INT AS \"in_mints!\",\n               MIN(created_at) AS in_first_at,\n               MAX(created_at) AS in_last_at,\n               COUNT(DISTINCT DATE(created_at))::INT AS \"in_days!\"\n        FROM mn.instructions\n        WHERE (kind = 'Transfer' AND payload->'value'->>'destination' = $1)\n           OR (kind = 'Mint' AND payload->'value'->>'destination' LIKE '%#' || $1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_transfers!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "in_mints!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "in_first_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "in_last_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "in_days!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "112556f32e31a957314570dc738c712d63176227d584bcb939d126920882e244"
+}

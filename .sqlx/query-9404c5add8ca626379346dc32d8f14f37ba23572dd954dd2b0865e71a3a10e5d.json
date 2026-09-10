@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT g.h AS \"h!\"\n        FROM generate_series(1, $1::BIGINT) AS g(h)\n        LEFT JOIN mn.blocks b ON b.height = g.h\n        WHERE b.height IS NULL\n        ORDER BY g.h DESC\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "h!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9404c5add8ca626379346dc32d8f14f37ba23572dd954dd2b0865e71a3a10e5d"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO mn.instructions (transaction_hash, instruction_index, block_height, authority, kind,\n                                             payload, transaction_status, created_at, indexed_at)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n                ON CONFLICT (transaction_hash, instruction_index) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int4",
+        "Int8",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ddb65c4333e7d30f7ba7d479e3bf913b832ca57d35e9e3f9a33cc30e9f84b625"
+}

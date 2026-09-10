@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT kind, authority, payload->'value'->>'encoded' AS encoded, transaction_hash, block_height, transaction_status, created_at\n        FROM mn.instructions\n        WHERE kind IN ('RegisterPublicLaneValidator', 'ActivatePublicLaneValidator')\n        ORDER BY created_at ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "authority",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "encoded",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "transaction_hash",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "transaction_status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3db3933f0024c4f4410b8b59504376392d8264fb67ac2bedd4af4e358ed14ea2"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH last100 AS (SELECT created_at FROM mn.blocks ORDER BY height DESC LIMIT 100),\n             diffs AS (SELECT EXTRACT(EPOCH FROM (LEAD(created_at) OVER (ORDER BY created_at) - created_at)) * 1000 AS ms FROM last100)\n        SELECT AVG(ms)::FLOAT8 AS avg_ms FROM diffs WHERE ms IS NOT NULL AND ms > 0\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "avg_ms",
+        "type_info": "Float8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8252bbdb5b3c38b0654ff5598a7368f903cbd19a2c644a7e307a886651fb6403"
+}

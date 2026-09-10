@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"total!\",\n               COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::INT AS \"total_24h!\",\n               COUNT(DISTINCT authority)::INT AS \"unique_senders!\",\n               COUNT(DISTINCT payload->'value'->>'destination')::INT AS \"unique_recipients!\",\n               COALESCE(SUM((payload->'value'->>'object')::NUMERIC) FILTER (WHERE payload->>'variant' = 'Asset'), 0)::TEXT AS \"volume_total!\",\n               COALESCE(SUM((payload->'value'->>'object')::NUMERIC) FILTER (WHERE payload->>'variant' = 'Asset' AND created_at >= NOW() - INTERVAL '24 hours'), 0)::TEXT AS \"volume_24h!\"\n        FROM mn.instructions\n        WHERE kind = 'Transfer'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "total!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "total_24h!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "unique_senders!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "unique_recipients!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "volume_total!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "volume_24h!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "90a5602711f0069dd9ff918f71b8b769430e0064f1acc9785fa7bb9c99a7735e"
+}

@@ -11,6 +11,7 @@
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms, missing_docs)]
 
+pub mod mn;
 pub mod sm;
 pub mod ts;
 
@@ -40,6 +41,10 @@ pub enum DbError {
     /// Migration failed.
     #[error("migration: {0}")]
     Migrate(#[from] sqlx::migrate::MigrateError),
+
+    /// Caller-supplied value cannot be stored (bad hash length, hex…).
+    #[error("invalid input: {0}")]
+    Invalid(String),
 }
 
 /// Configuration for the connection pool.

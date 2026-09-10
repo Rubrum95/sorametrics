@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*)::INT AS \"count!\",\n               COALESCE(SUM((payload->'value'->>'object')::NUMERIC), 0)::TEXT AS \"volume!\",\n               COALESCE(MAX((payload->'value'->>'object')::NUMERIC), 0)::TEXT AS \"max!\",\n               COALESCE(AVG((payload->'value'->>'object')::NUMERIC), 0)::TEXT AS \"avg!\"\n        FROM mn.instructions WHERE authority = $1 AND kind = 'Transfer'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "volume!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "max!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d8c1526ecf4214775c9d22173b23c9b7dffe1bb03785b91ab932416ac26f42b5"
+}

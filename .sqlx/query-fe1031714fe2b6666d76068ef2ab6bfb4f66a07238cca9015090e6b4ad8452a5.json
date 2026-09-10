@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            (SELECT COUNT(*)::INT FROM mn.domains)  AS \"domains!\",\n            (SELECT COUNT(*)::INT FROM mn.accounts) AS \"accounts!\",\n            (SELECT COUNT(*)::INT FROM mn.assets)   AS \"assets!\",\n            (WITH last100 AS (SELECT created_at FROM mn.blocks ORDER BY height DESC LIMIT 100),\n                  diffs AS (SELECT EXTRACT(EPOCH FROM (LEAD(created_at) OVER (ORDER BY created_at) - created_at)) * 1000 AS ms FROM last100)\n             SELECT AVG(ms)::FLOAT8 FROM diffs WHERE ms IS NOT NULL AND ms > 0) AS avg_block_ms,\n            (SELECT created_at FROM mn.blocks ORDER BY height DESC LIMIT 1) AS last_block_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "domains!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "accounts!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "assets!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "avg_block_ms",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "last_block_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "fe1031714fe2b6666d76068ef2ab6bfb4f66a07238cca9015090e6b4ad8452a5"
+}
