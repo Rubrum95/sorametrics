@@ -20,6 +20,7 @@
 pub mod chain;
 pub mod error;
 pub mod legacy;
+pub mod realtime;
 pub mod routes;
 pub mod state;
 pub mod util;
@@ -32,6 +33,18 @@ use std::time::Duration;
 use tower_http::services::ServeDir;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
+
+/// Build the full router plus the Socket.IO handle the realtime
+/// emitter publishes on (`realtime::spawn`). The Socket.IO layer serves
+/// `/socket.io/*` for the production client (socket.io 4.7.5, websocket
+/// and polling).
+pub fn build_router_with_socket(state: AppState) -> (Router, socketioxide::SocketIo) {
+    let (layer, io) = socketioxide::SocketIo::new_layer();
+    io.ns("/", async |socket: socketioxide::extract::SocketRef| {
+        tracing::debug!(id = %socket.id, "socket.io client connected");
+    });
+    (build_router(state).layer(layer), io)
+}
 
 /// Build the full router for the API service.
 pub fn build_router(state: AppState) -> Router {

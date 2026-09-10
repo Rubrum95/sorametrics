@@ -44,8 +44,8 @@ bigdecimal.workspace = true
 num-bigint.workspace = true
 dotenvy.workspace = true
 clap.workspace = true
+socketioxide = "0.18"
 
 [dev-dependencies]
-socketioxide = "0.18"
 sorametrics-telemetry.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }

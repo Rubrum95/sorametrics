@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT block_timestamp FROM sm.extrinsics WHERE block_height = $1 AND extrinsic_index = 0",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "30e9de79040338123a882ecd7516126330da8bded210ca0b3c24d41f96976048"
+}

@@ -9,7 +9,7 @@
 use anyhow::{Context, Result};
 use sorametrics_api::chain::ChainClient;
 use sorametrics_api::state::time_zone_from_env;
-use sorametrics_api::{build_router, AppState};
+use sorametrics_api::{build_router_with_socket, AppState};
 use sorametrics_db::{connect as db_connect, DbConfig};
 use sorametrics_iroha::{ToriiClient, ToriiConfig};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
@@ -53,7 +53,8 @@ async fn main() -> Result<()> {
     state.spawn_registry_refresh();
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
-    let app = build_router(state);
+    let (app, io) = build_router_with_socket(state.clone());
+    sorametrics_api::realtime::spawn(state, io);
 
     let listener = TcpListener::bind(bind)
         .await

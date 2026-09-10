@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_id, hash, block_timestamp, event_type, wallet, order_id,\n               base_asset_id, quote_asset_id, side, price, amount\n        FROM sm.order_book_events\n        WHERE block_height > $1\n        ORDER BY block_height, event_id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "event_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "wallet",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "order_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "base_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "quote_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "side",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "price",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "amount",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "fbe403e500f1d3e01760f3deff3425bb4f140d5186612e379fb6d29a4c8dcdc5"
+}

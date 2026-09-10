@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT block_height, extrinsic_id, hash, block_timestamp, caller,\n               input_asset_id, input_amount, output_asset_id, output_amount,\n               usd_value, output_usd_value\n        FROM sm.swaps\n        WHERE block_height > $1\n        ORDER BY block_height, event_id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "caller",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "input_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "input_amount",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "output_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "output_amount",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "usd_value",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "output_usd_value",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "3fd6c9f453676b21ab47ab3a6b9fcf62acc5e9dac943c2b02ffea3c90dce5528"
+}
