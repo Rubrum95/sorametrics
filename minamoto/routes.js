@@ -72,10 +72,48 @@ router.get('/network-state', rateLimit(60, 60_000), asyncHandler(async (_req, re
     res.json({ state, source: 'db', updated_at: state ? state.updated_at : null });
 }));
 
+// On the cursor-generation Torii /v1/explorer/metrics requires an account
+// signature; the same keys are built from the public /status plus the
+// indexed counts.
 router.get('/network-state/live', rateLimit(30, 60_000), asyncHandler(async (_req, res) => {
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        const s = await torii.getStatus();
+        const counts = await db.getIndexedCounts();
+        const m = {
+            peers: s.peers,
+            domains: counts.domains,
+            accounts: counts.accounts,
+            assets: counts.assets,
+            transactions_accepted: s.txs_approved,
+            transactions_rejected: s.txs_rejected,
+            block: s.blocks,
+            block_created_at: counts.last_block_at ? new Date(counts.last_block_at).toISOString() : null,
+            finalized_block: s.blocks,
+            avg_commit_time: { ms: s.commit_time_ms },
+            avg_block_time: counts.avg_block_ms != null ? { ms: counts.avg_block_ms } : null,
+        };
+        return res.json({ state: m, source: 'torii', updated_at: new Date().toISOString() });
+    }
     const m = await torii.getExplorerMetrics();
     res.json({ state: m, source: 'torii', updated_at: new Date().toISOString() });
 }));
+
+// Torii routes the current Iroha catalogue removed or restricted to
+// operators. Answered as 503 with the reason, never with invented data.
+const GONE = {
+    '/telemetry/sumeragi': '/v1/sumeragi/telemetry was removed from the Iroha Torii catalogue',
+    '/sumeragi/roles': '/v1/sumeragi/collectors and /v1/sumeragi/telemetry were removed; /v1/peers and /v1/sumeragi/leader are operator-only',
+    '/gov/council': '/v1/gov/council/current was removed from the Iroha Torii catalogue',
+    '/gov/unlocks': '/v1/gov/unlocks/stats now requires a canonical account signature',
+    '/kaigi/relays': '/v1/kaigi/relays now requires an operator signature',
+};
+async function goneOnCursorGeneration(req, res) {
+    const gen = await torii.apiGeneration();
+    if (gen.kind !== 'cursor') return false;
+    res.status(503).json({ error: GONE[req.path] || 'unavailable on this Torii build', torii_build: gen.git_commit_sha });
+    return true;
+}
 
 // ------------------------------------------------------------
 // Blocks
@@ -261,7 +299,8 @@ router.get('/telemetry/peers-info', rateLimit(60, 60_000), asyncHandler(async (_
 router.get('/telemetry/propagation', rateLimit(60, 60_000), asyncHandler(async (_req, res) => {
     res.json(await torii.getPropagation());
 }));
-router.get('/telemetry/sumeragi', rateLimit(60, 60_000), asyncHandler(async (_req, res) => {
+router.get('/telemetry/sumeragi', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
+    if (await goneOnCursorGeneration(req, res)) return;
     res.json(await torii.getSumeragiTel());
 }));
 
@@ -275,7 +314,8 @@ router.get('/telemetry/sumeragi', rateLimit(60, 60_000), asyncHandler(async (_re
 // Note: Iroha 3 does NOT publish the canonical ordering of the validator
 // set, so we expose `leader_index` as-is. The frontend can highlight
 // "Leader: index N" without committing to a specific pubkey.
-router.get('/sumeragi/roles', rateLimit(30, 60_000), asyncHandler(async (_req, res) => {
+router.get('/sumeragi/roles', rateLimit(30, 60_000), asyncHandler(async (req, res) => {
+    if (await goneOnCursorGeneration(req, res)) return;
     const [status, peersList, peersInfo, sumeragiTel, promText, collectorsResp] = await Promise.all([
         torii.getStatus().catch(() => ({})),
         torii.getPeers().catch(() => []),
@@ -514,21 +554,35 @@ router.get('/sumeragi/roles', rateLimit(30, 60_000), asyncHandler(async (_req, r
             : null,
     });
 }));
-router.get('/gov/council', rateLimit(60, 60_000), asyncHandler(async (_req, res) => {
+router.get('/gov/council', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
+    if (await goneOnCursorGeneration(req, res)) return;
     res.json(await torii.getGovCouncil());
 }));
-router.get('/gov/unlocks', rateLimit(60, 60_000), asyncHandler(async (_req, res) => {
+router.get('/gov/unlocks', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
+    if (await goneOnCursorGeneration(req, res)) return;
     res.json(await torii.getGovUnlocks());
 }));
-router.get('/kaigi/relays', rateLimit(60, 60_000), asyncHandler(async (_req, res) => {
+router.get('/kaigi/relays', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
+    if (await goneOnCursorGeneration(req, res)) return;
     res.json(await torii.getKaigiRelays());
 }));
+// Cursor generation: `?cursor&limit` (`per_page` accepted as `limit`).
 router.get('/explorer/nfts', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
     const { page, perPage } = clampPage(req, 50);
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || perPage));
+        return res.json(await torii.getExplorerNftsCursor(req.query.cursor ? String(req.query.cursor) : null, limit));
+    }
     res.json(await torii.getExplorerNfts(page, perPage));
 }));
 router.get('/explorer/rwas', rateLimit(60, 60_000), asyncHandler(async (req, res) => {
     const { page, perPage } = clampPage(req, 50);
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || perPage));
+        return res.json(await torii.getExplorerRwasCursor(req.query.cursor ? String(req.query.cursor) : null, limit));
+    }
     res.json(await torii.getExplorerRwas(page, perPage));
 }));
 

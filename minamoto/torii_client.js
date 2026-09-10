@@ -116,6 +116,56 @@ async function getText(path, { useCache = true } = {}) {
 // Convenience wrappers for the endpoints we actually use
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Torii API generation. The `optimizations` branch of hyperledger-iroha
+// (the only live one since 2026-05) replaced the explorer's page/per_page
+// pagination with cursor/limit, dropped /peers, /v1/sumeragi/telemetry,
+// /v1/sumeragi/collectors and /v1/gov/council/current, and requires an
+// account signature on /v1/explorer/metrics. Its /status carries
+// `build.git_commit_sha`; the build Minamoto ran until 2026-06 did not.
+// The generation is read from /status on every network_state poll so a
+// node upgrade is picked up without a restart.
+// ------------------------------------------------------------
+
+let _generation = null;
+
+async function apiGeneration({ refresh = false } = {}) {
+    if (_generation && !refresh) return _generation;
+    const s = await getJson('/status', { useCache: false });
+    const build = (s && s.build) || {};
+    _generation = {
+        kind: build.git_commit_sha ? 'cursor' : 'page',
+        version: build.version || null,
+        git_commit_sha: build.git_commit_sha || null,
+    };
+    return _generation;
+}
+
+function cachedGeneration() { return _generation; }
+
+function _cursorQs(cursor, limit, extra = {}) {
+    const p = new URLSearchParams();
+    p.set('limit', String(Math.max(1, Math.min(100, limit | 0))));
+    if (cursor) p.set('cursor', cursor);
+    for (const [k, v] of Object.entries(extra)) if (v != null && v !== '') p.set(k, String(v));
+    return p.toString();
+}
+
+// Cursor-generation explorer reads. Pages carry `pagination.next_cursor`
+// / `pagination.has_more`; chain feeds also `snapshot_height`.
+async function getExplorerBlocksCursor(cursor, limit = 100)       { return getJson(`/v1/explorer/blocks?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerTransactionsCursor(cursor, limit = 100) { return getJson(`/v1/explorer/transactions?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerInstructionsCursor(cursor, limit = 100) { return getJson(`/v1/explorer/instructions?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerAccountsCursor(cursor, limit = 100)     { return getJson(`/v1/explorer/accounts?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerDomainsCursor(cursor, limit = 100)      { return getJson(`/v1/explorer/domains?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerAssetsCursor(cursor, limit = 100)       { return getJson(`/v1/explorer/assets?${_cursorQs(cursor, limit)}`, { useCache: false }); }
+async function getExplorerNftsCursor(cursor, limit = 50)          { return getJson(`/v1/explorer/nfts?${_cursorQs(cursor, limit)}`); }
+async function getExplorerRwasCursor(cursor, limit = 50)          { return getJson(`/v1/explorer/rwas?${_cursorQs(cursor, limit)}`); }
+// Application list: `{ items, total, has_more, count_mode }`.
+async function getAssetDefinitionsPage(limit = 100, offset = 0) {
+    return getJson(`/v1/assets/definitions?limit=${limit | 0}&offset=${offset | 0}&count_mode=exact`, { useCache: false });
+}
+
 async function getHealth()             { return getText('/health'); }
 async function getStatus()              { return getJson('/status'); }
 async function getPeers()               { return getJson('/peers'); }
@@ -151,6 +201,17 @@ async function getSumeragiCollectors()  { return getJson('/v1/sumeragi/collector
 module.exports = {
     getJson,
     getText,
+    apiGeneration,
+    cachedGeneration,
+    getExplorerBlocksCursor,
+    getExplorerTransactionsCursor,
+    getExplorerInstructionsCursor,
+    getExplorerAccountsCursor,
+    getExplorerDomainsCursor,
+    getExplorerAssetsCursor,
+    getExplorerNftsCursor,
+    getExplorerRwasCursor,
+    getAssetDefinitionsPage,
     getHealth,
     getStatus,
     getPeers,

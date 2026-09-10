@@ -13,6 +13,9 @@ const prom = require('./prom_parser');
 
 let _shuttingDown = false;
 
+// Cursor pages (100 rows each) a backfill walks at most per feed.
+const BACKFILL_MAX_PAGES = parseInt(process.env.MINAMOTO_BACKFILL_MAX_PAGES, 10) || 400;
+
 function log(level, ...args) {
     const ts = new Date().toISOString();
     const fn = level === 'err' ? console.error : console.log;
@@ -52,12 +55,28 @@ function scheduleJob(name, intervalMs, fn) {
 // ------------------------------------------------------------
 
 async function jobNetworkState() {
-    const m = await torii.getExplorerMetrics();
-    let irohaVersion = null;
-    try {
+    // /status is fetched every cycle: it is what decides the API generation.
+    const gen = await torii.apiGeneration({ refresh: true });
+    if (gen.kind === 'cursor') {
         const s = await torii.getStatus();
-        irohaVersion = s && s.build && s.build.version ? s.build.version : null;
-    } catch (_) { /* status is best-effort */ }
+        const counts = await db.getIndexedCounts();
+        await db.upsertNetworkState({
+            peers: s.peers | 0,
+            domains: counts.domains,
+            accounts: counts.accounts,
+            assets: counts.assets,
+            transactions_accepted: Number(s.txs_approved) || 0,
+            transactions_rejected: Number(s.txs_rejected) || 0,
+            block_height: Number(s.blocks) || 0,
+            finalized_block: Number(s.blocks) || 0,
+            avg_commit_time_ms: Number(s.commit_time_ms) || 0,
+            avg_block_time_ms: counts.avg_block_ms || 0,
+            last_block_at: counts.last_block_at || null,
+            iroha_version: gen.version,
+        });
+        return { block: s.blocks, peers: s.peers, generation: gen.kind, git_commit_sha: gen.git_commit_sha };
+    }
+    const m = await torii.getExplorerMetrics();
     await db.upsertNetworkState({
         peers: m.peers | 0,
         domains: m.domains | 0,
@@ -70,28 +89,71 @@ async function jobNetworkState() {
         avg_commit_time_ms: m.avg_commit_time ? (m.avg_commit_time.ms | 0) : 0,
         avg_block_time_ms: m.avg_block_time ? (m.avg_block_time.ms | 0) : 0,
         last_block_at: m.block_created_at || null,
-        iroha_version: irohaVersion,
+        iroha_version: gen.version,
     });
-    return { block: m.block, peers: m.peers };
+    return { block: m.block, peers: m.peers, generation: gen.kind };
+}
+
+// Walks a cursor-paginated feed to the end (or MAX_PAGES), calling
+// `onItems` per page. Returns the pages walked.
+async function walkCursor(fetchPage, onItems, maxPages) {
+    let cursor = null, pages = 0;
+    for (;;) {
+        const r = await fetchPage(cursor);
+        await onItems(r.items || [], r.pagination || {});
+        pages++;
+        cursor = r.pagination ? r.pagination.next_cursor : null;
+        if (!r.pagination || !r.pagination.has_more || !cursor || pages >= maxPages) break;
+    }
+    return pages;
 }
 
 async function jobBlocks() {
-    // Pull first page (newest); upsert keeps it idempotent.
-    // Iroha rc2 Torii caps reliable pages at 7 (cursor store drops continuations).
-    const r = await torii.getExplorerBlocks(1, 7);
+    const gen = await torii.apiGeneration();
+    let items;
+    if (gen.kind === 'cursor') {
+        items = (await torii.getExplorerBlocksCursor(null, 25)).items || [];
+    } else {
+        // Iroha rc2 Torii caps reliable pages at 7 (cursor store drops continuations).
+        items = (await torii.getExplorerBlocks(1, 7)).items || [];
+    }
+    // Reset detection: a height already indexed with another hash means
+    // the chain restarted from genesis (Iroha has no reorgs).
+    let reset = false;
+    for (const b of items) {
+        const stored = await db.getBlockHashHex(b.height);
+        if (stored && stored !== String(b.hash).toLowerCase()) { reset = true; break; }
+    }
+    if (reset) {
+        log('err', 'chain reset detected (height re-served with another hash): truncating mn chain tables');
+        await db.truncateChainTables();
+    }
     let upserts = 0;
-    for (const b of (r.items || [])) {
+    for (const b of items) {
         await db.upsertBlock(b);
         upserts++;
     }
-    return { upserts, total_seen: r.pagination ? r.pagination.total_items : null };
+    if (reset) {
+        await runBackfills();
+    }
+    return { upserts, reset, generation: gen.kind };
 }
 
-// One-shot historical backfill. Pages through every block on Torii in DESC
-// order and upserts. Stops when we've covered the full range OR hit a hard
-// cap. Idempotent: re-running just hits ON CONFLICT and exits cheaply, so
-// safe to re-trigger via the indexer_state row if needed.
+// One-shot historical backfill. Idempotent: re-running just hits ON CONFLICT.
 async function jobBlocksBackfill() {
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        let total = 0, snapshot = null;
+        const pages = await walkCursor(
+            (c) => torii.getExplorerBlocksCursor(c, 100),
+            async (items, pg) => {
+                if (snapshot == null && pg.snapshot_height != null) snapshot = pg.snapshot_height;
+                for (const b of items) { await db.upsertBlock(b); total++; }
+            },
+            BACKFILL_MAX_PAGES,
+        );
+        return { total, pages, snapshot_height: snapshot };
+    }
     const PER_PAGE = 50;
     const MAX_PAGES = 200; // 10k blocks ceiling, generous for early Minamoto
     let page = 1, total = 0, totalSeen = null, totalPages = 1;
@@ -110,7 +172,32 @@ async function jobBlocksBackfill() {
     return { total, total_seen: totalSeen, total_pages: totalPages };
 }
 
+async function upsertTxItems(items) {
+    let ok = 0, skipped = 0;
+    for (const tx of items) {
+        if (tx.block == null) { skipped++; continue; }
+        try { await db.upsertTransaction(tx); ok++; }
+        catch (e) {
+            // FK violation: parent block not yet indexed. Skip and let the
+            // blocks job / backfill catch us up.
+            if (e.code === '23503') { skipped++; continue; }
+            throw e;
+        }
+    }
+    return { ok, skipped };
+}
+
 async function jobTransactionsBackfill() {
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        let ok = 0, skipped = 0;
+        const pages = await walkCursor(
+            (c) => torii.getExplorerTransactionsCursor(c, 100),
+            async (items) => { const r = await upsertTxItems(items); ok += r.ok; skipped += r.skipped; },
+            BACKFILL_MAX_PAGES,
+        );
+        return { upserts: ok, skipped, pages };
+    }
     const PER_PAGE = 50;
     const MAX_PAGES = 400; // 20k txs ceiling
     let page = 1, ok = 0, skipped = 0, totalSeen = null, totalPages = 1;
@@ -120,101 +207,111 @@ async function jobTransactionsBackfill() {
             totalSeen = r.pagination.total_items;
             totalPages = r.pagination.total_pages;
         }
-        for (const tx of (r.items || [])) {
-            if (tx.block == null) { skipped++; continue; }
-            try { await db.upsertTransaction(tx); ok++; }
-            catch (e) {
-                // FK violation: parent block not yet indexed. Skip and let
-                // the next blocks-backfill pass catch us up.
-                if (e.code === '23503') { skipped++; continue; }
-                throw e;
-            }
-        }
+        const u = await upsertTxItems(r.items || []);
+        ok += u.ok; skipped += u.skipped;
         page++;
     }
     return { upserts: ok, skipped, total_seen: totalSeen };
 }
 
 async function jobTransactions() {
-    const r = await torii.getExplorerTransactions(1, 7);
-    let upserts = 0;
-    for (const tx of (r.items || [])) {
-        // tx.block may be missing for pending; skip those
-        if (tx.block == null) continue;
-        // Ensure parent block exists; if not, fetch shallow stub
-        try { await db.upsertTransaction(tx); upserts++; }
-        catch (e) {
-            if (e.code === '23503') {
-                // foreign key violation: block not yet indexed. Skip silently;
-                // jobBlocks runs alongside and will catch up.
-                continue;
-            }
-            throw e;
-        }
-    }
-    return { upserts, total_seen: r.pagination ? r.pagination.total_items : null };
+    const gen = await torii.apiGeneration();
+    const r = gen.kind === 'cursor'
+        ? await torii.getExplorerTransactionsCursor(null, 25)
+        : await torii.getExplorerTransactions(1, 7);
+    const u = await upsertTxItems(r.items || []);
+    return { upserts: u.ok, skipped: u.skipped, total_seen: r.pagination ? (r.pagination.total_items != null ? r.pagination.total_items : r.pagination.snapshot_height) : null };
 }
 
 async function jobDomains() {
-    const r = await torii.getExplorerDomains(1, 100);
+    const gen = await torii.apiGeneration();
     let upserts = 0;
-    for (const d of (r.items || [])) {
-        // Domain owner must exist as account (accounts have FK target via metadata).
-        await db.upsertAccount({ id: d.owned_by });
-        await db.upsertDomain(d);
-        upserts++;
-    }
+    const onItems = async (items) => {
+        for (const d of items) {
+            // Domain owner must exist as account (accounts have FK target via metadata).
+            await db.upsertAccount({ id: d.owned_by });
+            await db.upsertDomain(d);
+            upserts++;
+        }
+    };
+    if (gen.kind === 'cursor') await walkCursor((c) => torii.getExplorerDomainsCursor(c, 100), onItems, BACKFILL_MAX_PAGES);
+    else await onItems((await torii.getExplorerDomains(1, 100)).items || []);
     return { upserts };
 }
 
 async function jobAccounts() {
-    const r = await torii.getExplorerAccounts(1, 100);
+    const gen = await torii.apiGeneration();
     let upserts = 0;
-    for (const a of (r.items || [])) {
-        const ms = a.metadata || {};
-        const multisig = ms['multisig/spec'];
-        await db.upsertAccount({
-            id: a.id,
-            network_prefix: a.network_prefix,
-            has_primary_alias: !!a.primary_alias,
-            primary_alias: a.primary_alias || null,
-            primary_alias_dataspace: a.primary_alias_dataspace || null,
-            primary_alias_domain: a.primary_alias_domain || null,
-            primary_alias_name: a.primary_alias_name || null,
-            multisig_quorum: multisig ? (multisig.quorum | 0) : null,
-            multisig_signatories_count: multisig && multisig.signatories ? Object.keys(multisig.signatories).length : null,
-            metadata: ms,
-        });
-        upserts++;
-    }
+    const onItems = async (items) => {
+        for (const a of items) {
+            const ms = a.metadata || {};
+            const multisig = ms['multisig/spec'];
+            await db.upsertAccount({
+                id: a.id,
+                network_prefix: a.network_prefix,
+                has_primary_alias: !!a.primary_alias,
+                primary_alias: a.primary_alias || null,
+                primary_alias_dataspace: a.primary_alias_dataspace || null,
+                primary_alias_domain: a.primary_alias_domain || null,
+                primary_alias_name: a.primary_alias_name || null,
+                multisig_quorum: multisig ? (multisig.quorum | 0) : null,
+                multisig_signatories_count: multisig && multisig.signatories ? Object.keys(multisig.signatories).length : null,
+                metadata: ms,
+            });
+            upserts++;
+        }
+    };
+    if (gen.kind === 'cursor') await walkCursor((c) => torii.getExplorerAccountsCursor(c, 100), onItems, BACKFILL_MAX_PAGES);
+    else await onItems((await torii.getExplorerAccounts(1, 100)).items || []);
     return { upserts };
 }
 
 async function jobAssets() {
-    const r = await torii.getExplorerAssets(1, 100);
+    const gen = await torii.apiGeneration();
     let upserts = 0;
-    for (const a of (r.items || [])) {
-        await db.upsertAsset({
-            definition_id: a.definition_id,
-            account_id: a.account_id,
-            value: a.value,
-        });
-        upserts++;
-    }
+    const onItems = async (items) => {
+        for (const a of items) {
+            await db.upsertAsset({
+                definition_id: a.definition_id,
+                account_id: a.account_id,
+                // Quantity may arrive as a decimal string or a JSON number.
+                value: typeof a.value === 'number' ? String(a.value) : a.value,
+            });
+            upserts++;
+        }
+    };
+    if (gen.kind === 'cursor') await walkCursor((c) => torii.getExplorerAssetsCursor(c, 100), onItems, BACKFILL_MAX_PAGES);
+    else await onItems((await torii.getExplorerAssets(1, 100)).items || []);
     return { upserts };
 }
 
 async function jobAssetDefinitions() {
-    const r = await torii.getAssetDefinitions();
-    let upserts = 0;
-    for (const d of (r.items || [])) {
-        // Owner must exist as account (FK is implicit since asset_definitions
-        // doesn't FK to accounts, but we still insert a stub to make joins clean).
-        await db.upsertAccount({ id: d.owned_by });
-        await db.upsertAssetDefinition(d);
-        upserts++;
+    const gen = await torii.apiGeneration();
+    let upserts = 0, total = null;
+    const onItems = async (items) => {
+        for (const d of items) {
+            // Owner must exist as account (asset_definitions doesn't FK to
+            // accounts, but a stub keeps joins clean).
+            await db.upsertAccount({ id: d.owned_by });
+            await db.upsertAssetDefinition(d);
+            upserts++;
+        }
+    };
+    if (gen.kind === 'cursor') {
+        let offset = 0;
+        for (;;) {
+            const r = await torii.getAssetDefinitionsPage(100, offset);
+            if (total == null && r.total != null) total = r.total;
+            await onItems(r.items || []);
+            offset += (r.items || []).length;
+            if (!r.has_more || !(r.items || []).length) break;
+        }
+    } else {
+        const r = await torii.getAssetDefinitions();
+        total = r.total;
+        await onItems(r.items || []);
     }
-    return { upserts, total: r.total };
+    return { upserts, total };
 }
 
 // Pull tx detail for unenriched claims and copy the cross-chain metadata
@@ -267,32 +364,54 @@ async function jobClaimsResolveV2() {
     return { scanned: pending.length, resolved };
 }
 
-async function jobInstructions() {
-    // Pull first page (newest) for incremental indexing.
-    const r = await torii.getExplorerInstructions(1, 7);
-    let upserts = 0;
-    for (const isi of (r.items || [])) {
+// The structured payload lives in `box.json.payload` (Torii's
+// ExplorerInstructionDto; `#[norito(rename = "box")]`). Older builds
+// exposed a bare Norito base64 `payload` string, which db.js coerces to
+// `{ encoded }`.
+function instructionPayload(isi) {
+    const box = isi.box || isi['r#box'] || (isi.r && isi.r['#box']);
+    if (box && box.json && box.json.payload != null) return box.json.payload;
+    return isi.payload != null ? isi.payload : {};
+}
+
+async function upsertIsiItems(items) {
+    let n = 0;
+    for (const isi of items) {
         await db.upsertInstruction({
             transaction_hash: isi.transaction_hash,
             instruction_index: isi.index,
             block: isi.block,
             authority: isi.authority,
             kind: isi.kind,
-            // Prefer the decoded JSON when present; fallback to the raw box.
-            payload: (isi.r && isi.r['#box'] && isi.r['#box'].json && isi.r['#box'].json.payload)
-                ? isi.r['#box'].json.payload
-                : (isi['r#box'] && isi['r#box'].json && isi['r#box'].json.payload
-                    ? isi['r#box'].json.payload
-                    : (isi.payload || {})),
+            payload: instructionPayload(isi),
             transaction_status: isi.transaction_status,
             created_at: isi.created_at,
         });
-        upserts++;
+        n++;
     }
-    return { upserts, total_seen: r.pagination ? r.pagination.total_items : null };
+    return n;
+}
+
+async function jobInstructions() {
+    const gen = await torii.apiGeneration();
+    const r = gen.kind === 'cursor'
+        ? await torii.getExplorerInstructionsCursor(null, 25)
+        : await torii.getExplorerInstructions(1, 7);
+    const upserts = await upsertIsiItems(r.items || []);
+    return { upserts, total_seen: r.pagination ? (r.pagination.total_items != null ? r.pagination.total_items : r.pagination.snapshot_height) : null };
 }
 
 async function jobInstructionsBackfill() {
+    const gen = await torii.apiGeneration();
+    if (gen.kind === 'cursor') {
+        let total = 0;
+        const pages = await walkCursor(
+            (c) => torii.getExplorerInstructionsCursor(c, 100),
+            async (items) => { total += await upsertIsiItems(items); },
+            BACKFILL_MAX_PAGES,
+        );
+        return { total, pages };
+    }
     const PER_PAGE = 50;
     const MAX_PAGES = 200; // 10k ceiling, generous for early Minamoto
     let page = 1, total = 0, totalSeen = null, totalPages = 1;
@@ -302,23 +421,7 @@ async function jobInstructionsBackfill() {
             totalSeen = r.pagination.total_items;
             totalPages = r.pagination.total_pages;
         }
-        for (const isi of (r.items || [])) {
-            const box = isi['r#box'] || isi.r;
-            const payload = box && box.json && box.json.payload
-                ? box.json.payload
-                : (isi.payload || {});
-            await db.upsertInstruction({
-                transaction_hash: isi.transaction_hash,
-                instruction_index: isi.index,
-                block: isi.block,
-                authority: isi.authority,
-                kind: isi.kind,
-                payload,
-                transaction_status: isi.transaction_status,
-                created_at: isi.created_at,
-            });
-            total++;
-        }
+        total += await upsertIsiItems(r.items || []);
         page++;
     }
     return { total, total_seen: totalSeen, total_pages: totalPages };
@@ -390,34 +493,26 @@ async function main() {
     log('info', 'all jobs scheduled');
 
     // One-shot historical backfill: blocks first (so the FK is satisfied),
-    // then transactions. Doesn't reschedule. Errors are logged but don't
-    // crash the indexer — the regular periodic jobs continue.
-    setTimeout(async () => {
+    // then transactions, then instructions. Doesn't reschedule. Errors are
+    // logged but don't crash the indexer — the regular periodic jobs continue.
+    setTimeout(runBackfills, 3000);
+}
+
+async function runBackfills() {
+    for (const [name, fn] of [
+        ['blocks_backfill', jobBlocksBackfill],
+        ['transactions_backfill', jobTransactionsBackfill],
+        ['instructions_backfill', jobInstructionsBackfill],
+    ]) {
         try {
-            const r1 = await jobBlocksBackfill();
-            log('info', 'blocks_backfill ok', r1);
-            await db.recordIndexerRun('blocks_backfill', 'ok', r1, null);
+            const r = await fn();
+            log('info', `${name} ok`, r);
+            await db.recordIndexerRun(name, 'ok', r, null);
         } catch (e) {
-            log('err', 'blocks_backfill FAILED:', e.message);
-            try { await db.recordIndexerRun('blocks_backfill', 'error', {}, e.message); } catch (_) {}
+            log('err', `${name} FAILED:`, e.message);
+            try { await db.recordIndexerRun(name, 'error', {}, e.message); } catch (_) {}
         }
-        try {
-            const r2 = await jobTransactionsBackfill();
-            log('info', 'transactions_backfill ok', r2);
-            await db.recordIndexerRun('transactions_backfill', 'ok', r2, null);
-        } catch (e) {
-            log('err', 'transactions_backfill FAILED:', e.message);
-            try { await db.recordIndexerRun('transactions_backfill', 'error', {}, e.message); } catch (_) {}
-        }
-        try {
-            const r3 = await jobInstructionsBackfill();
-            log('info', 'instructions_backfill ok', r3);
-            await db.recordIndexerRun('instructions_backfill', 'ok', r3, null);
-        } catch (e) {
-            log('err', 'instructions_backfill FAILED:', e.message);
-            try { await db.recordIndexerRun('instructions_backfill', 'error', {}, e.message); } catch (_) {}
-        }
-    }, 3000);
+    }
 }
 
 function gracefulShutdown(sig) {

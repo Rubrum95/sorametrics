@@ -126,15 +126,50 @@ async function upsertBlock(b) {
             transactions_committed = EXCLUDED.transactions_committed,
             transactions_rejected = EXCLUDED.transactions_rejected
     `;
+    // Torii's ExplorerBlockDto names these `prev_block_hash` and
+    // `transactions_total`; the legacy field names are still accepted.
     await getPool().query(sql, [
         b.height,
         hexToBytea(b.hash),
-        hexToBytea(b.prev_hash),
+        hexToBytea(b.prev_block_hash != null ? b.prev_block_hash : b.prev_hash),
         hexToBytea(b.transactions_hash),
         b.created_at,
-        b.transactions_committed | 0,
+        (b.transactions_total != null ? b.transactions_total : b.transactions_committed) | 0,
         b.transactions_rejected | 0,
     ]);
+}
+
+async function getBlockHashHex(height) {
+    const r = await getPool().query('SELECT hash FROM mn.blocks WHERE height = $1', [height]);
+    return r.rows[0] ? byteaToHex(r.rows[0].hash) : null;
+}
+
+// A height re-served with a different hash means the chain restarted
+// from genesis: drop every chain row (transactions cascade from blocks).
+async function truncateChainTables() {
+    await getPool().query('TRUNCATE mn.instructions, mn.transactions, mn.blocks');
+}
+
+// Counts the cursor-generation network_state needs (the explorer metrics
+// route now requires an account signature): indexed domains / accounts /
+// balances, mean spacing of the last 100 blocks and the latest block time.
+async function getIndexedCounts() {
+    const r = await getPool().query(`
+        SELECT
+            (SELECT COUNT(*)::INT FROM mn.domains)  AS domains,
+            (SELECT COUNT(*)::INT FROM mn.accounts) AS accounts,
+            (SELECT COUNT(*)::INT FROM mn.assets)   AS assets,
+            (WITH last100 AS (SELECT created_at FROM mn.blocks ORDER BY height DESC LIMIT 100),
+                  diffs AS (SELECT EXTRACT(EPOCH FROM (LEAD(created_at) OVER (ORDER BY created_at) - created_at)) * 1000 AS ms FROM last100)
+             SELECT AVG(ms)::FLOAT FROM diffs WHERE ms IS NOT NULL AND ms > 0) AS avg_block_ms,
+            (SELECT created_at FROM mn.blocks ORDER BY height DESC LIMIT 1) AS last_block_at
+    `);
+    const row = r.rows[0];
+    return {
+        domains: row.domains, accounts: row.accounts, assets: row.assets,
+        avg_block_ms: row.avg_block_ms != null ? Math.round(row.avg_block_ms) : null,
+        last_block_at: row.last_block_at,
+    };
 }
 
 async function listBlocks({ page = 1, perPage = 20 } = {}) {
@@ -1653,7 +1688,7 @@ async function getBlocksStats() {
 module.exports = {
     getPool, applySchema, ping,
     upsertNetworkState, getNetworkState,
-    upsertBlock, listBlocks, getBlocksStats,
+    upsertBlock, listBlocks, getBlocksStats, getBlockHashHex, truncateChainTables, getIndexedCounts,
     upsertTransaction, listTransactions, getWalletInfo, getTransactionsStats, getFeeSponsorshipStats,
     updateTransactionMetadata, listClaimsToEnrich,
     lookupV2BurnExtrinsic, updateTransactionV2Side, listClaimsMissingV2Resolution,
