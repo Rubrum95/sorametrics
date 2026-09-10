@@ -432,7 +432,7 @@ struct LiquidityTotalsOut {
 #[derive(Serialize)]
 struct Liquidity {
     providers: Vec<Provider>,
-    totals: Option<LiquidityTotalsOut>,
+    totals: LiquidityTotalsOut,
     #[serde(rename = "dpmCollateral")]
     dpm_collateral: Option<String>,
     seed: String,
@@ -663,12 +663,17 @@ async fn market(
                             contributed: kv.value.collateral_contributed.to_string(),
                         });
                     }
-                    let totals = at.fetch(&s.liquidity_position_totals(id)).await?.map(|t| {
-                        LiquidityTotalsOut {
+                    let totals = at
+                        .fetch(&s.liquidity_position_totals(id))
+                        .await?
+                        .map(|t| LiquidityTotalsOut {
                             total_shares: t.total_shares.to_string(),
                             total_contributed: t.total_collateral_contributed.to_string(),
-                        }
-                    });
+                        })
+                        .unwrap_or(LiquidityTotalsOut {
+                            total_shares: "0".into(),
+                            total_contributed: "0".into(),
+                        });
                     let mut chain_positions = Vec::new();
                     let mut stream = at.iter(s.market_positions_iter1(id)).await?;
                     while let Some(kv) = stream.next().await {
