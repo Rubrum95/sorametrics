@@ -21,6 +21,57 @@ use subxt::{Metadata, OnlineClient, SubstrateConfig};
 /// Type registry view used to recognise `AccountId32` by type id.
 pub type Types = scale_info::PortableRegistry;
 
+/// Whether the type id is a `u8` array / sequence (bytes), `None` when
+/// the id is unknown to the registry (tests without metadata).
+pub fn is_u8_collection(types: &Types, id: u32) -> Option<bool> {
+    use scale_info::{TypeDef, TypeDefPrimitive};
+    let t = types.resolve(id)?;
+    let elem = match &t.type_def {
+        TypeDef::Array(a) => a.type_param.id,
+        TypeDef::Sequence(s) => s.type_param.id,
+        TypeDef::Composite(c) if c.fields.len() == 1 => {
+            return is_u8_collection(types, c.fields[0].ty.id)
+        }
+        _ => return Some(false),
+    };
+    Some(matches!(
+        types.resolve(elem).map(|e| &e.type_def),
+        Some(TypeDef::Primitive(TypeDefPrimitive::U8))
+    ))
+}
+
+/// Whether a one-element unnamed composite of this type is a newtype
+/// wrapper (struct / tuple) rather than a one-element list; `None` for
+/// unknown ids.
+pub fn is_newtype(types: &Types, id: u32) -> Option<bool> {
+    use scale_info::TypeDef;
+    let t = types.resolve(id)?;
+    Some(matches!(
+        &t.type_def,
+        TypeDef::Composite(_) | TypeDef::Tuple(_)
+    ))
+}
+
+/// polkadot-js `isAscii`: printable ASCII (tabs / newlines allowed), non-empty.
+fn is_ascii_text(bytes: &[u8]) -> bool {
+    !bytes.is_empty()
+        && bytes
+            .iter()
+            .all(|b| (0x20..0x7f).contains(b) || matches!(b, b'\t' | b'\n' | b'\r'))
+}
+
+/// polkadot-js renames a `hash` field to `hash_` (it collides with `Codec.hash`).
+fn human_key(name: &str, camel: bool) -> String {
+    if name == "hash" {
+        return "hash_".into();
+    }
+    if camel {
+        snake_camel(name)
+    } else {
+        name.to_string()
+    }
+}
+
 /// `true` when the type id resolves to `sp_core::crypto::AccountId32`.
 fn is_account_type(types: &Types, id: u32) -> bool {
     types
@@ -142,7 +193,19 @@ fn as_bytes(c: &Composite<u32>) -> Option<Vec<u8>> {
 /// `types` lets positional `AccountId32` values (tuple events) render
 /// as SS58 like named ones.
 pub fn to_human(v: &Value<u32>, field: Option<&str>, types: &Types) -> Json {
+    to_human_keys(v, field, types, true)
+}
+
+/// [`to_human`] with a choice of key style: polkadot-js camel-cases the
+/// keys of extrinsic / event args but keeps the metadata names
+/// (snake_case) when a bare `Call` is rendered (`createType('Call')`).
+pub fn to_human_keys(v: &Value<u32>, field: Option<&str>, types: &Types, camel: bool) -> Json {
+    if let Some(call) = call_to_human(v, types) {
+        return call;
+    }
     let account = is_account_type(types, v.context);
+    let bytes_ok = is_u8_collection(types, v.context).unwrap_or(true);
+    let collapse = is_newtype(types, v.context).unwrap_or(true);
     match &v.value {
         ValueDef::Primitive(p) => match p {
             Primitive::Bool(b) => Json::Bool(*b),
@@ -156,27 +219,89 @@ pub fn to_human(v: &Value<u32>, field: Option<&str>, types: &Types) -> Json {
         },
         ValueDef::BitSequence(bits) => Json::String(format!("{bits:?}")),
         ValueDef::Variant(var) => {
-            let inner = composite_to_human(&var.values, field, types, false);
+            // `Option<T>`: polkadot-js renders the inner value or `null`.
+            let is_option = types
+                .resolve(v.context)
+                .and_then(|t| t.path.segments.last().map(|s| s == "Option"))
+                .unwrap_or(false);
+            if is_option {
+                return match &var.values {
+                    Composite::Unnamed(vals) if var.name == "Some" && vals.len() == 1 => {
+                        to_human_keys(&vals[0], field, types, camel)
+                    }
+                    _ => Json::Null,
+                };
+            }
+            let inner = composite_to_human(&var.values, field, types, false, camel, false, true);
             if matches!(&var.values, Composite::Unnamed(v) if v.is_empty()) {
                 Json::String(var.name.clone())
             } else {
                 json!({ var.name.clone(): inner })
             }
         }
-        ValueDef::Composite(c) => composite_to_human(c, field, types, account),
+        ValueDef::Composite(c) => {
+            composite_to_human(c, field, types, account, camel, bytes_ok, collapse)
+        }
     }
 }
 
-fn composite_to_human(
+/// polkadot-js renders a nested `Call` value as `{ args, method,
+/// section }` (metadata-named args) instead of the enum nesting.
+fn call_to_human(v: &Value<u32>, types: &Types) -> Option<Json> {
+    let last = types
+        .resolve(v.context)?
+        .path
+        .segments
+        .last()
+        .map(String::as_str)?;
+    if last != "RuntimeCall" {
+        return None;
+    }
+    let ValueDef::Variant(pallet) = &v.value else {
+        return None;
+    };
+    let inner = match &pallet.values {
+        Composite::Unnamed(vals) if vals.len() == 1 => &vals[0],
+        _ => return None,
+    };
+    let ValueDef::Variant(call) = &inner.value else {
+        return None;
+    };
+    let args = match &call.values {
+        Composite::Named(fields) => {
+            let mut m = Map::with_capacity(fields.len());
+            for (name, val) in fields {
+                m.insert(name.clone(), to_human_keys(val, Some(name), types, false));
+            }
+            Json::Object(m)
+        }
+        Composite::Unnamed(vals) if vals.is_empty() => json!({}),
+        c => composite_to_human(c, None, types, false, false, false, true),
+    };
+    Some(json!({
+        "args": args,
+        "method": snake_camel(&call.name),
+        "section": pallet_camel(&pallet.name),
+    }))
+}
+
+/// Composite rendering of [`to_human_keys`].
+pub fn composite_to_human(
     c: &Composite<u32>,
     field: Option<&str>,
     types: &Types,
     account: bool,
+    camel: bool,
+    bytes_ok: bool,
+    collapse: bool,
 ) -> Json {
-    if let Some(bytes) = as_bytes(c) {
+    if let Some(bytes) = as_bytes(c).filter(|_| bytes_ok) {
         if bytes.len() == 32 && (account || field.is_some_and(is_account_field)) {
             let arr: [u8; 32] = bytes.as_slice().try_into().unwrap_or([0; 32]);
             return Json::String(ss58_encode_sora(&arr));
+        }
+        if is_ascii_text(&bytes) {
+            return Json::String(String::from_utf8_lossy(&bytes).to_string());
         }
         return Json::String(format!("0x{}", hex::encode(bytes)));
     }
@@ -184,23 +309,30 @@ fn composite_to_human(
         Composite::Named(fields) => {
             let mut m = Map::with_capacity(fields.len());
             for (name, val) in fields {
-                m.insert(snake_camel(name), to_human(val, Some(name), types));
+                m.insert(
+                    human_key(name, camel),
+                    to_human_keys(val, Some(name), types, camel),
+                );
             }
             Json::Object(m)
         }
         Composite::Unnamed(vals) => {
-            if vals.len() == 1 {
+            if vals.len() == 1 && collapse {
                 // Newtype wrapper (AccountId32(bytes), AssetId32 { code }…):
                 // keep the field / type context so account newtypes become SS58.
                 let inner = &vals[0];
                 if account {
                     if let ValueDef::Composite(ic) = &inner.value {
-                        return composite_to_human(ic, field, types, true);
+                        return composite_to_human(ic, field, types, true, camel, true, true);
                     }
                 }
-                return to_human(inner, field, types);
+                return to_human_keys(inner, field, types, camel);
             }
-            Json::Array(vals.iter().map(|v| to_human(v, None, types)).collect())
+            Json::Array(
+                vals.iter()
+                    .map(|v| to_human_keys(v, None, types, camel))
+                    .collect(),
+            )
         }
     }
 }
@@ -263,7 +395,9 @@ impl ExtrinsicFacts {
             }
             (pallet, variant) => {
                 let d = match ev.field_values() {
-                    Ok(c) => composite_to_human(&c, None, metadata.types(), false),
+                    Ok(c) => {
+                        composite_to_human(&c, None, metadata.types(), false, true, false, true)
+                    }
                     Err(_) => Json::Null,
                 };
                 self.events.push(json!({
@@ -314,7 +448,15 @@ pub fn extrinsic_row(
         .map(|a| ss58_encode_sora(&a))
         .unwrap_or_else(|| "System".to_string());
     let args = match ext.field_values() {
-        Ok(c) => capped_args(composite_to_human(&c, None, metadata.types(), false)),
+        Ok(c) => capped_args(composite_to_human(
+            &c,
+            None,
+            metadata.types(),
+            false,
+            true,
+            false,
+            true,
+        )),
         Err(_) => json!({}),
     };
     V2Extrinsic {

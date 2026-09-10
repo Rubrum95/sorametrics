@@ -88,6 +88,7 @@ clap = { version = "4", features = ["derive", "env"] }
 dotenvy = "0.15"
 # Async stream helpers
 futures = "0.3"
+zstd = "0.13"
 # URL parsing
 url = "2"
 # HTTP client (used by ops to fetch the asset whitelist from GitHub).

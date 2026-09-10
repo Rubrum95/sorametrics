@@ -55,6 +55,19 @@ pub fn fmt_usd(usd: Option<&BigDecimal>) -> f64 {
     }
 }
 
+/// `Date.toLocaleString('es-ES')` in the API zone: `d/M/yyyy, HH:mm:ss`
+/// (the Node's `formatted_time` of live rows).
+pub fn fmt_time_es(ts: DateTime<Utc>, zone: Tz) -> String {
+    let local = ts.with_timezone(&zone);
+    format!(
+        "{}/{}/{}, {}",
+        local.format("%-d"),
+        local.format("%-m"),
+        local.format("%Y"),
+        local.format("%H:%M:%S")
+    )
+}
+
 /// `"<block>-<index>"`. Legacy ETL rows already carry that form (or a
 /// richer `block-idx-evt`, or the tx hash where the subsquid `he.id`
 /// was one — `mv_order_book_events`); live rows store the bare

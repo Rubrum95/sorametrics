@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT block_height, event_index, ts, method, hash, data, reason, reason_detail\n           FROM sm.preimage_events\n           WHERE hash = $1 AND ($2::bigint IS NULL OR block_height >= $2) AND ($3::bigint IS NULL OR block_height <= $3)\n           ORDER BY block_height ASC, event_index ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "ts",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "method",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "data",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "reason",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "reason_detail",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "4f97c5e40ec56e84d34145a9edef0d4de851a2d892e76a06c0358697d91e84b0"
+}

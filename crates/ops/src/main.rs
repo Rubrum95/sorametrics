@@ -235,6 +235,7 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
         decoded_val_rewards = stats.decoded_val_rewards,
         fee_burn_aggregates = stats.fee_burn_aggregates,
         polkamarkt_events = stats.polkamarkt_events,
+        preimage_events = stats.preimage_events,
         inserted_val_rewards = stats.inserted_val_rewards,
         decoded_extrinsics = stats.decoded_extrinsics,
         inserted_extrinsics = stats.inserted_extrinsics,
@@ -439,6 +440,7 @@ fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.decoded_val_rewards += one.decoded_val_rewards;
     total.fee_burn_aggregates += one.fee_burn_aggregates;
     total.polkamarkt_events += one.polkamarkt_events;
+    total.preimage_events += one.preimage_events;
     total.inserted_val_rewards += one.inserted_val_rewards;
     total.decoded_extrinsics += one.decoded_extrinsics;
     total.inserted_extrinsics += one.inserted_extrinsics;

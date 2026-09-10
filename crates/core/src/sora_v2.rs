@@ -526,6 +526,29 @@ pub struct V2PolkamarktEvent {
     pub change: PmChange,
 }
 
+/// One `preimage.*` event (the Node's `preimage_events` row of
+/// `preimage_indexer.js`). Idempotency key is `(block_height, event_index)`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct V2PreimageEvent {
+    /// Block.
+    pub block_height: BlockHeight,
+    /// Event index within the block.
+    pub event_index: u32,
+    /// Block time in unix milliseconds.
+    pub ts_millis: i64,
+    /// `Noted | Requested | Cleared | Unnoted`.
+    pub method: String,
+    /// Preimage hash (`0x`-hex).
+    pub hash: String,
+    /// Event data as polkadot-js `toJSON()` (`[hash]`).
+    pub data: serde_json::Value,
+    /// Why a `Cleared` / `Unnoted` happened, when inferable.
+    pub reason: Option<String>,
+    /// Human detail of `reason`.
+    pub reason_detail: Option<String>,
+}
+
 /// One extrinsic of a block (the Node's `live_extrinsics` row).
 /// Idempotency key is `(block_height, extrinsic_index)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

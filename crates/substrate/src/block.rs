@@ -23,6 +23,7 @@ use crate::eth_bridge::{
 use crate::extrinsics::{extrinsic_row, ExtrinsicFacts};
 use crate::fee_burns_agg::{aggregate, is_remint, weights_for, WithdrawnByAsset};
 use crate::fees::ExtrinsicFeeFacts;
+use crate::governance::{preimage_event, PreimageBlockFacts};
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::order_book::decode_order_book;
 use crate::polkamarkt::{decode_polkamarkt, hydrate_market};
@@ -37,8 +38,9 @@ use sorametrics_core::sora_v2::PmChange;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::{
     insert_bridges_batch, insert_extrinsics_batch, insert_fee_burns_batch, insert_fees_batch,
-    insert_liquidity_batch, insert_order_book_batch, insert_swaps_batch, insert_transfers_batch,
-    insert_val_staking_rewards_batch, pm_apply_event, pm_insert_market, upsert_fee_burns_aggregate,
+    insert_liquidity_batch, insert_order_book_batch, insert_preimage_events, insert_swaps_batch,
+    insert_transfers_batch, insert_val_staking_rewards_batch, pm_apply_event, pm_insert_market,
+    upsert_fee_burns_aggregate,
 };
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -100,6 +102,8 @@ pub struct BlockDecodeStats {
     pub fee_burn_aggregates: u32,
     /// Number of `polkamarkt` events applied to the replica.
     pub polkamarkt_events: u32,
+    /// Number of new `preimage.*` event rows.
+    pub preimage_events: u32,
     /// Extrinsics in the block (every one produces a row).
     pub decoded_extrinsics: u32,
     /// Extrinsic rows that were new.
@@ -199,6 +203,9 @@ pub async fn decode_block_events(
     let mut order_book = Vec::new();
     let mut val_rewards = Vec::new();
     let mut polkamarkt = Vec::new();
+    let mut preimage_events = Vec::new();
+    let mut preimage_facts = PreimageBlockFacts::default();
+    preimage_facts.observe_extrinsics(&extrinsics);
     let mut withdrawn = WithdrawnByAsset::default();
     // Per-extrinsic fee facts; every event feeds its extrinsic's entry.
     let mut fee_facts: BTreeMap<u32, ExtrinsicFeeFacts> = BTreeMap::new();
@@ -227,6 +234,10 @@ pub async fn decode_block_events(
         };
         events_seen += 1;
 
+        preimage_facts.observe(&ev);
+        if let Some(pe) = preimage_event(&ev, height, block_timestamp.0.timestamp_millis()) {
+            preimage_events.push(pe);
+        }
         if let Err(e) = withdrawn.observe(&ev) {
             warn!(
                 error = %e,
@@ -545,6 +556,17 @@ pub async fn decode_block_events(
         }
     }
     stats.polkamarkt_events = polkamarkt.len() as u32;
+
+    // Preimage events with the indexer's cleared-reason inference.
+    if let Some((reason, detail)) = preimage_facts.reason() {
+        for pe in preimage_events.iter_mut() {
+            if pe.method == "Cleared" || pe.method == "Unnoted" {
+                pe.reason = Some(reason.to_string());
+                pe.reason_detail = Some(detail.to_string());
+            }
+        }
+    }
+    stats.preimage_events = insert_preimage_events(db, &preimage_events).await? as u32;
 
     stats.decoded_val_rewards = val_rewards.len() as u32;
     stats.inserted_val_rewards = insert_val_staking_rewards_batch(db, &val_rewards).await? as u32;

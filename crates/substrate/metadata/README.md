@@ -36,6 +36,12 @@ Pinning the file (vs fetching at build time) gives us:
 | `Babe` | `epochDuration` / `expectedBlockTime` constants, block author from the pre-runtime digest. |
 | `Denomination` | `denominator` (XOR denomination factor, `/burns/stats.denomFactor`). |
 | `Polkamarkt` | Prediction-market events (`MarketCreated`, `TradeExecuted`, …), `Markets` / `Conditions` / positions storage and the `PolkamarktAPI.market_state` runtime API. |
+| `Preimage` | `requestStatusFor` / `statusFor` / `preimageFor` storage and `Noted` / `Requested` / `Cleared` events (`/governance/preimage*`). |
+| `Scheduler` | `agenda` (`/governance/scheduler/agenda`). |
+| `Council`, `TechnicalCommittee` | `proposals` / `proposalOf` / `voting` / `members` / `prime` (`/governance/{council,motions,technical-committee}`). |
+| `ElectionsPhragmen` | `members` / `candidates` / `runnersUp` / `electionRounds` + constants (`/governance/elections`). |
+| `Democracy` | `referendumInfoOf` / `publicProps` / `votingOf` + constants (`/governance/democracy`, `/governance/votes`). |
+| `Utility` | `batch*` calls decoded inside proposals. |
 
 When Phase 1.2 expands to other event types, regenerate with the new pallet list.
 
@@ -48,7 +54,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt,Preimage,Scheduler,Council,TechnicalCommittee,ElectionsPhragmen,Democracy,Utility" \
   --format bytes \
   > sora-mainnet.scale
 ```

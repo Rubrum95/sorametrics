@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT block_height, block_timestamp FROM sm.extrinsics\n           WHERE section = 'preimage' AND method IN ('notePreimage', 'notePreimageOperational')\n           ORDER BY block_height DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "625369e783e57d456d67a7e1d26c3209d8fe1cfbe60bb1f40c8767dc67eea875"
+}

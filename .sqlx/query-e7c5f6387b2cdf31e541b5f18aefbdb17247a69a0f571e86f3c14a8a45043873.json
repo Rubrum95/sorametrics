@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MIN(block_height) AS \"min\", MAX(block_height) AS \"max\" FROM sm.preimage_events",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "max",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "e7c5f6387b2cdf31e541b5f18aefbdb17247a69a0f571e86f3c14a8a45043873"
+}

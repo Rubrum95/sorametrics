@@ -14,6 +14,7 @@ pub mod export;
 pub mod extrinsics;
 pub mod fee_config;
 pub mod freshness;
+pub mod governance;
 pub mod health;
 pub mod history;
 pub mod identity;
@@ -53,6 +54,7 @@ pub fn build(state: AppState) -> Router {
         .merge(lookup::router())
         .merge(media::router())
         .merge(polkamarkt::router())
+        .merge(governance::router())
         .merge(burns::router())
         .with_state(state)
 }
@@ -63,5 +65,6 @@ pub fn build_scans(state: AppState) -> Router {
     chain_state::router()
         .merge(pool_providers::router())
         .merge(burns::scan_router())
+        .merge(governance::scan_router())
         .with_state(state)
 }

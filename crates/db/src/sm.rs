@@ -17,8 +17,8 @@ use crate::DbError;
 use sorametrics_core::chain::{Address, AssetId, BlockHeight};
 use sorametrics_core::sora_v2::{
     BridgeDirection, FeeBurnKind, PmChange, PmMarket, V2Bridge, V2Extrinsic, V2Fee, V2FeeBurn,
-    V2FeeBurnAggregate, V2Liquidity, V2OrderBookEvent, V2PolkamarktEvent, V2Swap, V2Transfer,
-    V2ValStakingReward,
+    V2FeeBurnAggregate, V2Liquidity, V2OrderBookEvent, V2PolkamarktEvent, V2PreimageEvent, V2Swap,
+    V2Transfer, V2ValStakingReward,
 };
 use sqlx::PgPool;
 
@@ -1235,6 +1235,39 @@ pub async fn pm_apply_event(pool: &PgPool, ev: &V2PolkamarktEvent) -> Result<(),
         }
     }
     Ok(())
+}
+
+// =============================================================
+// preimage_events
+// =============================================================
+
+/// Insert the block's preimage events, idempotent on `(block, event_index)`.
+pub async fn insert_preimage_events(
+    pool: &PgPool,
+    rows: &[V2PreimageEvent],
+) -> Result<u64, DbError> {
+    let mut n = 0;
+    for r in rows {
+        let res = sqlx::query!(
+            r#"
+            INSERT INTO sm.preimage_events (block_height, event_index, ts, section, method, hash, data, reason, reason_detail)
+            VALUES ($1, $2, $3, 'preimage', $4, $5, $6, $7, $8)
+            ON CONFLICT (block_height, event_index) DO NOTHING
+            "#,
+            r.block_height.0 as i64,
+            r.event_index as i32,
+            r.ts_millis,
+            r.method,
+            r.hash,
+            r.data,
+            r.reason,
+            r.reason_detail,
+        )
+        .execute(pool)
+        .await?;
+        n += res.rows_affected();
+    }
+    Ok(n)
 }
 
 #[cfg(test)]
