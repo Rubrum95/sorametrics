@@ -74,7 +74,7 @@ jsonrpsee = { version = "0.24", default-features = false, features = [
 axum = { version = "0.7", features = ["macros"] }
 # Tower middleware (tracing, timeouts, rate-limit, cors).
 tower = { version = "0.5", features = ["util", "limit", "load-shed"] }
-tower-http = { version = "0.6", features = ["cors", "trace", "timeout"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "timeout", "fs"] }
 # Substrate runtime client + codegen for typed events (Phase 1.2+).
 # `default` brings jsonrpsee + native target + substrate-compat config.
 subxt = { version = "0.38", default-features = false, features = [

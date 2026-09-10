@@ -46,7 +46,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 13] = [
+pub const ALL_TABLES: [&str; 14] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -60,6 +60,7 @@ pub const ALL_TABLES: [&str; 13] = [
     "val_staking_rewards",
     "supply_snapshots",
     "supply_history",
+    "news_episodes",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -108,6 +109,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             }
             "supply_snapshots" => copy_supply_snapshots(&source, &target, opts.batch_size).await?,
             "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
+            "news_episodes" => copy_news_episodes(&source, &target, opts.batch_size).await?,
             _ => unreachable!("validated above"),
         };
         info!(
@@ -1434,6 +1436,69 @@ async fn copy_supply_history(source: &PgPool, target: &PgPool, batch: i64) -> Re
     Ok(copied)
 }
 
+/// The Node's `sm.news_episodes` → v33's identical table, keyset on `slug`.
+async fn copy_news_episodes(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT slug, published_at, title_es, title_en, summary_es, summary_en,
+               cover_path, audio_path_es, audio_path_en, video_path_es, video_path_en,
+               duration_s, source_url, tags
+        FROM sm.news_episodes
+        WHERE slug > $1
+        ORDER BY slug
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor = get_cursor(target, "news_episodes")
+        .await?
+        .unwrap_or_default();
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(&cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy news_episodes batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        for r in &rows {
+            cursor = r.try_get::<String, _>("slug")?;
+            let tags: Option<Vec<String>> = r.try_get("tags")?;
+            sqlx::query!(
+                r#"
+                INSERT INTO sm.news_episodes (
+                    slug, published_at, title_es, title_en, summary_es, summary_en,
+                    cover_path, audio_path_es, audio_path_en, video_path_es, video_path_en,
+                    duration_s, source_url, tags
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                ON CONFLICT (slug) DO NOTHING
+                "#,
+                cursor,
+                r.try_get::<DateTime<Utc>, _>("published_at")?,
+                r.try_get::<String, _>("title_es")?,
+                r.try_get::<String, _>("title_en")?,
+                r.try_get::<Option<String>, _>("summary_es")?,
+                r.try_get::<Option<String>, _>("summary_en")?,
+                r.try_get::<String, _>("cover_path")?,
+                r.try_get::<String, _>("audio_path_es")?,
+                r.try_get::<String, _>("audio_path_en")?,
+                r.try_get::<Option<String>, _>("video_path_es")?,
+                r.try_get::<Option<String>, _>("video_path_en")?,
+                r.try_get::<Option<i32>, _>("duration_s")?,
+                r.try_get::<Option<String>, _>("source_url")?,
+                tags.as_deref(),
+            )
+            .execute(target)
+            .await
+            .context("inserting news episode")?;
+        }
+        copied += rows.len() as u64;
+        set_cursor(target, "news_episodes", &cursor, rows.len() as i64).await?;
+        info!(copied, cursor = %cursor, "news_episodes progress");
+    }
+    Ok(copied)
+}
+
 /// Accumulate the skipped count so reconciliation can check
 /// `source = copied + skipped` across resumed runs (each run only sees
 /// the rows past its cursor). A cursor reset implies truncating the
@@ -1923,6 +1988,26 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 );
             }
             ok_a && ok_b
+        }
+        "news_episodes" => {
+            // Small table: exact slug set comparison.
+            let src: Vec<String> = sqlx::query("SELECT slug FROM sm.news_episodes ORDER BY slug")
+                .fetch_all(source)
+                .await?
+                .iter()
+                .map(|r| r.try_get::<String, _>("slug"))
+                .collect::<Result<_, _>>()?;
+            let dst: Vec<String> =
+                sqlx::query_scalar!(r#"SELECT slug FROM sm.news_episodes ORDER BY slug"#)
+                    .fetch_all(target)
+                    .await?;
+            let missing: Vec<&String> = src.iter().filter(|s| !dst.contains(s)).collect();
+            if missing.is_empty() {
+                true
+            } else {
+                warn!(table, missing = ?missing, "RECONCILE FAIL: slugs missing in target");
+                false
+            }
         }
         "asset_registry" => {
             let src_cnt: i64 = sqlx::query(

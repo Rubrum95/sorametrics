@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT usd_value AS \"usd_value: BigDecimal\"\n           FROM sm.liquidity_events WHERE block_height = $1 AND extrinsic_id = ANY($2) LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "2f4aeb840bc5ad12fa55577c8380dd85a9c0d01ec31fe6f3058dc1d0c7128dd6"
+}

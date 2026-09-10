@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.news_episodes (\n                    slug, published_at, title_es, title_en, summary_es, summary_en,\n                    cover_path, audio_path_es, audio_path_en, video_path_es, video_path_en,\n                    duration_s, source_url, tags\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n                ON CONFLICT (slug) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "976bc9ff6a8f8a205474b03d8174474df734d07fe2ecf2eab2963a4a24c20f6e"
+}

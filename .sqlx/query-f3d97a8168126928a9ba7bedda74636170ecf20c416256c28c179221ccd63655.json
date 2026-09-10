@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT usd_value AS \"usd_value: BigDecimal\", amount AS \"amount!: BigDecimal\", asset_id\n           FROM sm.transfers WHERE block_height = $1 AND extrinsic_id = ANY($2) LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "asset_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f3d97a8168126928a9ba7bedda74636170ecf20c416256c28c179221ccd63655"
+}

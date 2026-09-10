@@ -29,6 +29,7 @@ pub use state::AppState;
 use axum::http::StatusCode;
 use axum::Router;
 use std::time::Duration;
+use tower_http::services::ServeDir;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -44,5 +45,14 @@ pub fn build_router(state: AppState) -> Router {
         StatusCode::GATEWAY_TIMEOUT,
         Duration::from_secs(120),
     ));
-    fast.merge(scans).layer(TraceLayer::new_for_http())
+    let mut app = fast.merge(scans);
+    // Static media as the Node's `express.static`: the radio tracks and
+    // the news covers / audio, when their directories are configured.
+    if let Some(dir) = routes::media::music_dir() {
+        app = app.nest_service("/music", ServeDir::new(dir));
+    }
+    if let Some(dir) = routes::media::news_dir() {
+        app = app.nest_service("/news", ServeDir::new(dir));
+    }
+    app.layer(TraceLayer::new_for_http())
 }

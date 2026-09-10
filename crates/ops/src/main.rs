@@ -101,7 +101,7 @@ enum Command {
         /// Comma-separated table list. Default: all.
         #[arg(
             long,
-            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history"
+            default_value = "asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes"
         )]
         tables: String,
 

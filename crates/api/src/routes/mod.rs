@@ -18,6 +18,8 @@ pub mod health;
 pub mod history;
 pub mod identity;
 pub mod liquidity;
+pub mod lookup;
+pub mod media;
 pub mod misc;
 pub mod order_book;
 pub mod pool_providers;
@@ -47,6 +49,8 @@ pub fn build(state: AppState) -> Router {
         .merge(liquidity::router())
         .merge(order_book::router())
         .merge(misc::router())
+        .merge(lookup::router())
+        .merge(media::router())
         .merge(burns::router())
         .with_state(state)
 }

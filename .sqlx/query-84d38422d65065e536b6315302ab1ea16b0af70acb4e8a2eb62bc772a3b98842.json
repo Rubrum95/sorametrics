@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT usd_value AS \"in_usd: BigDecimal\", output_usd_value AS \"out_usd: BigDecimal\",\n                  input_amount AS \"in_amount!: BigDecimal\", output_amount AS \"out_amount!: BigDecimal\",\n                  input_asset_id, output_asset_id\n           FROM sm.swaps WHERE block_height = $1 AND extrinsic_id = ANY($2) LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "in_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 1,
+        "name": "out_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "in_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "out_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "input_asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "output_asset_id",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "84d38422d65065e536b6315302ab1ea16b0af70acb4e8a2eb62bc772a3b98842"
+}
