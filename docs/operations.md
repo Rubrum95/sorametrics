@@ -39,6 +39,15 @@ not moved. One block for diagnosis:
 sorametrics-ops decode-block --height 27572842 --rpc wss://mof2.sora.org
 ```
 
+Holes inside an already indexed range (a crashed backfill, a reconnect that never filled) are found
+and repaired by height, using `sm.extrinsics` as the presence marker (every block carries at least
+`timestamp.set`):
+
+```bash
+sorametrics-ops gap-fill --from 27500000 --to 27600000 --dry-run   # report count + ranges
+sorametrics-ops gap-fill --from 27500000 --to 27600000             # decode the missing heights
+```
+
 The pinned runtime metadata covers the current spec only; blocks of an earlier runtime fail with
 `Not enough data to fill buffer` and are served from the ETL'd history instead.
 

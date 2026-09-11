@@ -7,8 +7,8 @@
 //! | `decode-block --height N` | 1.2.4 | Done |
 //! | `backfill --from N --to M [--concurrency N]` | 1.2.7 | Done |
 //! | `load-asset-registry` | 3.3 | Done |
-//! | `migrate` | 4 | TODO |
-//! | `gap-fill` | 4 | TODO |
+//! | `migrate-legacy --source-url … --tables …` | 4 | Done |
+//! | `gap-fill --from N --to M [--dry-run]` | 4 | Done |
 //! | `replay --table X --from-block N` | 4 | TODO |
 
 #![forbid(unsafe_code)]
@@ -77,6 +77,31 @@ enum Command {
         rpc: String,
     },
 
+    /// Fill the holes of `[from, to]`: every height with no row in
+    /// `sm.extrinsics` (each block carries at least `timestamp.set`) is
+    /// decoded through the backfill path. Idempotent.
+    GapFill {
+        /// First block height (inclusive).
+        #[arg(long)]
+        from: u64,
+
+        /// Last block height (inclusive).
+        #[arg(long)]
+        to: u64,
+
+        /// Blocks fetched + decoded in parallel.
+        #[arg(long, default_value_t = 8)]
+        concurrency: usize,
+
+        /// Only report the missing heights (count + first ranges).
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+
+        /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
+        #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
+        rpc: String,
+    },
+
     /// Bulk-upsert the asset registry from the upstream sora-xor
     /// whitelist (or any URL that returns the same array shape).
     /// Idempotent — re-running just updates existing rows.
@@ -130,6 +155,13 @@ async fn main() -> Result<()> {
             concurrency,
             rpc,
         } => backfill(from, to, concurrency, &rpc).await,
+        Command::GapFill {
+            from,
+            to,
+            concurrency,
+            dry_run,
+            rpc,
+        } => gap_fill(from, to, concurrency, dry_run, &rpc).await,
         Command::LoadAssetRegistry { url } => load_asset_registry(&url).await,
         Command::MigrateLegacy {
             source_url,
@@ -265,19 +297,102 @@ async fn backfill(from: u64, to: u64, concurrency: usize, rpc: &str) -> Result<(
     if from > to {
         anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
     }
-    if concurrency == 0 {
-        anyhow::bail!("--concurrency must be ≥ 1");
-    }
+    let db = ops_db().await?;
+    backfill_heights(&db, (from..=to).collect(), concurrency, rpc).await
+}
 
+async fn ops_db() -> Result<PgPool> {
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
-    let db = db_connect(&DbConfig {
+    db_connect(&DbConfig {
         url: db_url,
         ..DbConfig::default()
     })
     .await
-    .context("connecting to PostgreSQL")?;
+    .context("connecting to PostgreSQL")
+}
 
-    info!(rpc, from, to, concurrency, "subxt connecting");
+/// Heights of `[from, to]` without any `sm.extrinsics` row, ascending.
+async fn missing_heights(db: &PgPool, from: u64, to: u64) -> Result<Vec<u64>> {
+    let (from_i, to_i) = (i64::try_from(from)?, i64::try_from(to)?);
+    let rows = sqlx::query!(
+        r#"
+        SELECT g.h AS "h!"
+        FROM generate_series($1::BIGINT, $2::BIGINT) AS g(h)
+        LEFT JOIN (SELECT DISTINCT block_height FROM sm.extrinsics
+                   WHERE block_height BETWEEN $1 AND $2) e ON e.block_height = g.h
+        WHERE e.block_height IS NULL
+        ORDER BY g.h
+        "#,
+        from_i,
+        to_i
+    )
+    .fetch_all(db)
+    .await
+    .context("scanning sm.extrinsics for gaps")?;
+    Ok(rows.into_iter().map(|r| r.h as u64).collect())
+}
+
+/// Collapses sorted heights into inclusive ranges.
+fn ranges(heights: &[u64]) -> Vec<(u64, u64)> {
+    let mut out: Vec<(u64, u64)> = Vec::new();
+    for &h in heights {
+        match out.last_mut() {
+            Some((_, end)) if *end + 1 == h => *end = h,
+            _ => out.push((h, h)),
+        }
+    }
+    out
+}
+
+async fn gap_fill(from: u64, to: u64, concurrency: usize, dry_run: bool, rpc: &str) -> Result<()> {
+    if from > to {
+        anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
+    }
+    let db = ops_db().await?;
+    let missing = missing_heights(&db, from, to).await?;
+    let spans = ranges(&missing);
+    info!(
+        from,
+        to,
+        missing = missing.len(),
+        ranges = spans.len(),
+        "gap scan complete"
+    );
+    for (a, b) in spans.iter().take(20) {
+        info!(from = a, to = b, blocks = b - a + 1, "gap");
+    }
+    if spans.len() > 20 {
+        info!(more = spans.len() - 20, "further gaps not listed");
+    }
+    if missing.is_empty() || dry_run {
+        return Ok(());
+    }
+    backfill_heights(&db, missing, concurrency, rpc).await
+}
+
+async fn backfill_heights(
+    db: &PgPool,
+    heights: Vec<u64>,
+    concurrency: usize,
+    rpc: &str,
+) -> Result<()> {
+    if concurrency == 0 {
+        anyhow::bail!("--concurrency must be ≥ 1");
+    }
+    let db = db.clone();
+    let (from, to) = match (heights.first(), heights.last()) {
+        (Some(a), Some(b)) => (*a, *b),
+        _ => return Ok(()),
+    };
+
+    info!(
+        rpc,
+        from,
+        to,
+        blocks = heights.len(),
+        concurrency,
+        "subxt connecting"
+    );
     let rpc_client = RpcClient::from_url(rpc)
         .await
         .with_context(|| format!("connecting RPC to {rpc}"))?;
@@ -294,11 +409,11 @@ async fn backfill(from: u64, to: u64, concurrency: usize, rpc: &str) -> Result<(
             .context("loading asset registry for pricing")?,
     );
     let semaphore = Arc::new(Semaphore::new(concurrency));
-    let total = to - from + 1;
+    let total = heights.len() as u64;
     let started = Instant::now();
-    let mut handles = Vec::with_capacity(total as usize);
+    let mut handles = Vec::with_capacity(heights.len());
 
-    for height in from..=to {
+    for height in heights {
         let permit = semaphore
             .clone()
             .acquire_owned()
@@ -422,6 +537,18 @@ async fn process_one_block(
 }
 
 /// Add per-block stats into a running total.
+#[cfg(test)]
+mod gap_tests {
+    use super::ranges;
+
+    #[test]
+    fn collapses_consecutive_heights() {
+        assert_eq!(ranges(&[]), vec![]);
+        assert_eq!(ranges(&[5]), vec![(5, 5)]);
+        assert_eq!(ranges(&[1, 2, 3, 7, 8, 10]), vec![(1, 3), (7, 8), (10, 10)]);
+    }
+}
+
 fn accumulate(total: &mut BlockDecodeStats, one: &BlockDecodeStats) {
     total.events += one.events;
     total.decoded_swaps += one.decoded_swaps;

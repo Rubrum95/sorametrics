@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT g.h AS \"h!\"\n        FROM generate_series($1::BIGINT, $2::BIGINT) AS g(h)\n        LEFT JOIN (SELECT DISTINCT block_height FROM sm.extrinsics\n                   WHERE block_height BETWEEN $1 AND $2) e ON e.block_height = g.h\n        WHERE e.block_height IS NULL\n        ORDER BY g.h\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "h!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "7c4c8e731fb3d4cb9fe583ce5c7e29ebb5d0a91e6de12970aed858d065929cf0"
+}

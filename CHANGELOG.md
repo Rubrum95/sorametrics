@@ -5,6 +5,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- ops: `gap-fill --from --to [--dry-run]` finds heights without indexed extrinsics and decodes
+  them through the backfill path.
+- Docs: README, CONTRIBUTING, SECURITY, CHANGELOG, operations guide, issue and PR templates.
 - API: per-client, per-route rate limiting with the Node's table (60 s fixed window, 429 body).
 
 ### 2026-09-10
