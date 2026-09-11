@@ -30,7 +30,9 @@ use tracing::{info, warn};
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load .env if present (no-op in production where PM2 sets env directly).
-    let _ = dotenvy::dotenv();
+    // Only the install directory's own `.env`: `dotenvy::dotenv()` walks up
+    // the parents and would load a neighbouring project's file.
+    let _ = dotenvy::from_path(".env");
 
     init_telemetry(LogFormat::Pretty)?;
     let cli = Cli::parse();

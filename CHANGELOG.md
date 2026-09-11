@@ -5,9 +5,15 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
-- substrate examples: `era_decode` (decode a block with the metadata served at that height) and
-  `metadata_drift` (per-pallet hash comparison pinned vs node, optionally at a height) —
-  feasibility probes for earlier-era backfills and a CI compatibility check.
+- ops: `backfill` and `gap-fill` accept `--era-metadata`: a block of an earlier runtime is decoded
+  with the metadata the node served at that block (one client per spec, cached; archive node
+  required). Recovers the Hashi bridges of specs 119–129 and decodes back to spec 86 (block
+  16.25M) with the same static decoders. The storage reads made while decoding (`XorFee`,
+  `Polkamarkt`) are no longer rejected when the pallet hash differs from the pinned one.
+- ops: `metadata-check [--height N]` compares the pinned runtime metadata with the node's pallet
+  by pallet (exit 2 on drift); `make metadata-check`; CI job `metadata-compat` (non-blocking).
+- binaries: only the working directory's `.env` is loaded (no parent-directory walk).
+- substrate example: `era_decode` (decode a block with the metadata served at that height).
 - deploy: PM2 ecosystem and nginx `/v33/` routing for the parallel-monitoring phase; release
   build sizes and memory recorded in the operations guide.
 - ingest: lag monitor in the health loop (`SUBSTRATE_LAG_ALERT_BLOCKS`): warns when the live

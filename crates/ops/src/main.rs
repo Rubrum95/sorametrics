@@ -23,12 +23,15 @@ use sorametrics_db::{connect as db_connect, DbConfig};
 use sorametrics_substrate::{decode_block_events, BlockDecodeStats, PriceResolver};
 use sorametrics_telemetry::{init as init_telemetry, LogFormat};
 use sqlx::PgPool;
+use std::collections::HashMap;
+use std::process;
 use std::sync::Arc;
 use std::time::Instant;
 use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::backend::rpc::RpcClient;
+use subxt::utils::H256;
 use subxt::{OnlineClient, SubstrateConfig};
-use tokio::sync::Semaphore;
+use tokio::sync::{Mutex, Semaphore};
 use tracing::{info, warn};
 
 #[derive(Debug, Parser)]
@@ -72,6 +75,12 @@ enum Command {
         #[arg(long, default_value_t = 8)]
         concurrency: usize,
 
+        /// Decode blocks of earlier runtimes with the metadata the node
+        /// served at that block (archive node required). Without it a
+        /// block of another spec fails, as in the live subscriber.
+        #[arg(long, default_value_t = false)]
+        era_metadata: bool,
+
         /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
         #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
         rpc: String,
@@ -93,6 +102,11 @@ enum Command {
         #[arg(long, default_value_t = 8)]
         concurrency: usize,
 
+        /// Decode blocks of earlier runtimes with their own metadata
+        /// (see `backfill --era-metadata`).
+        #[arg(long, default_value_t = false)]
+        era_metadata: bool,
+
         /// Only report the missing heights (count + first ranges).
         #[arg(long, default_value_t = false)]
         dry_run: bool,
@@ -100,6 +114,21 @@ enum Command {
         /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
         #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
         rpc: String,
+    },
+
+    /// Compare the pinned runtime metadata with the node's, pallet by
+    /// pallet (metadata hash). Exit 0 when every pinned pallet is
+    /// identical, 2 when any drifted or is missing — a runtime upgrade
+    /// that needs `subxt metadata` regeneration and a decoder review.
+    MetadataCheck {
+        /// Substrate WS endpoint. Default: `wss://mof2.sora.org` (archive).
+        #[arg(long, env = "WS_ENDPOINT", default_value = "wss://mof2.sora.org")]
+        rpc: String,
+
+        /// Compare against the metadata served at this height instead of
+        /// the head (archive node required).
+        #[arg(long)]
+        height: Option<u32>,
     },
 
     /// Bulk-upsert the asset registry from the upstream sora-xor
@@ -143,7 +172,9 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = dotenvy::dotenv();
+    // Only the install directory's own `.env`: `dotenvy::dotenv()` walks up
+    // the parents and would load a neighbouring project's file.
+    let _ = dotenvy::from_path(".env");
     init_telemetry(LogFormat::Pretty)?;
 
     let cli = Cli::parse();
@@ -153,15 +184,18 @@ async fn main() -> Result<()> {
             from,
             to,
             concurrency,
+            era_metadata,
             rpc,
-        } => backfill(from, to, concurrency, &rpc).await,
+        } => backfill(from, to, concurrency, era_metadata, &rpc).await,
         Command::GapFill {
             from,
             to,
             concurrency,
+            era_metadata,
             dry_run,
             rpc,
-        } => gap_fill(from, to, concurrency, dry_run, &rpc).await,
+        } => gap_fill(from, to, concurrency, era_metadata, dry_run, &rpc).await,
+        Command::MetadataCheck { rpc, height } => metadata_check(&rpc, height).await,
         Command::LoadAssetRegistry { url } => load_asset_registry(&url).await,
         Command::MigrateLegacy {
             source_url,
@@ -293,12 +327,18 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
 /// - Errors per block are logged and do NOT abort the backfill —
 ///   `ON CONFLICT DO NOTHING` makes a re-run on a partially-failed
 ///   range fully safe.
-async fn backfill(from: u64, to: u64, concurrency: usize, rpc: &str) -> Result<()> {
+async fn backfill(
+    from: u64,
+    to: u64,
+    concurrency: usize,
+    era_metadata: bool,
+    rpc: &str,
+) -> Result<()> {
     if from > to {
         anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
     }
     let db = ops_db().await?;
-    backfill_heights(&db, (from..=to).collect(), concurrency, rpc).await
+    backfill_heights(&db, (from..=to).collect(), concurrency, era_metadata, rpc).await
 }
 
 async fn ops_db() -> Result<PgPool> {
@@ -344,7 +384,14 @@ fn ranges(heights: &[u64]) -> Vec<(u64, u64)> {
     out
 }
 
-async fn gap_fill(from: u64, to: u64, concurrency: usize, dry_run: bool, rpc: &str) -> Result<()> {
+async fn gap_fill(
+    from: u64,
+    to: u64,
+    concurrency: usize,
+    era_metadata: bool,
+    dry_run: bool,
+    rpc: &str,
+) -> Result<()> {
     if from > to {
         anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
     }
@@ -367,13 +414,14 @@ async fn gap_fill(from: u64, to: u64, concurrency: usize, dry_run: bool, rpc: &s
     if missing.is_empty() || dry_run {
         return Ok(());
     }
-    backfill_heights(&db, missing, concurrency, rpc).await
+    backfill_heights(&db, missing, concurrency, era_metadata, rpc).await
 }
 
 async fn backfill_heights(
     db: &PgPool,
     heights: Vec<u64>,
     concurrency: usize,
+    era_metadata: bool,
     rpc: &str,
 ) -> Result<()> {
     if concurrency == 0 {
@@ -397,11 +445,15 @@ async fn backfill_heights(
         .await
         .with_context(|| format!("connecting RPC to {rpc}"))?;
     let legacy = Arc::new(LegacyRpcMethods::<SubstrateConfig>::new(rpc_client.clone()));
-    let client = Arc::new(
-        OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client)
-            .await
-            .with_context(|| format!("upgrading RPC client to OnlineClient at {rpc}"))?,
-    );
+    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client.clone())
+        .await
+        .with_context(|| format!("upgrading RPC client to OnlineClient at {rpc}"))?;
+    let eras = Arc::new(EraClients::new(
+        client,
+        rpc_client,
+        legacy.clone(),
+        era_metadata,
+    ));
 
     let prices = Arc::new(
         PriceResolver::historical(db.clone())
@@ -419,7 +471,7 @@ async fn backfill_heights(
             .acquire_owned()
             .await
             .context("backfill semaphore closed")?;
-        let client = client.clone();
+        let eras = eras.clone();
         let legacy = legacy.clone();
         let db = db.clone();
         let prices = prices.clone();
@@ -427,7 +479,7 @@ async fn backfill_heights(
         handles.push(tokio::spawn(async move {
             // Hold the permit for the lifetime of the task.
             let _permit = permit;
-            process_one_block(&client, &legacy, &db, &prices, height).await
+            process_one_block(&eras, &legacy, &db, &prices, height).await
         }));
     }
 
@@ -505,7 +557,7 @@ async fn backfill_heights(
 /// Errors here are per-block; the backfill caller catches them and keeps
 /// going for the rest of the range.
 async fn process_one_block(
-    client: &OnlineClient<SubstrateConfig>,
+    eras: &EraClients,
     legacy: &LegacyRpcMethods<SubstrateConfig>,
     db: &PgPool,
     prices: &PriceResolver,
@@ -519,21 +571,81 @@ async fn process_one_block(
         .await
         .with_context(|| format!("looking up block hash for height {height}"))?
         .with_context(|| format!("no block at height {height}"))?;
+    let (client, spec) = eras.client_for(hash).await?;
     let block = client
         .blocks()
         .at(hash)
         .await
         .with_context(|| format!("fetching block at height {height} ({hash:?})"))?;
-    decode_block_events(
-        &block,
-        db,
-        prices,
-        &client.metadata(),
-        client.runtime_version().spec_version,
-        client,
-    )
-    .await
-    .with_context(|| format!("decoding block {height}"))
+    decode_block_events(&block, db, prices, &client.metadata(), spec, &client)
+        .await
+        .with_context(|| format!("decoding block {height}"))
+}
+
+/// One subxt client per runtime spec. The base client carries the
+/// current metadata; a block of an earlier spec gets a client whose
+/// metadata is the one the node served at that block, cached per spec.
+/// Static event and storage types decode against it by field shape, so
+/// a runtime that changed a shape we depend on fails at that block
+/// instead of being misread.
+struct EraClients {
+    base: OnlineClient<SubstrateConfig>,
+    base_spec: u32,
+    rpc: RpcClient,
+    legacy: Arc<LegacyRpcMethods<SubstrateConfig>>,
+    enabled: bool,
+    by_spec: Mutex<HashMap<u32, OnlineClient<SubstrateConfig>>>,
+}
+
+impl EraClients {
+    fn new(
+        base: OnlineClient<SubstrateConfig>,
+        rpc: RpcClient,
+        legacy: Arc<LegacyRpcMethods<SubstrateConfig>>,
+        enabled: bool,
+    ) -> Self {
+        let base_spec = base.runtime_version().spec_version;
+        Self {
+            base,
+            base_spec,
+            rpc,
+            legacy,
+            enabled,
+            by_spec: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Client + spec version of the runtime that produced `hash`.
+    async fn client_for(&self, hash: H256) -> Result<(OnlineClient<SubstrateConfig>, u32)> {
+        if !self.enabled {
+            return Ok((self.base.clone(), self.base_spec));
+        }
+        let spec = self
+            .legacy
+            .state_get_runtime_version(Some(hash))
+            .await
+            .with_context(|| format!("runtime version at {hash:?}"))?
+            .spec_version;
+        if spec == self.base_spec {
+            return Ok((self.base.clone(), spec));
+        }
+        let mut cache = self.by_spec.lock().await;
+        if let Some(c) = cache.get(&spec) {
+            return Ok((c.clone(), spec));
+        }
+        let metadata = self
+            .legacy
+            .state_get_metadata(Some(hash))
+            .await
+            .with_context(|| format!("metadata for spec {spec} (archive node required)"))?;
+        let client = OnlineClient::<SubstrateConfig>::from_rpc_client(self.rpc.clone())
+            .await
+            .with_context(|| format!("creating client for spec {spec}"))?;
+        client.set_metadata(metadata);
+        info!(spec, "era metadata loaded");
+        cache.insert(spec, client.clone());
+        Ok((client, spec))
+    }
 }
 
 /// Add per-block stats into a running total.
@@ -596,6 +708,81 @@ struct WhitelistEntry {
 }
 
 /// Fetch the whitelist URL, parse, bulk-upsert into `sm.asset_registry`.
+/// Per-pallet hash comparison of the pinned metadata against the node.
+async fn metadata_check(rpc: &str, height: Option<u32>) -> Result<()> {
+    use subxt::ext::codec::Decode;
+    let pinned = subxt::Metadata::decode(&mut &sorametrics_substrate::PINNED_METADATA[..])
+        .context("decoding pinned metadata")?;
+    let rpc_client = RpcClient::from_url(rpc)
+        .await
+        .with_context(|| format!("connecting RPC to {rpc}"))?;
+    let legacy = LegacyRpcMethods::<SubstrateConfig>::new(rpc_client.clone());
+    let (live, spec) = match height {
+        Some(h) => {
+            let hash = legacy
+                .chain_get_block_hash(Some(h.into()))
+                .await?
+                .with_context(|| format!("no block at height {h}"))?;
+            let version = legacy.state_get_runtime_version(Some(hash)).await?;
+            let meta = legacy
+                .state_get_metadata(Some(hash))
+                .await
+                .with_context(|| format!("metadata at height {h}"))?;
+            (meta, version.spec_version)
+        }
+        None => {
+            let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client)
+                .await
+                .context("upgrading RPC client to OnlineClient")?;
+            (client.metadata(), client.runtime_version().spec_version)
+        }
+    };
+    let outcome = compare_pallets(&pinned, &live);
+    for name in &outcome.missing {
+        warn!(pallet = name, "MISSING on the node");
+    }
+    for name in &outcome.drift {
+        warn!(pallet = name, "DRIFT: pallet metadata hash differs");
+    }
+    info!(
+        spec,
+        pinned = pinned.pallets().count(),
+        same = outcome.same,
+        drift = outcome.drift.len(),
+        missing = outcome.missing.len(),
+        "metadata check"
+    );
+    if outcome.drift.is_empty() && outcome.missing.is_empty() {
+        Ok(())
+    } else {
+        // Distinct exit code so CI can flag it without failing the build.
+        process::exit(2);
+    }
+}
+
+/// Result of [`compare_pallets`].
+struct PalletDrift {
+    same: usize,
+    drift: Vec<String>,
+    missing: Vec<String>,
+}
+
+fn compare_pallets(pinned: &subxt::Metadata, live: &subxt::Metadata) -> PalletDrift {
+    let mut out = PalletDrift {
+        same: 0,
+        drift: Vec::new(),
+        missing: Vec::new(),
+    };
+    for p in pinned.pallets() {
+        match live.pallet_by_name(p.name()) {
+            None => out.missing.push(p.name().to_string()),
+            Some(l) if l.hash() == p.hash() => out.same += 1,
+            Some(_) => out.drift.push(p.name().to_string()),
+        }
+    }
+    out
+}
+
 async fn load_asset_registry(url: &str) -> Result<()> {
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
     let db = db_connect(&DbConfig {

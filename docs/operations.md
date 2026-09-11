@@ -70,8 +70,28 @@ sorametrics-ops gap-fill --from 27500000 --to 27600000 --dry-run   # report coun
 sorametrics-ops gap-fill --from 27500000 --to 27600000             # decode the missing heights
 ```
 
-The pinned runtime metadata covers the current spec only; blocks of an earlier runtime fail with
-`Not enough data to fill buffer` and are served from the ETL'd history instead.
+The pinned runtime metadata covers the current spec only, so a block of an earlier runtime fails
+to decode by default. `--era-metadata` (both commands) asks the node for the runtime version of
+each block and, for a spec other than the pinned one, decodes it with the metadata the node served
+at that block (fetched once per spec, about 5 s on `mof2`). This needs an archive node:
+
+```bash
+sorametrics-ops backfill --from 25284607 --to 25284607 --era-metadata --rpc wss://mof2.sora.org
+```
+
+Verified: the seven Liberland Hashi bridges of specs 119–129 (blocks 25284607 … 26413657) and a
+spec-86 block (16250000: 54 events, 3 swaps, 6 fee burns) decode with the pinned static types.
+Before 24.8M the XOR amounts predate the denomination and the historical price buckets do not
+exist, so `usd_value` stays NULL there.
+
+## Runtime upgrades
+
+`sorametrics-ops metadata-check` compares the pinned metadata with the node's, pallet by pallet
+(hash of each pallet's metadata). Exit 0 when the 29 pinned pallets are identical, 2 when any
+drifted or is missing; `--height N` compares against the metadata served at that block. CI runs
+it as the non-blocking `metadata-compat` job. On drift: regenerate the metadata (see
+`crates/substrate/metadata/README.md`), rebuild, run the decoder tests, and re-check the pallets
+that changed against the decoders in `crates/substrate/src/`.
 
 ## Loading history from the Node database (ETL)
 

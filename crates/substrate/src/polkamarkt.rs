@@ -234,14 +234,17 @@ pub async fn hydrate_market(
         block_height,
         ts_millis,
     };
-    if let Some(market) = at.fetch(&s.markets(market_id)).await? {
+    if let Some(market) = at.fetch(&s.markets(market_id).unvalidated()).await? {
         m.creator = ss58_encode_sora(&market.creator.0);
         m.condition_id = market.condition_id;
         m.close_block = market.close_block;
         m.collateral_asset = format!("0x{}", hex::encode(market.collateral_asset.code));
         m.mechanism = Some(mechanism_label(&market.mechanism).into());
         m.status = status_label(&market.status).into();
-        if let Some(c) = at.fetch(&s.conditions(market.condition_id)).await? {
+        if let Some(c) = at
+            .fetch(&s.conditions(market.condition_id).unvalidated())
+            .await?
+        {
             m.question = utf8(&c.question.0);
             m.oracle = utf8(&c.oracle.0);
             m.resolution_source = utf8(&c.resolution_source.0);

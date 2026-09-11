@@ -37,6 +37,9 @@ dev-reset: dev-down ## Wipe dev data and restart
 
 # ---- Migrations ----
 
+metadata-check: ## Compare the pinned runtime metadata with the node (exit 2 on drift)
+	cargo run -q -p sorametrics-ops -- metadata-check
+
 migrate: ## Run pending sqlx migrations against DB_URL
 	DATABASE_URL=$(DB_URL) cargo run -p sorametrics-ops -- migrate
 

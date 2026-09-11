@@ -19,7 +19,9 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _ = dotenvy::dotenv();
+    // Only the install directory's own `.env`: `dotenvy::dotenv()` walks up
+    // the parents and would load a neighbouring project's file.
+    let _ = dotenvy::from_path(".env");
     init_telemetry(LogFormat::Pretty)?;
 
     let bind: SocketAddr = std::env::var("API_BIND")

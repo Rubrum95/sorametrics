@@ -32,6 +32,10 @@ mod synthetic_tests;
 pub mod val_staking;
 
 pub use block::{decode_block_events, BlockDecodeStats, BlockProcessError};
+
+/// The pinned SORA mainnet metadata the `sora` module is generated from
+/// (`metadata/sora-mainnet.scale`, v15, the 29 pallets we decode).
+pub const PINNED_METADATA: &[u8] = include_bytes!("../metadata/sora-mainnet.scale");
 pub use decoder::{
     decode_bridge, decode_fee_burn, decode_swap, decode_transfer, timestamp_from_millis,
     DecodeError, EventCoords,

@@ -594,8 +594,12 @@ async fn at_block_buckets(
 ) -> Result<(u128, u128), subxt::Error> {
     let s = sora::storage();
     Ok((
-        at.fetch(&s.xor_fee().xor_to_val()).await?.unwrap_or(0),
-        at.fetch(&s.xor_fee().xor_to_buy_back()).await?.unwrap_or(0),
+        at.fetch(&s.xor_fee().xor_to_val().unvalidated())
+            .await?
+            .unwrap_or(0),
+        at.fetch(&s.xor_fee().xor_to_buy_back().unvalidated())
+            .await?
+            .unwrap_or(0),
     ))
 }
 
