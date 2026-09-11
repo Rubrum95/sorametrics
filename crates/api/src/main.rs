@@ -61,13 +61,16 @@ async fn main() -> Result<()> {
         .with_context(|| format!("binding {bind}"))?;
     info!(bind = %bind, "sorametrics-api listening");
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-            info!("ctrl-c received, shutting down");
-        })
-        .await
-        .context("axum serve")?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+        info!("ctrl-c received, shutting down");
+    })
+    .await
+    .context("axum serve")?;
 
     Ok(())
 }

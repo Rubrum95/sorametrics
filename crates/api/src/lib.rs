@@ -20,6 +20,7 @@
 pub mod chain;
 pub mod error;
 pub mod legacy;
+pub mod rate_limit;
 pub mod realtime;
 pub mod routes;
 pub mod state;
@@ -58,7 +59,12 @@ pub fn build_router(state: AppState) -> Router {
         StatusCode::GATEWAY_TIMEOUT,
         Duration::from_secs(120),
     ));
-    let mut app = fast.merge(scans);
+    let mut app = fast
+        .merge(scans)
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limit::RateLimiter::default(),
+            rate_limit::middleware,
+        ));
     // Static media as the Node's `express.static`: the radio tracks and
     // the news covers / audio, when their directories are configured.
     if let Some(dir) = routes::media::music_dir() {
