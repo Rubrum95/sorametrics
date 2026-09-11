@@ -5,6 +5,8 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- deploy: PM2 ecosystem and nginx `/v33/` routing for the parallel-monitoring phase; release
+  build sizes and memory recorded in the operations guide.
 - ingest: lag monitor in the health loop (`SUBSTRATE_LAG_ALERT_BLOCKS`): warns when the live
   cursor falls behind the finalized head and exits for a supervisor restart when it also stops
   moving; per-block `lag_ms` in the logs.

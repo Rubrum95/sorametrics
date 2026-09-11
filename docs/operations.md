@@ -11,6 +11,23 @@
 Run them as separate supervised processes (PM2 or systemd) with the environment from
 `.env.example`. Logs are `tracing` lines on stdout; set `RUST_LOG` per target.
 
+## Build
+
+```bash
+SQLX_OFFLINE=true cargo build --release --workspace   # ~2 min from scratch
+```
+
+Release binaries: `sorametrics-api` 14.5 MB, `sorametrics-ingest` 10.0 MB, `sorametrics-ops`
+9.8 MB (2026-09-11). The substrate ingest holds about 36 MB RSS while streaming (debug build,
+10 h soak); the architecture budgets are 80 MB for the ingest and 100 MB for the API.
+
+## Supervision
+
+`deploy/ecosystem.v33.config.js` defines the three PM2 processes (`sorametrics-v33-api`,
+`sorametrics-v33-ingest-substrate`, `sorametrics-v33-ingest-iroha`) reading `.env` from the
+install directory. `deploy/nginx-v33.conf` routes `/v33/*` to the Rust API for the parallel
+monitoring phase and documents the final switch.
+
 ## Deploy
 
 1. `cargo build --release --workspace` on the host (or ship the three binaries).
