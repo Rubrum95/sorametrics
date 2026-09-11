@@ -33,7 +33,11 @@ sorametrics-ops backfill --from 27500000 --to 27510000 --concurrency 8 --rpc wss
 ```
 
 Idempotent: rows are UPSERTs keyed by `(block_height, extrinsic_id, event_id)`; the live cursor is
-not moved. One block for diagnosis:
+not moved. Throughput is bound by the RPC round trip (about five sequential calls per block) and
+scales linearly with `--concurrency` until the node throttles: from a client 0.5 s away from
+`mof2.sora.org`, 8 → 3.6 blocks/s, 32 → 15.6, 64 → 30, 128 → 60 (400 blocks, no failures). Against a node on the same host the same
+work takes milliseconds per block. Raise `--concurrency` for bulk history only against a node you
+operate. One block for diagnosis:
 
 ```bash
 sorametrics-ops decode-block --height 27572842 --rpc wss://mof2.sora.org

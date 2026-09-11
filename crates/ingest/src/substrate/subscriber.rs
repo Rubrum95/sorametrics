@@ -55,6 +55,7 @@ pub async fn run_decoder_loop(
     endpoints: Vec<url::Url>,
     db: PgPool,
     reconnect_backoff: Duration,
+    gap_concurrency: usize,
     mut cancel: tokio::sync::watch::Receiver<bool>,
 ) -> Result<(), SubscriberError> {
     assert!(
@@ -73,7 +74,7 @@ pub async fn run_decoder_loop(
         let url = &endpoints[endpoint_idx];
         info!(endpoint = %url, "subxt connecting");
 
-        match try_subscribe_once(url, &db, &mut cancel).await {
+        match try_subscribe_once(url, &db, gap_concurrency, &mut cancel).await {
             Ok(()) => {
                 info!("subscriber loop exited cleanly (cancel)");
                 return Ok(());
@@ -120,82 +121,139 @@ fn plan_gap(cursor: Option<u64>, incoming: u64) -> Option<(u64, u64)> {
     }
 }
 
-/// Sequentially fetch + decode a range of missed blocks.
+/// Fetch + decode a range of missed blocks, `concurrency` at a time.
 ///
 /// Called inline from the subscription loop when [`plan_gap`] detects a
-/// hole (blocks finalized while we were disconnected). Sequential on
-/// purpose: the live loop must not compete with itself for DB writes,
-/// and gaps are normally small (seconds to minutes of outage). Large
-/// gaps still complete — the WS stream buffers behind us — and the
-/// cursor advances per filled block, so an interrupted fill resumes
-/// exactly where it stopped on the next session.
+/// hole (blocks finalized while we were disconnected). Blocks are
+/// processed in chunks of `concurrency`; the cursor advances only after
+/// a whole chunk succeeded, so an interrupted fill resumes from that
+/// chunk's first height (re-decoding is idempotent). The WS stream
+/// buffers behind the fill, so large gaps still complete in order.
+/// One subscription session's handles, shared by the gap workers.
+struct Session<'a> {
+    client: &'a OnlineClient<SubstrateConfig>,
+    rpc: &'a RpcClient,
+    db: &'a PgPool,
+    prices: &'a PriceResolver,
+}
+
 async fn fill_gap(
-    client: &OnlineClient<SubstrateConfig>,
-    legacy: &LegacyRpcMethods<SubstrateConfig>,
-    db: &PgPool,
-    prices: &PriceResolver,
+    session: &Session<'_>,
     from: u64,
     to: u64,
+    concurrency: usize,
     cancel: &mut tokio::sync::watch::Receiver<bool>,
 ) -> Result<(), SubscriberError> {
+    let Session {
+        client,
+        rpc,
+        db,
+        prices,
+    } = *session;
     warn!(
         from,
         to,
         missed = to - from + 1,
+        concurrency,
         "gap detected, filling missed finalized blocks"
     );
-
-    for height in from..=to {
+    let concurrency = concurrency.max(1) as u64;
+    let started = std::time::Instant::now();
+    let mut next = from;
+    while next <= to {
         if *cancel.borrow_and_update() {
             info!(
-                height,
+                height = next,
                 "gap fill interrupted by cancel; cursor marks resume point"
             );
             return Ok(());
         }
-
-        let height_u32: u32 = height.try_into().map_err(|_| {
-            SubscriberError::Subxt(subxt::Error::Other(format!(
-                "gap block height {height} does not fit in u32"
-            )))
-        })?;
-        let hash = legacy
-            .chain_get_block_hash(Some(height_u32.into()))
-            .await?
-            .ok_or_else(|| {
-                SubscriberError::Subxt(subxt::Error::Other(format!(
-                    "no block hash at height {height} during gap fill"
-                )))
-            })?;
-        let block = client.blocks().at(hash).await?;
-        let stats = decode_block_events(
-            &block,
-            db,
-            prices,
-            &client.metadata(),
-            client.runtime_version().spec_version,
-            client,
-        )
-        .await?;
-        set_cursor(db, JOB_NAME_LIVE, BlockHeight(height), "running").await?;
-
-        if stats.has_any() {
+        let end = (next + concurrency - 1).min(to);
+        let mut tasks = tokio::task::JoinSet::new();
+        for height in next..=end {
+            let client = client.clone();
+            let legacy = LegacyRpcMethods::<SubstrateConfig>::new(rpc.clone());
+            let db = db.clone();
+            let prices = prices.clone();
+            tasks.spawn(async move {
+                let stats = fill_one(&client, &legacy, &db, &prices, height).await?;
+                Ok::<_, SubscriberError>((height, stats))
+            });
+        }
+        let mut results = Vec::with_capacity((end - next + 1) as usize);
+        while let Some(joined) = tasks.join_next().await {
+            let (height, stats) = joined.map_err(|e| {
+                SubscriberError::Subxt(subxt::Error::Other(format!("gap worker panicked: {e}")))
+            })??;
+            results.push((height, stats));
+        }
+        results.sort_by_key(|(h, _)| *h);
+        for (height, stats) in &results {
+            if stats.has_any() {
+                info!(
+                    height,
+                    swaps = stats.decoded_swaps,
+                    transfers = stats.decoded_transfers,
+                    bridges = stats.decoded_bridges,
+                    fee_burns = stats.decoded_fee_burns,
+                    "gap block decoded"
+                );
+            }
+        }
+        set_cursor(db, JOB_NAME_LIVE, BlockHeight(end), "running").await?;
+        if (end - from + 1) % 100 < concurrency || end == to {
+            let done = end - from + 1;
+            let rate = done as f64 / started.elapsed().as_secs_f64().max(0.001);
             info!(
-                height,
-                swaps = stats.decoded_swaps,
-                transfers = stats.decoded_transfers,
-                bridges = stats.decoded_bridges,
-                fee_burns = stats.decoded_fee_burns,
-                "gap block decoded"
+                height = end,
+                to,
+                done,
+                rate_blocks_s = format!("{rate:.1}"),
+                "gap fill progress"
             );
         }
-        if (height - from) % 100 == 99 {
-            info!(height, to, "gap fill progress");
-        }
+        next = end + 1;
     }
-
-    info!(from, to, "gap fill complete");
+    info!(
+        from,
+        to,
+        elapsed_s = format!("{:.1}", started.elapsed().as_secs_f64()),
+        "gap fill complete"
+    );
     Ok(())
+}
+
+/// Height → hash → block → decode, for one gap block.
+async fn fill_one(
+    client: &OnlineClient<SubstrateConfig>,
+    legacy: &LegacyRpcMethods<SubstrateConfig>,
+    db: &PgPool,
+    prices: &PriceResolver,
+    height: u64,
+) -> Result<sorametrics_substrate::BlockDecodeStats, SubscriberError> {
+    let height_u32: u32 = height.try_into().map_err(|_| {
+        SubscriberError::Subxt(subxt::Error::Other(format!(
+            "gap block height {height} does not fit in u32"
+        )))
+    })?;
+    let hash = legacy
+        .chain_get_block_hash(Some(height_u32.into()))
+        .await?
+        .ok_or_else(|| {
+            SubscriberError::Subxt(subxt::Error::Other(format!(
+                "no block hash at height {height} during gap fill"
+            )))
+        })?;
+    let block = client.blocks().at(hash).await?;
+    Ok(decode_block_events(
+        &block,
+        db,
+        prices,
+        &client.metadata(),
+        client.runtime_version().spec_version,
+        client,
+    )
+    .await?)
 }
 
 /// One subscription session: connect, subscribe finalized, dispatch to
@@ -205,18 +263,18 @@ async fn fill_gap(
 async fn try_subscribe_once(
     url: &url::Url,
     db: &PgPool,
+    gap_concurrency: usize,
     cancel: &mut tokio::sync::watch::Receiver<bool>,
 ) -> Result<(), SubscriberError> {
     // Low-level RPC client first: we keep `LegacyRpcMethods` around for
     // height → hash lookups during gap fills (same pattern as ops
     // backfill), then upgrade the same connection to an `OnlineClient`.
     let rpc_client = RpcClient::from_url(url.as_str()).await?;
-    let legacy = LegacyRpcMethods::<SubstrateConfig>::new(rpc_client.clone());
     // Live pricing shares this session's RPC connection: events inside
     // the live window are quoted on demand, older ones (long gap fills)
     // fall back to their hourly bucket.
     let prices = PriceResolver::live(db.clone(), rpc_client.clone()).await?;
-    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client).await?;
+    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client.clone()).await?;
     info!(endpoint = %url, "subxt connected, subscribing finalized blocks");
 
     let mut blocks = client.blocks().subscribe_finalized().await?;
@@ -242,7 +300,13 @@ async fn try_subscribe_once(
                 let height = BlockHeight(block.number().into());
 
                 if let Some((from, to)) = plan_gap(last_processed, height.0) {
-                    fill_gap(&client, &legacy, db, &prices, from, to, cancel).await?;
+                    let session = Session {
+                        client: &client,
+                        rpc: &rpc_client,
+                        db,
+                        prices: &prices,
+                    };
+                    fill_gap(&session, from, to, gap_concurrency, cancel).await?;
                     if *cancel.borrow_and_update() {
                         return Ok(());
                     }

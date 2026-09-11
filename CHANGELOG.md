@@ -5,6 +5,8 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- ingest: gap fill after a reconnect runs `SUBSTRATE_GAP_CONCURRENCY` blocks in parallel
+  (cursor advances per completed chunk); measured 7× faster on a 4.7k-block gap.
 - ops: `gap-fill --from --to [--dry-run]` finds heights without indexed extrinsics and decodes
   them through the backfill path.
 - Docs: README, CONTRIBUTING, SECURITY, CHANGELOG, operations guide, issue and PR templates.

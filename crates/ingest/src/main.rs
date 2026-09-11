@@ -136,6 +136,7 @@ async fn run_substrate() -> Result<()> {
     // independent (a stuck decoder won't suppress liveness signals).
     let subscriber_endpoints = cfg.ws_endpoints.clone();
     let subscriber_backoff = Duration::from_secs(5);
+    let gap_concurrency = cfg.gap_concurrency;
     let cancel_subscriber = cancel_rx.clone();
     let db_for_subscriber = db.clone();
     let subscriber_handle = tokio::spawn(async move {
@@ -143,6 +144,7 @@ async fn run_substrate() -> Result<()> {
             subscriber_endpoints,
             db_for_subscriber,
             subscriber_backoff,
+            gap_concurrency,
             cancel_subscriber,
         )
         .await

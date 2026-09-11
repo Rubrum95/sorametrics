@@ -67,6 +67,8 @@ pub struct SubstrateConfig {
     pub price_sweep_interval: Duration,
     /// How often the MOF circulating-supply snapshots are taken.
     pub supply_snapshot_interval: Duration,
+    /// Blocks decoded in parallel while filling a gap after a reconnect.
+    pub gap_concurrency: usize,
 }
 
 impl SubstrateConfig {
@@ -82,6 +84,19 @@ impl SubstrateConfig {
         let price_sample_interval = duration_secs("PRICE_SAMPLE_INTERVAL_SECS", 60)?;
         let price_sweep_interval = duration_secs("PRICE_SWEEP_INTERVAL_SECS", 600)?;
         let supply_snapshot_interval = duration_secs("SUPPLY_SNAPSHOT_INTERVAL_SECS", 1800)?;
+        let gap_concurrency = match std::env::var("SUBSTRATE_GAP_CONCURRENCY") {
+            Ok(v) => v.parse::<usize>().map_err(|e| ConfigError::Invalid {
+                name: "SUBSTRATE_GAP_CONCURRENCY",
+                reason: format!("not a usize: {e}"),
+            })?,
+            Err(_) => 16,
+        };
+        if gap_concurrency == 0 {
+            return Err(ConfigError::Invalid {
+                name: "SUBSTRATE_GAP_CONCURRENCY",
+                reason: "must be ≥ 1".to_string(),
+            });
+        }
 
         Ok(Self {
             ws_endpoints,
@@ -91,6 +106,7 @@ impl SubstrateConfig {
             price_sample_interval,
             price_sweep_interval,
             supply_snapshot_interval,
+            gap_concurrency,
         })
     }
 }
