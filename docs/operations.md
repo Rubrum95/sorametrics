@@ -19,7 +19,8 @@ SQLX_OFFLINE=true cargo build --release --workspace   # ~2 min from scratch
 
 Release binaries: `sorametrics-api` 14.5 MB, `sorametrics-ingest` 10.0 MB, `sorametrics-ops`
 9.8 MB (2026-09-11). The substrate ingest holds about 36 MB RSS while streaming (debug build,
-10 h soak); the architecture budgets are 80 MB for the ingest and 100 MB for the API.
+10 h soak) and the release API about 29 MB after serving the Minamoto parity set plus the
+heavy SORA routes; the architecture budgets are 80 MB for the ingest and 100 MB for the API.
 
 ## Supervision
 
