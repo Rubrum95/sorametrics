@@ -705,7 +705,8 @@ async fn copy_fee_burns(source: &PgPool, target: &PgPool, batch: i64) -> Result<
             for (i, name) in NAMES.iter().enumerate() {
                 cols[i].push(r.try_get::<BigDecimal, _>(name)?);
             }
-            cursor = *blocks.last().expect("just pushed");
+            let Some(last) = blocks.last() else { break };
+            cursor = *last;
         }
 
         sqlx::query!(
@@ -1899,8 +1900,11 @@ async fn copy_price_history(source: &PgPool, target: &PgPool, batch: i64) -> Res
             prices.push(r.try_get::<f64, _>("price_usd")?);
             samples.push(r.try_get::<i32, _>("sample_count")?);
         }
-        cur_asset = assets.last().cloned().expect("non-empty");
-        cur_bucket = *buckets.last().expect("non-empty");
+        let (Some(last_asset), Some(last_bucket)) = (assets.last(), buckets.last()) else {
+            break;
+        };
+        cur_asset = last_asset.clone();
+        cur_bucket = *last_bucket;
 
         sqlx::query!(
             r#"

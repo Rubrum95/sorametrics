@@ -418,7 +418,7 @@ async fn backfill_heights(
             .clone()
             .acquire_owned()
             .await
-            .expect("semaphore is never closed");
+            .context("backfill semaphore closed")?;
         let client = client.clone();
         let legacy = legacy.clone();
         let db = db.clone();
