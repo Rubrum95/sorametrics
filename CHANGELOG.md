@@ -5,6 +5,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- substrate examples: `era_decode` (decode a block with the metadata served at that height) and
+  `metadata_drift` (per-pallet hash comparison pinned vs node, optionally at a height) —
+  feasibility probes for earlier-era backfills and a CI compatibility check.
 - deploy: PM2 ecosystem and nginx `/v33/` routing for the parallel-monitoring phase; release
   build sizes and memory recorded in the operations guide.
 - ingest: lag monitor in the health loop (`SUBSTRATE_LAG_ALERT_BLOCKS`): warns when the live
