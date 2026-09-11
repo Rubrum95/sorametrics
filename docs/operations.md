@@ -81,8 +81,25 @@ sorametrics-ops backfill --from 25284607 --to 25284607 --era-metadata --rpc wss:
 
 Verified: the seven Liberland Hashi bridges of specs 119–129 (blocks 25284607 … 26413657) and a
 spec-86 block (16250000: 54 events, 3 swaps, 6 fee burns) decode with the pinned static types.
-Before 24.8M the XOR amounts predate the denomination and the historical price buckets do not
-exist, so `usd_value` stays NULL there.
+
+### USD values of past blocks
+
+An event older than the live window is valued from its hourly bucket in `ts.price_history`
+(the Node's history plus what the live sampler records). A block filled outside that history
+(a long gap, a backfill of a period the sampler did not cover) has no bucket, so `usd_value`
+stays NULL — unless an archive RPC is configured, in which case the asset is quoted at that
+block's state and the quote is folded into the hour's bucket:
+
+```bash
+PRICE_ARCHIVE_RPC=wss://mof2.sora.org            # ingest (.env): applies to gap fills
+sorametrics-ops backfill --from … --to … --price-rpc wss://mof2.sora.org
+```
+
+One quote per asset and hour per process, misses cached too. Blocks before 24 943 612 are never
+quoted: `Denomination::Denominator` reached its final value there (2026-02-20 21:54:30 UTC) and
+earlier quotes are in the previous units, or `null` while the pools were migrated (the Node's own
+history has no XOR price before February 2026). Verified on block 27609750 (swap XOR → 0x006a27…):
+`usd_value` 0.827127 from an XOR quote of 4.137356 at that block.
 
 ## Runtime upgrades
 

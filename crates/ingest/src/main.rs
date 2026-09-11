@@ -142,6 +142,7 @@ async fn run_substrate() -> Result<()> {
     let subscriber_endpoints = cfg.ws_endpoints.clone();
     let subscriber_backoff = Duration::from_secs(5);
     let gap_concurrency = cfg.gap_concurrency;
+    let price_archive_rpc = cfg.price_archive_rpc.clone();
     let cancel_subscriber = cancel_rx.clone();
     let db_for_subscriber = db.clone();
     let subscriber_handle = tokio::spawn(async move {
@@ -150,6 +151,7 @@ async fn run_substrate() -> Result<()> {
             db_for_subscriber,
             subscriber_backoff,
             gap_concurrency,
+            price_archive_rpc,
             cancel_subscriber,
         )
         .await

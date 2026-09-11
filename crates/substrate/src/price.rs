@@ -40,7 +40,8 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subxt::backend::rpc::{rpc_params, RpcClient};
+use subxt::backend::rpc::{RpcClient, RpcParams};
+use subxt::utils::H256;
 use thiserror::Error;
 use tokio::sync::Mutex;
 use tracing::{debug, warn};
@@ -54,6 +55,23 @@ pub const DEFAULT_DECIMALS: u32 = 18;
 
 /// Per-asset live quote cache lifetime (Node: 60 000 ms).
 pub const PRICE_TTL: Duration = Duration::from_secs(60);
+
+/// First block whose quotes are in the current XOR denomination:
+/// `Denomination::Denominator` reached its final value (10^32) at this
+/// block (2026-02-20 21:54:30 UTC). Earlier blocks quote in previous
+/// units or `null` while the pools were migrated, so they are never
+/// quoted historically.
+pub const HISTORICAL_QUOTE_MIN_HEIGHT: u64 = 24_943_612;
+
+/// The block an event belongs to: quotes at a past block run against
+/// that block's state.
+#[derive(Clone, Copy, Debug)]
+pub struct BlockRef {
+    /// Block height.
+    pub height: u64,
+    /// Block hash.
+    pub hash: [u8; 32],
+}
 
 /// Events younger than this are valued with a live quote; older ones
 /// with their hourly bucket mean.
@@ -140,23 +158,32 @@ pub async fn quote_price_in_dai(
     asset: &AssetId,
     decimals: u32,
 ) -> Result<Option<Decimal>, PriceError> {
+    quote_price_in_dai_at(rpc, asset, decimals, None).await
+}
+
+/// [`quote_price_in_dai`] against the state of block `at` (archive node
+/// required); `None` = head.
+pub async fn quote_price_in_dai_at(
+    rpc: &RpcClient,
+    asset: &AssetId,
+    decimals: u32,
+    at: Option<[u8; 32]>,
+) -> Result<Option<Decimal>, PriceError> {
     if asset.as_str() == DAI_ASSET_ID {
         return Ok(Some(Decimal::ONE));
     }
-    let outcome: Option<QuoteOutcome> = rpc
-        .request(
-            "liquidityProxy_quote",
-            rpc_params![
-                0_u32,
-                asset.as_str(),
-                DAI_ASSET_ID,
-                quote_input_raw(decimals),
-                "WithDesiredInput",
-                Vec::<String>::new(),
-                "Disabled"
-            ],
-        )
-        .await?;
+    let mut params = RpcParams::new();
+    params.push(0_u32)?;
+    params.push(asset.as_str())?;
+    params.push(DAI_ASSET_ID)?;
+    params.push(quote_input_raw(decimals))?;
+    params.push("WithDesiredInput")?;
+    params.push(Vec::<String>::new())?;
+    params.push("Disabled")?;
+    if let Some(hash) = at {
+        params.push(H256(hash))?;
+    }
+    let outcome: Option<QuoteOutcome> = rpc.request("liquidityProxy_quote", params).await?;
     match outcome {
         None => Ok(None),
         Some(q) => match price_from_quote_amount(&q.amount) {
@@ -190,13 +217,22 @@ struct RegistryEntry {
 ///   also lands in `ts.price_history`.
 /// - [`PriceResolver::historical`] has no RPC: every event is valued
 ///   from its hourly bucket. Used by `ops backfill` / `decode-block`.
+/// - [`PriceResolver::with_archive`] adds an archive RPC: an event
+///   with no bucket (either mode) is quoted at its own block, from
+///   [`HISTORICAL_QUOTE_MIN_HEIGHT`] on, once per asset and hour; the
+///   quote is folded into that hour's bucket.
 #[derive(Clone)]
 pub struct PriceResolver {
     db: PgPool,
     rpc: Option<RpcClient>,
+    archive: Option<RpcClient>,
     registry: Arc<HashMap<String, RegistryEntry>>,
     quotes: Arc<Mutex<HashMap<String, CachedQuote>>>,
+    historical: Arc<Mutex<HistoricalQuotes>>,
 }
+
+/// Quotes at a past block, by (asset id, hour bucket); `None` = no route.
+type HistoricalQuotes = HashMap<(String, i64), Option<Decimal>>;
 
 impl PriceResolver {
     /// Live mode: quote via `rpc` for events inside [`LIVE_WINDOW`].
@@ -231,9 +267,18 @@ impl PriceResolver {
         Ok(Self {
             db,
             rpc,
+            archive: None,
             registry: Arc::new(registry),
             quotes: Arc::new(Mutex::new(HashMap::new())),
+            historical: Arc::new(Mutex::new(HashMap::new())),
         })
+    }
+
+    /// Quote events without a price bucket at their own block through
+    /// `archive` (a node that serves past state).
+    pub fn with_archive(mut self, archive: RpcClient) -> Self {
+        self.archive = Some(archive);
+        self
     }
 
     /// Decimals of `asset` per the registry, or [`DEFAULT_DECIMALS`].
@@ -256,9 +301,10 @@ impl PriceResolver {
         asset: &AssetId,
         raw_amount: &BigDecimal,
         at: Timestamp,
+        block: BlockRef,
     ) -> Result<Option<BigDecimal>, PriceError> {
         let decimals = self.decimals_of(asset);
-        let price = match self.price_at(asset, decimals, at).await? {
+        let price = match self.price_at(asset, decimals, at, block).await? {
             Some(p) => p,
             None => return Ok(None),
         };
@@ -270,6 +316,7 @@ impl PriceResolver {
         asset: &AssetId,
         decimals: u32,
         at: Timestamp,
+        block: BlockRef,
     ) -> Result<Option<Decimal>, PriceError> {
         if asset.as_str() == DAI_ASSET_ID {
             return Ok(Some(Decimal::ONE));
@@ -281,9 +328,48 @@ impl PriceResolver {
         }
         let bucket = at.hour_bucket_secs();
         let mean = price_at_bucket(&self.db, asset.as_str(), bucket).await?;
-        Ok(mean
+        if let Some(p) = mean
             .and_then(Decimal::from_f64_retain)
-            .filter(|p| *p > Decimal::ZERO))
+            .filter(|p| *p > Decimal::ZERO)
+        {
+            return Ok(Some(p));
+        }
+        self.archive_price(asset, decimals, bucket, block).await
+    }
+
+    /// Quote at the event's block when no bucket exists; one RPC per
+    /// (asset, hour) per process, the result cached (misses too) and
+    /// folded into the hour's bucket.
+    async fn archive_price(
+        &self,
+        asset: &AssetId,
+        decimals: u32,
+        bucket: i64,
+        block: BlockRef,
+    ) -> Result<Option<Decimal>, PriceError> {
+        let Some(rpc) = &self.archive else {
+            return Ok(None);
+        };
+        if block.height < HISTORICAL_QUOTE_MIN_HEIGHT {
+            return Ok(None);
+        }
+        let key = (asset.as_str().to_string(), bucket);
+        if let Some(p) = self.historical.lock().await.get(&key) {
+            return Ok(*p);
+        }
+        let price = quote_price_in_dai_at(rpc, asset, decimals, Some(block.hash)).await?;
+        self.historical.lock().await.insert(key, price);
+        match price {
+            Some(p) => {
+                self.fold_bucket(asset, bucket, p).await?;
+            }
+            None => debug!(
+                asset = asset.as_str(),
+                height = block.height,
+                "no DAI route at block, price unknown"
+            ),
+        }
+        Ok(price)
     }
 
     /// Cached live quote (TTL [`PRICE_TTL`]); on a miss, quotes the
@@ -324,17 +410,33 @@ impl PriceResolver {
     /// Fold a price sample into the current hour bucket and publish it
     /// as the asset's latest quote (what `/tokens` serves as `price`).
     async fn record_sample(&self, asset: &AssetId, price: Decimal) -> Result<(), PriceError> {
+        let now = Timestamp::now();
+        if let Some(price_f64) = self
+            .fold_bucket(asset, now.hour_bucket_secs(), price)
+            .await?
+        {
+            upsert_price_latest(&self.db, asset.as_str(), price_f64, now.0).await?;
+        }
+        Ok(())
+    }
+
+    /// Fold a price sample into the given hour bucket; returns the
+    /// stored `f64`, or `None` when the price is not representable.
+    async fn fold_bucket(
+        &self,
+        asset: &AssetId,
+        bucket: i64,
+        price: Decimal,
+    ) -> Result<Option<f64>, PriceError> {
         let price_f64 = match price.to_string().parse::<f64>() {
             Ok(v) if v.is_finite() && v > 0.0 => v,
             _ => {
                 warn!(asset = asset.as_str(), price = %price, "price not representable as f64, sample skipped");
-                return Ok(());
+                return Ok(None);
             }
         };
-        let now = Timestamp::now();
-        upsert_price_sample(&self.db, asset.as_str(), now.hour_bucket_secs(), price_f64).await?;
-        upsert_price_latest(&self.db, asset.as_str(), price_f64, now.0).await?;
-        Ok(())
+        upsert_price_sample(&self.db, asset.as_str(), bucket, price_f64).await?;
+        Ok(Some(price_f64))
     }
 
     /// Every whitelisted asset (the Node's `ASSETS` list), sorted by id

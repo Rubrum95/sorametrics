@@ -5,6 +5,11 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- prices: events outside the live window with no hourly bucket are quoted at their own block
+  (`liquidityProxy_quote` with the block hash) when an archive RPC is configured —
+  `PRICE_ARCHIVE_RPC` for the ingest, `--price-rpc` / the same variable for `ops backfill`,
+  `gap-fill` and `decode-block`. One quote per asset and hour, folded into that hour's bucket;
+  never before block 24 943 612 (final XOR denomination). Unset: `usd_value` stays NULL as before.
 - ops: `backfill` and `gap-fill` accept `--era-metadata`: a block of an earlier runtime is decoded
   with the metadata the node served at that block (one client per spec, cached; archive node
   required). Recovers the Hashi bridges of specs 119–129 and decodes back to spec 86 (block

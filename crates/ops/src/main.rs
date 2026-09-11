@@ -54,6 +54,11 @@ enum Command {
         /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
         #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
         rpc: String,
+
+        /// Archive RPC for quotes at the block of events with no price
+        /// bucket (from block 24 943 612 on). Unset: `usd_value` stays NULL.
+        #[arg(long, env = "PRICE_ARCHIVE_RPC")]
+        price_rpc: Option<String>,
     },
 
     /// Range backfill: decode every finalized block in `[from, to]`
@@ -84,6 +89,11 @@ enum Command {
         /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
         #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
         rpc: String,
+
+        /// Archive RPC for quotes at the block of events with no price
+        /// bucket (from block 24 943 612 on). Unset: `usd_value` stays NULL.
+        #[arg(long, env = "PRICE_ARCHIVE_RPC")]
+        price_rpc: Option<String>,
     },
 
     /// Fill the holes of `[from, to]`: every height with no row in
@@ -114,6 +124,11 @@ enum Command {
         /// Substrate WS endpoint. Default: `wss://ws.mof.sora.org`.
         #[arg(long, env = "WS_ENDPOINT", default_value = "wss://ws.mof.sora.org")]
         rpc: String,
+
+        /// Archive RPC for quotes at the block of events with no price
+        /// bucket (from block 24 943 612 on). Unset: `usd_value` stays NULL.
+        #[arg(long, env = "PRICE_ARCHIVE_RPC")]
+        price_rpc: Option<String>,
     },
 
     /// Compare the pinned runtime metadata with the node's, pallet by
@@ -179,14 +194,29 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
-        Command::DecodeBlock { height, rpc } => decode_block(height, &rpc).await,
+        Command::DecodeBlock {
+            height,
+            rpc,
+            price_rpc,
+        } => decode_block(height, &rpc, price_rpc.as_deref()).await,
         Command::Backfill {
             from,
             to,
             concurrency,
             era_metadata,
             rpc,
-        } => backfill(from, to, concurrency, era_metadata, &rpc).await,
+            price_rpc,
+        } => {
+            backfill(
+                from,
+                to,
+                concurrency,
+                era_metadata,
+                &rpc,
+                price_rpc.as_deref(),
+            )
+            .await
+        }
         Command::GapFill {
             from,
             to,
@@ -194,7 +224,19 @@ async fn main() -> Result<()> {
             era_metadata,
             dry_run,
             rpc,
-        } => gap_fill(from, to, concurrency, era_metadata, dry_run, &rpc).await,
+            price_rpc,
+        } => {
+            gap_fill(
+                from,
+                to,
+                concurrency,
+                era_metadata,
+                dry_run,
+                &rpc,
+                price_rpc.as_deref(),
+            )
+            .await
+        }
         Command::MetadataCheck { rpc, height } => metadata_check(&rpc, height).await,
         Command::LoadAssetRegistry { url } => load_asset_registry(&url).await,
         Command::MigrateLegacy {
@@ -224,7 +266,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn decode_block(height: u64, rpc: &str) -> Result<()> {
+async fn decode_block(height: u64, rpc: &str, price_rpc: Option<&str>) -> Result<()> {
     // DB connection. We only need to write — no migrations from ops.
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
     let db = db_connect(&DbConfig {
@@ -268,9 +310,7 @@ async fn decode_block(height: u64, rpc: &str) -> Result<()> {
 
     // Ops decodes are by definition about the past: value events from
     // their hourly price bucket, never from a live quote.
-    let prices = PriceResolver::historical(db.clone())
-        .await
-        .context("loading asset registry for pricing")?;
+    let prices = historical_prices(&db, price_rpc).await?;
     let stats = decode_block_events(
         &block,
         &db,
@@ -333,12 +373,21 @@ async fn backfill(
     concurrency: usize,
     era_metadata: bool,
     rpc: &str,
+    price_rpc: Option<&str>,
 ) -> Result<()> {
     if from > to {
         anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
     }
     let db = ops_db().await?;
-    backfill_heights(&db, (from..=to).collect(), concurrency, era_metadata, rpc).await
+    backfill_heights(
+        &db,
+        (from..=to).collect(),
+        concurrency,
+        era_metadata,
+        rpc,
+        price_rpc,
+    )
+    .await
 }
 
 async fn ops_db() -> Result<PgPool> {
@@ -391,6 +440,7 @@ async fn gap_fill(
     era_metadata: bool,
     dry_run: bool,
     rpc: &str,
+    price_rpc: Option<&str>,
 ) -> Result<()> {
     if from > to {
         anyhow::bail!("--from ({from}) must be ≤ --to ({to})");
@@ -414,7 +464,25 @@ async fn gap_fill(
     if missing.is_empty() || dry_run {
         return Ok(());
     }
-    backfill_heights(&db, missing, concurrency, era_metadata, rpc).await
+    backfill_heights(&db, missing, concurrency, era_metadata, rpc, price_rpc).await
+}
+
+/// Bucket-only resolver, plus quotes at the event's block when an
+/// archive RPC is given.
+async fn historical_prices(db: &PgPool, price_rpc: Option<&str>) -> Result<PriceResolver> {
+    let prices = PriceResolver::historical(db.clone())
+        .await
+        .context("loading asset registry for pricing")?;
+    match price_rpc.map(str::trim).filter(|s| !s.is_empty()) {
+        Some(url) => {
+            let archive = RpcClient::from_url(url)
+                .await
+                .with_context(|| format!("connecting price archive RPC to {url}"))?;
+            info!(url, "historical quotes at block enabled");
+            Ok(prices.with_archive(archive))
+        }
+        None => Ok(prices),
+    }
 }
 
 async fn backfill_heights(
@@ -423,6 +491,7 @@ async fn backfill_heights(
     concurrency: usize,
     era_metadata: bool,
     rpc: &str,
+    price_rpc: Option<&str>,
 ) -> Result<()> {
     if concurrency == 0 {
         anyhow::bail!("--concurrency must be ≥ 1");
@@ -455,11 +524,7 @@ async fn backfill_heights(
         era_metadata,
     ));
 
-    let prices = Arc::new(
-        PriceResolver::historical(db.clone())
-            .await
-            .context("loading asset registry for pricing")?,
-    );
+    let prices = Arc::new(historical_prices(&db, price_rpc).await?);
     let semaphore = Arc::new(Semaphore::new(concurrency));
     let total = heights.len() as u64;
     let started = Instant::now();

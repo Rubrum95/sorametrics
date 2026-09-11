@@ -27,7 +27,7 @@ use crate::governance::{preimage_event, PreimageBlockFacts};
 use crate::liquidity::{liquidity_calls, LiquidityFacts};
 use crate::order_book::decode_order_book;
 use crate::polkamarkt::{decode_polkamarkt, hydrate_market};
-use crate::price::{PriceError, PriceResolver};
+use crate::price::{BlockRef, PriceError, PriceResolver};
 use crate::runtime::sora;
 use crate::val_staking::decode_val_staking_reward;
 use bigdecimal::BigDecimal;
@@ -443,38 +443,62 @@ pub async fn decode_block_events(
         .collect();
 
     // Phase 2: USD valuation (swaps: both legs, as the legacy in_usd/out_usd).
+    let block_ref = BlockRef {
+        height: height.0,
+        hash: block_hash,
+    };
     for swap in swaps.iter_mut() {
         swap.usd_value = prices
-            .usd_value_at(&swap.input_asset, &swap.input_amount, swap.timestamp)
+            .usd_value_at(
+                &swap.input_asset,
+                &swap.input_amount,
+                swap.timestamp,
+                block_ref,
+            )
             .await?;
         swap.output_usd_value = prices
-            .usd_value_at(&swap.output_asset, &swap.output_amount, swap.timestamp)
+            .usd_value_at(
+                &swap.output_asset,
+                &swap.output_amount,
+                swap.timestamp,
+                block_ref,
+            )
             .await?;
     }
     for transfer in transfers.iter_mut() {
         transfer.usd_value = prices
-            .usd_value_at(&transfer.asset, &transfer.amount, transfer.timestamp)
+            .usd_value_at(
+                &transfer.asset,
+                &transfer.amount,
+                transfer.timestamp,
+                block_ref,
+            )
             .await?;
     }
     for bridge in bridges.iter_mut() {
         bridge.usd_value = prices
-            .usd_value_at(&bridge.asset, &bridge.amount, bridge.timestamp)
+            .usd_value_at(&bridge.asset, &bridge.amount, bridge.timestamp, block_ref)
             .await?;
     }
     let xor = AssetId::new(XOR_ASSET_ID);
     for fee in fees.iter_mut() {
         fee.usd_value = prices
-            .usd_value_at(&xor, &fee.amount, fee.timestamp)
+            .usd_value_at(&xor, &fee.amount, fee.timestamp, block_ref)
             .await?;
     }
     for liq in liquidity.iter_mut() {
         // Node: base × price + target × price; a leg without a price
         // contributes nothing, the row still carries the other leg.
         let base = prices
-            .usd_value_at(&liq.base_asset, &liq.base_amount, liq.timestamp)
+            .usd_value_at(&liq.base_asset, &liq.base_amount, liq.timestamp, block_ref)
             .await?;
         let target = prices
-            .usd_value_at(&liq.target_asset, &liq.target_amount, liq.timestamp)
+            .usd_value_at(
+                &liq.target_asset,
+                &liq.target_amount,
+                liq.timestamp,
+                block_ref,
+            )
             .await?;
         liq.usd_value = match (base, target) {
             (None, None) => None,
@@ -493,7 +517,7 @@ pub async fn decode_block_events(
             -(prices.decimals_of(&row.quote_asset) as i64),
         );
         row.usd_value = prices
-            .usd_value_at(&row.quote_asset, &planck, row.timestamp)
+            .usd_value_at(&row.quote_asset, &planck, row.timestamp, block_ref)
             .await?;
     }
 

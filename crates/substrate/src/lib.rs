@@ -40,4 +40,4 @@ pub use decoder::{
     decode_bridge, decode_fee_burn, decode_swap, decode_transfer, timestamp_from_millis,
     DecodeError, EventCoords,
 };
-pub use price::{PriceError, PriceResolver, SampleOutcome};
+pub use price::{BlockRef, PriceError, PriceResolver, SampleOutcome, HISTORICAL_QUOTE_MIN_HEIGHT};

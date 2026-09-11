@@ -72,6 +72,9 @@ pub struct SubstrateConfig {
     /// Cursor-to-head distance (blocks) past which the health loop warns
     /// and, if the cursor also stops moving, exits for a restart.
     pub lag_alert_blocks: u64,
+    /// Archive RPC for quotes at a past block (events outside the live
+    /// window with no price bucket). `None` = those keep `usd_value` NULL.
+    pub price_archive_rpc: Option<Url>,
 }
 
 impl SubstrateConfig {
@@ -107,6 +110,15 @@ impl SubstrateConfig {
                 reason: "must be ≥ 1".to_string(),
             });
         }
+        let price_archive_rpc = match std::env::var("PRICE_ARCHIVE_RPC") {
+            Ok(v) if !v.trim().is_empty() => {
+                Some(Url::parse(v.trim()).map_err(|e| ConfigError::Invalid {
+                    name: "PRICE_ARCHIVE_RPC",
+                    reason: format!("not a URL: {e}"),
+                })?)
+            }
+            _ => None,
+        };
 
         Ok(Self {
             ws_endpoints,
@@ -118,6 +130,7 @@ impl SubstrateConfig {
             supply_snapshot_interval,
             gap_concurrency,
             lag_alert_blocks,
+            price_archive_rpc,
         })
     }
 }

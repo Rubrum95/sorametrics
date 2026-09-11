@@ -56,6 +56,7 @@ pub async fn run_decoder_loop(
     db: PgPool,
     reconnect_backoff: Duration,
     gap_concurrency: usize,
+    price_archive_rpc: Option<url::Url>,
     mut cancel: tokio::sync::watch::Receiver<bool>,
 ) -> Result<(), SubscriberError> {
     assert!(
@@ -74,7 +75,15 @@ pub async fn run_decoder_loop(
         let url = &endpoints[endpoint_idx];
         info!(endpoint = %url, "subxt connecting");
 
-        match try_subscribe_once(url, &db, gap_concurrency, &mut cancel).await {
+        match try_subscribe_once(
+            url,
+            &db,
+            gap_concurrency,
+            price_archive_rpc.as_ref(),
+            &mut cancel,
+        )
+        .await
+        {
             Ok(()) => {
                 info!("subscriber loop exited cleanly (cancel)");
                 return Ok(());
@@ -264,6 +273,7 @@ async fn try_subscribe_once(
     url: &url::Url,
     db: &PgPool,
     gap_concurrency: usize,
+    price_archive_rpc: Option<&url::Url>,
     cancel: &mut tokio::sync::watch::Receiver<bool>,
 ) -> Result<(), SubscriberError> {
     // Low-level RPC client first: we keep `LegacyRpcMethods` around for
@@ -274,6 +284,14 @@ async fn try_subscribe_once(
     // the live window are quoted on demand, older ones (long gap fills)
     // fall back to their hourly bucket.
     let prices = PriceResolver::live(db.clone(), rpc_client.clone()).await?;
+    let prices = match price_archive_rpc {
+        Some(archive) => {
+            let archive_rpc = RpcClient::from_url(archive.as_str()).await?;
+            info!(endpoint = %archive, "historical quotes at block enabled");
+            prices.with_archive(archive_rpc)
+        }
+        None => prices,
+    };
     let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client.clone()).await?;
     info!(endpoint = %url, "subxt connected, subscribing finalized blocks");
 
