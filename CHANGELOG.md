@@ -5,6 +5,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-11
+- ingest: lag monitor in the health loop (`SUBSTRATE_LAG_ALERT_BLOCKS`): warns when the live
+  cursor falls behind the finalized head and exits for a supervisor restart when it also stops
+  moving; per-block `lag_ms` in the logs.
 - substrate: decoder tests on SCALE-encoded synthetic events decoded with the pinned metadata
   (swaps, transfers, fees, bridges, order book, VAL rewards) — no network needed.
 - ingest: gap fill after a reconnect runs `SUBSTRATE_GAP_CONCURRENCY` blocks in parallel

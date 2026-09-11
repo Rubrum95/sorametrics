@@ -20,6 +20,8 @@ use jsonrpsee::core::client::ClientT;
 use jsonrpsee::rpc_params;
 use jsonrpsee::ws_client::WsClientBuilder;
 use serde_json::Value;
+use sorametrics_db::sm::get_cursor;
+use sqlx::PgPool;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tracing::{info, warn};
@@ -31,9 +33,23 @@ pub enum HealthOutcome {
     /// Primary endpoint became reachable while we were on a fallback.
     /// Caller should `exit(0)` to let PM2 reconnect on the primary.
     PrimaryRecovered { primary: Url },
+    /// The live cursor stopped moving while the chain kept finalizing
+    /// blocks (a stalled subscription). Caller should exit so the
+    /// supervisor restarts the process; the subscriber fills the gap on
+    /// resume.
+    Stalled {
+        /// Persisted cursor.
+        cursor: u64,
+        /// Finalized head on the node.
+        head: u64,
+    },
     /// Loop exited because the cancellation signal fired.
     Cancelled,
 }
+
+/// Consecutive probes with the cursor stuck behind the alert threshold
+/// before the loop reports [`HealthOutcome::Stalled`].
+const STALL_PROBES: u32 = 3;
 
 /// Number of consecutive `system_health` failures before forcing a rotate.
 const ROTATE_AFTER_FAILURES: u32 = 3;
@@ -46,6 +62,8 @@ const ROTATE_AFTER_FAILURES: u32 = 3;
 /// `connect_timeout` bounds each individual probe attempt.
 pub async fn run_health_loop(
     conn: WsConnection,
+    db: PgPool,
+    lag_alert_blocks: u64,
     healthcheck_interval: Duration,
     primary_probe_interval: Duration,
     connect_timeout: Duration,
@@ -54,6 +72,7 @@ pub async fn run_health_loop(
     let mut consecutive_failures: u32 = 0;
     let mut last_primary_probe = Instant::now();
     let primary = conn.endpoints()[0].clone();
+    let mut stall = StallTracker::default();
 
     loop {
         // Honor cancellation.
@@ -72,6 +91,14 @@ pub async fn run_health_loop(
                     );
                 }
                 consecutive_failures = 0;
+                match lag_probe(&conn, &db).await {
+                    Ok((cursor, head)) => {
+                        if let Some(outcome) = stall.observe(cursor, head, lag_alert_blocks) {
+                            return outcome;
+                        }
+                    }
+                    Err(e) => warn!(error = %e, "lag probe failed"),
+                }
             }
             Err(e) => {
                 consecutive_failures += 1;
@@ -144,5 +171,86 @@ mod tests {
     async fn probe_primary_returns_false_for_closed_port() {
         let url = Url::parse("ws://127.0.0.1:1").unwrap();
         assert!(!probe_primary(&url, Duration::from_millis(300)).await);
+    }
+}
+
+/// `(cursor, finalized head)` for the lag monitor.
+async fn lag_probe(conn: &WsConnection, db: &PgPool) -> Result<(u64, u64), String> {
+    let head = conn.finalized_number().await.map_err(|e| e.to_string())?;
+    let cursor = get_cursor(db, "substrate_live")
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|h| h.0)
+        .unwrap_or(0);
+    Ok((cursor, head))
+}
+
+/// Tracks whether the cursor moves between probes while behind the head.
+#[derive(Default)]
+struct StallTracker {
+    last_cursor: Option<u64>,
+    stuck_probes: u32,
+}
+
+impl StallTracker {
+    /// Logs the lag; returns `Stalled` after [`STALL_PROBES`] probes with
+    /// the cursor unchanged and further than `alert` blocks behind.
+    fn observe(&mut self, cursor: u64, head: u64, alert: u64) -> Option<HealthOutcome> {
+        let lag = head.saturating_sub(cursor);
+        let moved = self.last_cursor.is_some_and(|c| cursor > c);
+        if lag > alert {
+            if moved || self.last_cursor.is_none() {
+                self.stuck_probes = 0;
+            } else {
+                self.stuck_probes += 1;
+            }
+            warn!(
+                cursor,
+                head,
+                lag_blocks = lag,
+                stuck_probes = self.stuck_probes,
+                "indexer behind the finalized head"
+            );
+        } else {
+            self.stuck_probes = 0;
+        }
+        self.last_cursor = Some(cursor);
+        if self.stuck_probes >= STALL_PROBES {
+            return Some(HealthOutcome::Stalled { cursor, head });
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+mod stall_tests {
+    use super::*;
+
+    #[test]
+    fn stalled_only_when_behind_and_not_moving() {
+        let mut t = StallTracker::default();
+        assert!(t.observe(100, 105, 20).is_none());
+        // Behind but moving: never stalls.
+        assert!(t.observe(101, 150, 20).is_none());
+        assert!(t.observe(102, 200, 20).is_none());
+        assert!(t.observe(103, 250, 20).is_none());
+        // Behind and stuck: three probes → stalled.
+        assert!(t.observe(103, 300, 20).is_none());
+        assert!(t.observe(103, 350, 20).is_none());
+        assert!(matches!(
+            t.observe(103, 400, 20),
+            Some(HealthOutcome::Stalled {
+                cursor: 103,
+                head: 400
+            })
+        ));
+    }
+
+    #[test]
+    fn stuck_but_within_threshold_is_fine() {
+        let mut t = StallTracker::default();
+        for _ in 0..10 {
+            assert!(t.observe(500, 510, 20).is_none());
+        }
     }
 }

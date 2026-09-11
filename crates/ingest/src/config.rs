@@ -69,6 +69,9 @@ pub struct SubstrateConfig {
     pub supply_snapshot_interval: Duration,
     /// Blocks decoded in parallel while filling a gap after a reconnect.
     pub gap_concurrency: usize,
+    /// Cursor-to-head distance (blocks) past which the health loop warns
+    /// and, if the cursor also stops moving, exits for a restart.
+    pub lag_alert_blocks: u64,
 }
 
 impl SubstrateConfig {
@@ -91,6 +94,13 @@ impl SubstrateConfig {
             })?,
             Err(_) => 16,
         };
+        let lag_alert_blocks = match std::env::var("SUBSTRATE_LAG_ALERT_BLOCKS") {
+            Ok(v) => v.parse::<u64>().map_err(|e| ConfigError::Invalid {
+                name: "SUBSTRATE_LAG_ALERT_BLOCKS",
+                reason: format!("not a u64: {e}"),
+            })?,
+            Err(_) => 20,
+        };
         if gap_concurrency == 0 {
             return Err(ConfigError::Invalid {
                 name: "SUBSTRATE_GAP_CONCURRENCY",
@@ -107,6 +117,7 @@ impl SubstrateConfig {
             price_sweep_interval,
             supply_snapshot_interval,
             gap_concurrency,
+            lag_alert_blocks,
         })
     }
 }

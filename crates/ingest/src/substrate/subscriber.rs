@@ -16,7 +16,7 @@ use subxt::backend::rpc::RpcClient;
 use subxt::{OnlineClient, SubstrateConfig};
 use thiserror::Error;
 use tokio::time::sleep;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 /// Stable job name used as the `sm.indexer_state.job_name`.
 ///
@@ -321,6 +321,8 @@ async fn try_subscribe_once(
                     last_processed = Some(height.0);
                 }
 
+                // Freshness: wall clock minus the block's on-chain time.
+                let lag_ms = chrono::Utc::now().timestamp_millis() - stats.block_timestamp_ms;
                 if stats.has_any() {
                     info!(
                         height = height.0,
@@ -329,12 +331,14 @@ async fn try_subscribe_once(
                         transfers = stats.decoded_transfers,
                         bridges = stats.decoded_bridges,
                         fee_burns = stats.decoded_fee_burns,
+                        lag_ms,
                         "finalized block decoded"
                     );
                 } else {
-                    debug!(
+                    info!(
                         height = height.0,
                         events = stats.events,
+                        lag_ms,
                         "finalized block (no decoded events)"
                     );
                 }

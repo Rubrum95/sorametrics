@@ -120,9 +120,12 @@ async fn run_substrate() -> Result<()> {
     let conn_for_health = conn.clone();
     let cancel_health = cancel_rx.clone();
     let cfg_health = cfg.clone();
+    let db_for_health = db.clone();
     let healthcheck_handle = tokio::spawn(async move {
         run_health_loop(
             conn_for_health,
+            db_for_health,
+            cfg_health.lag_alert_blocks,
             cfg_health.healthcheck_interval,
             cfg_health.primary_probe_interval,
             cfg_health.connect_timeout,
@@ -188,6 +191,11 @@ async fn run_substrate() -> Result<()> {
             match outcome.context("healthcheck task panicked")? {
                 HealthOutcome::PrimaryRecovered { primary } => {
                     info!(primary = %primary, "primary recovered — exiting 0 for PM2 to restart on primary");
+                    let _ = cancel_tx.send(true);
+                    process::exit(0);
+                }
+                HealthOutcome::Stalled { cursor, head } => {
+                    warn!(cursor, head, "live cursor stalled behind the finalized head — exiting for PM2 to restart and gap-fill");
                     let _ = cancel_tx.send(true);
                     process::exit(0);
                 }

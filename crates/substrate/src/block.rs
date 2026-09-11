@@ -62,6 +62,9 @@ const XOR_ASSET_ID: &str = "0x02000000000000000000000000000000000000000000000000
 /// goes to zero.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BlockDecodeStats {
+    /// On-chain time of the block (`timestamp.set`), unix ms; lets the
+    /// caller report how far behind the chain it is.
+    pub block_timestamp_ms: i64,
     /// Total events seen in the block.
     pub events: u32,
     /// Number of `LiquidityProxy::Exchange` events successfully decoded.
@@ -574,6 +577,7 @@ pub async fn decode_block_events(
     stats.inserted_extrinsics = insert_extrinsics_batch(db, &extrinsic_rows).await? as u32;
 
     stats.events = events_seen;
+    stats.block_timestamp_ms = block_timestamp.0.timestamp_millis();
     Ok(stats)
 }
 

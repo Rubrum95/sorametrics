@@ -207,6 +207,56 @@ impl WsConnection {
     }
 }
 
+impl WsConnection {
+    /// Height of the finalized head (`chain_getFinalizedHead` +
+    /// `chain_getHeader`), for the lag monitor.
+    pub async fn finalized_number(&self) -> Result<u64, ConnectionError> {
+        let client = self.client_or_reconnect().await?;
+        let hash: String = match client
+            .request("chain_getFinalizedHead", rpc_params![])
+            .await
+        {
+            Ok(h) => h,
+            Err(e) => {
+                self.mark_dead().await;
+                return Err(ConnectionError::Rpc {
+                    method: "chain_getFinalizedHead".into(),
+                    source: e,
+                });
+            }
+        };
+        let header: HeaderNumber = match client.request("chain_getHeader", rpc_params![hash]).await
+        {
+            Ok(h) => h,
+            Err(e) => {
+                self.mark_dead().await;
+                return Err(ConnectionError::Rpc {
+                    method: "chain_getHeader".into(),
+                    source: e,
+                });
+            }
+        };
+        parse_hex_number(&header.number).ok_or_else(|| ConnectionError::Rpc {
+            method: "chain_getHeader".into(),
+            source: jsonrpsee::core::ClientError::Custom(format!(
+                "header number '{}' is not hex",
+                header.number
+            )),
+        })
+    }
+}
+
+/// The only field of `chain_getHeader` the lag monitor reads.
+#[derive(Debug, serde::Deserialize)]
+struct HeaderNumber {
+    number: String,
+}
+
+/// `0x1a4b…` → integer.
+pub fn parse_hex_number(raw: &str) -> Option<u64> {
+    u64::from_str_radix(raw.trim_start_matches("0x"), 16).ok()
+}
+
 /// Try connecting to endpoints starting at `start_index`, rotating forward.
 async fn try_each(
     endpoints: &[Url],
