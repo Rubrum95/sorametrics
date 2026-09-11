@@ -27,6 +27,8 @@ pub mod order_book;
 pub mod polkamarkt;
 pub mod price;
 pub mod runtime;
+#[cfg(test)]
+mod synthetic_tests;
 pub mod val_staking;
 
 pub use block::{decode_block_events, BlockDecodeStats, BlockProcessError};
