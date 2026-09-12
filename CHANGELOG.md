@@ -4,6 +4,16 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 
 ## Unreleased
 
+### 2026-09-12
+- ETL: `migrate-legacy --tables extrinsics` now carries the detail of every legacy extrinsic —
+  `args` from `public.history_element` (the row whose id is the tx hash, kept as the exact
+  `data::text` the Node serves) and `events` from `sm.extrinsic_events` (first 100 by
+  `event_index`, minus `System.ExtrinsicSuccess/Failed`, as `[{s,m,d}]`), resolved exactly as
+  the Node's `getExtrinsicDetail`; reconciliation compares per-bucket counts of rows with
+  args and with events. Verified field by field against production on six extrinsics from
+  2024 to 2026. Deviation: integers above 2^53 keep every digit (the Node rounds them through
+  a JS double).
+
 ### 2026-09-11
 - prices: events outside the live window with no hourly bucket are quoted at their own block
   (`liquidityProxy_quote` with the block hash) when an archive RPC is configured —

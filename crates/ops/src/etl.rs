@@ -37,6 +37,7 @@
 use anyhow::{bail, Context, Result};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
+use serde_json::Value as Json;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
@@ -903,9 +904,15 @@ const EXTRINSICS_FILTER: &str =
     "x.block IS NOT NULL AND x.extrinsic_index IS NOT NULL AND x.section IS NOT NULL AND x.method IS NOT NULL AND x.signer IS NOT NULL AND x.timestamp IS NOT NULL";
 
 /// Rows of `sm.mv_extrinsics` → `sm.extrinsics` (origin 'legacy').
-/// The MV's `extrinsic_index` is SYNTHETIC (ROW_NUMBER per block) and it
-/// carries no args/events; that is the legacy contract for that era and
-/// is copied verbatim. `hash` = `he.id` (the tx hash for CALL rows).
+/// The MV's `extrinsic_index` is SYNTHETIC (ROW_NUMBER per block) and
+/// carries no args/events; the Node resolves those on demand in
+/// `getExtrinsicDetail`, and this copy resolves them the same way:
+/// `args` = `public.history_element.data::text` of the row whose `id` is
+/// the hash (kept as a JSON string, the exact text the Node serves);
+/// `events` = the first 100 rows of `sm.extrinsic_events` for
+/// (block, index) by `event_index`, minus `System.ExtrinsicSuccess/
+/// Failed`, as `[{s, m, d}]` with `d` the compact JSON of `data`.
+/// No row / no event → NULL (the API serves `{}` / `null`).
 async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
     let sql = format!(
         r#"
@@ -957,17 +964,32 @@ async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result
             errors.push(r.try_get::<String, _>("error_msg")?);
             cursor = r.try_get::<String, _>("_row_id")?;
         }
+        let args_by_hash = legacy_args(source, &hashes).await?;
+        let events_by_key = legacy_events(source, &blocks, &idxs).await?;
+        let args: Vec<Option<String>> = hashes
+            .iter()
+            .map(|h| {
+                args_by_hash
+                    .get(h)
+                    .map(|a| Json::String(a.clone()).to_string())
+            })
+            .collect();
+        let events: Vec<Option<String>> = blocks
+            .iter()
+            .zip(&idxs)
+            .map(|(b, i)| events_by_key.get(&(*b, *i)).map(|e| e.to_string()))
+            .collect();
         sqlx::query!(
             r#"
             INSERT INTO sm.extrinsics (
                 block_height, extrinsic_index, block_timestamp, hash, section, method,
-                signer, success, error_msg, origin
+                signer, success, error_msg, args, events, origin
             )
-            SELECT b, i, t, h, s, m, sg, ok, e, 'legacy'
+            SELECT b, i, t, h, s, m, sg, ok, e, a::jsonb, ev::jsonb, 'legacy'
             FROM UNNEST(
                 $1::bigint[], $2::int[], $3::timestamptz[], $4::text[], $5::text[], $6::text[],
-                $7::text[], $8::bool[], $9::text[]
-            ) AS x(b, i, t, h, s, m, sg, ok, e)
+                $7::text[], $8::bool[], $9::text[], $10::text[], $11::text[]
+            ) AS x(b, i, t, h, s, m, sg, ok, e, a, ev)
             ON CONFLICT (block_height, extrinsic_index) DO NOTHING
             "#,
             &blocks,
@@ -979,6 +1001,8 @@ async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result
             &signers,
             &successes,
             &errors,
+            &args as &[Option<String>],
+            &events as &[Option<String>],
         )
         .execute(target)
         .await
@@ -989,6 +1013,103 @@ async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result
     }
     Ok(copied)
 }
+
+/// Node: `SELECT COALESCE(data::text, '{}') FROM history_element WHERE id = $1`.
+/// Only rows with data are returned; a missing row is served as `{}`.
+async fn legacy_args(source: &PgPool, hashes: &[String]) -> Result<HashMap<String, String>> {
+    let rows = sqlx::query(
+        "SELECT id, data::text AS args FROM public.history_element \
+         WHERE id = ANY($1) AND data IS NOT NULL",
+    )
+    .bind(hashes)
+    .fetch_all(source)
+    .await
+    .context("reading legacy history_element args")?;
+    rows.iter()
+        .map(|r| {
+            Ok((
+                r.try_get::<String, _>("id")?,
+                r.try_get::<String, _>("args")?,
+            ))
+        })
+        .collect()
+}
+
+/// Node: the first 100 `sm.extrinsic_events` rows of (block, index) by
+/// `event_index`, then `System.ExtrinsicSuccess/Failed` dropped, each as
+/// `{s, m, d}` with `d = JSON.stringify(data)` (null when no data).
+/// Keys with no event left are absent.
+async fn legacy_events(
+    source: &PgPool,
+    blocks: &[i64],
+    idxs: &[i32],
+) -> Result<HashMap<(i64, i32), Json>> {
+    let rows = sqlx::query(
+        "SELECT e.block_height::bigint AS b, e.extrinsic_index::int AS i, \
+                e.event_index::int AS n, e.section, e.method, e.data \
+         FROM sm.extrinsic_events e \
+         JOIN UNNEST($1::bigint[], $2::int[]) AS p(b, i) \
+           ON p.b = e.block_height AND p.i = e.extrinsic_index \
+         ORDER BY 1, 2, 3",
+    )
+    .bind(blocks)
+    .bind(idxs)
+    .fetch_all(source)
+    .await
+    .context("reading legacy extrinsic_events")?;
+    let mut events = Vec::with_capacity(rows.len());
+    for r in &rows {
+        events.push(LegacyEvent {
+            block: r.try_get("b")?,
+            index: r.try_get("i")?,
+            section: r.try_get("section")?,
+            method: r.try_get("method")?,
+            data: r.try_get("data")?,
+        });
+    }
+    Ok(shape_legacy_events(events))
+}
+
+/// One `sm.extrinsic_events` row, already ordered by (block, index, event_index).
+struct LegacyEvent {
+    block: i64,
+    index: i32,
+    section: String,
+    method: String,
+    data: Option<Json>,
+}
+
+/// The Node's shaping of `getExtrinsicDetail`: `LIMIT 100` per extrinsic
+/// first, then `System.ExtrinsicSuccess/Failed` dropped, `d` the compact
+/// JSON text of `data` (null without data). Integers keep every digit:
+/// the Node rounds anything above 2^53 through a JS double (a known,
+/// documented deviation).
+fn shape_legacy_events(rows: Vec<LegacyEvent>) -> HashMap<(i64, i32), Json> {
+    let mut seen: HashMap<(i64, i32), usize> = HashMap::new();
+    let mut out: HashMap<(i64, i32), Vec<Json>> = HashMap::new();
+    for ev in rows {
+        let key = (ev.block, ev.index);
+        let n = seen.entry(key).or_insert(0);
+        if *n >= LEGACY_EVENTS_LIMIT {
+            continue;
+        }
+        *n += 1;
+        if ev.section == "System"
+            && (ev.method == "ExtrinsicSuccess" || ev.method == "ExtrinsicFailed")
+        {
+            continue;
+        }
+        out.entry(key).or_default().push(serde_json::json!({
+            "s": ev.section,
+            "m": ev.method,
+            "d": ev.data.map(|d| d.to_string()),
+        }));
+    }
+    out.into_iter().map(|(k, v)| (k, Json::Array(v))).collect()
+}
+
+/// Node's `LIMIT 100` on the events query (applied before the filter).
+const LEGACY_EVENTS_LIMIT: usize = 100;
 
 /// Legacy `event_type` (call-based) → live vocabulary. `CancelBatch`
 /// is a batch of cancellations: one legacy row, `canceled`.
@@ -2180,7 +2301,35 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 .into_iter()
                 .map(|r| (r.bucket, r.cnt, r.checksum))
                 .collect();
+            // Detail: rows with events (cnt) and rows with args (checksum),
+            // resolved on the source the way the copy resolves them.
+            let src_detail = source_buckets(
+                source,
+                &format!(
+                    "SELECT (x.block / 100000)::bigint AS bucket, \
+                     COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM sm.extrinsic_events e \
+                        WHERE e.block_height = x.block AND e.extrinsic_index = x.extrinsic_index \
+                          AND NOT (e.section = 'System' AND e.method IN ('ExtrinsicSuccess','ExtrinsicFailed'))))::bigint AS cnt, \
+                     COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.history_element h \
+                        WHERE h.id = x.hash AND h.data IS NOT NULL))::numeric AS checksum \
+                     FROM sm.mv_extrinsics x WHERE {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
+                ),
+            )
+            .await?;
+            let dst_detail_rows = sqlx::query!(
+                r#"SELECT (block_height / 100000) AS "bucket!",
+                   COUNT(*) FILTER (WHERE events IS NOT NULL)::bigint AS "cnt!",
+                   COUNT(*) FILTER (WHERE args IS NOT NULL)::numeric AS "checksum!"
+                   FROM sm.extrinsics WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst_detail: Buckets = dst_detail_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
             compare_buckets(table, &src, &dst)
+                && compare_buckets("extrinsics(detail)", &src_detail, &dst_detail)
         }
         "liquidity" => {
             // Symbol-keyed source: no planck checksum is computable on the
@@ -2454,4 +2603,69 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
         info!(table, "reconcile OK");
     }
     Ok(ok)
+}
+
+#[cfg(test)]
+mod legacy_detail_tests {
+    use super::*;
+
+    fn ev(index: i32, section: &str, method: &str, data: Option<Json>) -> LegacyEvent {
+        LegacyEvent {
+            block: 20_000_000,
+            index,
+            section: section.to_string(),
+            method: method.to_string(),
+            data,
+        }
+    }
+
+    #[test]
+    fn drops_success_and_failed_and_keeps_shape() {
+        let rows = vec![
+            ev(
+                1,
+                "Tokens",
+                "Deposited",
+                Some(serde_json::json!({"amount": 2378450880699805283_u64})),
+            ),
+            ev(
+                1,
+                "System",
+                "ExtrinsicSuccess",
+                Some(serde_json::json!({"dispatch_info": {}})),
+            ),
+            ev(2, "System", "ExtrinsicFailed", None),
+        ];
+        let out = shape_legacy_events(rows);
+        let got = out.get(&(20_000_000, 1)).expect("index 1 kept");
+        assert_eq!(
+            got,
+            &serde_json::json!([{"s": "Tokens", "m": "Deposited", "d": "{\"amount\":2378450880699805283}"}])
+        );
+        assert!(
+            !out.contains_key(&(20_000_000, 2)),
+            "only a failed event → absent"
+        );
+    }
+
+    #[test]
+    fn data_null_gives_d_null() {
+        let out = shape_legacy_events(vec![ev(1, "Balances", "Withdraw", None)]);
+        assert_eq!(
+            out[&(20_000_000, 1)],
+            serde_json::json!([{"s": "Balances", "m": "Withdraw", "d": null}])
+        );
+    }
+
+    #[test]
+    fn limit_applies_before_the_filter() {
+        let mut rows: Vec<LegacyEvent> = (0..100)
+            .map(|_| ev(1, "Tokens", "Transfer", Some(serde_json::json!(1))))
+            .collect();
+        rows.push(ev(1, "System", "ExtrinsicSuccess", None));
+        rows.push(ev(1, "Tokens", "Transfer", Some(serde_json::json!(2))));
+        let out = shape_legacy_events(rows);
+        let kept = out[&(20_000_000, 1)].as_array().map(Vec::len);
+        assert_eq!(kept, Some(100), "101st and later rows are never read");
+    }
 }

@@ -112,6 +112,28 @@ that changed against the decoders in `crates/substrate/src/`.
 
 ## Loading history from the Node database (ETL)
 
+The legacy source must expose, besides the `sm.mv_*` views and the small tables, the two stores
+the Node reads on demand for the extrinsic detail page: `public.history_element` (call args,
+15.8 M rows, 14 GB) and `sm.extrinsic_events` (events, 234 M rows, 89 GB, dense from block
+~10 M). Without them the copied extrinsics have no args and no events. To move them to another
+host without a server-to-server credential and without a temp file on the full legacy disk,
+stream them in chunks of 100 000 blocks (400 MB of text, 35 MB gzipped each; the whole events
+table is about 9 GB on the wire):
+
+```bash
+# from a machine that can ssh to both hosts
+for from in $(seq 10000000 100000 25300000); do to=$((from+99999))
+  ssh legacy "docker exec sora_subsquid_db psql -U postgres -d squid -Atc \
+    \"COPY (SELECT block_height, extrinsic_index, event_index, section, method, data \
+           FROM sm.extrinsic_events WHERE block_height BETWEEN $from AND $to) TO STDOUT\" | gzip -1" \
+  | ssh new "gunzip | docker exec -i sorametrics-v33-postgres psql -U sorametrics -d legacy_copy -c \
+    'COPY sm.extrinsic_events (block_height, extrinsic_index, event_index, section, method, data) FROM STDIN'"
+done
+```
+
+Each chunk is idempotent to repeat after a failure (truncate that block range first). Then run
+the ETL on the new host with `LEGACY_DATABASE_URL` pointing at `legacy_copy`.
+
 ```bash
 LEGACY_DATABASE_URL=postgres://... sorametrics-ops migrate-legacy \
   --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
