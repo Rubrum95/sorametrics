@@ -47,7 +47,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 21] = [
+pub const ALL_TABLES: [&str; 22] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -69,6 +69,7 @@ pub const ALL_TABLES: [&str; 21] = [
     "polkamarkt_burns",
     "site_daily",
     "site_events",
+    "identity_cache",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -123,6 +124,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
             "news_episodes" => copy_news_episodes(&source, &target, opts.batch_size).await?,
             "site_daily" => copy_site_daily(&source, &target).await?,
+            "identity_cache" => copy_identity_cache(&source, &target).await?,
             "site_events" => copy_site_events(&source, &target, opts.batch_size).await?,
             "polkamarkt_markets" => copy_pm_markets(&source, &target, opts.batch_size).await?,
             "polkamarkt_trades" => copy_pm_trades(&source, &target, opts.batch_size).await?,
@@ -1114,6 +1116,44 @@ fn shape_legacy_events(rows: Vec<LegacyEvent>) -> HashMap<(i64, i32), Json> {
 
 /// Node's `LIMIT 100` on the events query (applied before the filter).
 const LEGACY_EVENTS_LIMIT: usize = 100;
+
+/// The Node's resolved identities (`sm.identity_cache`): small, copied
+/// whole each run; a fresher target row (`updated_at`) is kept.
+async fn copy_identity_cache(source: &PgPool, target: &PgPool) -> Result<u64> {
+    let rows = sqlx::query(
+        "SELECT address, display, email, web, twitter, discord, updated_at \
+         FROM sm.identity_cache ORDER BY address",
+    )
+    .fetch_all(source)
+    .await
+    .context("reading legacy identity_cache")?;
+    let mut copied = 0u64;
+    for r in &rows {
+        let res = sqlx::query!(
+            r#"
+            INSERT INTO sm.identity_cache (address, display, email, web, twitter, discord, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (address) DO UPDATE SET
+                display = EXCLUDED.display, email = EXCLUDED.email, web = EXCLUDED.web,
+                twitter = EXCLUDED.twitter, discord = EXCLUDED.discord, updated_at = EXCLUDED.updated_at
+            WHERE sm.identity_cache.updated_at < EXCLUDED.updated_at
+            "#,
+            r.try_get::<String, _>("address")?,
+            r.try_get::<Option<String>, _>("display")?,
+            r.try_get::<Option<String>, _>("email")?,
+            r.try_get::<Option<String>, _>("web")?,
+            r.try_get::<Option<String>, _>("twitter")?,
+            r.try_get::<Option<String>, _>("discord")?,
+            r.try_get::<i64, _>("updated_at")?,
+        )
+        .execute(target)
+        .await
+        .context("inserting identity_cache row")?;
+        copied += res.rows_affected();
+    }
+    info!(copied, source_rows = rows.len(), "identity_cache copied");
+    Ok(copied)
+}
 
 /// The Node's daily rollup (`sm.site_daily`): small, copied whole each
 /// run, `ON CONFLICT DO NOTHING` (the target rolls its own days up).
@@ -2606,6 +2646,34 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 );
             }
             ok_a && ok_b
+        }
+        "identity_cache" => {
+            // Every source address must exist in the target, with the same display.
+            let src: Vec<(String, Option<String>)> =
+                sqlx::query("SELECT address, display FROM sm.identity_cache ORDER BY address")
+                    .fetch_all(source)
+                    .await?
+                    .iter()
+                    .map(|r| Ok((r.try_get("address")?, r.try_get("display")?)))
+                    .collect::<Result<_, sqlx::Error>>()?;
+            let dst: HashMap<String, Option<String>> =
+                sqlx::query!(r#"SELECT address, display FROM sm.identity_cache"#)
+                    .fetch_all(target)
+                    .await?
+                    .into_iter()
+                    .map(|r| (r.address, r.display))
+                    .collect();
+            let bad: Vec<&String> = src
+                .iter()
+                .filter(|(a, d)| dst.get(a) != Some(d))
+                .map(|(a, _)| a)
+                .collect();
+            if bad.is_empty() {
+                true
+            } else {
+                warn!(table, missing = bad.len(), first = ?bad.first(), "RECONCILE FAIL: identities missing or different in target");
+                false
+            }
         }
         "site_daily" => {
             // Every source (day, section) must exist in the target with the same pageviews.

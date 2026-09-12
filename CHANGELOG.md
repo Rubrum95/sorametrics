@@ -5,6 +5,11 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-12
+- API: on-chain identities are cached in `sm.identity_cache` as in the Node (memory 1 h → table
+  24 h → chain in chunks of 50, written back; loaded into memory at boot); ETL copies the table.
+- API: any valid SS58 prefix is accepted in address parameters and re-encoded with the SORA
+  prefix (production answers foreign-prefix addresses; v33 returned 400).
+- deploy: `health-check-v33.sh` for the three PM2 processes (cron every 15 min).
 - API: the SPA files the Node served itself (`/` → `landing.html`, `/sorav2` → `index.html`,
   `/minamoto` → `minamoto.html`, the allow-listed root files, `/js/*.jsx`, `/js/minamoto/*.jsx`)
   are served from `STATIC_DIR` with the Node's allow-list, content types and `Cache-Control`;

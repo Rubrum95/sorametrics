@@ -11,7 +11,11 @@
 //!
 //! Each `Data` field is decoded from its SCALE encoding: variant index
 //! `1 + n` is `Raw<n>` (UTF-8 bytes), anything else (`None`, hashes) is
-//! `null`. Results are cached 1 h in-process (Node `IDENTITY_MEM_TTL`).
+//! `null`. Resolution order as the Node's `resolveIdentitiesBatch`:
+//! memory (1 h, `IDENTITY_MEM_TTL`) → `sm.identity_cache` (24 h,
+//! `IDENTITY_DB_TTL`) → chain, in chunks of 50; every chain answer is
+//! written back to the table. At boot the rows with a display name are
+//! loaded into memory (`getAllCachedIdentities`).
 
 use crate::{error::ApiError, AppState};
 use axum::{
@@ -19,6 +23,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sorametrics_core::chain::ss58_decode;
 use sorametrics_substrate::runtime::sora;
@@ -27,6 +32,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 use subxt::ext::codec::Encode;
 use subxt::utils::AccountId32;
+use tracing::{info, warn};
 
 /// Build the sub-router.
 pub fn router() -> Router<AppState> {
@@ -36,6 +42,10 @@ pub fn router() -> Router<AppState> {
 }
 
 const TTL: Duration = Duration::from_secs(3600);
+/// Node `IDENTITY_DB_TTL`: a table row younger than this skips the chain.
+const DB_TTL_MS: i64 = 86_400_000;
+/// Node: `identityOf.multi` in chunks of 50.
+const CHUNK: usize = 50;
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 struct Identity {
@@ -62,16 +72,76 @@ pub fn data_text(d: &Data) -> Option<String> {
     }
 }
 
-async fn resolve(state: &AppState, address: &str) -> Result<Identity, ApiError> {
-    let key = format!("identity:{address}");
-    if let Some(v) = state.cached_scan(&key, TTL).await {
-        return serde_json::from_value(v).map_err(|e| ApiError::Internal(e.to_string()));
+fn mem_key(address: &str) -> String {
+    format!("identity:{address}")
+}
+
+async fn remember(state: &AppState, address: &str, ident: &Identity) {
+    if let Ok(v) = serde_json::to_value(ident) {
+        state.store_scan(&mem_key(address), v).await;
     }
+}
+
+/// `sm.identity_cache` rows for `addresses`, with their age.
+async fn db_rows(
+    state: &AppState,
+    addresses: &[String],
+) -> Result<Vec<(String, Identity, i64)>, ApiError> {
+    let rows = sqlx::query!(
+        r#"SELECT address, display, email, web, twitter, discord, updated_at
+           FROM sm.identity_cache WHERE address = ANY($1::text[])"#,
+        addresses
+    )
+    .fetch_all(&state.db)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                r.address,
+                Identity {
+                    display: r.display,
+                    email: r.email,
+                    web: r.web,
+                    twitter: r.twitter,
+                    discord: r.discord,
+                },
+                r.updated_at,
+            )
+        })
+        .collect())
+}
+
+/// Node `upsertIdentityBatch`: one row per resolved account, `updated_at` = now (ms).
+async fn db_upsert(state: &AppState, batch: &[(String, Identity)]) -> Result<(), ApiError> {
+    let now = Utc::now().timestamp_millis();
+    for (address, id) in batch {
+        sqlx::query!(
+            r#"INSERT INTO sm.identity_cache (address, display, email, web, twitter, discord, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (address) DO UPDATE SET
+                   display = EXCLUDED.display, email = EXCLUDED.email, web = EXCLUDED.web,
+                   twitter = EXCLUDED.twitter, discord = EXCLUDED.discord, updated_at = EXCLUDED.updated_at"#,
+            address,
+            id.display,
+            id.email,
+            id.web,
+            id.twitter,
+            id.discord,
+            now
+        )
+        .execute(&state.db)
+        .await?;
+    }
+    Ok(())
+}
+
+async fn chain_lookup(state: &AppState, address: &str) -> Result<Identity, ApiError> {
     let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
     let (bytes, _) =
         ss58_decode(address).map_err(|_| ApiError::BadRequest("Invalid address format".into()))?;
     let account = AccountId32(bytes);
-    let ident = chain
+    Ok(chain
         .with_client(|client| async move {
             let reg = client
                 .storage()
@@ -88,25 +158,105 @@ async fn resolve(state: &AppState, address: &str) -> Result<Identity, ApiError> 
             }))
         })
         .await?
-        .unwrap_or_default();
-    let v = serde_json::to_value(&ident).map_err(|e| ApiError::Internal(e.to_string()))?;
-    state.store_scan(&key, v).await;
-    Ok(ident)
+        .unwrap_or_default())
+}
+
+/// Node `resolveIdentitiesBatch`: memory → table (24 h) → chain in
+/// chunks of 50, writing the chain answers back. Returns what is known
+/// for each address (lookup failures are left out).
+async fn resolve_many(state: &AppState, addresses: &[String]) -> BTreeMap<String, Identity> {
+    let mut out = BTreeMap::new();
+    let mut to_resolve = Vec::new();
+    for a in addresses {
+        match state.cached_scan(&mem_key(a), TTL).await {
+            Some(v) => {
+                if let Ok(id) = serde_json::from_value::<Identity>(v) {
+                    out.insert(a.clone(), id);
+                }
+            }
+            None => to_resolve.push(a.clone()),
+        }
+    }
+    if to_resolve.is_empty() {
+        return out;
+    }
+    let now = Utc::now().timestamp_millis();
+    let mut need_chain = to_resolve.clone();
+    match db_rows(state, &to_resolve).await {
+        Ok(rows) => {
+            for (address, id, updated_at) in rows {
+                if now - updated_at < DB_TTL_MS {
+                    remember(state, &address, &id).await;
+                    need_chain.retain(|a| a != &address);
+                    out.insert(address, id);
+                }
+            }
+        }
+        Err(e) => warn!(error = %e, "identity cache read failed; asking the chain"),
+    }
+    for chunk in need_chain.chunks(CHUNK) {
+        let looked_up =
+            futures::future::join_all(chunk.iter().map(|a| chain_lookup(state, a))).await;
+        let mut batch = Vec::new();
+        for (a, res) in chunk.iter().zip(looked_up) {
+            match res {
+                Ok(id) => {
+                    remember(state, a, &id).await;
+                    out.insert(a.clone(), id.clone());
+                    batch.push((a.clone(), id));
+                }
+                Err(e) => warn!(address = %a, error = %e, "identity chain lookup failed"),
+            }
+        }
+        if let Err(e) = db_upsert(state, &batch).await {
+            warn!(error = %e, "identity cache write failed");
+        }
+    }
+    out
+}
+
+async fn resolve(state: &AppState, address: &str) -> Result<Identity, ApiError> {
+    let mut m = resolve_many(state, std::slice::from_ref(&address.to_string())).await;
+    m.remove(address)
+        .ok_or_else(|| ApiError::Internal("identity lookup failed".into()))
+}
+
+/// Node boot: `getAllCachedIdentities` → memory (display only, as the Node).
+pub async fn warm_from_db(state: &AppState) {
+    match sqlx::query!(
+        r#"SELECT address, display AS "display!" FROM sm.identity_cache WHERE display IS NOT NULL"#
+    )
+    .fetch_all(&state.db)
+    .await
+    {
+        Ok(rows) => {
+            let n = rows.len();
+            for r in rows {
+                remember(
+                    state,
+                    &r.address,
+                    &Identity {
+                        display: Some(r.display),
+                        ..Default::default()
+                    },
+                )
+                .await;
+            }
+            info!(loaded = n, "identity cache warmed from sm.identity_cache");
+        }
+        Err(e) => warn!(error = %e, "identity cache warm failed"),
+    }
 }
 
 /// Display names for `addresses` (Node `attachIdentities`): only the
 /// accounts with a display are present. Lookup failures leave the
 /// address out, as the Node's cache miss did.
 pub async fn display_names(state: &AppState, addresses: &[String]) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
-    for a in addresses {
-        if let Ok(id) = resolve(state, a).await {
-            if let Some(d) = id.display {
-                out.insert(a.clone(), d);
-            }
-        }
-    }
-    out
+    resolve_many(state, addresses)
+        .await
+        .into_iter()
+        .filter_map(|(a, id)| id.display.map(|d| (a, d)))
+        .collect()
 }
 
 async fn identity(State(state): State<AppState>, Path(address): Path<String>) -> Json<Identity> {
@@ -140,16 +290,11 @@ async fn identities(
         .filter(|a| a.len() > 40 && !a.starts_with("0x"))
         .take(200)
         .collect();
-    let mut out = BTreeMap::new();
-    for addr in capped {
-        if let Ok(Identity {
-            display: Some(display),
-            ..
-        }) = resolve(&state, &addr).await
-        {
-            out.insert(addr, DisplayOnly { display });
-        }
-    }
+    let out = resolve_many(&state, &capped)
+        .await
+        .into_iter()
+        .filter_map(|(a, id)| id.display.map(|display| (a, DisplayOnly { display })))
+        .collect();
     Ok(Json(out))
 }
 

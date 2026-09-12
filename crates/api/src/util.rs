@@ -23,13 +23,14 @@ pub fn validate_address(raw: &str) -> Result<String, ApiError> {
         return Ok(ss58_encode_sora(&account));
     }
 
-    // SS58 form: checksum + prefix must both hold.
+    // SS58 form: the checksum must hold; any prefix is accepted and the
+    // key is re-encoded with the SORA prefix. The Node only checked the
+    // base58 shape and let polkadot-js decode whatever prefix came in,
+    // so production answers `/balance/<prefix-81 address>` with the
+    // account's balances; a foreign prefix must not be a 400 here.
     match ss58_decode(raw) {
         Ok((_, prefix)) if prefix == Ss58Prefix::SORA => Ok(raw.to_string()),
-        Ok((_, prefix)) => Err(ApiError::BadRequest(format!(
-            "address has SS58 prefix {} — expected SORA (69)",
-            prefix.raw()
-        ))),
+        Ok((bytes, _)) => Ok(ss58_encode_sora(&bytes)),
         Err(e) => Err(ApiError::BadRequest(format!(
             "address is neither 32-byte hex nor valid SORA SS58: {e}"
         ))),
@@ -90,17 +91,15 @@ mod tests {
     }
 
     #[test]
-    fn rejects_foreign_prefix() {
-        // Same pubkey, generic Substrate prefix 42 — decodes fine but is
-        // not a SORA address; must be rejected, not silently re-encoded.
-        let generic = {
-            use sorametrics_core::chain::{ss58_encode, Ss58Prefix};
-            let mut account = [0u8; 32];
-            hex::decode_to_slice(REAL_HEX, &mut account).unwrap();
-            ss58_encode(&account, Ss58Prefix::new(42).unwrap())
-        };
-        let err = validate_address(&generic).unwrap_err();
-        assert!(matches!(err, ApiError::BadRequest(_)));
+    fn normalises_a_foreign_prefix_to_sora() {
+        // Production serves this prefix-81 address (75k hits/day): same
+        // public key, re-encoded with prefix 69.
+        let foreign = "e75nAWoXBh2Rrq7pQzKnXKxDuTfzGUs7JZjfZQZAXtijHtMvE";
+        let (bytes, prefix) = ss58_decode(foreign).unwrap();
+        assert_ne!(prefix, Ss58Prefix::SORA);
+        let got = validate_address(foreign).unwrap();
+        assert_eq!(got, ss58_encode_sora(&bytes));
+        assert!(got.starts_with("cn"));
     }
 
     #[test]

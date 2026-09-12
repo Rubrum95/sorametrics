@@ -156,6 +156,10 @@ ROUTES = [
     # --- burns ---
     dict(path="/burns/supply/VAL", mode="full"),
     dict(path="/burns/stats/VAL", mode="structure"),
+    dict(path="/burns/stats/XOR", mode="full", volatile=[
+        "totalBurned", "totalBurnedUsd", "feeBased", "feeBasedUsd", "startSupply", "endSupply",
+        "startTime", "endTime", "currentSupply", "denomFactor",
+    ]),
     dict(path="/burns/series/XOR?days=3", mode="structure"),
     dict(path="/burns/fee-flow", mode="structure"),
     dict(path="/burns/supply-history/VAL?timeframe=7d", mode="structure"),
@@ -198,6 +202,8 @@ ROUTES = [
     dict(path="/analytics/advanced", mode="structure"),
     # --- second mount of the Minamoto router ---
     dict(path="/api/sorav2/xor-migration/cross-chain/stats", mode="full"),
+    # --- preimage decode (a real utility.batchAll preimage; full args compared) ---
+    dict(path="/governance/preimage/0xbff8e2eea8dc36f07f299cfa4a7248270ecf8837f63e0e20fab77ed8b0d0dfad/decode-pretty?len=614", mode="full"),
 ]
 
 

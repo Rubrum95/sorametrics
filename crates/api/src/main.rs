@@ -56,6 +56,7 @@ async fn main() -> Result<()> {
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
     sorametrics_api::routes::analytics::spawn(state.clone());
+    sorametrics_api::routes::identity::warm_from_db(&state).await;
     match sorametrics_api::routes::frontend::static_dir() {
         Some(dir) => info!(dir = %dir.display(), "frontend static files enabled"),
         None => info!("STATIC_DIR unset — the SPA files are not served by this API"),

@@ -24,6 +24,14 @@ heavy SORA routes; the architecture budgets are 80 MB for the ingest and 100 MB 
 
 ## Supervision
 
+`deploy/health-check-v33.sh` restarts a PM2 process that is not `online` and the API when
+`/health` does not answer, and reports stale tables from `/health/freshness` (no restart: the
+ingest already exits for a restart when its cursor stalls). Cron, as the Node's:
+
+```
+*/15 * * * * /root/sorametrics-v33/deploy/health-check-v33.sh >> /var/log/health-check-v33.log 2>&1
+```
+
 `deploy/ecosystem.v33.config.js` defines the three PM2 processes (`sorametrics-v33-api`,
 `sorametrics-v33-ingest-substrate`, `sorametrics-v33-ingest-iroha`) reading `.env` from the
 install directory. `deploy/nginx-v33.conf` routes `/v33/*` to the Rust API for the parallel
@@ -141,7 +149,7 @@ the ETL on the new host with `LEGACY_DATABASE_URL` pointing at `legacy_copy`.
 
 ```bash
 LEGACY_DATABASE_URL=postgres://... sorametrics-ops migrate-legacy \
-  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,site_daily,site_events,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
+  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,site_daily,site_events,identity_cache,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
 ```
 
 Read-only on the source. Resumable: the cursor per table lives in `sm.etl_state`. The run fails
