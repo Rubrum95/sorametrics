@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(AVG(duration_ms),0)::bigint AS \"a!\"\n           FROM sm.site_events WHERE type='session_end' AND ts >= now() - interval '30 days'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "a0a1abfabaae9735702decba8b05939bbcc998aa3fac4af3d8967a8a74090289"
+}

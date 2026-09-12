@@ -36,7 +36,7 @@
 
 use anyhow::{bail, Context, Result};
 use bigdecimal::BigDecimal;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde_json::Value as Json;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
@@ -47,7 +47,7 @@ use tracing::{info, warn};
 /// All known ETL tables, in dependency order (asset_registry first: the
 /// planck conversions of the event tables JOIN it on the SOURCE side,
 /// so order only matters for operator sanity, not correctness).
-pub const ALL_TABLES: [&str; 19] = [
+pub const ALL_TABLES: [&str; 21] = [
     "asset_registry",
     "swaps",
     "transfers",
@@ -67,6 +67,8 @@ pub const ALL_TABLES: [&str; 19] = [
     "polkamarkt_claims",
     "polkamarkt_buybacks",
     "polkamarkt_burns",
+    "site_daily",
+    "site_events",
 ];
 
 /// Options for one `migrate-legacy` run.
@@ -120,6 +122,8 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
             "supply_snapshots" => copy_supply_snapshots(&source, &target, opts.batch_size).await?,
             "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
             "news_episodes" => copy_news_episodes(&source, &target, opts.batch_size).await?,
+            "site_daily" => copy_site_daily(&source, &target).await?,
+            "site_events" => copy_site_events(&source, &target, opts.batch_size).await?,
             "polkamarkt_markets" => copy_pm_markets(&source, &target, opts.batch_size).await?,
             "polkamarkt_trades" => copy_pm_trades(&source, &target, opts.batch_size).await?,
             "polkamarkt_claims" => copy_pm_claims(&source, &target, opts.batch_size).await?,
@@ -1110,6 +1114,125 @@ fn shape_legacy_events(rows: Vec<LegacyEvent>) -> HashMap<(i64, i32), Json> {
 
 /// Node's `LIMIT 100` on the events query (applied before the filter).
 const LEGACY_EVENTS_LIMIT: usize = 100;
+
+/// The Node's daily rollup (`sm.site_daily`): small, copied whole each
+/// run, `ON CONFLICT DO NOTHING` (the target rolls its own days up).
+async fn copy_site_daily(source: &PgPool, target: &PgPool) -> Result<u64> {
+    let rows = sqlx::query(
+        "SELECT day, section, pageviews, section_views, sessions, uniques, avg_session_ms \
+         FROM sm.site_daily ORDER BY day, section",
+    )
+    .fetch_all(source)
+    .await
+    .context("reading legacy site_daily")?;
+    let mut copied = 0u64;
+    for r in &rows {
+        let res = sqlx::query!(
+            r#"
+            INSERT INTO sm.site_daily (day, section, pageviews, section_views, sessions, uniques, avg_session_ms)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (day, section) DO NOTHING
+            "#,
+            r.try_get::<NaiveDate, _>("day")?,
+            r.try_get::<String, _>("section")?,
+            r.try_get::<i64, _>("pageviews")?,
+            r.try_get::<i64, _>("section_views")?,
+            r.try_get::<i64, _>("sessions")?,
+            r.try_get::<i64, _>("uniques")?,
+            r.try_get::<i64, _>("avg_session_ms")?,
+        )
+        .execute(target)
+        .await
+        .context("inserting site_daily row")?;
+        copied += res.rows_affected();
+    }
+    info!(copied, source_rows = rows.len(), "site_daily copied");
+    Ok(copied)
+}
+
+/// Raw beacons (`sm.site_events`, the Node keeps 30 days): copied by
+/// `id` cursor as `origin = 'legacy'`, so a final run at cutover picks
+/// up only the rows added since the previous one.
+async fn copy_site_events(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+    let sql = r#"
+        SELECT id, ts, type, section, visitor, session_id, path, referrer, country, device,
+               duration_ms, meta::text AS meta
+        FROM sm.site_events
+        WHERE id > $1
+        ORDER BY id
+        LIMIT $2
+        "#;
+    let mut copied = 0u64;
+    let mut cursor: i64 = get_cursor(target, "site_events")
+        .await?
+        .and_then(|c| c.parse().ok())
+        .unwrap_or(0);
+    loop {
+        let rows = sqlx::query(sql)
+            .bind(cursor)
+            .bind(batch)
+            .fetch_all(source)
+            .await
+            .context("reading legacy site_events batch")?;
+        if rows.is_empty() {
+            break;
+        }
+        let n = rows.len();
+        let mut tss = Vec::with_capacity(n);
+        let mut kinds = Vec::with_capacity(n);
+        let mut sections = Vec::with_capacity(n);
+        let mut visitors = Vec::with_capacity(n);
+        let mut sessions = Vec::with_capacity(n);
+        let mut paths = Vec::with_capacity(n);
+        let mut referrers = Vec::with_capacity(n);
+        let mut countries = Vec::with_capacity(n);
+        let mut devices = Vec::with_capacity(n);
+        let mut durations = Vec::with_capacity(n);
+        let mut metas = Vec::with_capacity(n);
+        for r in &rows {
+            cursor = r.try_get::<i64, _>("id")?;
+            tss.push(r.try_get::<DateTime<Utc>, _>("ts")?);
+            kinds.push(r.try_get::<String, _>("type")?);
+            sections.push(r.try_get::<Option<String>, _>("section")?);
+            visitors.push(r.try_get::<Option<String>, _>("visitor")?);
+            sessions.push(r.try_get::<Option<String>, _>("session_id")?);
+            paths.push(r.try_get::<Option<String>, _>("path")?);
+            referrers.push(r.try_get::<Option<String>, _>("referrer")?);
+            countries.push(r.try_get::<Option<String>, _>("country")?);
+            devices.push(r.try_get::<Option<String>, _>("device")?);
+            durations.push(r.try_get::<Option<i64>, _>("duration_ms")?);
+            metas.push(r.try_get::<Option<String>, _>("meta")?);
+        }
+        sqlx::query!(
+            r#"
+            INSERT INTO sm.site_events
+                (ts, type, section, visitor, session_id, path, referrer, country, device, duration_ms, meta, origin)
+            SELECT t, k, s, v, sid, p, r, c, d, dur, m::jsonb, 'legacy'
+            FROM UNNEST($1::timestamptz[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[],
+                        $7::text[], $8::text[], $9::text[], $10::bigint[], $11::text[])
+                 AS x(t, k, s, v, sid, p, r, c, d, dur, m)
+            "#,
+            &tss,
+            &kinds,
+            &sections as &[Option<String>],
+            &visitors as &[Option<String>],
+            &sessions as &[Option<String>],
+            &paths as &[Option<String>],
+            &referrers as &[Option<String>],
+            &countries as &[Option<String>],
+            &devices as &[Option<String>],
+            &durations as &[Option<i64>],
+            &metas as &[Option<String>],
+        )
+        .execute(target)
+        .await
+        .context("inserting site_events batch")?;
+        copied += n as u64;
+        set_cursor(target, "site_events", &cursor.to_string(), n as i64).await?;
+        info!(copied, cursor, "site_events progress");
+    }
+    Ok(copied)
+}
 
 /// Legacy `event_type` (call-based) → live vocabulary. `CancelBatch`
 /// is a batch of cancellations: one legacy row, `canceled`.
@@ -2483,6 +2606,51 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 );
             }
             ok_a && ok_b
+        }
+        "site_daily" => {
+            // Every source (day, section) must exist in the target with the same pageviews.
+            let src = source_buckets(
+                source,
+                "SELECT EXTRACT(EPOCH FROM day)::bigint / 86400 AS bucket, COUNT(*)::bigint AS cnt, \
+                 COALESCE(SUM(pageviews), 0)::numeric AS checksum FROM sm.site_daily GROUP BY 1 ORDER BY 1",
+            )
+            .await?;
+            let dst_rows = sqlx::query!(
+                r#"SELECT (EXTRACT(EPOCH FROM day)::bigint / 86400) AS "bucket!", COUNT(*)::bigint AS "cnt!",
+                   COALESCE(SUM(pageviews), 0)::numeric AS "checksum!" FROM sm.site_daily GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst: Buckets = dst_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            compare_buckets(table, &src, &dst)
+        }
+        "site_events" => {
+            // Per UTC day, rows and the sum of ids' parity-free checksum
+            // (count of pageviews) for days strictly before today: the
+            // Node keeps writing today's rows during the parallel run.
+            let src = source_buckets(
+                source,
+                "SELECT EXTRACT(EPOCH FROM (ts AT TIME ZONE 'UTC')::date)::bigint / 86400 AS bucket, \
+                 COUNT(*)::bigint AS cnt, COUNT(*) FILTER (WHERE type = 'pageview')::numeric AS checksum \
+                 FROM sm.site_events WHERE ts < date_trunc('day', now()) GROUP BY 1 ORDER BY 1",
+            )
+            .await?;
+            let dst_rows = sqlx::query!(
+                r#"SELECT (EXTRACT(EPOCH FROM (ts AT TIME ZONE 'UTC')::date)::bigint / 86400) AS "bucket!",
+                   COUNT(*)::bigint AS "cnt!", COUNT(*) FILTER (WHERE type = 'pageview')::numeric AS "checksum!"
+                   FROM sm.site_events WHERE origin = 'legacy' AND ts < date_trunc('day', now())
+                   GROUP BY 1 ORDER BY 1"#
+            )
+            .fetch_all(target)
+            .await?;
+            let dst: Buckets = dst_rows
+                .into_iter()
+                .map(|r| (r.bucket, r.cnt, r.checksum))
+                .collect();
+            compare_buckets(table, &src, &dst)
         }
         "news_episodes" => {
             // Small table: exact slug set comparison.

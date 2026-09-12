@@ -28,10 +28,12 @@ pub mod util;
 
 pub use state::AppState;
 
-use axum::http::StatusCode;
+use axum::http::{header, HeaderName, HeaderValue, StatusCode};
 use axum::Router;
 use std::time::Duration;
+use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
 
@@ -48,6 +50,26 @@ pub fn build_router_with_socket(state: AppState) -> (Router, socketioxide::Socke
 }
 
 /// Build the full router for the API service.
+/// helmet's headers as the Node serves them (HSTS disabled: Cloudflare
+/// terminates TLS).
+const SECURITY_HEADERS: &[(&str, &str)] = &[
+    ("cross-origin-opener-policy", "same-origin"),
+    ("cross-origin-resource-policy", "same-origin"),
+    ("origin-agent-cluster", "?1"),
+    ("referrer-policy", "no-referrer"),
+    ("x-content-type-options", "nosniff"),
+    ("x-dns-prefetch-control", "off"),
+    ("x-download-options", "noopen"),
+    ("x-frame-options", "SAMEORIGIN"),
+    ("x-permitted-cross-domain-policies", "none"),
+    ("x-xss-protection", "0"),
+];
+
+/// The Node's Content-Security-Policy, byte for byte.
+const CSP: &str = "default-src 'self';script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;script-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https://raw.githubusercontent.com https://avatars.githubusercontent.com https://www.googletagmanager.com https://www.google-analytics.com;connect-src 'self' wss: ws: https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://unpkg.com https://cdn.socket.io https://cdn.jsdelivr.net;font-src 'self' https://fonts.gstatic.com data:;script-src-attr 'unsafe-inline';base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none'";
+
+/// The full HTTP router: routes, rate limiting, compression, security
+/// headers and the static media mounts.
 pub fn build_router(state: AppState) -> Router {
     // Hard request timeouts (504 instead of holding a request open
     // forever): 30 s for everything, 120 s for the full-storage scans.
@@ -64,7 +86,20 @@ pub fn build_router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             rate_limit::RateLimiter::default(),
             rate_limit::middleware,
+        ))
+        // The Node's `compression()` (br / gzip / deflate by Accept-Encoding).
+        .layer(CompressionLayer::new());
+    // The Node's `helmet` (hsts off; CSP exactly as production sends it).
+    for (name, value) in SECURITY_HEADERS {
+        app = app.layer(SetResponseHeaderLayer::if_not_present(
+            HeaderName::from_static(name),
+            HeaderValue::from_static(value),
         ));
+    }
+    app = app.layer(SetResponseHeaderLayer::if_not_present(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(CSP),
+    ));
     // Static media as the Node's `express.static`: the radio tracks and
     // the news covers / audio, when their directories are configured.
     if let Some(dir) = routes::media::music_dir() {

@@ -38,7 +38,10 @@ pub fn router() -> Router<AppState> {
         .merge(chain::router())
         .merge(telemetry::router())
         .merge(cross_chain::router());
-    Router::new().nest("/api/minamoto", inner)
+    // The Node mounts the same router twice (`app.use` for both prefixes).
+    Router::new()
+        .nest("/api/minamoto", inner.clone())
+        .nest("/api/sorav2/xor-migration", inner)
 }
 
 /// `?page&per_page` as the Node's `clampPage`.

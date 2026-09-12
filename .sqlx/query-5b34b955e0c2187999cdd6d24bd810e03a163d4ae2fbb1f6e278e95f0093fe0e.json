@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS \"c!\" FROM sm.site_events WHERE type='error' AND ts >= now() - interval '7 days'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5b34b955e0c2187999cdd6d24bd810e03a163d4ae2fbb1f6e278e95f0093fe0e"
+}

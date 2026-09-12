@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT prev || ' → ' || section AS \"transition!\", COUNT(*) AS \"c!\"\n           FROM (SELECT section, LAG(section) OVER (PARTITION BY session_id ORDER BY ts) prev\n                 FROM sm.site_events\n                 WHERE type='section' AND section IS NOT NULL AND session_id IS NOT NULL\n                   AND ts >= now() - interval '30 days') x\n           WHERE prev IS NOT NULL AND prev <> section\n           GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "transition!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5c358a276d7d841a183495659feb05a99bb11196c8b8143464ecb8b2c599c4d1"
+}

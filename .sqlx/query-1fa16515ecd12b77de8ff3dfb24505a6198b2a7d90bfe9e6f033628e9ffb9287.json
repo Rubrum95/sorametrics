@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.site_daily (day, section, pageviews, section_views, sessions, uniques, avg_session_ms)\n        SELECT\n            (ts AT TIME ZONE 'UTC')::date,\n            '',\n            COUNT(*) FILTER (WHERE type='pageview'),\n            COUNT(*) FILTER (WHERE type='section'),\n            COUNT(DISTINCT session_id),\n            COUNT(DISTINCT visitor),\n            COALESCE(AVG(duration_ms) FILTER (WHERE type='session_end'), 0)::bigint\n        FROM sm.site_events\n        WHERE ts < date_trunc('day', now())\n        GROUP BY 1\n        ON CONFLICT (day, section) DO UPDATE SET\n            pageviews=EXCLUDED.pageviews, section_views=EXCLUDED.section_views,\n            sessions=EXCLUDED.sessions, uniques=EXCLUDED.uniques, avg_session_ms=EXCLUDED.avg_session_ms\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1fa16515ecd12b77de8ff3dfb24505a6198b2a7d90bfe9e6f033628e9ffb9287"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sm.site_events\n                (ts, type, section, visitor, session_id, path, referrer, country, device, duration_ms, meta, origin)\n            SELECT t, k, s, v, sid, p, r, c, d, dur, m::jsonb, 'legacy'\n            FROM UNNEST($1::timestamptz[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[],\n                        $7::text[], $8::text[], $9::text[], $10::bigint[], $11::text[])\n                 AS x(t, k, s, v, sid, p, r, c, d, dur, m)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TimestamptzArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "db86ca222da171d0483ac93a196f9a20fc9f2d2ff008f4e2e90a764838ae3ce1"
+}

@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COALESCE(device,'unknown') AS \"d!\", COUNT(*) AS \"c!\" FROM sm.site_events\n           WHERE type='pageview' AND ts >= now() - interval '30 days' GROUP BY 1 ORDER BY 2 DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "d!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "ab7812b7ebd107b7555281b00502f9277b25c7c494c3756c14194481f091e740"
+}

@@ -5,6 +5,18 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-12
+- API: the SPA files the Node served itself (`/` → `landing.html`, `/sorav2` → `index.html`,
+  `/minamoto` → `minamoto.html`, the allow-listed root files, `/js/*.jsx`, `/js/minamoto/*.jsx`)
+  are served from `STATIC_DIR` with the Node's allow-list, content types and `Cache-Control`;
+  nothing else under the directory is reachable.
+- API: site analytics ported from the Node (`POST /analytics/hit`, `GET /analytics/stats`,
+  `GET /analytics/advanced`; `sm.site_events` / `sm.site_daily`; presence, 5 s batched flush,
+  6-hourly rollup and pruning; visitor id = daily-salted hash, no IP stored). ETL copies both
+  tables (`site_daily`, `site_events`) with reconciliation.
+- API: `/api/sorav2/xor-migration/*` mounted as the second copy of the Minamoto router, with the
+  same rate limits.
+- API: response compression (br / gzip / deflate) and the Node's `helmet` headers, CSP byte for
+  byte.
 - ETL: `migrate-legacy --tables extrinsics` now carries the detail of every legacy extrinsic —
   `args` from `public.history_element` (the row whose id is the tx hash, kept as the exact
   `data::text` the Node serves) and `events` from `sm.extrinsic_events` (first 100 by

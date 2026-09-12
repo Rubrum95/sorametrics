@@ -55,6 +55,11 @@ async fn main() -> Result<()> {
     state.spawn_registry_refresh();
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
+    sorametrics_api::routes::analytics::spawn(state.clone());
+    match sorametrics_api::routes::frontend::static_dir() {
+        Some(dir) => info!(dir = %dir.display(), "frontend static files enabled"),
+        None => info!("STATIC_DIR unset — the SPA files are not served by this API"),
+    }
     let (app, io) = build_router_with_socket(state.clone());
     sorametrics_api::realtime::spawn(state, io);
 

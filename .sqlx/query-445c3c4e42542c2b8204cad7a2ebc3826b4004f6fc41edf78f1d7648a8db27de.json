@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT meta->>'addr' AS \"addr!\", COUNT(*) AS \"c!\" FROM sm.site_events\n           WHERE type='interaction' AND meta->>'name'='wallet_view' AND meta->>'addr' IS NOT NULL\n             AND ts >= now() - interval '30 days'\n           GROUP BY 1 ORDER BY 2 DESC LIMIT 12",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "addr!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "445c3c4e42542c2b8204cad7a2ebc3826b4004f6fc41edf78f1d7648a8db27de"
+}

@@ -8,6 +8,7 @@
 use crate::AppState;
 use axum::Router;
 
+pub mod analytics;
 pub mod burns;
 pub mod chain_state;
 pub mod explorer;
@@ -15,6 +16,7 @@ pub mod export;
 pub mod extrinsics;
 pub mod fee_config;
 pub mod freshness;
+pub mod frontend;
 pub mod governance;
 pub mod health;
 pub mod history;
@@ -60,6 +62,8 @@ pub fn build(state: AppState) -> Router {
         .merge(explorer::router())
         .merge(burns::router())
         .merge(minamoto::router())
+        .merge(analytics::router())
+        .merge(frontend::router())
         .with_state(state)
 }
 

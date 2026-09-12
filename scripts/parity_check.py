@@ -185,6 +185,19 @@ ROUTES = [
     dict(path="/news/episodes?limit=1", mode="structure"),
     dict(path="/mof/qty/xor", mode="structure", raw=True),
     dict(path="/proxy-image?url=https://example.com/x.png", mode="full", raw=True),
+    # --- frontend files the Node serves itself (STATIC_DIR) ---
+    dict(path="/", mode="full", raw=True),
+    dict(path="/sorav2", mode="full", raw=True),
+    dict(path="/minamoto", mode="full", raw=True),
+    dict(path="/styles.css", mode="full", raw=True),
+    dict(path="/manifest.json", mode="full", raw=True),
+    dict(path="/js/common.jsx", mode="full", raw=True),
+    dict(path="/js/minamoto/main.jsx", mode="full", raw=True),
+    # --- site analytics ---
+    dict(path="/analytics/stats", mode="structure"),
+    dict(path="/analytics/advanced", mode="structure"),
+    # --- second mount of the Minamoto router ---
+    dict(path="/api/sorav2/xor-migration/cross-chain/stats", mode="full"),
 ]
 
 

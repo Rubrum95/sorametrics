@@ -6,7 +6,7 @@
 |---------|---------|-------|
 | SORA v2 indexer | `sorametrics-ingest --source substrate` | Applies migrations at start, resumes from `sm.indexer_state.substrate_live`, fills any gap before following the finalized stream. |
 | Minamoto indexer | `sorametrics-ingest --source iroha` | Polls Torii; every job run is recorded in `mn.indexer_state` (`/api/minamoto/indexer/state`). |
-| API | `sorametrics-api` | Stateless. Socket.IO on `/socket.io/*`. Needs `WS_ENDPOINTS` for chain-backed routes and `MINAMOTO_TORII` for `/api/minamoto/*` passthroughs. |
+| API | `sorametrics-api` | Stateless. Socket.IO on `/socket.io/*`. Needs `WS_ENDPOINTS` for chain-backed routes, `MINAMOTO_TORII` for `/api/minamoto/*` passthroughs, `STATIC_DIR` for the SPA files (`landing.html`, `index.html`, `minamoto.html`, `styles.css`, `sw.js`, `manifest.json`, `favicon.svg`, `header-banner.jpg`, `js/*.jsx`, `js/minamoto/*.jsx` — only those are served), `MUSIC_DIR` / `NEWS_DIR` for the media. Site analytics (`/analytics/*`) run in-process: `ANALYTICS_SALT`, `ANALYTICS_RAW_RETENTION_DAYS`. Compression and the security headers (CSP) are set by the API itself, as the Node did. |
 
 Run them as separate supervised processes (PM2 or systemd) with the environment from
 `.env.example`. Logs are `tracing` lines on stdout; set `RUST_LOG` per target.
@@ -49,6 +49,11 @@ head). For a manual range:
 ```bash
 sorametrics-ops backfill --from 27500000 --to 27510000 --concurrency 8 --rpc wss://mof2.sora.org
 ```
+
+For the cutover the chain-first era starts where the Node's `mv_extrinsics` ends, **block
+25 278 042**, not 25.8 M: the range 25.28 M–25.8 M spans runtime specs 119–129, so run it with
+`--era-metadata` (and `--price-rpc` for USD values). That also covers the preimage events the
+Node indexed in its SQLite (from block 25 610 792) and every cross-chain burn (from 25 868 450).
 
 Idempotent: rows are UPSERTs keyed by `(block_height, extrinsic_id, event_id)`; the live cursor is
 not moved. Throughput is bound by the RPC round trip (about five sequential calls per block) and
@@ -136,7 +141,7 @@ the ETL on the new host with `LEGACY_DATABASE_URL` pointing at `legacy_copy`.
 
 ```bash
 LEGACY_DATABASE_URL=postgres://... sorametrics-ops migrate-legacy \
-  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
+  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,site_daily,site_events,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
 ```
 
 Read-only on the source. Resumable: the cursor per table lives in `sm.etl_state`. The run fails

@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT section AS \"section!\", COUNT(*) AS \"views!\", COUNT(DISTINCT visitor) AS \"uniques!\"\n           FROM sm.site_events\n           WHERE type='section' AND section IS NOT NULL AND ts >= now() - interval '30 days'\n           GROUP BY section ORDER BY 2 DESC LIMIT 30",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "section!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "views!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "uniques!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      null,
+      null
+    ]
+  },
+  "hash": "e68f225eddad46edac93e0f5e022a80d8219105644c0c994338f2e4eaa5bd63d"
+}

@@ -30,6 +30,10 @@ const SWEEP_EVERY: Duration = Duration::from_secs(60);
 /// `(route pattern with parameters as `:p`, requests per window)` — the
 /// Node's table (`index.js` + `minamoto/routes.js`).
 const LIMITS: &[(&str, u32)] = &[
+    ("/", 60),
+    ("/sorav2", 60),
+    ("/minamoto", 60),
+    ("/favicon.svg", 60),
     ("/api/version", 30),
     ("/health", 30),
     ("/health/rpc-source", 60),
@@ -156,6 +160,12 @@ pub fn normalize(pattern: &str) -> String {
 /// Requests per window for an axum route pattern; `None` = unlimited.
 pub fn limit_for(pattern: &str) -> Option<u32> {
     let key = normalize(pattern);
+    // `/api/sorav2/xor-migration` is the Node's second mount of the
+    // Minamoto router: same per-route limits.
+    let key = match key.strip_prefix("/api/sorav2/xor-migration") {
+        Some(rest) => format!("/api/minamoto{rest}"),
+        None => key,
+    };
     LIMITS.iter().find(|(p, _)| *p == key).map(|(_, max)| *max)
 }
 

@@ -134,6 +134,8 @@ pub struct AppState {
     pub scan_cache: Arc<Mutex<HashMap<String, CachedScan>>>,
     /// Scan keys currently being refreshed in the background.
     pub scans_in_flight: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// Site analytics queue, presence and caches (`/analytics/*`).
+    pub analytics: Arc<crate::routes::analytics::Analytics>,
 }
 
 /// One cached scan result with its expiry.
@@ -190,6 +192,7 @@ impl AppState {
             started_at: std::time::Instant::now(),
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            analytics: Arc::new(crate::routes::analytics::Analytics::from_env()),
         }
     }
 
@@ -219,6 +222,7 @@ impl AppState {
             started_at: std::time::Instant::now(),
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            analytics: Arc::new(crate::routes::analytics::Analytics::from_env()),
         })
     }
 
