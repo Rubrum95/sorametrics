@@ -793,6 +793,7 @@ async fn holders(
     let (asset_id, _) =
         token(&symbol).ok_or_else(|| ApiError::BadRequest("Asset ID not resolved".into()))?;
     let page = q.page.unwrap_or(1).max(1);
+    state.note_hot_holder(asset_id).await;
     let key = format!("holders:{asset_id}");
     let id = asset_id.to_string();
     let list: Vec<Holder> = cached_or_scan(&state, &key, HOLDERS_TTL, move |st| async move {

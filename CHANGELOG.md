@@ -5,6 +5,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-12
+- API: `/holders` pre-warm — every `HOLDERS_PREWARM_SECS` (240 s, under the 5 min cache) one chain
+  walk refreshes the scans of every asset requested in the last 6 h (at most 20), so the request
+  path only hits the cache. `0` disables it.
 - chain clients: storage maps are walked in pages of 1000 keys (subxt's default of 64 made the
   58k-entry `tokens.accounts` scan behind `/holders` cost ~1 800 round trips instead of ~120).
 - API: on-chain identities are cached in `sm.identity_cache` as in the Node (memory 1 h → table

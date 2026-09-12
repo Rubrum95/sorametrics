@@ -56,6 +56,7 @@ async fn main() -> Result<()> {
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
     sorametrics_api::routes::analytics::spawn(state.clone());
+    sorametrics_api::routes::chain_state::spawn_prewarm(state.clone());
     sorametrics_api::routes::identity::warm_from_db(&state).await;
     match sorametrics_api::routes::frontend::static_dir() {
         Some(dir) => info!(dir = %dir.display(), "frontend static files enabled"),

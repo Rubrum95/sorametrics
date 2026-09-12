@@ -31,7 +31,7 @@ use sorametrics_core::chain::ss58_encode_sora;
 use sorametrics_db::sm::RegistryAsset;
 use sorametrics_db::ts::latest_prices;
 use sorametrics_substrate::runtime::sora;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 /// Build the sub-router.
@@ -349,30 +349,54 @@ fn holder(account: &[u8; 32], amount: BigDecimal) -> Holder {
 /// Full chain scan of the holders of `asset_id`, sorted by balance desc
 /// (Node `refreshHoldersInBackground`).
 pub async fn scan_holders(state: &AppState, asset_id: &str) -> Result<Vec<Holder>, ApiError> {
+    let mut by_asset = walk_holders(state, &[asset_id.to_string()]).await?;
+    Ok(by_asset.remove(asset_id).unwrap_or_default())
+}
+
+/// One walk of the chain for every asset in `assets`: `system.account`
+/// (XOR, free > 1) when XOR is asked for, `tokens.accounts` (free > 0.1)
+/// once for all the others — the walk is the cost, not the filter.
+/// Each list is sorted by balance desc.
+pub async fn walk_holders(
+    state: &AppState,
+    assets: &[String],
+) -> Result<HashMap<String, Vec<Holder>>, ApiError> {
     let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
-    let decimals = {
+    let want_xor = assets.iter().any(|a| a == XOR_ASSET_ID);
+    let want_tokens: HashSet<String> = assets
+        .iter()
+        .filter(|a| a.as_str() != XOR_ASSET_ID)
+        .cloned()
+        .collect();
+    let decimals: HashMap<String, u32> = {
         let registry: tokio::sync::RwLockReadGuard<'_, Registry> = state.registry.read().await;
-        decimals_for(&registry, asset_id)
+        want_tokens
+            .iter()
+            .map(|a| (a.clone(), decimals_for(&registry, a)))
+            .collect()
     };
-    let want = asset_id.to_string();
-    let is_xor = asset_id == XOR_ASSET_ID;
-    let mut list: Vec<Holder> = chain
+    let mut out: HashMap<String, Vec<Holder>> = chain
         .with_client(|client| async move {
             let at = client.storage().at_latest().await?;
-            let mut out = Vec::new();
-            if is_xor {
+            let mut out: HashMap<String, Vec<Holder>> = HashMap::new();
+            if want_xor {
                 let mut stream = at.iter(sora::storage().system().account_iter()).await?;
                 let one = BigDecimal::from(1);
+                let list = out.entry(XOR_ASSET_ID.to_string()).or_default();
                 while let Some(kv) = stream.next().await {
                     let kv = kv?;
                     let amount = human(kv.value.data.free, 18);
                     if amount > one {
                         let n = kv.key_bytes.len();
                         let acc: [u8; 32] = kv.key_bytes[n - 32..].try_into().unwrap_or([0; 32]);
-                        out.push(holder(&acc, amount));
+                        list.push(holder(&acc, amount));
                     }
                 }
-            } else {
+            }
+            if !want_tokens.is_empty() {
+                for a in &want_tokens {
+                    out.entry(a.clone()).or_default();
+                }
                 let mut stream = at.iter(sora::storage().tokens().accounts_iter()).await?;
                 let dust = BigDecimal::new(BigInt::from(1), 1); // 0.1
                 while let Some(kv) = stream.next().await {
@@ -382,28 +406,82 @@ pub async fn scan_holders(state: &AppState, asset_id: &str) -> Result<Vec<Holder
                         continue;
                     }
                     let asset = format!("0x{}", hex::encode(&kv.key_bytes[n - 32..]));
-                    if asset != want {
+                    let Some(dec) = decimals.get(&asset) else {
                         continue;
-                    }
-                    let amount = human(kv.value.free, decimals);
+                    };
+                    let amount = human(kv.value.free, *dec);
                     if amount > dust {
                         // `Accounts`: Blake2_128Concat(account) ‖ Twox64Concat(asset)
                         // → … ‖ hash16 ‖ account32 ‖ hash8 ‖ asset32.
                         let acc: [u8; 32] =
                             kv.key_bytes[n - 72..n - 40].try_into().unwrap_or([0; 32]);
-                        out.push(holder(&acc, amount));
+                        if let Some(list) = out.get_mut(&asset) {
+                            list.push(holder(&acc, amount));
+                        }
                     }
                 }
             }
             Ok(out)
         })
         .await?;
-    list.sort_by(|a, b| {
-        b.balance
-            .partial_cmp(&a.balance)
-            .unwrap_or(std::cmp::Ordering::Equal)
+    for list in out.values_mut() {
+        list.sort_by(|a, b| {
+            b.balance
+                .partial_cmp(&a.balance)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+    Ok(out)
+}
+
+/// Assets requested within this window are kept warm.
+const HOT_WINDOW: Duration = Duration::from_secs(6 * 3600);
+/// At most this many assets per pre-warm walk.
+const HOT_CAP: usize = 20;
+
+/// Every `HOLDERS_PREWARM_SECS` (default 240 s, under the 5 min TTL; 0
+/// disables) re-scan, in ONE chain walk, every asset whose holders were
+/// requested in the last 6 h, so the request path only ever hits the
+/// cache. Server cost per cycle: one `tokens.accounts` walk (~58k
+/// entries) plus one `system.account` walk when XOR is hot.
+pub fn spawn_prewarm(state: AppState) {
+    let secs: u64 = std::env::var("HOLDERS_PREWARM_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(240);
+    if secs == 0 {
+        tracing::info!("holders pre-warm disabled");
+        return;
+    }
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(secs));
+        tick.tick().await;
+        loop {
+            tick.tick().await;
+            let hot = state.hot_holders(HOT_WINDOW, HOT_CAP).await;
+            if hot.is_empty() {
+                continue;
+            }
+            let started = std::time::Instant::now();
+            match walk_holders(&state, &hot).await {
+                Ok(by_asset) => {
+                    let mut stored = 0usize;
+                    for (asset, list) in by_asset {
+                        if let Ok(v) = serde_json::to_value(&list) {
+                            state.store_scan(&format!("holders:{asset}"), v).await;
+                            stored += 1;
+                        }
+                    }
+                    tracing::info!(
+                        assets = stored,
+                        elapsed_ms = started.elapsed().as_millis() as u64,
+                        "holders pre-warmed"
+                    );
+                }
+                Err(e) => tracing::warn!(error = %e, "holders pre-warm failed"),
+            }
+        }
     });
-    Ok(list)
 }
 
 async fn holders(
@@ -412,6 +490,7 @@ async fn holders(
     Query(q): Query<PageQuery>,
 ) -> Result<Json<HoldersResponse>, ApiError> {
     let asset_id = crate::util::validate_asset_id(&asset_id)?;
+    state.note_hot_holder(&asset_id).await;
     let page = q.page.unwrap_or(1).max(1);
     let key = format!("holders:{asset_id}");
     let id = asset_id.clone();

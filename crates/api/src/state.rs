@@ -136,6 +136,9 @@ pub struct AppState {
     pub scans_in_flight: Arc<Mutex<std::collections::HashSet<String>>>,
     /// Site analytics queue, presence and caches (`/analytics/*`).
     pub analytics: Arc<crate::routes::analytics::Analytics>,
+    /// Assets whose holders were requested, by last request time: the
+    /// pre-warm loop keeps their scans fresh.
+    pub hot_holders: Arc<Mutex<HashMap<String, std::time::Instant>>>,
 }
 
 /// One cached scan result with its expiry.
@@ -193,6 +196,7 @@ impl AppState {
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
             analytics: Arc::new(crate::routes::analytics::Analytics::from_env()),
+            hot_holders: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -223,7 +227,25 @@ impl AppState {
             scan_cache: Arc::new(Mutex::new(HashMap::new())),
             scans_in_flight: Arc::new(Mutex::new(std::collections::HashSet::new())),
             analytics: Arc::new(crate::routes::analytics::Analytics::from_env()),
+            hot_holders: Arc::new(Mutex::new(HashMap::new())),
         })
+    }
+
+    /// Record a `/holders` request for `asset_id`.
+    pub async fn note_hot_holder(&self, asset_id: &str) {
+        self.hot_holders
+            .lock()
+            .await
+            .insert(asset_id.to_string(), std::time::Instant::now());
+    }
+
+    /// Assets requested within `window`, most recent first, at most `cap`.
+    pub async fn hot_holders(&self, window: Duration, cap: usize) -> Vec<String> {
+        let mut hot = self.hot_holders.lock().await;
+        hot.retain(|_, at| at.elapsed() <= window);
+        let mut v: Vec<(&String, &std::time::Instant)> = hot.iter().collect();
+        v.sort_by(|a, b| b.1.cmp(a.1));
+        v.into_iter().take(cap).map(|(a, _)| a.clone()).collect()
     }
 
     /// Reloads the registry from the DB every [`REGISTRY_REFRESH`].
