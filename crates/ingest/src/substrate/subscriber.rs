@@ -292,7 +292,8 @@ async fn try_subscribe_once(
         }
         None => prices,
     };
-    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client.clone()).await?;
+    let client =
+        sorametrics_substrate::online_client::<SubstrateConfig>(rpc_client.clone()).await?;
     info!(endpoint = %url, "subxt connected, subscribing finalized blocks");
 
     let mut blocks = client.blocks().subscribe_finalized().await?;

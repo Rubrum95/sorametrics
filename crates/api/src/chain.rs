@@ -120,12 +120,12 @@ impl ChainClient {
 
     async fn connect(url: &Url) -> Result<Connected, subxt::Error> {
         let rpc = RpcClient::from_url(url.as_str()).await?;
-        let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc.clone()).await?;
-        let sora = OnlineClient::<SoraConfig>::from_rpc_client_with(
+        let client = sorametrics_substrate::online_client::<SubstrateConfig>(rpc.clone()).await?;
+        let sora = OnlineClient::<SoraConfig>::from_backend_with(
             client.genesis_hash(),
             client.runtime_version(),
             client.metadata(),
-            rpc.clone(),
+            sorametrics_substrate::legacy_backend::<SoraConfig>(rpc.clone()),
         )?;
         Ok(Connected {
             client,

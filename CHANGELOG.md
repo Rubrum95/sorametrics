@@ -5,6 +5,8 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-12
+- chain clients: storage maps are walked in pages of 1000 keys (subxt's default of 64 made the
+  58k-entry `tokens.accounts` scan behind `/holders` cost ~1 800 round trips instead of ~120).
 - API: on-chain identities are cached in `sm.identity_cache` as in the Node (memory 1 h → table
   24 h → chain in chunks of 50, written back; loaded into memory at boot); ETL copies the table.
 - API: any valid SS58 prefix is accepted in address parameters and re-encoded with the SORA

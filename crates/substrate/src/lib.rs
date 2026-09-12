@@ -31,6 +31,30 @@ pub mod runtime;
 mod synthetic_tests;
 pub mod val_staking;
 
+/// Keys per `state_getKeysPaged` call when iterating a storage map
+/// (the node's maximum). subxt's legacy backend defaults to 64, which
+/// turns the 58k-entry `tokens.accounts` walk of `/holders` into ~1 800
+/// round trips instead of ~120.
+pub const STORAGE_PAGE_SIZE: u32 = 1000;
+
+/// A `LegacyBackend` over `rpc` with [`STORAGE_PAGE_SIZE`].
+pub fn legacy_backend<T: subxt::Config>(
+    rpc: subxt::backend::rpc::RpcClient,
+) -> std::sync::Arc<subxt::backend::legacy::LegacyBackend<T>> {
+    std::sync::Arc::new(
+        subxt::backend::legacy::LegacyBackend::builder()
+            .storage_page_size(STORAGE_PAGE_SIZE)
+            .build(rpc),
+    )
+}
+
+/// `OnlineClient::from_rpc_client` with [`STORAGE_PAGE_SIZE`] pages.
+pub async fn online_client<T: subxt::Config>(
+    rpc: subxt::backend::rpc::RpcClient,
+) -> Result<subxt::OnlineClient<T>, subxt::Error> {
+    subxt::OnlineClient::<T>::from_backend(legacy_backend::<T>(rpc)).await
+}
+
 pub use block::{decode_block_events, BlockDecodeStats, BlockProcessError};
 
 /// The pinned SORA mainnet metadata the `sora` module is generated from

@@ -297,7 +297,7 @@ async fn decode_block(height: u64, rpc: &str, price_rpc: Option<&str>) -> Result
         .with_context(|| format!("looking up block hash for height {height}"))?
         .with_context(|| format!("no block at height {height}"))?;
 
-    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client)
+    let client = sorametrics_substrate::online_client::<SubstrateConfig>(rpc_client)
         .await
         .with_context(|| format!("upgrading RPC client to OnlineClient at {rpc}"))?;
 
@@ -514,7 +514,7 @@ async fn backfill_heights(
         .await
         .with_context(|| format!("connecting RPC to {rpc}"))?;
     let legacy = Arc::new(LegacyRpcMethods::<SubstrateConfig>::new(rpc_client.clone()));
-    let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client.clone())
+    let client = sorametrics_substrate::online_client::<SubstrateConfig>(rpc_client.clone())
         .await
         .with_context(|| format!("upgrading RPC client to OnlineClient at {rpc}"))?;
     let eras = Arc::new(EraClients::new(
@@ -703,7 +703,7 @@ impl EraClients {
             .state_get_metadata(Some(hash))
             .await
             .with_context(|| format!("metadata for spec {spec} (archive node required)"))?;
-        let client = OnlineClient::<SubstrateConfig>::from_rpc_client(self.rpc.clone())
+        let client = sorametrics_substrate::online_client::<SubstrateConfig>(self.rpc.clone())
             .await
             .with_context(|| format!("creating client for spec {spec}"))?;
         client.set_metadata(metadata);
@@ -796,7 +796,7 @@ async fn metadata_check(rpc: &str, height: Option<u32>) -> Result<()> {
             (meta, version.spec_version)
         }
         None => {
-            let client = OnlineClient::<SubstrateConfig>::from_rpc_client(rpc_client)
+            let client = sorametrics_substrate::online_client::<SubstrateConfig>(rpc_client)
                 .await
                 .context("upgrading RPC client to OnlineClient")?;
             (client.metadata(), client.runtime_version().spec_version)
