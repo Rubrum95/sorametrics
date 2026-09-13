@@ -125,6 +125,10 @@ that changed against the decoders in `crates/substrate/src/`.
 
 ## Loading history from the Node database (ETL)
 
+The ordered cutover procedure is `docs/cutover-runbook.md`; `deploy/transfer_legacy.sh` brings
+every table below (plus `public.history_element` CALL rows, `sm.extrinsic_events` and the
+`asset_snapshot` DAY points) into a throwaway `legacy_copy` database next to v33.
+
 The legacy source must expose, besides the `sm.mv_*` views and the small tables, the two stores
 the Node reads on demand for the extrinsic detail page: `public.history_element` (call args,
 15.8 M rows, 14 GB) and `sm.extrinsic_events` (events, 234 M rows, 89 GB, dense from block

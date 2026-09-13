@@ -1,0 +1,41 @@
+# Production PostgreSQL (TimescaleDB, pg14) for v33 on Rubrum-01.
+#   docker compose -f deploy/docker-compose.prod.yml up -d
+# Data under /root/sorametrics-v33/pgdata; listens on loopback only.
+# Memory settings sized for the 48 GB host shared with two validators.
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    container_name: sorametrics-v33-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sorametrics
+      POSTGRES_DB: sorametrics_v33
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - /root/sorametrics-v33/pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=12GB
+      - -c
+      - work_mem=64MB
+      - -c
+      - maintenance_work_mem=1GB
+      - -c
+      - max_connections=100
+      - -c
+      - wal_compression=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sorametrics -d sorametrics_v33"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

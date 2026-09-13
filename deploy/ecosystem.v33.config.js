@@ -1,8 +1,12 @@
-// PM2 processes for SoraMetrics v33, side by side with the Node service
-// (Fase 5: the API listens on 3311 while nginx still routes production
-// traffic to the Node on 3000). Binaries come from `cargo build --release`;
-// runtime configuration is read from `<cwd>/.env` (see .env.example).
+// PM2 processes for SoraMetrics v33 on Rubrum-01. Binaries come from
+// `cargo build --release`; runtime configuration is read from `<cwd>/.env`
+// (deploy/env.rubrum.example). The two local validators are given as
+// opposite primaries so an API scan never delays the ingest and each
+// process fails over to the other node (then mof2).
 const cwd = '/root/sorametrics-v33';
+const NODE_A = 'ws://127.0.0.1:9944';
+const NODE_B = 'ws://127.0.0.1:9945';
+const ARCHIVE = 'wss://mof2.sora.org';
 
 const common = {
     cwd,
@@ -21,7 +25,7 @@ module.exports = {
             name: 'sorametrics-v33-api',
             script: `${cwd}/target/release/sorametrics-api`,
             max_memory_restart: '256M',
-            env: { ...common.env, API_BIND: '127.0.0.1:3311' },
+            env: { ...common.env, API_BIND: '127.0.0.1:3311', WS_ENDPOINTS: `${NODE_B},${NODE_A},${ARCHIVE}` },
         },
         {
             ...common,
@@ -29,6 +33,7 @@ module.exports = {
             script: `${cwd}/target/release/sorametrics-ingest`,
             args: '--source substrate',
             max_memory_restart: '256M',
+            env: { ...common.env, WS_ENDPOINTS: `${NODE_A},${NODE_B},${ARCHIVE}` },
             // A clean exit is deliberate (primary endpoint recovered or
             // cursor stalled): PM2 restarts it and the gap is filled.
             stop_exit_codes: [],

@@ -4,6 +4,15 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 
 ## Unreleased
 
+### 2026-09-13
+- deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the
+  shared host), `env.rubrum.example`, PM2 ecosystem with opposite primary nodes for the ingest
+  and the API, the final nginx server block, and `transfer_legacy.sh` — a resumable copy of every
+  table the ETL reads (whole small tables, `asset_snapshot` DAY rows, `extrinsic_events` and
+  `history_element` CALL rows in gzip-streamed block chunks) into a `legacy_copy` database,
+  verified locally end to end with the ETL reconciling every table against it.
+- docs: `cutover-runbook.md`, the ordered plan from the Contabo upgrade to the DNS switch.
+
 ### 2026-09-12
 - API: `/holders` pre-warm — every `HOLDERS_PREWARM_SECS` (240 s, under the 5 min cache) one chain
   walk refreshes the scans of every asset requested in the last 6 h (at most 20), so the request
