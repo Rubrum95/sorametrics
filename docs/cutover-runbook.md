@@ -25,9 +25,10 @@ copy binaries built on Ubuntu.
 ## 2. Database
 ```bash
 docker compose -f deploy/docker-compose.prod.yml up -d
-./target/release/sorametrics-ingest --source substrate   # applies migrations, Ctrl-C after "DB ready"
+./target/release/sorametrics-ops migrate
 ```
-Or `cargo sqlx migrate run` with `DATABASE_URL` set.
+Do NOT start the live ingest on an empty cursor: it would try to gap-fill from block 0. Seed
+`sm.indexer_state.substrate_live` with the height where the backfill ends (step 4) first.
 
 ## 3. History (one-off)
 From the Mac (SSH to both hosts, Touch ID once each):

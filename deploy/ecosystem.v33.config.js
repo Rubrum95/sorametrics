@@ -4,9 +4,12 @@
 // opposite primaries so an API scan never delays the ingest and each
 // process fails over to the other node (then mof2).
 const cwd = '/root/sorametrics-v33';
+// One local node today (Rubrum01). When a second one runs here, set NODE_B to
+// its RPC and the two processes get opposite primaries automatically.
 const NODE_A = 'ws://127.0.0.1:9944';
-const NODE_B = 'ws://127.0.0.1:9945';
+const NODE_B = null;
 const ARCHIVE = 'wss://mof2.sora.org';
+const endpoints = (...urls) => urls.filter(Boolean).join(',');
 
 const common = {
     cwd,
@@ -25,7 +28,7 @@ module.exports = {
             name: 'sorametrics-v33-api',
             script: `${cwd}/target/release/sorametrics-api`,
             max_memory_restart: '256M',
-            env: { ...common.env, API_BIND: '127.0.0.1:3311', WS_ENDPOINTS: `${NODE_B},${NODE_A},${ARCHIVE}` },
+            env: { ...common.env, API_BIND: '127.0.0.1:3311', WS_ENDPOINTS: endpoints(NODE_B, NODE_A, ARCHIVE) },
         },
         {
             ...common,
@@ -33,7 +36,7 @@ module.exports = {
             script: `${cwd}/target/release/sorametrics-ingest`,
             args: '--source substrate',
             max_memory_restart: '256M',
-            env: { ...common.env, WS_ENDPOINTS: `${NODE_A},${NODE_B},${ARCHIVE}` },
+            env: { ...common.env, WS_ENDPOINTS: endpoints(NODE_A, NODE_B, ARCHIVE) },
             // A clean exit is deliberate (primary endpoint recovered or
             // cursor stalled): PM2 restarts it and the gap is filled.
             stop_exit_codes: [],

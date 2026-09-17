@@ -131,6 +131,10 @@ enum Command {
         price_rpc: Option<String>,
     },
 
+    /// Apply the pending database migrations (what the ingest does at
+    /// start) without starting any indexer.
+    Migrate,
+
     /// Compare the pinned runtime metadata with the node's, pallet by
     /// pallet (metadata hash). Exit 0 when every pinned pallet is
     /// identical, 2 when any drifted or is missing — a runtime upgrade
@@ -236,6 +240,14 @@ async fn main() -> Result<()> {
                 price_rpc.as_deref(),
             )
             .await
+        }
+        Command::Migrate => {
+            let db = ops_db().await?;
+            sorametrics_db::migrate(&db)
+                .await
+                .context("applying migrations")?;
+            info!("migrations applied");
+            Ok(())
         }
         Command::MetadataCheck { rpc, height } => metadata_check(&rpc, height).await,
         Command::LoadAssetRegistry { url } => load_asset_registry(&url).await,
