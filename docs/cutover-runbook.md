@@ -12,9 +12,13 @@ until the last section.
   `deploy/env.rubrum.example` (both `chmod 600`) **(user supplies the two secrets)**.
 
 ## 1. Build (Rubrum, after the upgrade — never on 5.5 GB)
+Ship the tree with `rsync -a --exclude target --exclude .git` (or `COPYFILE_DISABLE=1 tar` on
+macOS): a plain macOS `tar` adds `._*` AppleDouble files and `sqlx::migrate!` refuses
+`migrations/._2026….sql` at compile time (`find . -name '._*' -delete` fixes a tree already sent).
 ```bash
-cd /root/sorametrics-v33 && SQLX_OFFLINE=true cargo build --release --workspace
+cd /root/sorametrics-v33 && SQLX_OFFLINE=true nice -n 10 cargo build --release --workspace -j 6
 ```
+Done 2026-09-17 on the upgraded host (8 cores / 29 GB): 3 min 09 s, validator unaffected.
 Binaries: `target/release/sorametrics-{api,ingest,ops}`. glibc 2.34 (AlmaLinux 9.4): do not
 copy binaries built on Ubuntu.
 
