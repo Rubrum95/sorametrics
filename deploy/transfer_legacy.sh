@@ -59,6 +59,23 @@ ddl_of() {
   printf "SELECT 'CREATE TABLE IF NOT EXISTS %s (' || string_agg(quote_ident(a.attname) || ' ' || format_type(a.atttypid, a.atttypmod), ', ' ORDER BY a.attnum) || ');' FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = '%s' AND c.relname = '%s' AND a.attnum > 0 AND NOT a.attisdropped;\n" "$rel" "$schema" "$name" | src
 }
 
+# Pre-flight: the data crosses this machine twice. Through a VPN the SSH legs
+# measured ~15 KB/s (11 GB = days) and the dead client left a COPY holding a
+# 40 min transaction on production. Refuse to start on a slow path.
+if [ "${SKIP_SPEED_CHECK:-0}" != "1" ]; then
+  src_host=$(printf '%s' "$SRC_SQL" | awk '{print $2}'); dst_host=$(printf '%s' "$DST_SQL" | awk '{print $2}')
+  if [ "$(printf '%s' "$SRC_SQL" | awk '{print $1}')" = "ssh" ]; then
+    t0=$(date +%s); ssh "$src_host" 'head -c 4000000 /dev/urandom' | ssh "$dst_host" 'cat > /dev/null'; t1=$(date +%s)
+    secs=$(( t1 - t0 )); [ "$secs" -lt 1 ] && secs=1
+    kbps=$(( 4000 / secs ))
+    echo "== path speed through this host: ~${kbps} KB/s"
+    if [ "$kbps" -lt 500 ]; then
+      echo "too slow (< 500 KB/s): disconnect the VPN or exclude the two servers from it, then retry (SKIP_SPEED_CHECK=1 overrides)" >&2
+      exit 3
+    fi
+  fi
+fi
+
 echo "== destination database $DST_DB"
 printf "SELECT 1 FROM pg_database WHERE datname = '%s';\n" "$DST_DB" | eval "$DST_SQL" -d postgres -At | grep -q 1 \
   || printf "CREATE DATABASE %s;\n" "$DST_DB" | dst_admin
