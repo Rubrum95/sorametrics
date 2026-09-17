@@ -54,5 +54,5 @@ except Exception:
 " 2>/dev/null)
 [ -n "$stale" ] && echo "AVISO: tablas stale en /health/freshness: $stale"
 
-[ $rc -eq 0 ] && echo "OK - api + ingests online, freshness sin stale"
+[ $rc -eq 0 ] && echo "OK - api + ingests online${stale:+ (con tablas stale, ver aviso)}"
 exit $rc
