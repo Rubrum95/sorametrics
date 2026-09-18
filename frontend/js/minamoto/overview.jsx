@@ -135,11 +135,17 @@ window.MN = window.MN || {};
       Mint: '#6EE7B7', Burn: '#FCA5A5', Transfer: '#93C5FD',
       Register: '#C8A0B8', Grant: '#FCD34D',
     }[i.kind] || 'var(--fg-2)';
+    // Not an <a>: PayloadLine renders its own links and anchors cannot nest.
+    const openTx = (e) => {
+      if (e.target.closest('a')) return;
+      location.hash = 'tx/' + i.transaction_hash;
+    };
     return (
-      <a href={'#tx/' + i.transaction_hash}
+      <div role="link" tabIndex={0} onClick={openTx}
+         onKeyDown={e => { if (e.key === 'Enter') openTx(e); }}
          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 18px', borderBottom: '1px solid var(--border)',
-                  textDecoration: 'none', color: 'inherit', transition: 'background 200ms ease' }}
+                  cursor: 'pointer', color: 'inherit', transition: 'background 200ms ease' }}
          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -154,7 +160,7 @@ window.MN = window.MN || {};
           </div>
         </div>
         <div className="muted tiny">{MN.fmt.relative(i.created_at)}</div>
-      </a>
+      </div>
     );
   }
 
