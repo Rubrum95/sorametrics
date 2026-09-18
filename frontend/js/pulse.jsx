@@ -555,22 +555,39 @@ function PulseSection({ tweaks }) {
               <div className="feed-item clickable" key={e.id}
                    onClick={() => {
                      // For block rows we fetch the real block (num from id "wsB-<n>");
-                     // BlockDetail then calls /block/:n. For other kinds we still
-                     // synthesize a payload — those drills are not yet wired to real
-                     // endpoints and would look empty otherwise.
+                     // BlockDetail then calls /block/:n.
                      const rawBlock = e.raw?.finalized || (e.id?.startsWith('wsB-') ? Number(e.id.slice(4)) : null);
                      if (e.kind === 'block' && rawBlock) {
                        open({ type: 'block', title: 'BLOCK · ' + fmt.ago(e.ts) + ' ago', ts: e.ts, block: rawBlock, num: rawBlock });
                        return;
                      }
-                     open({
-                       type: e.kind, title: e.kind.toUpperCase() + ' · ' + fmt.ago(e.ts) + ' ago',
-                       ts: e.ts, hash: '0x' + Math.random().toString(16).slice(2, 18),
-                       block: 21418802 + (e.id.toString().length), caller: FAKE_ADDRS[0],
-                       inSym:'XOR', outSym:'VAL', inAmt: 12.4, outAmt: 1.8,
-                       sym: 'XOR', amt: 12.4, usd: 124, from: FAKE_ADDRS[0], to: FAKE_ADDRS[1],
-                       side: 'buy', pair: 'KUSD/XOR', size: 1500, price: 0.42, filled: 62,
-                     });
+                     // Every other kind opens with the fields the socket row carries
+                     // (e.raw); what the row does not have stays empty.
+                     const raw = e.raw || {};
+                     const base = {
+                       title: e.kind.toUpperCase() + ' · ' + fmt.ago(e.ts) + ' ago',
+                       ts: e.ts, hash: raw.hash, block: raw.block,
+                       extrinsic_id: raw.extrinsic_id || null,
+                     };
+                     if (raw.section && raw.method) {
+                       open({ ...base, type: 'extrinsic', title: raw.section + '::' + raw.method,
+                              pallet: raw.section, method: raw.method, caller: raw.signer,
+                              idx: raw.extrinsic_index, ok: raw.success !== false && raw.success !== 0,
+                              failReason: raw.error_msg || null });
+                     } else if (e.kind === 'swap') {
+                       open({ ...base, type: 'swap', caller: raw.wallet,
+                              inSym: raw.in?.symbol, outSym: raw.out?.symbol,
+                              inAmt: Number(raw.in?.amount) || 0, outAmt: Number(raw.out?.amount) || 0,
+                              usd: Number(raw.in?.usd) || 0 });
+                     } else if (e.kind === 'transfer') {
+                       open({ ...base, type: 'transfer', sym: raw.symbol, amt: Number(raw.amount) || 0,
+                              usd: Number(raw.usdValue) || 0, from: raw.from, to: raw.to, logo: raw.logo });
+                     } else if (e.kind === 'order') {
+                       open({ ...base, type: 'order', side: (raw.side || '').toLowerCase(),
+                              pair: (raw.base_asset || '') + '/' + (raw.quote_asset || ''),
+                              size: Number(raw.amount) || 0, price: Number(raw.price) || 0,
+                              wallet: raw.wallet, caller: raw.wallet, event: raw.event_type });
+                     }
                    }}>
                 <span className={'feed-kind ' + e.kind}>{e.kind}</span>
                 <div className="feed-body">

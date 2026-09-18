@@ -688,7 +688,7 @@ function OrderBookSection({ tweaks }) {
             </thead>
             <tbody>
               {fills.map((f, i) => (
-                <tr key={i} className="clickable" onClick={() => open({type:'order', title:`${f.side.toUpperCase()} · ${pair}`, side:f.side, pair, size:f.amount, price:f.price, filled:100, ts:f.ts, caller: FAKE_ADDRS[i % FAKE_ADDRS.length]})}>
+                <tr key={i} className="clickable" onClick={() => open({type:'order', title:`${f.side.toUpperCase()} · ${pair}`, side:f.side, pair, size:f.amount, price:f.price, ts:f.ts, hash:f.hash, wallet:f.wallet, caller:f.wallet, event:f.eventType})}>
                   <td data-label="Time" style={{paddingLeft:20}}><span className="muted tiny" title={fmt.fullDate(f.ts)}>{fmt.ago(f.ts)}</span></td>
                   <td data-label="Side"><span className={'fill-side ' + f.side}>{f.side === 'buy' ? '▲ BUY' : '▼ SELL'}</span></td>
                   <td data-label="Price" style={{textAlign:'right'}} className="num">{f.price.toFixed(4)}</td>

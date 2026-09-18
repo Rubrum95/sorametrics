@@ -329,7 +329,7 @@ function SwapsSection({ tweaks }) {
             <tbody>
               {visible.map(s => (
                 <tr key={s.id} className="swap-row clickable"
-                    onClick={() => open({type:'swap', title:`${s.inTok} → ${s.outTok}`, inSym:s.inTok, outSym:s.outTok, inAmt:s.inAmt, outAmt:s.outAmt, inUsd:s.usd, outUsd:s.usd*0.997, fee:s.fee, caller:s.acc, block:s.block, ts:s.ts, hash:'0x' + Math.random().toString(16).slice(2,18), pool:`${s.inTok}/${s.outTok} XYK`})}>
+                    onClick={() => open({type:'swap', title: s.inTok + ' → ' + s.outTok, block:s.block, idx:s.idx, extrinsic_id: s.block && s.idx != null ? (s.block + '-' + s.idx) : null, hash:s.hash, caller:s.acc, inSym:s.inTok, outSym:s.outTok, inAmt:s.inAmt, outAmt:s.outAmt, usd:s.usd, ts:s.ts})}>
                   <td style={{paddingLeft: 20}} title={fmt.fullDate(s.ts)}>
                     <div style={{fontSize: 12, fontWeight: 700, color: 'var(--fg-0)'}}>{fmt.ago(s.ts)}</div>
                     <div className="muted tiny">{fmt.fullDate(s.ts)}</div>
