@@ -1,4 +1,4 @@
-/* global React, fmt, TOKENS, FAKE_ADDRS, IDENTITIES, seededRand, sparkPath, areaPath, I, useDrill, useT, useWallets, AddWalletModal, WalletDetailsModal, ExportCsvButton, exportCsv, useToast */
+/* global React, fmt, TOKENS, seededRand, sparkPath, areaPath, I, useDrill, useT, useWallets, AddWalletModal, WalletDetailsModal, ExportCsvButton, exportCsv, useToast */
 const { useState, useMemo, useEffect } = React;
 
 /* =========================================================================
@@ -1099,8 +1099,8 @@ function GlobalLiquidityActivity() {
                 <td
                   style={{paddingRight:20, cursor: r.wallet ? 'pointer' : 'default'}}
                   title={r.wallet ? t('wallet.openTip', 'Abrir wallet') : ''}
-                  onClick={() => { if (r.wallet) window.openWalletDetails?.(r.wallet, IDENTITIES[r.wallet]); }}>
-                  {IDENTITIES[r.wallet] && <div style={{fontSize:11, fontWeight:700}}>{IDENTITIES[r.wallet]}</div>}
+                  onClick={() => { if (r.wallet) window.openWalletDetails?.(r.wallet, window.identityName?.(r.wallet) || null); }}>
+                  {window.identityName?.(r.wallet) && <div style={{fontSize:11, fontWeight:700}}>{window.identityName(r.wallet)}</div>}
                   <div className="muted tiny num" style={{textDecoration: r.wallet ? 'underline dotted' : 'none'}}>{r.wallet ? fmt.addr(r.wallet, 5, 4) : '—'}</div>
                 </td>
               </tr>
@@ -2198,7 +2198,7 @@ function StakingSection({ tweaks }) {
                       <tr key={String(bn) + (hash || '')}>
                         <td style={{paddingLeft:20}}><a className="block-link num" href="#" onClick={e => e.preventDefault()}>#{Number(bn || 0).toLocaleString()}</a></td>
                         <td><span className="num tiny muted">{hash ? (hash.slice(0, 10) + '…' + hash.slice(-6)) : '—'}</span></td>
-                        <td>{validator ? (IDENTITIES[validator] || fmt.addr(validator, 5, 4)) : '—'}</td>
+                        <td>{validator ? (window.identityName?.(validator) || fmt.addr(validator, 5, 4)) : '—'}</td>
                         <td><span className="muted tiny" title={ts ? fmt.fullDate(Number(ts)) : ''}>{ts ? fmt.ago(Number(ts)) : '—'}</span></td>
                         <td style={{paddingRight:20, textAlign:'right'}} className="num">{txs}</td>
                       </tr>

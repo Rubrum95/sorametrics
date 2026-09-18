@@ -1,4 +1,4 @@
-/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, useT, I */
+/* global React, fmt, TOKENS, useT, I */
 /* =========================================================================
    FEATURES: toasts, global search (Cmd+K), wallet modals, CSV export,
              backup/restore.

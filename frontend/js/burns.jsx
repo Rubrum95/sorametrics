@@ -1,4 +1,4 @@
-/* global React, TOKENS, fmt, FAKE_ADDRS, IDENTITIES, areaPath, sparkPath, I, useT, getPulseSocket */
+/* global React, TOKENS, fmt, areaPath, sparkPath, I, useT, getPulseSocket */
 const { useState, useEffect, useRef, useMemo } = React;
 
 // Fetch helper — always returns parsed JSON or null (never throws into render).
@@ -19,8 +19,8 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
   const speed = Math.max(0.4, Number(liveSpeed) || 1);
   const animate = motion !== 'none';
 
-  // Real distribution from /burns/fee-flow (4.8.6 keys). Fall back to the
-  // theoretical 4.8.6 split (no-referrer case) until live data lands.
+  // Real distribution from /burns/fee-flow (4.8.6 keys). Until it lands the
+  // diagram has no branches: no placeholder percentages.
   const dist = feeFlow?.distribution || {};
   const hasLive = ['xorBurn', 'valStaking', 'valBurn', 'referrer'].some(k => Number(dist[k]) > 0);
   const flowDefs = [
@@ -29,16 +29,15 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
     { key: 'referrer',   label: 'Referrer',        color: '#8B7FD9', kind: 'node' },
     { key: 'valBurn',    label: 'VAL Burn',         color: '#F5B041', kind: 'burn' },
   ];
-  const fallback = { xorBurn: 60.0, valStaking: 25.4, referrer: 11.8, valBurn: 2.8 };
   const flows = flowDefs
-    .map(f => ({ ...f, v: hasLive ? (Number(dist[f.key]) || 0) : fallback[f.key] }))
+    .map(f => ({ ...f, v: hasLive ? (Number(dist[f.key]) || 0) : 0 }))
     .filter(f => f.v > 0);
   const total = flows.reduce((s, f) => s + f.v, 0) || 1;
 
   const totalXor = Number(feeFlow?.totalXorFees);
   const totalLabel = Number.isFinite(totalXor) && totalXor > 0
     ? (totalXor < 1 ? totalXor.toFixed(4) : totalXor.toFixed(2)) + ' XOR'
-    : 'per 100 XOR';
+    : '—';
 
   // Layout: source (left) → split node (center) → N destinations (right).
   const SPLIT_X = 250, SPLIT_Y = 140;
@@ -266,7 +265,7 @@ function BurnSection({ tweaks }) {
     const total = holdersData.totalSupply || 1;
     return holdersData.data.map((h, i) => ({
       addr: h.address,
-      name: h.name || IDENTITIES[h.address] || null,
+      name: h.name || null,
       pct: +((h.balance / total) * 100).toFixed(2),
       amt: h.balance,
       rank: i + 1,

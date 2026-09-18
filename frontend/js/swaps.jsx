@@ -1,4 +1,4 @@
-/* global React, fmt, TOKENS, FAKE_ADDRS, IDENTITIES, seededRand, useDrill, useT, ExportCsvButton, useIdentity, useIdentitySource, SourceTag, KpiGrid */
+/* global React, fmt, TOKENS, seededRand, useDrill, useT, ExportCsvButton, useIdentity, useIdentitySource, SourceTag, KpiGrid */
 const { useState, useEffect, useMemo, useRef } = React;
 
 // Account cell used in the swaps/transfers/bridges tables. Shows the resolved

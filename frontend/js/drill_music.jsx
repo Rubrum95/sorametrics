@@ -1,4 +1,4 @@
-/* global React, fmt, TOKENS, FAKE_ADDRS, IDENTITIES, I, sparkPath, TokenLogo */
+/* global React, fmt, TOKENS, I, sparkPath, TokenLogo */
 const { useState, useEffect, useRef, useMemo, createContext, useContext } = React;
 
 /* =========================================================================
@@ -75,7 +75,7 @@ function Addr({ addr }) {
     <div className="drill-addr">
       <div style={{width:24, height:24, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink:0}}/>
       <div style={{flex:1, minWidth:0}}>
-        {IDENTITIES[addr] && <div style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{IDENTITIES[addr]}</div>}
+        {window.identityName?.(addr) && <div style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{window.identityName(addr)}</div>}
         <code className="mono tiny" style={{color:'var(--fg-2)'}}>{fmt.addr(addr, 10, 8)}</code>
       </div>
       <Copy text={addr} short/>
@@ -125,7 +125,6 @@ function DrillBody({ row }) {
     case 'order':    return <OrderDetail r={row}/>;
     case 'burn':     return <BurnDetail r={row}/>;
     case 'extrinsic':return <ExtrinsicDetail r={row}/>;
-    case 'lp':       return <LpDetail r={row}/>;
     case 'holder':   return <HolderDetail r={row}/>;
     case 'validator':return <ValidatorDetail r={row}/>;
     case 'bridge':   return <BridgeDetail r={row}/>;
@@ -617,51 +616,27 @@ function ExtrinsicDetail({ r }) {
         )}
       </div>
 
-      <div className="drill-section">
-        <div className="drill-sec-title">Fee Breakdown</div>
-        <div className="drill-fee">
-          <div><span>Gas</span><span className="num">{((r.fee||0.02)*0.78).toFixed(4)} XOR</span></div>
-          <div><span>Tip</span><span className="num">{((r.fee||0.02)*0.03).toFixed(4)} XOR</span></div>
-          <div><span>Treasury</span><span className="num">{((r.fee||0.02)*0.12).toFixed(4)} XOR</span></div>
-          <div><span>Reserved</span><span className="num">{((r.fee||0.02)*0.07).toFixed(4)} XOR</span></div>
-          <div className="total"><span>Total</span><span className="num">{(r.fee||0.02).toFixed(4)} XOR</span></div>
+      {Number.isFinite(Number(r.fee)) && Number(r.fee) > 0 && (
+        <div className="drill-section">
+          <div className="drill-sec-title">Fee</div>
+          <div className="drill-fee">
+            <div className="total"><span>Total</span><span className="num">{Number(r.fee).toFixed(4)} XOR</span></div>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="drill-section">
-        <div className="drill-sec-title">Caller</div>
-        <Addr addr={r.caller || FAKE_ADDRS[0]}/>
-      </div>
+      {r.caller && (
+        <div className="drill-section">
+          <div className="drill-sec-title">Caller</div>
+          <Addr addr={r.caller}/>
+        </div>
+      )}
 
       <div className="drill-section">
         <div className="drill-sec-title">Chain</div>
-        <Field label="Block" mono>#{(r.block || 21418802).toLocaleString()}</Field>
+        <Field label="Block" mono>{r.block != null ? '#' + Number(r.block).toLocaleString() : '—'}</Field>
         <Field label="Hash" mono><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span><Copy text={r.hash} short/></Field>
         <TimeLine ts={r.ts || Date.now()}/>
-      </div>
-    </>
-  );
-}
-
-function LpDetail({ r }) {
-  return (
-    <>
-      <div className="drill-section">
-        <div className="drill-sec-title">Liquidity Position</div>
-        <Field label="Pool">{r.pool || 'XOR/VAL'}</Field>
-        <Field label="Stake" mono>{fmt.usd(r.stake || 14200)}</Field>
-        <Field label="Pool share">{(r.share || 4.2).toFixed(2)}%</Field>
-        <Field label="First deposit" mono>{r.since || '2024-08-12'}</Field>
-        <Field label="Rewards earned" mono>{(r.rewards || 128).toFixed(2)} PSWAP</Field>
-      </div>
-      <div className="drill-section">
-        <div className="drill-sec-title">Provider</div>
-        <Addr addr={r.addr || FAKE_ADDRS[0]}/>
-      </div>
-      <div className="drill-section">
-        <button className="btn" disabled title="not in prototype" style={{width:'100%', opacity: 0.55, cursor:'not-allowed'}}>
-          Claim rewards
-        </button>
       </div>
     </>
   );
@@ -944,7 +919,7 @@ function BridgeDetail({ r }) {
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{sender}</span>
                   <Copy text={sender} short/>
-                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(sender, IDENTITIES[sender])} title="Abrir wallet SORA">↗</button>
+                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(sender, window.identityName?.(sender) || null)} title="Abrir wallet SORA">↗</button>
                 </div>
               ) : <span className="muted tiny">—</span>}
             </Field>
@@ -981,7 +956,7 @@ function BridgeDetail({ r }) {
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{recipient}</span>
                   <Copy text={recipient} short/>
-                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(recipient, IDENTITIES[recipient])} title="Abrir wallet SORA">↗</button>
+                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(recipient, window.identityName?.(recipient) || null)} title="Abrir wallet SORA">↗</button>
                 </div>
               ) : <span className="muted tiny">—</span>}
             </Field>
@@ -1052,12 +1027,7 @@ function DefaultDetail({ r }) {
 // Fallback playlist when prod /music/list is unreachable. Replaced at runtime
 // by the real response (see fetchTracks below).
 const FALLBACK_TRACKS = [
-  { title: 'Sakura no Yume',     artist: 'Yumiko Tanaka',  dur: 214 },
-  { title: 'Midnight Tokyo',     artist: 'Kanade',         dur: 186 },
-  { title: 'Lo-fi XOR',          artist: 'Sora Collective',dur: 248 },
-  { title: 'Blockchain Bloom',   artist: 'ambient.wav',    dur: 302 },
-  { title: 'Validator Dreams',   artist: 'Kusari',         dur: 224 },
-  { title: 'Bridge Lullaby',     artist: 'Cerberus',       dur: 278 },
+  { title: '—', artist: '', dur: 0 },
 ];
 
 function fmtTime(s) {
@@ -1125,7 +1095,7 @@ function MusicPlayer() {
     // Fallback: simulated ticker (no real audio)
     const id = setInterval(() => {
       setElapsed(e => {
-        if (e + 1 >= (track?.dur || 180)) {
+        if (track?.dur && e + 1 >= track.dur) {
           setTrackIdx(i => (i + 1) % tracks.length);
           return 0;
         }
@@ -1162,7 +1132,7 @@ function MusicPlayer() {
     );
   }, [trackIdx]);
 
-  const progress = elapsed / track.dur;
+  const progress = track.dur ? elapsed / track.dur : 0;
 
   const onSeek = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();

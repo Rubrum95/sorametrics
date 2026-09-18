@@ -12,13 +12,9 @@ const { useState, useEffect, useRef, useMemo, useContext, createContext } = Reac
 const StudioContext = createContext(null);
 function useStudio() { return useContext(StudioContext); }
 
+// Shown only until /music/list answers: no made-up titles or artists.
 const STUDIO_FALLBACK = [
-  { title: 'Sakura no Yume',     artist: 'Yumiko Tanaka',  dur: 214 },
-  { title: 'Midnight Tokyo',     artist: 'Kanade',         dur: 186 },
-  { title: 'Lo-fi XOR',          artist: 'Sora Collective',dur: 248 },
-  { title: 'Blockchain Bloom',   artist: 'ambient.wav',    dur: 302 },
-  { title: 'Validator Dreams',   artist: 'Kusari',         dur: 224 },
-  { title: 'Bridge Lullaby',     artist: 'Cerberus',       dur: 278 },
+  { title: '—', artist: '', dur: 0 },
 ];
 
 function fmtMMSS(s) {
@@ -250,7 +246,7 @@ function StudioProvider({ children, section, setSection }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [playing]);
 
-  const dur = audioRef.current?.duration || track?.dur || 180;
+  const dur = audioRef.current?.duration || track?.dur || 0;
   const seek = (p) => {
     const el = audioRef.current;
     if (!el) return;

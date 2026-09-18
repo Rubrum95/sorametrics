@@ -1,4 +1,4 @@
-/* global React, fmt, FAKE_ADDRS, IDENTITIES, seededRand, useDrill, useT, ExportCsvButton */
+/* global React, fmt, seededRand, useDrill, useT, ExportCsvButton */
 const { useState, useMemo, useEffect } = React;
 
 const PALLETS = [

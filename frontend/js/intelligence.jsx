@@ -1,4 +1,4 @@
-/* global React, useT, fmt, PageHeader, TokenLogo, TinyTokLogo, IDENTITIES, useDrill */
+/* global React, useT, fmt, PageHeader, TokenLogo, TinyTokLogo, useDrill */
 // Intelligence — real-data insight dashboard. Each widget is self-contained:
 // it fetches its own inputs, computes a severity (ok / warn / alert), and
 // renders a card with the signal and the raw numbers behind it.

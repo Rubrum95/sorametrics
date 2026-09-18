@@ -198,29 +198,6 @@ const TOKENS = {
   DAI:   { color: '#FBB040', dark: '#7C5A20', glow: 'rgba(251,176,64,0.4)', name: 'DAI',  grad: 'linear-gradient(135deg, #FCD34D, #FBB040, #D97706)' },
 };
 
-// Fake SORA-ish addresses (random but consistent in shape)
-const FAKE_ADDRS = [
-  'cnV0Qxz5s7K9m4nG2vCZbGq3nKrPfYk6B7LwXy3dW1nT',
-  'cnVkY8p4c9hG2mWqXbKnRs4TfVn3hLqY2JzB5DmEkPiN',
-  'cnVpN2LmS4qX9ZkR7WbC3tFpGhYn5Q8MdVwXjBkLzT6R',
-  'cnVqP5MrT3nC8kYb9WqVzXhF4GjL2NsDpVwBkYnZmQ1T',
-  'cnVtR9KcW2nM4LpYbXqSfGh5JkT6VdZn3Q8PwBmLzRyK',
-  'cnVjH1BnKqS6LcYpXrWfGhF3ZkT9MdVn2Q5WbLmBzKyN',
-  'cnVmD3FpLnQ8WcYbXqRsGhJ4YnT7VdZn5Q2WbKmCzRyP',
-  'cnVbC4LqTrN9MpYbXnWsFgJ2ZkR6VdXn5Q8WbMmDzSyL',
-];
-
-const IDENTITIES = {
-  [FAKE_ADDRS[0]]: 'Polkaswap',
-  [FAKE_ADDRS[1]]: 'XOR Treasury',
-  [FAKE_ADDRS[2]]: 'Bridge Reserve',
-  [FAKE_ADDRS[3]]: 'DAO Multisig',
-  [FAKE_ADDRS[4]]: 'Cerberus',
-  [FAKE_ADDRS[5]]: 'Kusari',
-  [FAKE_ADDRS[6]]: 'Whale.sora',
-  [FAKE_ADDRS[7]]: 'Sakura Node',
-};
-
 // ---- Icons (inline SVG)
 const I = {
   burn: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.5-.5-3-2-4.5-1.5-1.5-4-3-4-5 0 0 1 2 2 2s2-2 2-2c0 0 3 3 3 6 0 3-3 3-3 6a2.5 2.5 0 0 0 2.5 2.5zM13 15.5l.5-1c.5-1 2-1 3 0 1.5 1.5 1 3.5-1 3.5-1.5 0-2.5-1-2.5-2.5z"/><path d="M12 22c5.5 0 8-3.5 8-8 0-3-2-5-3-6-.5 1-1 2-2 2.5"/></svg>,
@@ -407,6 +384,6 @@ function startHoldersBackgroundRefresh(assetIds) {
 
 Object.assign(window, {
   fmt, seededRand, sparkPath, areaPath, TOKENS, TOKEN_LOGOS, TOKEN_PRICES, loadTokenLogos,
-  FAKE_ADDRS, IDENTITIES, I, Petals, useHistory, parseHistTime,
+  I, Petals, useHistory, parseHistTime,
   getHoldersCached, startHoldersBackgroundRefresh, HOLDERS_TTL_MS,
 });

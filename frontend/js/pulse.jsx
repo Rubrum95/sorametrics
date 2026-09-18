@@ -1,4 +1,4 @@
-/* global React, fmt, FAKE_ADDRS, IDENTITIES, TOKENS, sparkPath, I, useDrill, useT, io, TimeRangePills, useTimeRange */
+/* global React, fmt, TOKENS, sparkPath, I, useDrill, useT, io, TimeRangePills, useTimeRange */
 const { useState, useEffect, useRef, useMemo } = React;
 
 // Shared socket.io connection. Created lazily the first time a component asks for it.
