@@ -254,6 +254,9 @@ struct SimpleBalance {
     amount: String,
     #[serde(rename = "usdValue")]
     usd_value: String,
+    /// See [`TokenBalance::illiquid`]. Omitted when false.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    illiquid: bool,
 }
 
 /// Node `/balance/:address`: same rows, no `assetId`, bare array;
@@ -277,6 +280,7 @@ async fn balance(
                 logo: t.logo,
                 amount: t.amount,
                 usd_value: t.usd_value,
+                illiquid: t.illiquid,
             })
             .collect(),
     ))
