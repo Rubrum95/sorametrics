@@ -1612,7 +1612,7 @@ async fn copy_supply_snapshots(
     bound: Bound,
 ) -> Result<u64> {
     let sql = r#"
-        SELECT id, symbol, asset_id, total_supply::float8 AS total_supply,
+        SELECT id::bigint AS id, symbol, asset_id, total_supply::float8 AS total_supply,
                to_timestamp(timestamp / 1000.0) AS ts
         FROM sm.supply_snapshots
         WHERE id > $1 AND timestamp < $3 AND symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL
