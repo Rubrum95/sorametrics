@@ -42,6 +42,11 @@ Resumable; ~9 GB on the wire for `sm.extrinsic_events`, ~2 GB for the rest. Then
 ./target/release/sorametrics-ops migrate-legacy --tables <ALL_TABLES from docs/operations.md>
 ```
 Reconciliation must print `reconciliation OK for all migrated tables`; otherwise stop.
+Leave `polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns` OUT of the
+table list on Rubrum: Polkamarkt started at block 26.3 M, inside the chain-first era the backfill
+already covers (verified equal to production market by market); those copies conflict on
+`legacy_id` only and would duplicate the decoder's rows. `polkamarkt_markets` stays in: it fills
+the static fields of a market whose earlier-era storage the decoder could not read (market 0).
 
 ## 4. Chain-first era
 ```bash

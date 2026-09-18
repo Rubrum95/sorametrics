@@ -1841,7 +1841,14 @@ async fn copy_pm_markets(source: &PgPool, target: &PgPool, batch: i64) -> Result
                     opengov_network, opengov_parachain, opengov_track, opengov_referendum,
                     created_at_block, created_at_ts, resolved_at_block, resolved_at_ts, mechanism, origin
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'legacy')
-                ON CONFLICT (market_id) DO NOTHING
+                ON CONFLICT (market_id) DO UPDATE SET
+                    condition_id = EXCLUDED.condition_id, creator = EXCLUDED.creator,
+                    close_block = EXCLUDED.close_block, collateral_asset = EXCLUDED.collateral_asset,
+                    status = EXCLUDED.status, resolution = EXCLUDED.resolution,
+                    question = EXCLUDED.question, oracle = EXCLUDED.oracle,
+                    resolution_source = EXCLUDED.resolution_source, mechanism = EXCLUDED.mechanism,
+                    resolved_at_block = EXCLUDED.resolved_at_block, resolved_at_ts = EXCLUDED.resolved_at_ts
+                WHERE sm.polkamarkt_markets.creator = 'Unknown'
                 "#,
                 cursor,
                 r.try_get::<i64, _>("condition_id")?,
@@ -2740,9 +2747,11 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 false
             }
         }
+        // Markets live in the chain-first era, so the target rows may come
+        // from the decoder (origin 'live'); every legacy id must exist.
         "polkamarkt_markets" => {
             let dst = sqlx::query_scalar!(
-                r#"SELECT market_id FROM sm.polkamarkt_markets WHERE origin = 'legacy' ORDER BY market_id"#
+                r#"SELECT market_id FROM sm.polkamarkt_markets ORDER BY market_id"#
             )
             .fetch_all(target)
             .await?;
