@@ -1839,7 +1839,7 @@ function HoldersSection({ tweaks }) {
               <tr>
                 <th style={{paddingLeft: 20, width: 56}}>#</th>
                 <th>{t('col.account')}</th>
-                <th>On-chain Identity</th>
+                <th>{t('col.identity')}</th>
                 <th style={{textAlign:'right', paddingRight: 20}}>Balance ({asset})</th>
               </tr>
             </thead>
@@ -1859,7 +1859,7 @@ function HoldersSection({ tweaks }) {
                       <div className="num tiny" style={{overflow:'hidden', textOverflow:'ellipsis', wordBreak:'break-all'}}>{fmt.addr(h.addr, 8, 6)}</div>
                     </div>
                   </td>
-                  <td data-label="Identity">
+                  <td data-label={t('col.identity')}>
                     <IdentityCell addr={h.addr}/>
                   </td>
                   <td data-label={'Balance ' + asset} style={{textAlign:'right', paddingRight: 20}} className="num">

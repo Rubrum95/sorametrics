@@ -320,6 +320,7 @@ const DICT = {
   'col.size':        { en:'Size',    es:'Tamaño',    fr:'Taille',  de:'Größe',    it:'Dim.',    pt:'Tamanho',  ru:'Размер',   zh:'规模',  ja:'サイズ',  ko:'크기',    ar:'الحجم',    he:'גודל',    ur:'سائز',    hi:'आकार' },
   'col.total':       { en:'Total',   es:'Total',     fr:'Total',   de:'Gesamt',   it:'Totale',  pt:'Total',    ru:'Итого',    zh:'总额',  ja:'合計',    ko:'합계',    ar:'الإجمالي', he:'סה"כ',   ur:'کل',      hi:'कुल' },
   'col.rank':        { en:'Rank',    es:'Rango',     fr:'Rang',    de:'Rang',     it:'Rango',   pt:'Posição',  ru:'Ранг',     zh:'排名',  ja:'順位',    ko:'순위',    ar:'الترتيب',   he:'דירוג',  ur:'رینک',    hi:'रैंक' },
+  'col.identity':    { en:'Identity', es:'Identidad', fr:'Identité', de:'Identität', it:'Identità', pt:'Identidade' },
   'col.account':     { en:'Account', es:'Cuenta',    fr:'Compte',  de:'Konto',    it:'Account', pt:'Conta',    ru:'Аккаунт',  zh:'账户',  ja:'アカウント',ko:'계정',  ar:'الحساب',   he:'חשבון',   ur:'اکاؤنٹ',  hi:'खाता' },
   'col.value':       { en:'Value',   es:'Valor',     fr:'Valeur',  de:'Wert',     it:'Valore',  pt:'Valor',    ru:'Стоимость',zh:'价值',  ja:'価値',    ko:'가치',    ar:'القيمة',    he:'ערך',    ur:'ویلیو',   hi:'मूल्य' },
   'col.tokens':      { en:'Tokens',  es:'Tokens',    fr:'Tokens',  de:'Tokens',   it:'Token',   pt:'Tokens',   ru:'Токены',   zh:'代币',  ja:'トークン', ko:'토큰',    ar:'العملات',  he:'אסימונים',ur:'ٹوکنز',  hi:'टोकन' },

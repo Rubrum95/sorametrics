@@ -341,13 +341,16 @@ function AddrStack({ addr, onClick, prefix = 5, suffix = 4, title = 'Abrir walle
 // duplicate the truncated address here.
 function IdentityCell({ addr, className, style }) {
   const name = useIdentity(addr);
+  const source = identitySource(addr);
   if (!addr || !name) return <span className="muted tiny">—</span>;
+  // The tag says where the name comes from: the user's own alias, the
+  // Identity pallet, or the chain's technical-account registry.
   return (
     <span
       className={(className || '') + ' ident-hit'}
       style={style}
       title={addr + ' · ' + name}>
-      {name}
+      {name} <SourceTag source={source}/>
     </span>
   );
 }
