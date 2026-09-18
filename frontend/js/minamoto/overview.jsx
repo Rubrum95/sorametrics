@@ -272,7 +272,9 @@ window.MN = window.MN || {};
     const live = MN.useFetch('/network-state/live', 10_000);
     const dbState = MN.useFetch('/network-state', 10_000);
     const ccStats = MN.useFetch('/cross-chain/stats', 30_000);
-    const xor = MN.useFetch('/asset/xor%23universal', 60_000);
+    // By definition id: the indexed XOR definition carries no alias, so
+    // '/asset/xor%23universal' answered 404.
+    const xor = MN.useFetch('/asset/6TEAJqbb8oEPmLncoNiMRbLEK6tw', 60_000);
 
     const s = (live.data && live.data.state) || (dbState.data && dbState.data.state) || {};
     const cc = ccStats.data || {};
