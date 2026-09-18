@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO sm.polkamarkt_markets (\n                    market_id, condition_id, creator, close_block, collateral_asset, seed_liquidity,\n                    status, resolution, question, oracle, resolution_source,\n                    opengov_network, opengov_parachain, opengov_track, opengov_referendum,\n                    created_at_block, created_at_ts, resolved_at_block, resolved_at_ts, mechanism, origin\n                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'legacy')\n                ON CONFLICT (market_id) DO UPDATE SET\n                    condition_id = EXCLUDED.condition_id, creator = EXCLUDED.creator,\n                    close_block = EXCLUDED.close_block, collateral_asset = EXCLUDED.collateral_asset,\n                    status = EXCLUDED.status, resolution = EXCLUDED.resolution,\n                    question = EXCLUDED.question, oracle = EXCLUDED.oracle,\n                    resolution_source = EXCLUDED.resolution_source, mechanism = EXCLUDED.mechanism,\n                    resolved_at_block = EXCLUDED.resolved_at_block, resolved_at_ts = EXCLUDED.resolved_at_ts\n                WHERE sm.polkamarkt_markets.creator = 'Unknown'\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int4",
+        "Text",
+        "Numeric",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6142062c0a539193daede42fe97db301668311569ba8ac8fffa108ed29eaa347"
+}

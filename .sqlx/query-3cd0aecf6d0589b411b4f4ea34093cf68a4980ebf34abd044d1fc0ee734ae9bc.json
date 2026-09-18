@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT market_id FROM sm.polkamarkt_markets WHERE origin = 'legacy' ORDER BY market_id",
+  "query": "SELECT market_id FROM sm.polkamarkt_markets ORDER BY market_id",
   "describe": {
     "columns": [
       {
@@ -16,5 +16,5 @@
       false
     ]
   },
-  "hash": "4c14d1466eced27949e39fcd8d83fe7c8cba6db9a6dc4e5944ba1d86287dc496"
+  "hash": "3cd0aecf6d0589b411b4f4ea34093cf68a4980ebf34abd044d1fc0ee734ae9bc"
 }
