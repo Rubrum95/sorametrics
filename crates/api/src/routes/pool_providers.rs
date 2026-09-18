@@ -25,7 +25,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use sorametrics_core::chain::{ss58_decode, ss58_encode_sora};
 use sorametrics_db::sm::RegistryAsset;
-use sorametrics_db::ts::latest_prices;
+use sorametrics_db::ts::valuation_prices;
 use sorametrics_substrate::runtime::sora;
 use sorametrics_substrate::runtime::sora::runtime_types::common::primitives::AssetId32;
 use sorametrics_substrate::runtime::sora::runtime_types::common::primitives::_allowed_deprecated::PredefinedAssetId;
@@ -293,7 +293,7 @@ async fn wallet_liquidity(
         .collect();
     ids.sort();
     ids.dedup();
-    let prices: HashMap<String, f64> = latest_prices(&state.db, &ids)
+    let prices: HashMap<String, f64> = valuation_prices(&state.db, &ids)
         .await?
         .into_iter()
         .map(|p| (p.asset_id, p.price_usd))

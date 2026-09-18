@@ -215,14 +215,15 @@ function PortfolioSection({ tweaks }) {
     wallets.forEach(w => (w.tokens || []).forEach(tk => {
       const sym = tk.symbol;
       if (!sym) return;
-      if (!bySym[sym]) bySym[sym] = { sym, amount: 0, usdValue: 0, logo: tk.logo };
+      if (!bySym[sym]) bySym[sym] = { sym, amount: 0, usdValue: 0, logo: tk.logo, illiquid: !!tk.illiquid };
       bySym[sym].amount += Number(tk.amount) || 0;
       bySym[sym].usdValue += Number(tk.usdValue) || 0;
     }));
     // Enrich with price/sparkline/change from /tokens.
     return Object.values(bySym).map(h => {
       const meta = tokenMeta[h.sym] || {};
-      const price = meta.price || (h.amount > 0 ? h.usdValue / h.amount : 0);
+      // An illiquid asset is not priced here: the API already values it at 0.
+      const price = h.illiquid ? 0 : (meta.price || (h.amount > 0 ? h.usdValue / h.amount : 0));
       return { ...h, price, change: meta.change || 0, sparkline: meta.sparkline, name: meta.name };
     }).sort((a, b) => b.usdValue - a.usdValue);
   }, [wallets, tokenMeta]);
@@ -495,7 +496,7 @@ function PortfolioSection({ tweaks }) {
                       </div>
                     </td>
                     <td className="num" style={{textAlign:'right'}}>{fmt.num(h.amount, h.amount > 1000 ? 0 : 4)}</td>
-                    <td className="num" style={{textAlign:'right'}}>{h.price > 0 ? ('$' + (h.price < 1 ? h.price.toFixed(6) : h.price.toFixed(2))) : '—'}</td>
+                    <td className="num" style={{textAlign:'right'}}>{h.illiquid ? <span className="tag warn" title={t('liq.tip')}>{t('liq.tag')}</span> : (h.price > 0 ? ('$' + (h.price < 1 ? h.price.toFixed(6) : h.price.toFixed(2))) : '—')}</td>
                     <td className="num" style={{textAlign:'right'}}>
                       <span style={{color: change >= 0 ? '#6EE7B7' : '#FCA5A5', fontWeight: 700}}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%

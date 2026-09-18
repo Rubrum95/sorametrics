@@ -110,6 +110,70 @@ pub async fn latest_prices(
     Ok(rows)
 }
 
+/// Latest quotes usable for a USD VALUATION: assets the last depth check
+/// flagged as illiquid are left out (an unmeasured asset stays in). Market
+/// caps, wallet values and pool TVL must use this, never [`latest_prices`].
+pub async fn valuation_prices(
+    pool: &PgPool,
+    asset_ids: &[String],
+) -> Result<Vec<AssetPrice>, DbError> {
+    let rows = sqlx::query_as!(
+        AssetPrice,
+        r#"
+        SELECT p.asset_id AS "asset_id!", p.price_usd AS "price_usd!"
+        FROM ts.price_latest p
+        LEFT JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id
+        WHERE p.asset_id = ANY($1) AND l.liquid IS DISTINCT FROM false
+        "#,
+        asset_ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// The assets of `asset_ids` flagged illiquid by the last depth check.
+pub async fn illiquid_assets(pool: &PgPool, asset_ids: &[String]) -> Result<Vec<String>, DbError> {
+    let rows = sqlx::query_scalar!(
+        r#"SELECT asset_id FROM sm.asset_liquidity WHERE asset_id = ANY($1) AND NOT liquid"#,
+        asset_ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+/// Record one depth check (see migration `asset_liquidity`).
+pub async fn upsert_asset_liquidity(
+    pool: &PgPool,
+    asset_id: &str,
+    marginal_usd: f64,
+    notional_usd: f64,
+    returned_usd: f64,
+    liquid: bool,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        r#"
+        INSERT INTO sm.asset_liquidity (asset_id, marginal_usd, notional_usd, returned_usd, liquid, updated_at)
+        VALUES ($1, $2, $3, $4, $5, now())
+        ON CONFLICT (asset_id) DO UPDATE SET
+            marginal_usd = EXCLUDED.marginal_usd,
+            notional_usd = EXCLUDED.notional_usd,
+            returned_usd = EXCLUDED.returned_usd,
+            liquid = EXCLUDED.liquid,
+            updated_at = now()
+        "#,
+        asset_id,
+        marginal_usd,
+        notional_usd,
+        returned_usd,
+        liquid,
+    )
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// One hourly point.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PricePoint {

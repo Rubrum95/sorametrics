@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.asset_liquidity (asset_id, marginal_usd, notional_usd, returned_usd, liquid, updated_at)\n        VALUES ($1, $2, $3, $4, $5, now())\n        ON CONFLICT (asset_id) DO UPDATE SET\n            marginal_usd = EXCLUDED.marginal_usd,\n            notional_usd = EXCLUDED.notional_usd,\n            returned_usd = EXCLUDED.returned_usd,\n            liquid = EXCLUDED.liquid,\n            updated_at = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a9895ef18352682b682be22d56773299c0d285d3a685a745745e73e524c069f9"
+}

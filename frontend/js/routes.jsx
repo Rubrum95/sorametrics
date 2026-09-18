@@ -1423,7 +1423,10 @@ function TokensSection({ tweaks }) {
         name: rt.name || (sym + ' Token'),
         price,
         supply: Number(extra.totalSupply) || Number(rt.totalSupply) || 0,
-        mcap: Number(extra.marketCap) || Number(rt.marketCap) || 0,
+        // No market cap over a price that fails the depth check (the API
+        // flags it): price x supply would be fiction.
+        mcap: rt.illiquid ? 0 : (Number(extra.marketCap) || Number(rt.marketCap) || 0),
+        illiquid: !!rt.illiquid,
         change,
         spark: realSpark.length >= 2 ? realSpark : [price, price],
         logo: rt.logo,
@@ -1521,6 +1524,7 @@ function TokensSection({ tweaks }) {
                 <div style={{flex:1, minWidth:0}}>
                   <div className="token-card-sym">{tk.sym}</div>
                   <div className="muted tiny">{tk.name}</div>
+                  {tk.illiquid && <span className="tag warn" style={{marginTop:4}} title={t('liq.tip')}>{t('liq.tag')}</span>}
                 </div>
                 <button
                   className={'fav-btn' + (fav.has(tk.sym) ? ' on' : '')}

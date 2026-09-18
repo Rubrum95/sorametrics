@@ -30,7 +30,9 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sorametrics_db::sm::RegistryAsset;
-use sorametrics_db::ts::{latest_prices, price_at_or_before, price_buckets_since, PricePoint};
+use sorametrics_db::ts::{
+    illiquid_assets, latest_prices, price_at_or_before, price_buckets_since, PricePoint,
+};
 use std::collections::HashMap;
 
 /// Build the tokens sub-router.
@@ -154,6 +156,11 @@ struct TokenRow {
     price: f64,
     change24h: f64,
     sparkline: Vec<SparkPoint>,
+    /// `true` when selling 1 USD worth returns under 0.50 USD: the price is a
+    /// marginal quote over a dust pool, not a market price, and nothing may
+    /// be valued with it (market cap, holdings). Omitted otherwise.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    illiquid: bool,
 }
 
 #[derive(Serialize)]
@@ -244,6 +251,15 @@ async fn list_tokens(
             .collect()
     };
 
+    let illiquid: std::collections::HashSet<String> = if only_sparklines {
+        std::collections::HashSet::new()
+    } else {
+        illiquid_assets(&state.db, &ids)
+            .await?
+            .into_iter()
+            .collect()
+    };
+
     let mut data = Vec::with_capacity(paginated.len());
     for a in paginated {
         let sparkline = if include_sparkline || only_sparklines {
@@ -264,6 +280,7 @@ async fn list_tokens(
             symbol: a.symbol,
             name: a.name.unwrap_or_default(),
             decimals: a.decimals,
+            illiquid: illiquid.contains(&a.asset_id),
             asset_id: a.asset_id,
             logo: a.logo.unwrap_or_default(),
             price,

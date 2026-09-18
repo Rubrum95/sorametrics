@@ -24,7 +24,7 @@ use bigdecimal::{BigDecimal, RoundingMode};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use sorametrics_core::chain::ss58_decode;
-use sorametrics_db::ts::latest_prices;
+use sorametrics_db::ts::{illiquid_assets, valuation_prices};
 use sorametrics_substrate::runtime::sora;
 use std::collections::HashMap;
 use subxt::utils::AccountId32;
@@ -53,6 +53,10 @@ struct TokenBalance {
     usd_value: String,
     #[serde(rename = "assetId")]
     asset_id: String,
+    /// `true` when the asset failed the depth check: it is not valued
+    /// (`usdValue` 0.00) because its quoted price is not a market price.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    illiquid: bool,
 }
 
 #[derive(Serialize)]
@@ -205,10 +209,14 @@ async fn wallet_balances(
     drop(registry);
 
     let asset_ids: Vec<String> = kept.iter().map(|h| h.asset_id.clone()).collect();
-    let prices: HashMap<String, f64> = latest_prices(&state.db, &asset_ids)
+    let prices: HashMap<String, f64> = valuation_prices(&state.db, &asset_ids)
         .await?
         .into_iter()
         .map(|p| (p.asset_id, p.price_usd))
+        .collect();
+    let illiquid: std::collections::HashSet<String> = illiquid_assets(&state.db, &asset_ids)
+        .await?
+        .into_iter()
         .collect();
 
     let mut tokens: Vec<(f64, TokenBalance)> = kept
@@ -224,6 +232,7 @@ async fn wallet_balances(
                     logo: h.logo,
                     amount: fmt_fixed(&h.amount, 4),
                     usd_value: fmt_fixed(&usd, 2),
+                    illiquid: illiquid.contains(&h.asset_id),
                     asset_id: h.asset_id,
                 },
             )

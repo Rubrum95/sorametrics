@@ -29,7 +29,7 @@ use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use sorametrics_core::chain::ss58_encode_sora;
 use sorametrics_db::sm::RegistryAsset;
-use sorametrics_db::ts::latest_prices;
+use sorametrics_db::ts::valuation_prices;
 use sorametrics_substrate::runtime::sora;
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
@@ -252,7 +252,7 @@ async fn scan_pools(state: &AppState) -> Result<Vec<Pool>, ApiError> {
         .collect();
     ids.sort();
     ids.dedup();
-    let prices: HashMap<String, f64> = latest_prices(&state.db, &ids)
+    let prices: HashMap<String, f64> = valuation_prices(&state.db, &ids)
         .await?
         .into_iter()
         .map(|p| (p.asset_id, p.price_usd))

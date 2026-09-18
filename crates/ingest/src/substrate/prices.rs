@@ -97,6 +97,7 @@ async fn sample_session(
                     priced = outcome.priced,
                     no_route = outcome.no_route,
                     failed = outcome.failed,
+                    illiquid = outcome.illiquid,
                     whitelisted,
                     "whitelist price sweep recorded"
                 );

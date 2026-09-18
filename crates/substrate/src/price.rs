@@ -33,7 +33,9 @@ use serde::Deserialize;
 use sorametrics_core::chain::AssetId;
 use sorametrics_core::time::Timestamp;
 use sorametrics_db::sm::load_asset_registry;
-use sorametrics_db::ts::{price_at_bucket, upsert_price_latest, upsert_price_sample};
+use sorametrics_db::ts::{
+    price_at_bucket, upsert_asset_liquidity, upsert_price_latest, upsert_price_sample,
+};
 use sorametrics_db::DbError;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -149,6 +151,49 @@ pub fn usd_value(raw_amount: &BigDecimal, decimals: u32, price: Decimal) -> BigD
     let human = raw_amount / scale;
     let price_bd = BigDecimal::from_str(&price.to_string()).unwrap_or_default();
     (human * price_bd).with_scale_round(6, RoundingMode::HalfUp)
+}
+
+/// USD notional of the depth check run next to every swept price. Small on
+/// purpose: liquidity is thin network-wide, so the check only weeds out the
+/// pools that cannot absorb even this.
+pub const DEPTH_NOTIONAL_USD: u32 = 1;
+/// What selling [`DEPTH_NOTIONAL_USD`] worth must return for the marginal
+/// price to count as a market price. Below it the asset is illiquid and no
+/// USD valuation may be built on its price.
+pub const DEPTH_MIN_RETURN_USD: f64 = 0.5;
+
+/// Raw input amount worth [`DEPTH_NOTIONAL_USD`] at the marginal `price`.
+/// `None` when the price is not positive or the amount does not fit a u128.
+pub fn depth_input_raw(price: Decimal, decimals: u32) -> Option<String> {
+    if price <= Decimal::ZERO {
+        return None;
+    }
+    let price_bd = BigDecimal::from_str(&price.to_string()).ok()?;
+    let units = BigDecimal::from(DEPTH_NOTIONAL_USD) / price_bd;
+    let raw = (units * BigDecimal::new(BigInt::from(1), -(decimals as i64))).with_scale(0);
+    let text = raw.to_string();
+    text.parse::<u128>().ok().filter(|v| *v > 0).map(|_| text)
+}
+
+/// DAI (human units) the chain pays for selling `amount_raw` of `asset`.
+/// `Ok(None)` = no route.
+pub async fn quote_sell_in_dai(
+    rpc: &RpcClient,
+    asset: &AssetId,
+    amount_raw: &str,
+) -> Result<Option<f64>, PriceError> {
+    let mut params = RpcParams::new();
+    params.push(0_u32)?;
+    params.push(asset.as_str())?;
+    params.push(DAI_ASSET_ID)?;
+    params.push(amount_raw)?;
+    params.push("WithDesiredInput")?;
+    params.push(Vec::<String>::new())?;
+    params.push("Disabled")?;
+    let outcome: Option<QuoteOutcome> = rpc.request("liquidityProxy_quote", params).await?;
+    Ok(outcome
+        .and_then(|q| q.amount.parse::<f64>().ok())
+        .map(|out| out / 1e18))
 }
 
 /// Ask the node for the DAI price of one asset. `Ok(None)` = the chain
@@ -476,7 +521,7 @@ impl PriceResolver {
     /// dead connection (nothing priced, errors) from illiquid assets. A
     /// DB failure propagates.
     pub async fn sample_popular(&self) -> Result<SampleOutcome, PriceError> {
-        self.sample_assets(&self.popular_assets()).await
+        self.sample_assets(&self.popular_assets(), false).await
     }
 
     /// Quote the whole whitelist once. The Node quoted non-popular
@@ -484,10 +529,16 @@ impl PriceResolver {
     /// read-only v33 API cannot, so the sampler sweeps them on a slower
     /// cadence instead.
     pub async fn sample_whitelist(&self) -> Result<SampleOutcome, PriceError> {
-        self.sample_assets(&self.whitelisted_assets()).await
+        self.sample_assets(&self.whitelisted_assets(), true).await
     }
 
-    async fn sample_assets(&self, assets: &[AssetId]) -> Result<SampleOutcome, PriceError> {
+    /// `measure_depth` also runs the 100 USD sale check of each priced asset
+    /// (the whitelist sweep does; the per-minute popular pass does not).
+    async fn sample_assets(
+        &self,
+        assets: &[AssetId],
+        measure_depth: bool,
+    ) -> Result<SampleOutcome, PriceError> {
         let rpc = match &self.rpc {
             Some(r) => r,
             None => return Ok(SampleOutcome::default()),
@@ -506,6 +557,9 @@ impl PriceResolver {
                     );
                     self.record_sample(asset, p).await?;
                     outcome.priced += 1;
+                    if measure_depth && !self.record_depth(rpc, asset, decimals, p).await? {
+                        outcome.illiquid += 1;
+                    }
                 }
                 Ok(None) => {
                     debug!(asset = asset.as_str(), "popular asset has no DAI route");
@@ -523,6 +577,51 @@ impl PriceResolver {
     }
 }
 
+impl PriceResolver {
+    /// Depth check of one priced asset: what the chain pays for selling
+    /// [`DEPTH_NOTIONAL_USD`] USD worth of it at the marginal price. Returns
+    /// whether the asset is liquid. An RPC failure leaves the previous
+    /// record untouched and reports `true` (not counted as illiquid).
+    async fn record_depth(
+        &self,
+        rpc: &RpcClient,
+        asset: &AssetId,
+        decimals: u32,
+        price: Decimal,
+    ) -> Result<bool, PriceError> {
+        let marginal = match price.to_string().parse::<f64>() {
+            Ok(v) if v.is_finite() && v > 0.0 => v,
+            _ => return Ok(true),
+        };
+        let returned = if asset.as_str() == DAI_ASSET_ID {
+            f64::from(DEPTH_NOTIONAL_USD)
+        } else {
+            match depth_input_raw(price, decimals) {
+                None => 0.0,
+                Some(raw) => match quote_sell_in_dai(rpc, asset, &raw).await {
+                    Ok(out) => out.unwrap_or(0.0),
+                    Err(PriceError::Db(e)) => return Err(PriceError::Db(e)),
+                    Err(e) => {
+                        warn!(asset = asset.as_str(), error = %e, "depth quote failed");
+                        return Ok(true);
+                    }
+                },
+            }
+        };
+        let liquid = returned >= DEPTH_MIN_RETURN_USD;
+        upsert_asset_liquidity(
+            &self.db,
+            asset.as_str(),
+            marginal,
+            f64::from(DEPTH_NOTIONAL_USD),
+            returned,
+            liquid,
+        )
+        .await?;
+        Ok(liquid)
+    }
+}
+
 /// Result of one [`PriceResolver::sample_popular`] pass.
 #[derive(Debug, Default)]
 pub struct SampleOutcome {
@@ -530,6 +629,8 @@ pub struct SampleOutcome {
     pub priced: usize,
     /// Assets the chain has no DAI route for.
     pub no_route: usize,
+    /// Priced assets whose depth check flagged them illiquid.
+    pub illiquid: usize,
     /// Assets whose quote RPC failed.
     pub failed: usize,
     /// The last RPC failure, if any.
@@ -568,6 +669,21 @@ mod tests {
         assert_eq!(price_from_quote_amount("0"), None);
         assert_eq!(price_from_quote_amount("abc"), None);
         assert_eq!(price_from_quote_amount(""), None);
+    }
+
+    #[test]
+    fn depth_input_is_the_notional_worth_of_the_asset() {
+        // 1 USD at 5 USD/unit = 0.2 units of an 18-decimals asset.
+        assert_eq!(
+            depth_input_raw(Decimal::from(5), 18).as_deref(),
+            Some("200000000000000000")
+        );
+        // 1 USD at 0.0001 USD/unit = 10 000 units (6 decimals).
+        assert_eq!(
+            depth_input_raw(Decimal::from_str("0.0001").unwrap(), 6).as_deref(),
+            Some("10000000000")
+        );
+        assert_eq!(depth_input_raw(Decimal::ZERO, 18), None);
     }
 
     #[test]

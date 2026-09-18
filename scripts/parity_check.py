@@ -97,7 +97,7 @@ ROUTES = [
     dict(path="/api/version", mode="full"),
     dict(path="/currency-rates", mode="full"),
     # --- tokens / prices ---
-    dict(path="/tokens", mode="full", ignore=["price", "priceChange24h", "change24h", "sparkline", "marketCap", "volume24h"]),
+    dict(path="/tokens", mode="full", ignore=["price", "priceChange24h", "change24h", "sparkline", "marketCap", "volume24h", "illiquid"]),
     # v33-only routes (not in index.js, so nothing to compare): /asset/:id,
     # /health/freshness, /history/global/fee_events, /history/fee_events/:address.
     dict(path="/chart/XOR?res=60", mode="structure"),
