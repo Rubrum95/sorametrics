@@ -28,6 +28,8 @@ function fmtMMSS(s) {
 
 function StudioProvider({ children, section, setSection }) {
   const audioRef = useRef(null);
+  const probedRef = useRef(false);
+  const [listLoaded, setListLoaded] = useState(false);
   // Persistent state — survives route/section changes because the provider
   // wraps the whole app.
   const [tracks, setTracks] = useState(STUDIO_FALLBACK);
@@ -81,28 +83,37 @@ function StudioProvider({ children, section, setSection }) {
           if (di >= 0) { setIdx(di); setPlaying(true); }
         }
       } catch {}
-      next.forEach((tr, i) => {
-        const probe = new Audio();
-        probe.preload = 'metadata';
-        const cleanup = () => {
-          probe.removeEventListener('loadedmetadata', onMeta);
-          probe.removeEventListener('error', cleanup);
-        };
-        const onMeta = () => {
-          cleanup();
-          if (cancelled) return;
-          const d = probe.duration;
-          if (Number.isFinite(d) && d > 0) {
-            setTracks(curr => curr.map((t, k) => k === i ? { ...t, dur: d } : t));
-          }
-        };
-        probe.addEventListener('loadedmetadata', onMeta);
-        probe.addEventListener('error', cleanup);
-        probe.src = tr.src;
-      });
+      setListLoaded(true);
     }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  // Durations are only shown in the Studio track list, so the metadata of
+  // every file is probed the first time that section opens — not on every
+  // page load (it was ~80 range requests before anything else rendered).
+  useEffect(() => {
+    if (section !== 'studio' || !listLoaded || probedRef.current) return;
+    probedRef.current = true;
+    tracks.forEach((tr, i) => {
+      if (!tr.src || tr.dur) return;
+      const probe = new Audio();
+      probe.preload = 'metadata';
+      const cleanup = () => {
+        probe.removeEventListener('loadedmetadata', onMeta);
+        probe.removeEventListener('error', cleanup);
+      };
+      const onMeta = () => {
+        cleanup();
+        const d = probe.duration;
+        if (Number.isFinite(d) && d > 0) {
+          setTracks(curr => curr.map((t, k) => k === i ? { ...t, dur: d } : t));
+        }
+      };
+      probe.addEventListener('loadedmetadata', onMeta);
+      probe.addEventListener('error', cleanup);
+      probe.src = tr.src;
+    });
+  }, [section, listLoaded]);
 
   const track = tracks[idx] || tracks[0];
 
