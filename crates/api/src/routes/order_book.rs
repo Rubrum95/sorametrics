@@ -132,16 +132,8 @@ struct Filters {
 }
 
 fn parse_page(page: Option<i64>, limit: Option<i64>) -> Result<(i64, i64), ApiError> {
-    let page = page.unwrap_or(1);
-    if page < 1 {
-        return Err(ApiError::BadRequest("page must be ≥ 1".into()));
-    }
-    let limit = limit.unwrap_or(25);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::BadRequest(
-            "limit must be between 1 and 100".into(),
-        ));
-    }
+    let page = crate::util::clamp_page(page);
+    let limit = crate::util::clamp_limit(limit, 25, 100);
     Ok((page, limit))
 }
 
@@ -282,8 +274,8 @@ mod tests {
     #[test]
     fn page_defaults_and_bounds() {
         assert_eq!(parse_page(None, None).unwrap(), (1, 25));
-        assert!(parse_page(Some(0), None).is_err());
-        assert!(parse_page(None, Some(101)).is_err());
+        assert_eq!(parse_page(Some(0), None).unwrap(), (1, 25));
+        assert_eq!(parse_page(None, Some(101)).unwrap(), (1, 100));
     }
 
     #[test]

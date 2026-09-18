@@ -165,16 +165,8 @@ fn parse_page(
     limit: Option<i64>,
     default_limit: i64,
 ) -> Result<(i64, i64), ApiError> {
-    let page = page.unwrap_or(1);
-    if page < 1 {
-        return Err(ApiError::BadRequest("page must be ≥ 1".into()));
-    }
-    let limit = limit.unwrap_or(default_limit);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::BadRequest(
-            "limit must be between 1 and 100".into(),
-        ));
-    }
+    let page = crate::util::clamp_page(page);
+    let limit = crate::util::clamp_limit(limit, default_limit, 100);
     Ok((page, limit))
 }
 
@@ -645,8 +637,8 @@ mod tests {
     #[test]
     fn page_and_timestamp_parsing() {
         assert_eq!(parse_page(None, None, 25).unwrap(), (1, 25));
-        assert!(parse_page(Some(0), None, 25).is_err());
-        assert!(parse_page(None, Some(500), 25).is_err());
+        assert_eq!(parse_page(Some(0), None, 25).unwrap(), (1, 25));
+        assert_eq!(parse_page(None, Some(500), 25).unwrap(), (1, 100));
         assert_eq!(
             parse_until(Some("1788623172000"))
                 .unwrap()

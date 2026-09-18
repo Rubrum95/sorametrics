@@ -110,16 +110,8 @@ impl PageSpec {
 
 impl Pagination {
     fn validate(&self, default_limit: i64) -> Result<PageSpec, ApiError> {
-        let page = self.page.unwrap_or(1);
-        if page < 1 {
-            return Err(ApiError::BadRequest("page must be ≥ 1".into()));
-        }
-        let limit = self.limit.unwrap_or(default_limit);
-        if !(1..=100).contains(&limit) {
-            return Err(ApiError::BadRequest(
-                "limit must be between 1 and 100".into(),
-            ));
-        }
+        let page = crate::util::clamp_page(self.page);
+        let limit = crate::util::clamp_limit(self.limit, default_limit, 100);
 
         let until = match self.timestamp.as_deref().map(str::trim) {
             Some("") | None => None,
@@ -901,11 +893,11 @@ mod tests {
     }
 
     #[test]
-    fn limit_and_page_bounds_enforced() {
-        assert!(pag(Some(0), None, None).validate(25).is_err());
-        assert!(pag(None, Some(0), None).validate(25).is_err());
-        assert!(pag(None, Some(101), None).validate(25).is_err());
-        assert!(pag(None, Some(100), None).validate(25).is_ok());
+    fn limit_and_page_are_clamped_like_the_node() {
+        assert_eq!(pag(Some(0), None, None).validate(25).unwrap().page, 1);
+        assert_eq!(pag(None, Some(0), None).validate(25).unwrap().limit, 25);
+        assert_eq!(pag(None, Some(101), None).validate(25).unwrap().limit, 100);
+        assert_eq!(pag(None, Some(100), None).validate(25).unwrap().limit, 100);
     }
 
     #[test]

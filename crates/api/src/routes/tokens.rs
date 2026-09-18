@@ -180,16 +180,8 @@ async fn list_tokens(
     State(state): State<AppState>,
     Query(q): Query<TokensQuery>,
 ) -> Result<Json<Page<TokenItem>>, ApiError> {
-    let page = q.page.unwrap_or(1);
-    if page < 1 {
-        return Err(ApiError::BadRequest("page must be ≥ 1".into()));
-    }
-    let limit = q.limit.unwrap_or(20);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::BadRequest(
-            "limit must be between 1 and 100".into(),
-        ));
-    }
+    let page = crate::util::clamp_page(q.page);
+    let limit = crate::util::clamp_limit(q.limit, 20, 100);
     let tf_ms = timeframe_ms(q.timeframe.as_deref().unwrap_or("24h"));
     let include_sparkline = q.sparkline.as_deref() != Some("false");
     let only_sparklines = q.only_sparklines.as_deref() == Some("true");

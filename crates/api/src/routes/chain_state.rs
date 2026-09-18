@@ -277,12 +277,7 @@ async fn pools(
     Query(q): Query<PoolsQuery>,
 ) -> Result<Json<PoolsResponse>, ApiError> {
     let page = q.page.unwrap_or(1).max(1);
-    let limit = q.limit.unwrap_or(10);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::BadRequest(
-            "limit must be between 1 and 100".into(),
-        ));
-    }
+    let limit = crate::util::clamp_limit(q.limit, 10, 100);
     let all: Vec<Pool> = cached_or_scan(&state, "pools", POOLS_TTL, |st| async move {
         scan_pools(&st).await
     })

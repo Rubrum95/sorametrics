@@ -107,16 +107,8 @@ async fn global(
     State(state): State<AppState>,
     Query(q): Query<GlobalQuery>,
 ) -> Result<Json<Page>, ApiError> {
-    let page = q.page.unwrap_or(1);
-    if page < 1 {
-        return Err(ApiError::BadRequest("page must be ≥ 1".into()));
-    }
-    let limit = q.limit.unwrap_or(20);
-    if !(1..=100).contains(&limit) {
-        return Err(ApiError::BadRequest(
-            "limit must be between 1 and 100".into(),
-        ));
-    }
+    let page = crate::util::clamp_page(q.page);
+    let limit = crate::util::clamp_limit(q.limit, 20, 100);
     let until: Option<DateTime<Utc>> = match q.timestamp.as_deref().map(str::trim) {
         Some("") | None => None,
         Some(raw) => {

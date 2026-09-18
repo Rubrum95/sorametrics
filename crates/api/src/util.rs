@@ -49,6 +49,20 @@ pub fn validate_asset_id(raw: &str) -> Result<String, ApiError> {
     }
 }
 
+/// The Node's `Math.min(parseInt(limit) || default, max)`: a missing, zero or
+/// negative limit falls back to the default, a larger one is capped. The
+/// Node never rejects a limit, and the frontend relies on it
+/// (`/tokens?limit=500`).
+pub fn clamp_limit(raw: Option<i64>, default: i64, max: i64) -> i64 {
+    raw.filter(|l| *l > 0).unwrap_or(default).min(max)
+}
+
+/// The Node's `parseInt(page) || 1`, normalised like its history routes: a
+/// missing, zero or negative page is page 1. Never a 400.
+pub fn clamp_page(raw: Option<i64>) -> i64 {
+    raw.filter(|p| *p > 0).unwrap_or(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,5 +126,18 @@ mod tests {
             validate_address("not-an-address").unwrap_err(),
             ApiError::BadRequest(_)
         ));
+    }
+
+    #[test]
+    fn limit_is_clamped_like_the_node() {
+        assert_eq!(clamp_limit(None, 20, 100), 20);
+        assert_eq!(clamp_limit(Some(0), 20, 100), 20);
+        assert_eq!(clamp_limit(Some(-5), 20, 100), 20);
+        assert_eq!(clamp_limit(Some(37), 20, 100), 37);
+        assert_eq!(clamp_limit(Some(500), 20, 100), 100);
+        assert_eq!(clamp_page(None), 1);
+        assert_eq!(clamp_page(Some(0)), 1);
+        assert_eq!(clamp_page(Some(-1)), 1);
+        assert_eq!(clamp_page(Some(7)), 7);
     }
 }
