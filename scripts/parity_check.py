@@ -190,12 +190,14 @@ ROUTES = [
     dict(path="/mof/qty/xor", mode="structure", raw=True),
     dict(path="/proxy-image?url=https://example.com/x.png", mode="full", raw=True),
     # --- frontend files the Node serves itself (STATIC_DIR) ---
+    # v33 carries its own frontend (frontend/, baseline = production a46298e
+    # plus fixes), so the edited files are compared by status only.
     dict(path="/", mode="full", raw=True),
-    dict(path="/sorav2", mode="full", raw=True),
-    dict(path="/minamoto", mode="full", raw=True),
-    dict(path="/styles.css", mode="full", raw=True),
+    dict(path="/sorav2", mode="structure", raw=True),
+    dict(path="/minamoto", mode="structure", raw=True),
+    dict(path="/styles.css", mode="structure", raw=True),
     dict(path="/manifest.json", mode="full", raw=True),
-    dict(path="/js/common.jsx", mode="full", raw=True),
+    dict(path="/js/common.jsx", mode="structure", raw=True),
     dict(path="/js/minamoto/main.jsx", mode="full", raw=True),
     # --- site analytics ---
     dict(path="/analytics/stats", mode="structure"),
