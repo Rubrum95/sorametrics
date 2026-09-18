@@ -480,6 +480,23 @@ struct BurnStat {
     last_supply: Option<f64>,
     #[serde(rename = "genesisSupply", skip_serializing_if = "Option::is_none")]
     genesis_supply: Option<f64>,
+    /// XOR burnt outside the fee mechanism in the window (`assets.burn`…):
+    /// the measured supply drop minus the measured fee burn.
+    #[serde(rename = "explicitBurned", skip_serializing_if = "Option::is_none")]
+    explicit_burned: Option<f64>,
+}
+
+/// XOR actually burnt by the fee mechanism since `start_ms`
+/// (`xorFee` remint events folded into `sm.fee_burns_aggregate`).
+async fn measured_fee_burn(state: &AppState, start_ms: i64) -> Result<f64, ApiError> {
+    let burned = sqlx::query_scalar!(
+        r#"SELECT COALESCE(SUM(remint_xor_burned), 0)::float8 AS "burned!"
+           FROM sm.fee_burns_aggregate WHERE ts >= $1"#,
+        start_ms
+    )
+    .fetch_one(&state.db)
+    .await?;
+    Ok(burned)
 }
 
 /// First / last snapshot in the window: `(ts ms, supply)`.
@@ -588,13 +605,30 @@ async fn stats(
             let since =
                 DateTime::from_timestamp_millis(start_ms).unwrap_or(DateTime::<Utc>::UNIX_EPOCH);
             let (fees_xor, fees_usd) = fee_totals_since(&state, since).await?;
-            let fee_burn = fees_xor * 0.20;
-            let fee_burn_usd = fees_usd * 0.20;
-            s.fee_based = Some(fee_burn);
-            s.fee_based_usd = Some(fee_burn_usd);
-            if fee_burn > 0.0 {
-                s.total_burned = fee_burn;
-                s.total_burned_usd = Some(fee_burn_usd);
+            if ms == 0 {
+                // "all": the Node's 20 % of every fee ever paid. It spans
+                // the redenomination, so it stays as the Node computes it.
+                let fee_burn = fees_xor * 0.20;
+                let fee_burn_usd = fees_usd * 0.20;
+                s.fee_based = Some(fee_burn);
+                s.fee_based_usd = Some(fee_burn_usd);
+                if fee_burn > 0.0 {
+                    s.total_burned = fee_burn;
+                    s.total_burned_usd = Some(fee_burn_usd);
+                }
+            } else {
+                // Windows: measured values. The Node replaced the supply
+                // drop with "20 % of the fees", which is neither the real
+                // fee burn (41 % measured) nor able to see an explicit
+                // burn: 900 000 000 XOR burnt on 2026-09-18 showed as 1.6.
+                let supply_drop = s.total_burned.max(0.0);
+                let fee_burn = measured_fee_burn(&state, start_ms).await?;
+                let total = supply_drop.max(fee_burn);
+                s.fee_based = Some(fee_burn);
+                s.fee_based_usd = Some(fee_burn * price);
+                s.explicit_burned = Some((total - fee_burn).max(0.0));
+                s.total_burned = total;
+                s.total_burned_usd = Some(total * price);
             }
             s
         } else if tf == "all" && genesis(&symbol).is_some() && current.is_some() {
