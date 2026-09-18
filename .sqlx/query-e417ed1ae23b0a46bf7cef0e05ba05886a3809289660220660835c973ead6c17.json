@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(amount_xor), 0)::numeric AS \"checksum!\"\n                   FROM sm.fees GROUP BY 1 ORDER BY 1",
+  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(amount_xor), 0)::numeric AS \"checksum!\"\n                   FROM sm.fees WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1",
   "describe": {
     "columns": [
       {
@@ -28,5 +28,5 @@
       null
     ]
   },
-  "hash": "2c6676f6c919bbe914c456db8e9903e47d8683bedcb363736bb6e19a27c95977"
+  "hash": "e417ed1ae23b0a46bf7cef0e05ba05886a3809289660220660835c973ead6c17"
 }

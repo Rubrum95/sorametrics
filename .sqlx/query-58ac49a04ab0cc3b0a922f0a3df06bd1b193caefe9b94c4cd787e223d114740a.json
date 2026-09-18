@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(fees_paid_xor), 0)::numeric AS \"checksum!\"\n                   FROM sm.fee_burns_aggregate GROUP BY 1 ORDER BY 1",
+  "query": "SELECT (block_height / 100000) AS \"bucket!\", COUNT(*)::bigint AS \"cnt!\",\n                   COALESCE(SUM(fees_paid_xor), 0)::numeric AS \"checksum!\"\n                   FROM sm.fee_burns_aggregate WHERE block_height < $1 GROUP BY 1 ORDER BY 1",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8"
+      ]
     },
     "nullable": [
       null,
@@ -28,5 +30,5 @@
       null
     ]
   },
-  "hash": "e2c54efb89c2ee69ec86e2b9f86ec4dc42efeb1d4d33734b0524a8290e25f972"
+  "hash": "58ac49a04ab0cc3b0a922f0a3df06bd1b193caefe9b94c4cd787e223d114740a"
 }

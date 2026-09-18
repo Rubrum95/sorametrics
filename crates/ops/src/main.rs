@@ -186,6 +186,18 @@ enum Command {
         /// Skip reconciliation (NOT recommended — mandatory project step).
         #[arg(long, default_value_t = false)]
         skip_reconcile: bool,
+
+        /// First block of the chain-first era (the backfill/live ingest
+        /// owns everything from here). Legacy rows at or past it are not
+        /// copied nor reconciled. Omit to copy the whole legacy history.
+        #[arg(long)]
+        live_from: Option<i64>,
+
+        /// Unix seconds when the v33 samplers started (supply snapshots,
+        /// price history). Legacy samples at or past it are not copied nor
+        /// reconciled. Omit to copy them all.
+        #[arg(long)]
+        live_from_ts: Option<i64>,
     },
 }
 
@@ -256,6 +268,8 @@ async fn main() -> Result<()> {
             tables,
             batch_size,
             skip_reconcile,
+            live_from,
+            live_from_ts,
         } => {
             let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
             let target = db_connect(&DbConfig {
@@ -271,6 +285,8 @@ async fn main() -> Result<()> {
                     tables: tables.split(',').map(|s| s.trim().to_string()).collect(),
                     batch_size,
                     skip_reconcile,
+                    live_from,
+                    live_from_ts,
                 },
             )
             .await

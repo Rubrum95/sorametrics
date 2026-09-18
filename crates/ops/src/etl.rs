@@ -83,6 +83,33 @@ pub struct EtlOpts {
     /// Skip the post-copy reconciliation (NOT recommended; the project
     /// treats reconciliation as a mandatory step).
     pub skip_reconcile: bool,
+    /// First block of the chain-first era (backfill + live ingest). Legacy
+    /// rows at or past it are neither copied nor reconciled. `None` = all.
+    pub live_from: Option<i64>,
+    /// Unix seconds when the v33 samplers started (supply snapshots, price
+    /// history). Legacy samples at or past it are neither copied nor
+    /// reconciled. `None` = all.
+    pub live_from_ts: Option<i64>,
+}
+
+/// Upper bound of the legacy copy; `i64::MAX` = unbounded.
+#[derive(Clone, Copy)]
+struct Bound {
+    height: i64,
+    ts_secs: i64,
+}
+
+impl Bound {
+    fn from_opts(opts: &EtlOpts) -> Self {
+        Self {
+            height: opts.live_from.unwrap_or(i64::MAX),
+            ts_secs: opts.live_from_ts.unwrap_or(i64::MAX),
+        }
+    }
+
+    fn ts_ms(self) -> i64 {
+        self.ts_secs.saturating_mul(1000)
+    }
 }
 
 /// Entry point for the `migrate-legacy` subcommand.
@@ -103,24 +130,32 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
         .await
         .context("connecting to legacy source DB")?;
 
+    let bound = Bound::from_opts(&opts);
+    info!(
+        live_from = ?opts.live_from,
+        live_from_ts = ?opts.live_from_ts,
+        "legacy upper bound"
+    );
     for table in &opts.tables {
         let started = Instant::now();
         info!(table, "ETL start");
         let copied = match table.as_str() {
             "asset_registry" => copy_asset_registry(&source, &target).await?,
-            "swaps" => copy_swaps(&source, &target, opts.batch_size).await?,
-            "transfers" => copy_transfers(&source, &target, opts.batch_size).await?,
-            "bridges" => copy_bridges(&source, &target, opts.batch_size).await?,
-            "fees" => copy_fees(&source, &target, opts.batch_size).await?,
-            "fee_burns" => copy_fee_burns(&source, &target, opts.batch_size).await?,
-            "price_history" => copy_price_history(&source, &target, opts.batch_size).await?,
-            "liquidity" => copy_liquidity(&source, &target, opts.batch_size).await?,
-            "extrinsics" => copy_extrinsics(&source, &target, opts.batch_size).await?,
-            "order_book" => copy_order_book(&source, &target, opts.batch_size).await?,
+            "swaps" => copy_swaps(&source, &target, opts.batch_size, bound).await?,
+            "transfers" => copy_transfers(&source, &target, opts.batch_size, bound).await?,
+            "bridges" => copy_bridges(&source, &target, opts.batch_size, bound).await?,
+            "fees" => copy_fees(&source, &target, opts.batch_size, bound).await?,
+            "fee_burns" => copy_fee_burns(&source, &target, opts.batch_size, bound).await?,
+            "price_history" => copy_price_history(&source, &target, opts.batch_size, bound).await?,
+            "liquidity" => copy_liquidity(&source, &target, opts.batch_size, bound).await?,
+            "extrinsics" => copy_extrinsics(&source, &target, opts.batch_size, bound).await?,
+            "order_book" => copy_order_book(&source, &target, opts.batch_size, bound).await?,
             "val_staking_rewards" => {
-                copy_val_staking_rewards(&source, &target, opts.batch_size).await?
+                copy_val_staking_rewards(&source, &target, opts.batch_size, bound).await?
             }
-            "supply_snapshots" => copy_supply_snapshots(&source, &target, opts.batch_size).await?,
+            "supply_snapshots" => {
+                copy_supply_snapshots(&source, &target, opts.batch_size, bound).await?
+            }
             "supply_history" => copy_supply_history(&source, &target, opts.batch_size).await?,
             "news_episodes" => copy_news_episodes(&source, &target, opts.batch_size).await?,
             "site_daily" => copy_site_daily(&source, &target).await?,
@@ -151,7 +186,7 @@ pub async fn migrate_legacy(target: PgPool, opts: EtlOpts) -> Result<()> {
 
     let mut failures = 0u32;
     for table in &opts.tables {
-        if !reconcile_table(&source, &target, table).await? {
+        if !reconcile_table(&source, &target, table, bound).await? {
             failures += 1;
         }
     }
@@ -271,7 +306,8 @@ fn scale_expr(alias: &str) -> String {
 const SWAPS_FILTER: &str = "s.in_asset_id IS NOT NULL AND s.out_asset_id IS NOT NULL \
      AND s.in_amount IS NOT NULL AND s.out_amount IS NOT NULL AND s.wallet IS NOT NULL";
 
-async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     let sql = format!(
         r#"
         SELECT s._row_id,
@@ -287,7 +323,7 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
         FROM sm.mv_swaps s
         LEFT JOIN sm.asset_registry ar_in  ON ar_in.asset_id  = s.in_asset_id
         LEFT JOIN sm.asset_registry ar_out ON ar_out.asset_id = s.out_asset_id
-        WHERE s._row_id > $1 AND {SWAPS_FILTER}
+        WHERE s._row_id > $1 AND s.block < {h} AND {SWAPS_FILTER}
         ORDER BY s._row_id
         LIMIT $2
         "#,
@@ -381,7 +417,8 @@ async fn copy_swaps(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64>
 const TRANSFERS_FILTER: &str = "t.from_addr IS NOT NULL AND t.to_addr IS NOT NULL \
      AND t.asset_id IS NOT NULL AND t.amount IS NOT NULL";
 
-async fn copy_transfers(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_transfers(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     let sql = format!(
         r#"
         SELECT t._row_id,
@@ -393,7 +430,7 @@ async fn copy_transfers(source: &PgPool, target: &PgPool, batch: i64) -> Result<
                t.hash, t.extrinsic_id
         FROM sm.mv_transfers t
         LEFT JOIN sm.asset_registry ar ON ar.asset_id = t.asset_id
-        WHERE t._row_id > $1 AND {TRANSFERS_FILTER}
+        WHERE t._row_id > $1 AND t.block < {h} AND {TRANSFERS_FILTER}
         ORDER BY t._row_id
         LIMIT $2
         "#,
@@ -479,7 +516,8 @@ const BRIDGES_FILTER: &str = "b.asset_id IS NOT NULL AND b.amount IS NOT NULL \
      AND b.direction IS NOT NULL \
      AND (CASE WHEN b.direction = 'Outgoing' THEN b.sender ELSE COALESCE(b.recipient, b.sender) END) IS NOT NULL";
 
-async fn copy_bridges(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_bridges(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     // caller = the SORA-side address (same convention as the live
     // decoder: sender on Outgoing/Burned, recipient on Incoming/Minted).
     // counterparty = the other side, when the legacy row has it.
@@ -500,7 +538,7 @@ async fn copy_bridges(source: &PgPool, target: &PgPool, batch: i64) -> Result<u6
                b.hash, b.extrinsic_id
         FROM sm.mv_bridges b
         LEFT JOIN sm.asset_registry ar ON ar.asset_id = b.asset_id
-        WHERE b._row_id > $1 AND {BRIDGES_FILTER}
+        WHERE b._row_id > $1 AND b.block < {h} AND {BRIDGES_FILTER}
         ORDER BY b._row_id
         LIMIT $2
         "#,
@@ -590,7 +628,8 @@ async fn copy_bridges(source: &PgPool, target: &PgPool, batch: i64) -> Result<u6
 // fees (legacy mv_fees, amounts already human XOR)
 // =============================================================
 
-async fn copy_fees(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_fees(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     let sql = r#"
         SELECT f._row_id,
                f.block::bigint AS block_height,
@@ -599,7 +638,7 @@ async fn copy_fees(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> 
                f.amount::numeric(38,18) AS amount_xor,
                f.usd_value::numeric(38,6) AS usd_value
         FROM sm.mv_fees f
-        WHERE f._row_id > $1
+        WHERE f._row_id > $1 AND f.block < $3
         ORDER BY f._row_id
         LIMIT $2
         "#;
@@ -610,6 +649,7 @@ async fn copy_fees(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> 
         let rows = sqlx::query(sql)
             .bind(&cursor)
             .bind(batch)
+            .bind(h)
             .fetch_all(source)
             .await
             .context("reading legacy mv_fees batch")?;
@@ -665,13 +705,14 @@ async fn copy_fees(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> 
 // fee_burns (legacy fee_burns_live, verbatim)
 // =============================================================
 
-async fn copy_fee_burns(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_fee_burns(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     let sql = r#"
         SELECT block_height, ts,
                fees_paid_xor, ref_paid_xor, ref_redirected_xor,
                remint_xor_burned, remint_val_burned, remint_kusd_burned, remint_tbcd_burned
         FROM sm.fee_burns_live
-        WHERE block_height > $1
+        WHERE block_height > $1 AND block_height < $3
         ORDER BY block_height
         LIMIT $2
         "#;
@@ -685,6 +726,7 @@ async fn copy_fee_burns(source: &PgPool, target: &PgPool, batch: i64) -> Result<
         let rows = sqlx::query(sql)
             .bind(cursor)
             .bind(batch)
+            .bind(h)
             .fetch_all(source)
             .await
             .context("reading legacy fee_burns_live batch")?;
@@ -784,7 +826,8 @@ fn human_to_planck(text: &str, decimals: u32) -> Option<BigDecimal> {
 /// that do not resolve in the target registry (incl. the MV's `0xABCD`
 /// fallbacks) are SKIPPED and counted — the reconciliation checks
 /// `source = copied + skipped`.
-async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64, bound: Bound) -> Result<u64> {
+    let h = bound.height;
     let symbols = target_symbol_map(target).await?;
     let sql = r#"
         SELECT l._row_id,
@@ -795,7 +838,7 @@ async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64) -> Result<
                l.usd_value::numeric(38,6) AS usd_value,
                lower(l.type) AS kind, l.hash, l.extrinsic_id
         FROM sm.mv_liquidity_events l
-        WHERE l._row_id > $1 AND l.wallet IS NOT NULL
+        WHERE l._row_id > $1 AND l.block < $3 AND l.wallet IS NOT NULL
         ORDER BY l._row_id
         LIMIT $2
         "#;
@@ -806,6 +849,7 @@ async fn copy_liquidity(source: &PgPool, target: &PgPool, batch: i64) -> Result<
         let rows = sqlx::query(sql)
             .bind(&cursor)
             .bind(batch)
+            .bind(h)
             .fetch_all(source)
             .await
             .context("reading legacy mv_liquidity_events batch")?;
@@ -919,7 +963,13 @@ const EXTRINSICS_FILTER: &str =
 /// (block, index) by `event_index`, minus `System.ExtrinsicSuccess/
 /// Failed`, as `[{s, m, d}]` with `d` the compact JSON of `data`.
 /// No row / no event → NULL (the API serves `{}` / `null`).
-async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_extrinsics(
+    source: &PgPool,
+    target: &PgPool,
+    batch: i64,
+    bound: Bound,
+) -> Result<u64> {
+    let h = bound.height;
     let sql = format!(
         r#"
         SELECT x._row_id,
@@ -931,7 +981,7 @@ async fn copy_extrinsics(source: &PgPool, target: &PgPool, batch: i64) -> Result
                (x.success = 1) AS success,
                COALESCE(x.error_msg, '') AS error_msg
         FROM sm.mv_extrinsics x
-        WHERE x._row_id > $1 AND {EXTRINSICS_FILTER}
+        WHERE x._row_id > $1 AND x.block < {h} AND {EXTRINSICS_FILTER}
         ORDER BY x._row_id
         LIMIT $2
         "#
@@ -1298,7 +1348,13 @@ fn legacy_order_side(raw: &str) -> Option<&'static str> {
 /// assets. Rows with an unknown event type, an unresolvable symbol, or
 /// unparsable price/amount are SKIPPED and counted — the reconciliation
 /// checks `source = copied + skipped`.
-async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_order_book(
+    source: &PgPool,
+    target: &PgPool,
+    batch: i64,
+    bound: Bound,
+) -> Result<u64> {
+    let h = bound.height;
     let symbols = target_symbol_map(target).await?;
     let sql = r#"
         SELECT o._row_id,
@@ -1309,7 +1365,7 @@ async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result
                o.usd_value::numeric(38,6) AS usd_value,
                o.hash, o.extrinsic_id
         FROM sm.mv_order_book_events o
-        WHERE o._row_id > $1 AND o.wallet IS NOT NULL
+        WHERE o._row_id > $1 AND o.block < $3 AND o.wallet IS NOT NULL
         ORDER BY o._row_id
         LIMIT $2
         "#;
@@ -1320,6 +1376,7 @@ async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result
         let rows = sqlx::query(sql)
             .bind(&cursor)
             .bind(batch)
+            .bind(h)
             .fetch_all(source)
             .await
             .context("reading legacy mv_order_book_events batch")?;
@@ -1446,12 +1503,18 @@ async fn copy_order_book(source: &PgPool, target: &PgPool, batch: i64) -> Result
 /// Rows of the Node's live `sm.val_staking_rewards` → v33's table,
 /// verbatim (same natural key); keyset on the legacy serial `id`.
 /// The Node's `ts` (insert time) becomes `block_timestamp`.
-async fn copy_val_staking_rewards(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_val_staking_rewards(
+    source: &PgPool,
+    target: &PgPool,
+    batch: i64,
+    bound: Bound,
+) -> Result<u64> {
+    let h = bound.height;
     let sql = r#"
         SELECT id, era, page, validator_stash, destination, amount,
                block_num::bigint AS block_height, block_hash, ts
         FROM sm.val_staking_rewards
-        WHERE id > $1
+        WHERE id > $1 AND block_num < $3
         ORDER BY id
         LIMIT $2
         "#;
@@ -1464,6 +1527,7 @@ async fn copy_val_staking_rewards(source: &PgPool, target: &PgPool, batch: i64) 
         let rows = sqlx::query(sql)
             .bind(cursor)
             .bind(batch)
+            .bind(h)
             .fetch_all(source)
             .await
             .context("reading legacy val_staking_rewards batch")?;
@@ -1525,12 +1589,17 @@ async fn copy_val_staking_rewards(source: &PgPool, target: &PgPool, batch: i64) 
 /// The Node's `sm.supply_snapshots` (MOF circulating supply every 30
 /// min; `timestamp` in ms) → v33's table, keyset on the serial `id`.
 /// Duplicate `(symbol, ts)` pairs collapse into one row.
-async fn copy_supply_snapshots(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_supply_snapshots(
+    source: &PgPool,
+    target: &PgPool,
+    batch: i64,
+    bound: Bound,
+) -> Result<u64> {
     let sql = r#"
         SELECT id, symbol, asset_id, total_supply::float8 AS total_supply,
                to_timestamp(timestamp / 1000.0) AS ts
         FROM sm.supply_snapshots
-        WHERE id > $1 AND symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL
+        WHERE id > $1 AND timestamp < $3 AND symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL
         ORDER BY id
         LIMIT $2
         "#;
@@ -1543,6 +1612,7 @@ async fn copy_supply_snapshots(source: &PgPool, target: &PgPool, batch: i64) -> 
         let rows = sqlx::query(sql)
             .bind(cursor)
             .bind(batch)
+            .bind(bound.ts_ms())
             .fetch_all(source)
             .await
             .context("reading legacy supply_snapshots batch")?;
@@ -2147,13 +2217,18 @@ async fn set_skipped(target: &PgPool, table: &str, skipped: u64) -> Result<()> {
     Ok(())
 }
 
-async fn copy_price_history(source: &PgPool, target: &PgPool, batch: i64) -> Result<u64> {
+async fn copy_price_history(
+    source: &PgPool,
+    target: &PgPool,
+    batch: i64,
+    bound: Bound,
+) -> Result<u64> {
     let sql = r#"
         SELECT asset_id, hour_bucket::bigint AS hour_bucket,
                price_usd::double precision AS price_usd,
                COALESCE(sample_count, 0)::int AS sample_count
         FROM sm.price_history
-        WHERE (asset_id, hour_bucket) > ($1, $2)
+        WHERE (asset_id, hour_bucket) > ($1, $2) AND hour_bucket < $4
         ORDER BY asset_id, hour_bucket
         LIMIT $3
         "#;
@@ -2172,6 +2247,7 @@ async fn copy_price_history(source: &PgPool, target: &PgPool, batch: i64) -> Res
             .bind(&cur_asset)
             .bind(cur_bucket)
             .bind(batch)
+            .bind(bound.ts_secs)
             .fetch_all(source)
             .await
             .context("reading legacy price_history batch")?;
@@ -2202,7 +2278,10 @@ async fn copy_price_history(source: &PgPool, target: &PgPool, batch: i64) -> Res
             INSERT INTO ts.price_history (asset_id, hour_bucket, price_usd, sample_count, origin)
             SELECT a, b, p, s, 'legacy'
             FROM UNNEST($1::text[], $2::bigint[], $3::float8[], $4::int[]) AS x(a, b, p, s)
-            ON CONFLICT (asset_id, hour_bucket) DO NOTHING
+            ON CONFLICT (asset_id, hour_bucket) DO UPDATE
+                SET price_usd = EXCLUDED.price_usd,
+                    sample_count = EXCLUDED.sample_count,
+                    origin = 'legacy'
             "#,
             &assets,
             &buckets,
@@ -2297,7 +2376,15 @@ fn compare_buckets(table: &str, src: &Buckets, dst: &Buckets) -> bool {
     ok
 }
 
-async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Result<bool> {
+async fn reconcile_table(
+    source: &PgPool,
+    target: &PgPool,
+    table: &str,
+    bound: Bound,
+) -> Result<bool> {
+    let h = bound.height;
+    let ts = bound.ts_secs;
+    let ts_ms = bound.ts_ms();
     if table.starts_with("mn_") {
         return crate::etl_mn::reconcile(source, target, table).await;
     }
@@ -2310,7 +2397,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                      COALESCE(SUM((s.in_amount::numeric * {sc})::numeric(78,0)), 0)::numeric AS checksum \
                      FROM sm.mv_swaps s \
                      LEFT JOIN sm.asset_registry ar_in ON ar_in.asset_id = s.in_asset_id \
-                     WHERE {SWAPS_FILTER} GROUP BY 1 ORDER BY 1",
+                     WHERE s.block < {h} AND {SWAPS_FILTER} GROUP BY 1 ORDER BY 1",
                     sc = scale_expr("ar_in"),
                 ),
             )
@@ -2338,7 +2425,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                      COALESCE(SUM((t.amount::numeric * {sc})::numeric(78,0)), 0)::numeric AS checksum \
                      FROM sm.mv_transfers t \
                      LEFT JOIN sm.asset_registry ar ON ar.asset_id = t.asset_id \
-                     WHERE {TRANSFERS_FILTER} GROUP BY 1 ORDER BY 1",
+                     WHERE t.block < {h} AND {TRANSFERS_FILTER} GROUP BY 1 ORDER BY 1",
                     sc = scale_expr("ar"),
                 ),
             )
@@ -2365,7 +2452,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                      COALESCE(SUM((b.amount::numeric * {sc})::numeric(78,0)), 0)::numeric AS checksum \
                      FROM sm.mv_bridges b \
                      LEFT JOIN sm.asset_registry ar ON ar.asset_id = b.asset_id \
-                     WHERE {BRIDGES_FILTER} GROUP BY 1 ORDER BY 1",
+                     WHERE b.block < {h} AND {BRIDGES_FILTER} GROUP BY 1 ORDER BY 1",
                     sc = scale_expr("ar"),
                 ),
             )
@@ -2386,15 +2473,17 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
         "fees" => {
             let src = source_buckets(
                 source,
-                "SELECT (f.block / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                &format!(
+                    "SELECT (f.block / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                  COALESCE(SUM(f.amount::numeric(38,18)), 0)::numeric AS checksum \
-                 FROM sm.mv_fees f GROUP BY 1 ORDER BY 1",
+                 FROM sm.mv_fees f WHERE f.block < {h} GROUP BY 1 ORDER BY 1"
+                ),
             )
             .await?;
             let dst_rows = sqlx::query!(
                 r#"SELECT (block_height / 100000) AS "bucket!", COUNT(*)::bigint AS "cnt!",
                    COALESCE(SUM(amount_xor), 0)::numeric AS "checksum!"
-                   FROM sm.fees GROUP BY 1 ORDER BY 1"#
+                   FROM sm.fees WHERE origin = 'legacy' GROUP BY 1 ORDER BY 1"#
             )
             .fetch_all(target)
             .await?;
@@ -2407,15 +2496,18 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
         "fee_burns" => {
             let src = source_buckets(
                 source,
-                "SELECT (block_height / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                &format!(
+                    "SELECT (block_height / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                  COALESCE(SUM(fees_paid_xor), 0)::numeric AS checksum \
-                 FROM sm.fee_burns_live GROUP BY 1 ORDER BY 1",
+                 FROM sm.fee_burns_live WHERE block_height < {h} GROUP BY 1 ORDER BY 1"
+                ),
             )
             .await?;
             let dst_rows = sqlx::query!(
                 r#"SELECT (block_height / 100000) AS "bucket!", COUNT(*)::bigint AS "cnt!",
                    COALESCE(SUM(fees_paid_xor), 0)::numeric AS "checksum!"
-                   FROM sm.fee_burns_aggregate GROUP BY 1 ORDER BY 1"#
+                   FROM sm.fee_burns_aggregate WHERE block_height < $1 GROUP BY 1 ORDER BY 1"#,
+                h
             )
             .fetch_all(target)
             .await?;
@@ -2430,9 +2522,11 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
             // (exact integer — float price sums are order-dependent).
             let src = source_buckets(
                 source,
-                "SELECT (hour_bucket / 2592000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                &format!(
+                    "SELECT (hour_bucket / 2592000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                  COALESCE(SUM(hour_bucket), 0)::numeric AS checksum \
-                 FROM sm.price_history GROUP BY 1 ORDER BY 1",
+                 FROM sm.price_history WHERE hour_bucket < {ts} GROUP BY 1 ORDER BY 1"
+                ),
             )
             .await?;
             let dst_rows = sqlx::query!(
@@ -2456,7 +2550,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                 &format!(
                     "SELECT (x.block / 100000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                      COALESCE(SUM(x.block::numeric * 1000 + x.extrinsic_index), 0)::numeric AS checksum \
-                     FROM sm.mv_extrinsics x WHERE {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
+                     FROM sm.mv_extrinsics x WHERE x.block < {h} AND {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
                 ),
             )
             .await?;
@@ -2482,7 +2576,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
                           AND NOT (e.section = 'System' AND e.method IN ('ExtrinsicSuccess','ExtrinsicFailed'))))::bigint AS cnt, \
                      COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.history_element h \
                         WHERE h.id = x.hash AND h.data IS NOT NULL))::numeric AS checksum \
-                     FROM sm.mv_extrinsics x WHERE {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
+                     FROM sm.mv_extrinsics x WHERE x.block < {h} AND {EXTRINSICS_FILTER} GROUP BY 1 ORDER BY 1"
                 ),
             )
             .await?;
@@ -2505,7 +2599,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
             // Symbol-keyed source: no planck checksum is computable on the
             // source side. STRICT count equation: source = copied + skipped.
             let src_cnt: i64 = sqlx::query(
-                "SELECT COUNT(*)::bigint AS c FROM sm.mv_liquidity_events WHERE wallet IS NOT NULL",
+                &format!("SELECT COUNT(*)::bigint AS c FROM sm.mv_liquidity_events WHERE wallet IS NOT NULL AND block < {h}"),
             )
             .fetch_one(source)
             .await?
@@ -2534,7 +2628,7 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
         "order_book" => {
             // Symbol-keyed source, like liquidity: STRICT count equation.
             let src_cnt: i64 = sqlx::query(
-                "SELECT COUNT(*)::bigint AS c FROM sm.mv_order_book_events WHERE wallet IS NOT NULL",
+                &format!("SELECT COUNT(*)::bigint AS c FROM sm.mv_order_book_events WHERE wallet IS NOT NULL AND block < {h}"),
             )
             .fetch_one(source)
             .await?
@@ -2564,9 +2658,11 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
             // Buckets of 100 eras; checksum = SUM(amount) (exact numeric).
             let src = source_buckets(
                 source,
-                "SELECT (era / 100)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                &format!(
+                    "SELECT (era / 100)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                  COALESCE(SUM(amount), 0)::numeric AS checksum \
-                 FROM sm.val_staking_rewards GROUP BY 1 ORDER BY 1",
+                 FROM sm.val_staking_rewards WHERE block_num < {h} GROUP BY 1 ORDER BY 1"
+                ),
             )
             .await?;
             let dst_rows = sqlx::query!(
@@ -2586,11 +2682,14 @@ async fn reconcile_table(source: &PgPool, target: &PgPool, table: &str) -> Resul
             // Distinct (symbol, ms) pairs per month bucket; checksum = SUM(ms).
             let src = source_buckets(
                 source,
-                "SELECT (timestamp / 2592000000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
+                &format!(
+                    "SELECT (timestamp / 2592000000)::bigint AS bucket, COUNT(*)::bigint AS cnt, \
                  COALESCE(SUM(timestamp), 0)::numeric AS checksum FROM ( \
                    SELECT DISTINCT symbol, timestamp::bigint AS timestamp FROM sm.supply_snapshots \
-                   WHERE symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL) d \
-                 GROUP BY 1 ORDER BY 1",
+                   WHERE symbol IS NOT NULL AND total_supply IS NOT NULL AND timestamp IS NOT NULL \
+                     AND timestamp < {ts_ms}) d \
+                 GROUP BY 1 ORDER BY 1"
+                ),
             )
             .await?;
             let dst_rows = sqlx::query!(
