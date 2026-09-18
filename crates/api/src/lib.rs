@@ -65,8 +65,10 @@ const SECURITY_HEADERS: &[(&str, &str)] = &[
     ("x-xss-protection", "0"),
 ];
 
-/// The Node's Content-Security-Policy, byte for byte.
-const CSP: &str = "default-src 'self';script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;script-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https://raw.githubusercontent.com https://avatars.githubusercontent.com https://www.googletagmanager.com https://www.google-analytics.com;connect-src 'self' wss: ws: https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://unpkg.com https://cdn.socket.io https://cdn.jsdelivr.net;font-src 'self' https://fonts.gstatic.com data:;script-src-attr 'unsafe-inline';base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none'";
+/// The Node's Content-Security-Policy, plus `https://api.coingecko.com` in
+/// `connect-src`: the frontend reads external tokens' market cap there
+/// (`tokenRegistry.jsx`) and the Node's policy blocked its own feature.
+const CSP: &str = "default-src 'self';script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;script-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://googletagmanager.com https://unpkg.com https://cdn.socket.io https://static.cloudflareinsights.com;style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;img-src 'self' data: https://raw.githubusercontent.com https://avatars.githubusercontent.com https://www.googletagmanager.com https://www.google-analytics.com;connect-src 'self' wss: ws: https://www.google-analytics.com https://analytics.google.com https://www.googletagmanager.com https://unpkg.com https://cdn.socket.io https://cdn.jsdelivr.net https://api.coingecko.com;font-src 'self' https://fonts.gstatic.com data:;script-src-attr 'unsafe-inline';base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none'";
 
 /// The full HTTP router: routes, rate limiting, compression, security
 /// headers and the static media mounts.
@@ -89,7 +91,7 @@ pub fn build_router(state: AppState) -> Router {
         ))
         // The Node's `compression()` (br / gzip / deflate by Accept-Encoding).
         .layer(CompressionLayer::new());
-    // The Node's `helmet` (hsts off; CSP exactly as production sends it).
+    // The Node's `helmet` (hsts off; CSP as production sends it, see `CSP`).
     for (name, value) in SECURITY_HEADERS {
         app = app.layer(SetResponseHeaderLayer::if_not_present(
             HeaderName::from_static(name),
