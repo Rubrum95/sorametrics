@@ -20,6 +20,7 @@
 pub mod chain;
 pub mod error;
 pub mod legacy;
+pub mod mcp;
 pub mod rate_limit;
 pub mod realtime;
 pub mod routes;
@@ -83,8 +84,11 @@ pub fn build_router(state: AppState) -> Router {
         StatusCode::GATEWAY_TIMEOUT,
         Duration::from_secs(120),
     ));
-    let mut app = fast
-        .merge(scans)
+    let rest = fast.merge(scans);
+    // `/mcp` calls the REST routes in-process, so it wraps the same router.
+    let mut app = rest
+        .clone()
+        .merge(mcp::router(rest))
         .layer(axum::middleware::from_fn_with_state(
             rate_limit::RateLimiter::default(),
             rate_limit::middleware,

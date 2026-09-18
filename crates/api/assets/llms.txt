@@ -1,0 +1,31 @@
+# SoraMetrics
+
+> Read-only analytics of the SORA v2 blockchain (Substrate): tokens and prices, wallets, swaps, transfers, bridges, pools, staking, governance, burns and Polkamarkt prediction markets. Public, no authentication, no API key.
+
+Everything here is indexed from the chain itself or read from a node at request time. Nothing is editorial: an address has a name only if it registered an on-chain identity.
+
+## For agents
+
+- [MCP server](/mcp): Model Context Protocol over Streamable HTTP, `POST /mcp`. Stateless (revision 2026-07-28, `server/discover`) and also answers the `initialize` handshake of earlier revisions. 15 read-only tools with structured output.
+- [OpenAPI 3.1](/openapi.json): the same data as plain REST + JSON.
+
+## Read this before using the numbers
+
+- Prices are marginal quotes: the on-chain quote of 0.000001 token to DAI, with DAI = 1 USD. Many SORA tokens have almost no liquidity, so that price can be meaningless. Every token carries `illiquid`: when `true`, selling 1 USD worth returns under 0.50 USD. Do not compute a market cap or value a holding with an illiquid price. Wallet `usdValue` is already 0 for those tokens.
+- Even for liquid tokens, amount x price overstates what a large holding would sell for.
+- Holder counts are accounts above a threshold (more than 1 XOR, more than 0.1 of other assets), not every account.
+- The supply shown for VAL and PSWAP is the official SORA circulating figure, which differs from on-chain total issuance.
+- Amounts are whole tokens unless a field says raw. Pool reserves are raw integers with 18 decimals.
+- `time` fields are dd/mm/yyyy HH:MM:SS in Europe/Madrid; `timestamp` fields are unix milliseconds.
+- Asset ids are 0x-prefixed 32-byte hex. XOR is 0x0200000000000000000000000000000000000000000000000000000000000000. Get the others from `/tokens`.
+- Addresses are SS58 and start with `cn`.
+- On 2026-09-18 a single explicit burn removed 900,000,000 XOR (block 27,683,422): supply and burn series show that step.
+
+## Limits
+
+- Per IP and per route, 10 to 300 requests per minute; a 429 means wait for the next minute.
+- `/holders/{assetId}` scans the chain: the first call for an asset may answer 503 with `Retry-After` while the scan runs.
+
+## SORA Nexus (Iroha 3)
+
+- [Minamoto explorer API](/api/minamoto/health): separate chain, separate data; never mix it with SORA v2 figures.

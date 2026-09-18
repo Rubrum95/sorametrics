@@ -182,3 +182,20 @@ Resolve it with `git branch -a --contains <sha>` in a clone of `hyperledger-iroh
 Before routing production traffic to v33: full ETL, then
 `python3 scripts/parity_check.py --strict` against production must report every route in parity
 (the only accepted differences are the ones documented per route).
+
+## Agent access: MCP, OpenAPI, llms.txt
+
+The API exposes three discovery surfaces for AI agents, all read-only and unauthenticated:
+
+| Path | What |
+|------|------|
+| `POST /mcp` | Model Context Protocol server (Streamable HTTP). Stateless for revision `2026-07-28` (`server/discover`, `tools/list`, `tools/call`; `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers validated against the body) and it also answers the `initialize` handshake of `2025-03-26` … `2025-11-25` clients. `GET` / `DELETE` → 405. |
+| `GET /openapi.json` | OpenAPI 3.1 of the curated public routes (`crates/api/assets/openapi.json`). |
+| `GET /llms.txt` | What the data means and its caveats (`crates/api/assets/llms.txt`). |
+
+The 15 tools live in `crates/api/src/mcp.rs` (`tools()`). A tool maps its arguments to one REST route and calls it in-process through the same router, so there is no second implementation to keep in sync; results carry `structuredContent = {data, source, notes}` and drop `logo` / `sparkline` blobs. To add a tool, add a `ToolSpec`; to document a route, edit `openapi.json` (a unit test checks ids and path parameters).
+
+- Rate limit: `/mcp` 120 requests per minute per IP; the in-process REST calls are not limited again.
+- `MCP_ALLOWED_ORIGINS` (comma-separated, optional): browser origins allowed to call `/mcp` besides the site's own host. Requests without an `Origin` header (every non-browser client) are always accepted; a foreign origin gets 403.
+- Connect a client: `claude mcp add --transport http sorametrics https://sorametrics.org/mcp`.
+- Smoke test: `python3 scripts/mcp_smoke.py https://v33.sorametrics.org <address>`.

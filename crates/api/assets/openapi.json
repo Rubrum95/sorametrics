@@ -1,0 +1,2499 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "SoraMetrics API",
+  "version": "33.0.0",
+  "summary": "Read-only analytics of the SORA v2 blockchain.",
+  "description": "Public, read-only, no authentication. Data is indexed from the SORA v2 chain (Substrate) and, for balances, holders, pools, staking and governance, read from a node at request time.\n\nPrices are marginal on-chain quotes (`liquidityProxy.quote` of 0.000001 token to DAI, DAI = 1 USD). `illiquid: true` means selling 1 USD worth of the token returns under 0.50 USD: never derive a market cap or a holding value from that price.\n\nToken supply shown by the site is the official SORA circulating figure, not on-chain total issuance.\n\nRate limits are per IP and per route (10–300 requests per minute); a 429 means wait for the next minute. Agents should prefer the MCP endpoint at `/mcp`, which wraps these routes as typed tools.",
+  "license": {
+   "name": "MIT",
+   "identifier": "MIT"
+  }
+ },
+ "servers": [
+  {
+   "url": "/",
+   "description": "This host"
+  }
+ ],
+ "externalDocs": {
+  "description": "Guide for language models",
+  "url": "/llms.txt"
+ },
+ "tags": [
+  {
+   "name": "markets"
+  },
+  {
+   "name": "wallet"
+  },
+  {
+   "name": "history"
+  },
+  {
+   "name": "chain"
+  },
+  {
+   "name": "staking"
+  },
+  {
+   "name": "governance"
+  },
+  {
+   "name": "polkamarkt"
+  },
+  {
+   "name": "meta"
+  }
+ ],
+ "paths": {
+  "/staking/network": {
+   "get": {
+    "operationId": "getNetworkStatus",
+    "summary": "Network status",
+    "description": "Best and finalized block, active era and progress, validator counts, total staked XOR, issuance.",
+    "tags": [
+     "staking"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/staking/validators": {
+   "get": {
+    "operationId": "listValidators",
+    "summary": "Active validators",
+    "description": "Active validator set with commission, own and total stake, nominators, on-chain identity and eras since last payout.",
+    "tags": [
+     "staking"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/tokens": {
+   "get": {
+    "operationId": "listTokens",
+    "summary": "Tokens and prices",
+    "description": "Whitelisted SORA assets with price, change over `timeframe` and the `illiquid` flag. Prices are marginal on-chain quotes (`liquidityProxy.quote` of 0.000001 token to DAI, DAI = 1 USD). `illiquid: true` means selling 1 USD worth of the token returns under 0.50 USD: never derive a market cap or a holding value from that price.",
+    "tags": [
+     "markets"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "search",
+      "in": "query",
+      "description": "Substring of symbol, name or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "symbols",
+      "in": "query",
+      "description": "Comma-separated exact symbols.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "timeframe",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "1h",
+        "4h",
+        "24h",
+        "1d",
+        "7d",
+        "30d",
+        "1m",
+        "1y",
+        "all"
+       ]
+      }
+     },
+     {
+      "name": "sparkline",
+      "in": "query",
+      "description": "`false` omits the sparkline arrays (recommended for agents).",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "true",
+        "false"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "/pools": {
+   "get": {
+    "operationId": "listPools",
+    "summary": "Liquidity pools",
+    "description": "XYK pools ordered by value locked; reserves are raw integers (18 decimals) with thousands separators. Illiquid assets are priced 0.",
+    "tags": [
+     "markets"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "base",
+      "in": "query",
+      "description": "Base asset symbol (XOR, XSTUSD, KUSD…).",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/chart/{symbol}": {
+   "get": {
+    "operationId": "getCandles",
+    "summary": "OHLC candles",
+    "description": "Up to 1000 candles of `res` minutes built from hourly price buckets.",
+    "tags": [
+     "markets"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "symbol",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9]{1,12}$"
+      }
+     },
+     {
+      "name": "res",
+      "in": "query",
+      "description": "Candle size in minutes.",
+      "schema": {
+       "type": "integer",
+       "default": 60
+      }
+     }
+    ]
+   }
+  },
+  "/balance/{address}": {
+   "get": {
+    "operationId": "getWalletBalances",
+    "summary": "Wallet balances",
+    "description": "Free balance of every token the address holds, read from the chain, with `usdValue` (0 for illiquid tokens) and `totalUsd`.",
+    "tags": [
+     "wallet"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/wallet/staking/{address}": {
+   "get": {
+    "operationId": "getWalletStaking",
+    "summary": "Wallet staking",
+    "description": "Bonded, unbonding and nominated validators of an address.",
+    "tags": [
+     "wallet"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/wallet/liquidity/{address}": {
+   "get": {
+    "operationId": "getWalletLiquidity",
+    "summary": "Wallet liquidity positions",
+    "description": "Pool positions of an address with share and underlying amounts.",
+    "tags": [
+     "wallet"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/history/swaps/{address}": {
+   "get": {
+    "operationId": "getWalletSwaps",
+    "summary": "Swaps of a wallet",
+    "description": "Newest first. `time` is dd/mm/yyyy HH:MM:SS in Europe/Madrid.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/history/transfers/{address}": {
+   "get": {
+    "operationId": "getWalletTransfers",
+    "summary": "Transfers of a wallet",
+    "description": "Newest first, both directions.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 20
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/history/bridges/{address}": {
+   "get": {
+    "operationId": "getWalletBridges",
+    "summary": "Bridge operations of a wallet",
+    "description": "Newest first; `direction` Incoming / Outgoing, `network` names the other chain.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 20
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/history/extrinsics/{address}": {
+   "get": {
+    "operationId": "getWalletExtrinsics",
+    "summary": "Extrinsics signed by a wallet",
+    "description": "Newest first.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/swaps": {
+   "get": {
+    "operationId": "listSwaps",
+    "summary": "Latest swaps",
+    "description": "Network-wide, newest first.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/transfers": {
+   "get": {
+    "operationId": "listTransfers",
+    "summary": "Latest transfers",
+    "description": "Network-wide user transfers (internal pool legs are excluded), newest first.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/bridges": {
+   "get": {
+    "operationId": "listBridges",
+    "summary": "Latest bridge operations",
+    "description": "Ethereum (EthBridge), Substrate (Kusama, Polkadot, Liberland) and TON.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 20
+      }
+     },
+     {
+      "name": "token",
+      "in": "query",
+      "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/extrinsics": {
+   "get": {
+    "operationId": "listExtrinsics",
+    "summary": "Latest extrinsics",
+    "description": "`timestamp.set` inherents are excluded.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "section",
+      "in": "query",
+      "description": "Exact pallet name in camelCase (e.g. liquidityProxy).",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "method",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "block",
+      "in": "query",
+      "schema": {
+       "type": "integer"
+      }
+     },
+     {
+      "name": "success",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "true",
+        "false"
+       ]
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/liquidity": {
+   "get": {
+    "operationId": "listLiquidityEvents",
+    "summary": "Latest liquidity deposits and withdrawals",
+    "description": "",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/global/orderbook": {
+   "get": {
+    "operationId": "listOrderBookEvents",
+    "summary": "Latest order-book events",
+    "description": "",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "description": "Paginated envelope.",
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "type": "object",
+            "additionalProperties": true
+           }
+          },
+          "total": {
+           "type": "integer"
+          },
+          "page": {
+           "type": "integer"
+          },
+          "totalPages": {
+           "type": "integer"
+          }
+         },
+         "required": [
+          "data",
+          "total",
+          "page",
+          "totalPages"
+         ]
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "type",
+      "in": "query",
+      "schema": {
+       "type": "string",
+       "enum": [
+        "placed",
+        "canceled",
+        "executed",
+        "filled",
+        "market"
+       ]
+      }
+     },
+     {
+      "name": "timestamp",
+      "in": "query",
+      "description": "Upper bound, unix milliseconds: only rows at or before it.",
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ]
+   }
+  },
+  "/history/extrinsic/{block}/{index}": {
+   "get": {
+    "operationId": "getExtrinsic",
+    "summary": "Extrinsic detail",
+    "description": "Call arguments and emitted events of one extrinsic.",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "block",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "minimum": 1
+      }
+     },
+     {
+      "name": "index",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "minimum": 0
+      }
+     }
+    ]
+   }
+  },
+  "/block/{number}": {
+   "get": {
+    "operationId": "getBlock",
+    "summary": "Block by number",
+    "description": "Header, extrinsics and events, read from an archive node.",
+    "tags": [
+     "chain"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "number",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    ]
+   }
+  },
+  "/search": {
+   "get": {
+    "operationId": "search",
+    "summary": "Search",
+    "description": "Resolves an address, block number, extrinsic id (`block-index`), transaction hash or token symbol.",
+    "tags": [
+     "chain"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 3,
+       "maxLength": 128
+      }
+     }
+    ]
+   }
+  },
+  "/holders/{assetId}": {
+   "get": {
+    "operationId": "listHolders",
+    "summary": "Top holders of an asset",
+    "description": "25 per page, ranked by free balance read from the chain. `totalHolders` counts accounts above a threshold (>1 XOR, >0.1 other assets), not every account.",
+    "tags": [
+     "chain"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "A full chain scan is still running; retry after the `Retry-After` header (seconds).",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "assetId",
+      "in": "path",
+      "required": true,
+      "description": "0x-prefixed 32-byte asset id (from /tokens).",
+      "schema": {
+       "type": "string",
+       "pattern": "^0x[0-9a-fA-F]{64}$"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     }
+    ]
+   }
+  },
+  "/burns/stats/{symbol}": {
+   "get": {
+    "operationId": "getBurnStats",
+    "summary": "Burn statistics",
+    "description": "Supply and burn figures per window (24h, 7d, 30d, all). For XOR the windows carry the measured supply drop, the fee-mechanism burn and explicit burns. The `all` window spans the 2026 redenomination and is indicative only.",
+    "tags": [
+     "markets"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "symbol",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "XOR",
+        "VAL",
+        "PSWAP",
+        "TBCD",
+        "KUSD"
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "/stats/overview": {
+   "get": {
+    "operationId": "getOverview",
+    "summary": "Network overview",
+    "description": "Stablecoin pegs, 24 h network figures (volume, users, transactions) and trending tokens.",
+    "tags": [
+     "markets"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/governance/motions": {
+   "get": {
+    "operationId": "listMotions",
+    "summary": "Open governance motions",
+    "description": "Council and technical-committee motions with decoded calls and votes.",
+    "tags": [
+     "governance"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/governance/council": {
+   "get": {
+    "operationId": "getCouncil",
+    "summary": "Council",
+    "description": "Council members, the prime member and their on-chain identities.",
+    "tags": [
+     "governance"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/governance/preimages": {
+   "get": {
+    "operationId": "listPreimages",
+    "summary": "Stored preimages",
+    "description": "",
+    "tags": [
+     "governance"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "additionalProperties": true
+         }
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/polkamarkt/markets": {
+   "get": {
+    "operationId": "listPredictionMarkets",
+    "summary": "Polkamarkt prediction markets",
+    "description": "Question, status, outcomes, volume (gross of the 0.5 % fee) and resolution.",
+    "tags": [
+     "polkamarkt"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "page",
+      "in": "query",
+      "description": "1-based page. Out-of-range pages are clamped to the last one.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "default": 1
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "description": "Rows per page.",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100,
+       "default": 25
+      }
+     },
+     {
+      "name": "status",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/polkamarkt/market/{id}": {
+   "get": {
+    "operationId": "getPredictionMarket",
+    "summary": "Prediction market detail",
+    "description": "Trades, positions, probability history and liquidity of one market.",
+    "tags": [
+     "polkamarkt"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "minimum": 0
+      }
+     }
+    ]
+   }
+  },
+  "/identity/{address}": {
+   "get": {
+    "operationId": "getIdentity",
+    "summary": "On-chain identity",
+    "description": "Identity pallet record of one address; absent fields are null. There are no invented labels.",
+    "tags": [
+     "wallet"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/health/freshness": {
+   "get": {
+    "operationId": "getFreshness",
+    "summary": "Data freshness",
+    "description": "Indexer cursor and newest row per table with a healthy / degraded / stale status.",
+    "tags": [
+     "meta"
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/identities": {
+   "post": {
+    "operationId": "resolveIdentities",
+    "summary": "On-chain identities (batch)",
+    "description": "Display names for up to 100 addresses. Addresses without an identity are absent from the result.",
+    "tags": [
+     "wallet"
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "addresses": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          },
+          "maxItems": 100
+         }
+        },
+        "required": [
+         "addresses"
+        ]
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Map address → identity",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Error": {
+    "type": "object",
+    "properties": {
+     "error": {
+      "type": "string"
+     },
+     "code": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "error"
+    ]
+   }
+  }
+ }
+}
