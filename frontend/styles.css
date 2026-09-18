@@ -228,6 +228,8 @@ body {
   position: relative;
   border: 1px solid transparent;
 }
+.nav-item, .nav-item:visited { text-decoration: none; }
+.nav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--fg-1); }
 .nav-item.active {
   color: var(--fg-0);

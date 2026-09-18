@@ -107,13 +107,20 @@ function Sidebar({ section, setSection }) {
                 const Icon = I[i.icon];
                 const countLabel = i.countKey ? t(i.countKey) : i.count;
                 return (
-                  <div key={i.id}
-                       className={'nav-item' + (section === i.id ? ' active' : '')}
-                       onClick={() => pickSection(i.id)}>
+                  <a key={i.id}
+                     href={'?tab=' + encodeURIComponent(i.id)}
+                     className={'nav-item' + (section === i.id ? ' active' : '')}
+                     aria-current={section === i.id ? 'page' : undefined}
+                     onClick={e => {
+                       // Modified clicks keep the browser's "open in new tab".
+                       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                       e.preventDefault();
+                       pickSection(i.id);
+                     }}>
                     {Icon ? <Icon className="nav-icon"/> : <span className="nav-icon"/>}
                     <span className="nav-label">{t(i.key)}</span>
                     {countLabel && <span className="count">{countLabel}</span>}
-                  </div>
+                  </a>
                 );
               })}
             </React.Fragment>
