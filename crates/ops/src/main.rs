@@ -169,7 +169,7 @@ enum Command {
     /// command fails if any bucket mismatches.
     MigrateLegacy {
         /// Legacy database URL (read-only usage).
-        #[arg(long, env = "LEGACY_DATABASE_URL")]
+        #[arg(long, env = "LEGACY_DATABASE_URL", hide_env_values = true)]
         source_url: String,
 
         /// Comma-separated table list. Default: all.
