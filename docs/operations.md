@@ -153,10 +153,13 @@ the ETL on the new host with `LEGACY_DATABASE_URL` pointing at `legacy_copy`.
 
 ```bash
 LEGACY_DATABASE_URL=postgres://... sorametrics-ops migrate-legacy \
-  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,site_daily,site_events,identity_cache,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots
+  --tables asset_registry,swaps,transfers,bridges,fees,fee_burns,price_history,liquidity,extrinsics,order_book,val_staking_rewards,supply_snapshots,supply_history,news_episodes,polkamarkt_markets,polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns,site_daily,site_events,identity_cache,mn_blocks,mn_accounts,mn_transactions,mn_instructions,mn_domains,mn_asset_definitions,mn_assets,mn_peers,mn_network_state,mn_indexer_state,mn_metrics_snapshots \
+  --live-from <first backfilled block> --live-from-ts <unix seconds the v33 samplers started>
 ```
 
-Read-only on the source. Resumable: the cursor per table lives in `sm.etl_state`. The run fails
+`--live-from` / `--live-from-ts` bound the copy and the reconciliation to the legacy-only era
+when the chain-first backfill and the live samplers already own the rest (see the runbook for
+the production values). Without them the whole legacy history is copied. Read-only on the source. Resumable: the cursor per table lives in `sm.etl_state`. The run fails
 if any table does not reconcile (counts and checksums per bucket); skipped source rows (NULL
 required fields) are reported, never dropped silently. To restart one table from zero, truncate
 it in the target and delete its `sm.etl_state` row.

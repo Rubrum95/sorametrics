@@ -39,9 +39,17 @@ deploy/transfer_legacy.sh
 ```
 Resumable; ~9 GB on the wire for `sm.extrinsic_events`, ~2 GB for the rest. Then, on Rubrum:
 ```bash
-./target/release/sorametrics-ops migrate-legacy --tables <ALL_TABLES from docs/operations.md>
+./target/release/sorametrics-ops migrate-legacy --tables <ALL_TABLES from docs/operations.md> \
+  --live-from 25278042 --live-from-ts 1789632873
 ```
-Reconciliation must print `reconciliation OK for all migrated tables`; otherwise stop.
+`--live-from` is the first block of the chain-first era (step 4): legacy `mv_transfers`,
+`mv_bridges`, `mv_fees`, `mv_liquidity_events`, `fee_burns_live` and `val_staking_rewards` run
+past it, and those rows already exist from the chain (same natural keys). `--live-from-ts` is
+the unix second the v33 samplers started on the host (first `sm.supply_snapshots` live row):
+legacy supply/price samples from then on are v33's. Inside the bound, `price_history` is
+upserted legacy-first (production's hourly points win over the backfill's per-block quotes).
+Changing either bound after a run needs that table's `sm.etl_state` row reset. Reconciliation
+must print `reconciliation OK for all migrated tables`; otherwise stop.
 Leave `polkamarkt_trades,polkamarkt_claims,polkamarkt_buybacks,polkamarkt_burns` OUT of the
 table list on Rubrum: Polkamarkt started at block 26.3 M, inside the chain-first era the backfill
 already covers (verified equal to production market by market); those copies conflict on
