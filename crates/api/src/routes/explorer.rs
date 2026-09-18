@@ -329,7 +329,7 @@ async fn block(
     let n: u32 = raw
         .parse()
         .map_err(|_| ApiError::BadRequest("Invalid block number".into()))?;
-    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let chain = state.archive.as_ref().ok_or(ApiError::NoChain)?;
     let client = chain.client().await?;
     let legacy = chain.legacy_rpc().await?;
     let hash = legacy

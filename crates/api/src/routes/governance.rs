@@ -1026,7 +1026,7 @@ async fn preimage_events_scan(
             .map(Json)
             .map_err(|e| ApiError::Internal(e.to_string()));
     }
-    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let chain = state.archive.as_ref().ok_or(ApiError::NoChain)?;
     let client = chain.client().await?;
     let archive = chain
         .active_endpoint()
@@ -1167,7 +1167,7 @@ struct IndexedResponse {
 async fn preimages_indexed(
     State(state): State<AppState>,
 ) -> Result<Json<IndexedResponse>, ApiError> {
-    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let chain = state.archive.as_ref().ok_or(ApiError::NoChain)?;
     let client = chain.client().await?;
     let mut notes = Vec::new();
     for (block, ts) in note_blocks(&state).await? {
@@ -1210,7 +1210,7 @@ async fn preimage_recover(
     if let Some(v) = state.cached_scan(&key, Duration::from_secs(3600)).await {
         return Ok(Json(v));
     }
-    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let chain = state.archive.as_ref().ok_or(ApiError::NoChain)?;
     let client = chain.client().await?;
     let archive = chain
         .active_endpoint()

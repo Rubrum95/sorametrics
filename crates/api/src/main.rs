@@ -44,6 +44,8 @@ async fn main() -> Result<()> {
         Some(c) => info!(endpoints = c.endpoints().len(), "chain client configured"),
         None => info!("WS_ENDPOINTS unset — chain-state routes will answer 503"),
     }
+    let archive = ChainClient::archive_from_env().map_err(anyhow::Error::msg)?;
+    info!(endpoint = ?archive.endpoints().first(), "archive chain client configured");
     let torii_cfg = ToriiConfig::from_env().map_err(anyhow::Error::msg)?;
     let torii = ToriiClient::new(torii_cfg).map_err(anyhow::Error::msg)?;
     info!(base = %torii.base_url(), "torii client configured");
@@ -51,6 +53,7 @@ async fn main() -> Result<()> {
         .await
         .context("loading asset registry")?
         .with_chain(chain)
+        .with_archive(Some(archive))
         .with_torii(Some(torii));
     state.spawn_registry_refresh();
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());

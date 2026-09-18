@@ -96,6 +96,25 @@ impl ChainClient {
         Ok((!urls.is_empty()).then(|| Self::new(urls)))
     }
 
+    /// The archive node for reads at historical blocks (`/block/:n`, the
+    /// governance preimage scans): `ARCHIVE_WS_ENDPOINT`, defaulting to
+    /// `wss://mof2.sora.org` like the Node. Validators keep only recent
+    /// state, so those reads cannot go to `WS_ENDPOINTS`.
+    pub fn archive_from_env() -> Result<Self, String> {
+        let raw = std::env::var("ARCHIVE_WS_ENDPOINT")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "wss://mof2.sora.org".to_string());
+        let url = Url::parse(&raw).map_err(|e| format!("ARCHIVE_WS_ENDPOINT '{raw}': {e}"))?;
+        if !matches!(url.scheme(), "ws" | "wss") {
+            return Err(format!(
+                "ARCHIVE_WS_ENDPOINT '{raw}' must be ws:// or wss://"
+            ));
+        }
+        Ok(Self::new(vec![url]))
+    }
+
     /// The connected client, connecting on first use.
     pub async fn client(&self) -> Result<OnlineClient<SubstrateConfig>, ChainError> {
         let mut guard = self.inner.lock().await;
