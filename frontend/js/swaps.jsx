@@ -67,24 +67,6 @@ function AccountCell({ addr, size = 22 }) {
 
 const SWAP_TOKENS = ['XOR', 'VAL', 'PSWAP', 'TBCD', 'KUSD', 'ETH', 'DAI'];
 
-function makeSwap(id, rnd, now) {
-  const inTok = SWAP_TOKENS[Math.floor(rnd() * SWAP_TOKENS.length)];
-  let outTok = SWAP_TOKENS[Math.floor(rnd() * SWAP_TOKENS.length)];
-  if (outTok === inTok) outTok = 'KUSD';
-  const inAmt = +(rnd() * 5000 + 1).toFixed(2);
-  const rate = (rnd() * 2 + 0.1);
-  const outAmt = +(inAmt * rate).toFixed(2);
-  const priceIn = 0.01 + rnd() * 4;
-  const usd = +(inAmt * priceIn).toFixed(2);
-  const acc = FAKE_ADDRS[Math.floor(rnd() * FAKE_ADDRS.length)];
-  const block = 21_418_000 + Math.floor(rnd() * 5000);
-  return {
-    id, block, ts: now,
-    inTok, outTok, inAmt, outAmt, usd, acc,
-    fee: +(usd * 0.003).toFixed(3),
-  };
-}
-
 // Renders a round token logo. If `logo` URL/base64 is provided (from prod
 // /tokens, /history/swaps, /balance), uses it. Otherwise falls back to the
 // gradient initial placeholder.

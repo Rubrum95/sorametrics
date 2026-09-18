@@ -7,59 +7,12 @@ const PALLETS = [
   'assets', 'vestedRewards',
 ];
 
-const PALLET_METHODS = {
-  currencies: ['transfer', 'transferNativeCurrency'],
-  liquidityProxy: ['swap', 'swapTransfer', 'enableLiquiditySource'],
-  orderBook: ['placeLimitOrder', 'cancelLimitOrder', 'executeMarketOrder'],
-  bridgeProxy: ['transferIn', 'transferOut', 'addAsset'],
-  referrals: ['reserve', 'unreserve', 'setReferrer'],
-  staking: ['bond', 'unbond', 'nominate', 'chill', 'withdrawUnbonded'],
-  democracy: ['propose', 'second', 'vote', 'removeVote'],
-  council: ['propose', 'vote', 'close'],
-  technicalCommittee: ['propose', 'vote'],
-  utility: ['batch', 'batchAll', 'forceBatch'],
-  assets: ['transfer', 'register', 'mint', 'burn'],
-  vestedRewards: ['claimRewards', 'setAssetPair'],
-};
-
 const PALLET_COLORS = {
   currencies: '#60A5FA', liquidityProxy: '#EC4899', orderBook: '#F59E0B',
   bridgeProxy: '#10B981', referrals: '#8B5CF6', staking: '#E5243B',
   democracy: '#FBB040', council: '#A062B0', technicalCommittee: '#7B5B90',
   utility: '#64748B', assets: '#06B6D4', vestedRewards: '#14B8A6',
 };
-
-const FAIL_REASONS = [
-  'BadOrigin: caller is not permitted to call this dispatchable',
-  'InsufficientBalance: account balance too low to cover fee',
-  'UnknownAssetId: asset 0x0200… is not registered',
-  'SlippageTolerance: price moved beyond the allowed 0.5%',
-  'AlreadyExists: referrer was already set for this account',
-  'ArithmeticError::Overflow in liquidityProxy::swap',
-];
-
-function hash32() {
-  const chars = '0123456789abcdef';
-  let s = '0x';
-  for (let i = 0; i < 64; i++) s += chars[Math.floor(Math.random() * 16)];
-  return s;
-}
-
-function makeExtrinsic(id, rnd, now) {
-  const pallet = PALLETS[Math.floor(rnd() * PALLETS.length)];
-  const methods = PALLET_METHODS[pallet];
-  const method = methods[Math.floor(rnd() * methods.length)];
-  const caller = FAKE_ADDRS[Math.floor(rnd() * FAKE_ADDRS.length)];
-  const feeXor = +(rnd() * 0.8 + 0.01).toFixed(4);
-  const block = 21_418_000 + Math.floor(rnd() * 5000);
-  const idx = Math.floor(rnd() * 80);
-  const ok = rnd() > 0.15;
-  return {
-    id, pallet, method, caller, feeXor, block, idx, ok, ts: now,
-    hash: hash32(),
-    failReason: ok ? null : FAIL_REASONS[Math.floor(rnd() * FAIL_REASONS.length)],
-  };
-}
 
 function argsFor(e) {
   const compact = (x) => JSON.stringify(x, null, 2);

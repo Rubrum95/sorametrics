@@ -179,45 +179,6 @@ const KINDS = [
   { id: 'burn',     label: 'Burn' },
 ];
 
-function generateEvent(id, seedRand) {
-  const kinds = ['swap', 'transfer', 'block', 'order', 'burn'];
-  const k = kinds[Math.floor(seedRand() * kinds.length)];
-  const from = FAKE_ADDRS[Math.floor(seedRand() * FAKE_ADDRS.length)];
-  const to = FAKE_ADDRS[Math.floor(seedRand() * FAKE_ADDRS.length)];
-  const tokenKeys = Object.keys(TOKENS);
-  const tA = tokenKeys[Math.floor(seedRand() * tokenKeys.length)];
-  let tB = tokenKeys[Math.floor(seedRand() * tokenKeys.length)];
-  if (tB === tA) tB = 'KUSD';
-  const amt = seedRand() * 10000 + 1;
-  const ts = Date.now();
-
-  if (k === 'swap') return {
-    id, kind: k, ts,
-    line1: <>Swap <b>{fmt.num(amt,2)} {tA}</b> → <b>{fmt.num(amt * (seedRand() + 0.5), 2)} {tB}</b></>,
-    line2: `${fmt.addr(from)} · fee 0.3% · ${fmt.usd(amt * 0.5)}`,
-  };
-  if (k === 'transfer') return {
-    id, kind: k, ts,
-    line1: <>Transfer <b>{fmt.num(amt,2)} {tA}</b></>,
-    line2: `${fmt.addr(from)} → ${fmt.addr(to)}`,
-  };
-  if (k === 'block') return {
-    id, kind: k, ts,
-    line1: <>Block <b>#{Math.floor(21_400_000 + seedRand() * 1000).toLocaleString()}</b> finalized</>,
-    line2: `${Math.floor(seedRand()*80)} extrinsics · validator ${IDENTITIES[from] || fmt.addr(from)}`,
-  };
-  if (k === 'order') return {
-    id, kind: k, ts,
-    line1: <><b>{seedRand() > 0.5 ? 'BUY' : 'SELL'}</b> order <b>{fmt.num(amt,0)} {tA}</b> @ ${(seedRand()*0.5+0.05).toFixed(4)}</>,
-    line2: `${tA}/${tB} · ${fmt.addr(from)}`,
-  };
-  return {
-    id, kind: k, ts,
-    line1: <><b>{fmt.num(amt * 0.01, 2)} XOR</b> burned · network fees</>,
-    line2: `from block reward distribution`,
-  };
-}
-
 // Explorador Completo — paginated block list with deep-link to BlockDetail.
 // Pulls /staking/recent-blocks?limit=N&before=<n> (prod supports both). Each
 // row opens the drill so the user can inspect extrinsics + events.
