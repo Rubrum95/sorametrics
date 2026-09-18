@@ -573,7 +573,7 @@ async fn backfill_heights(
                 succeeded += 1;
             }
             Ok(Err(e)) => {
-                warn!(error = %e, "block process failed, skipped");
+                warn!(error = %format!("{e:#}"), "block process failed, skipped");
                 failed += 1;
             }
             Err(join_err) => {

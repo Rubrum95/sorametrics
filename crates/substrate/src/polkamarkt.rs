@@ -208,7 +208,11 @@ fn utf8(bytes: &[u8]) -> Option<String> {
 }
 
 /// Node `MarketCreated` hydration: `Markets[id]` + `Conditions[condition_id]`
-/// at `block_hash`; storage misses leave the Node's defaults.
+/// at `block_hash`; storage misses leave the Node's defaults. A value the
+/// pinned types cannot decode (an earlier runtime's `Market` shape, seen
+/// at spec 128 on block 26366329) also leaves the defaults, with a warn:
+/// the live reconcile refreshes the row from current storage; an RPC
+/// failure still fails the block.
 pub async fn hydrate_market(
     client: &OnlineClient<SubstrateConfig>,
     block_hash: subxt::utils::H256,
@@ -234,17 +238,43 @@ pub async fn hydrate_market(
         block_height,
         ts_millis,
     };
-    if let Some(market) = at.fetch(&s.markets(market_id).unvalidated()).await? {
+    let market = match at.fetch(&s.markets(market_id).unvalidated()).await {
+        Ok(v) => v,
+        Err(subxt::Error::Decode(e)) => {
+            tracing::warn!(
+                market_id,
+                block = block_height.0,
+                error = %e,
+                "polkamarkt market storage not decodable with the pinned types; defaults kept"
+            );
+            None
+        }
+        Err(e) => return Err(e),
+    };
+    if let Some(market) = market {
         m.creator = ss58_encode_sora(&market.creator.0);
         m.condition_id = market.condition_id;
         m.close_block = market.close_block;
         m.collateral_asset = format!("0x{}", hex::encode(market.collateral_asset.code));
         m.mechanism = Some(mechanism_label(&market.mechanism).into());
         m.status = status_label(&market.status).into();
-        if let Some(c) = at
+        let condition = match at
             .fetch(&s.conditions(market.condition_id).unvalidated())
-            .await?
+            .await
         {
+            Ok(v) => v,
+            Err(subxt::Error::Decode(e)) => {
+                tracing::warn!(
+                    market_id,
+                    block = block_height.0,
+                    error = %e,
+                    "polkamarkt condition storage not decodable; defaults kept"
+                );
+                None
+            }
+            Err(e) => return Err(e),
+        };
+        if let Some(c) = condition {
             m.question = utf8(&c.question.0);
             m.oracle = utf8(&c.oracle.0);
             m.resolution_source = utf8(&c.resolution_source.0);
