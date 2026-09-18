@@ -63,6 +63,28 @@ pub fn clamp_page(raw: Option<i64>) -> i64 {
     raw.filter(|p| *p > 0).unwrap_or(1)
 }
 
+/// `parseInt` for query numbers: leading sign and digits are read, the rest
+/// is ignored, and anything that does not start with a number is `None`
+/// (the Node then falls back to its default). Never a 400.
+pub fn lenient_i64<'de, D>(de: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw: Option<String> = serde::Deserialize::deserialize(de)?;
+    Ok(raw.as_deref().and_then(parse_int_prefix))
+}
+
+fn parse_int_prefix(raw: &str) -> Option<i64> {
+    let t = raw.trim_start();
+    let (sign, digits) = match t.as_bytes().first() {
+        Some(b'-') => (-1, &t[1..]),
+        Some(b'+') => (1, &t[1..]),
+        _ => (1, t),
+    };
+    let end = digits.bytes().take_while(u8::is_ascii_digit).count();
+    digits[..end].parse::<i64>().ok().map(|n| sign * n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +161,15 @@ mod tests {
         assert_eq!(clamp_page(Some(0)), 1);
         assert_eq!(clamp_page(Some(-1)), 1);
         assert_eq!(clamp_page(Some(7)), 7);
+    }
+
+    #[test]
+    fn query_numbers_parse_like_parse_int() {
+        assert_eq!(parse_int_prefix("25"), Some(25));
+        assert_eq!(parse_int_prefix("12abc"), Some(12));
+        assert_eq!(parse_int_prefix(" 7"), Some(7));
+        assert_eq!(parse_int_prefix("-3"), Some(-3));
+        assert_eq!(parse_int_prefix("abc"), None);
+        assert_eq!(parse_int_prefix(""), None);
     }
 }

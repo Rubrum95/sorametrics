@@ -102,7 +102,9 @@ fn row(r: &ObRecord, registry: &Registry, zone: chrono_tz::Tz) -> ObRow {
 
 #[derive(Debug, Default, Deserialize)]
 struct GlobalQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     #[serde(rename = "type")]
     event_type: Option<String>,
@@ -112,7 +114,9 @@ struct GlobalQuery {
 
 #[derive(Debug, Default, Deserialize)]
 struct PageQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
 }
 

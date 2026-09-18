@@ -54,7 +54,9 @@ pub fn router() -> Router<AppState> {
 /// Query parameters shared by every history endpoint.
 #[derive(Debug, Default, Deserialize)]
 struct Pagination {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     /// Keyset cursor `"<block_height>-<event_id>"` (v33 addition).
     before: Option<String>,

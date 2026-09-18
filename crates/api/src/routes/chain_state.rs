@@ -163,7 +163,9 @@ struct Pool {
 
 #[derive(Debug, Deserialize)]
 struct PoolsQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     base: Option<String>,
 }
@@ -320,6 +322,7 @@ pub struct Holder {
 
 #[derive(Debug, Deserialize)]
 struct PageQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
 }
 

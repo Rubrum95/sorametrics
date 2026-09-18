@@ -130,7 +130,9 @@ struct Page {
 
 #[derive(Debug, Default, Deserialize)]
 struct GlobalQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     section: Option<String>,
     method: Option<String>,
@@ -285,7 +287,9 @@ async fn global(
 
 #[derive(Debug, Default, Deserialize)]
 struct PageQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
 }
 

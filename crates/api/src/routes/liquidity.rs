@@ -89,7 +89,9 @@ fn row(r: &LiqRecord, registry: &Registry, zone: chrono_tz::Tz, logos: bool) -> 
 
 #[derive(Debug, Deserialize)]
 struct GlobalQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     timestamp: Option<String>,
 }
@@ -197,6 +199,7 @@ async fn exact_count(state: &AppState, until: Option<DateTime<Utc>>) -> Result<i
 struct ActivityQuery {
     base: Option<String>,
     target: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
 }
 

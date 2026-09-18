@@ -131,7 +131,9 @@ pub struct SparkPoint {
 
 #[derive(Debug, Default, Deserialize)]
 struct TokensQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     page: Option<i64>,
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
     limit: Option<i64>,
     search: Option<String>,
     symbols: Option<String>,
