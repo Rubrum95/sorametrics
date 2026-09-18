@@ -78,7 +78,14 @@ gap fill), `/api/minamoto/indexer/state`.
 python3 scripts/parity_check.py --v33 http://127.0.0.1:3311 --strict
 ```
 Every route in parity except the documented deviations (integers > 2^53 in legacy `d`,
-`/balance` ordering for assets the Node cannot price, block time vs insert time).
+`/balance` ordering for assets the Node cannot price, block time vs insert time). Seen on
+Rubrum 2026-09-18 (129/131): `/pools` — the Node filters pools through its in-memory `ASSETS`
+whitelist loaded at process start (77 days old on prod; it lacked the newer USDT), v33 uses the
+registry's `whitelisted` flag; `/wallet/liquidity` — same formula and 0.10 USD threshold, but v33
+prices more assets (TAMU) than the Node's `tokenPrices`, so a 0.10 USD position shows only in
+v33. Both are production being stale, not v33 defects; a Node restart would realign the first.
+`/block/:n` and the governance preimage scans need `ARCHIVE_WS_ENDPOINT` (the Node's
+`getArchiveApi()`): the local validator keeps only recent state.
 
 ## 7. TLS and DNS **(user)**
 - Certificates: either `rsync -a /etc/letsencrypt/` from the old VPS to Rubrum (private keys:
