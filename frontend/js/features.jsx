@@ -184,23 +184,42 @@ function WalletDetailsProvider({ children }) {
   );
 }
 
-// Real SS58 addresses that DO have on-chain balances on prod sorametrics.org.
-// Used as seed data so new visitors immediately see live numbers without
-// having to paste addresses themselves.
-// Verified SS58 addresses from prod's /holders/XOR top list (2026-04-20).
-// Must have a valid SORA checksum — the node's runtime decode rejects bad ones.
-const INITIAL_WALLETS = [
-  { id:'w1', alias: 'Polkaswap Treasury', addr: 'cnRwt3q7DkvJqr3YkuN7dFibTx6yu8rqDDYKmBp4Sko5TW2Dd', value: 0, live: false, kind:'watch' },
-  { id:'w2', alias: 'XOR Whale',          addr: 'cnVhh27kkYkfJ1mH4jyPWWV6Tq4vfWjrC7Avnf3Bq1ZawcTgQ', value: 0, live: false, kind:'watch' },
-  { id:'w3', alias: 'DEX Maker',          addr: 'cnSpcE5QSjKf9x2yJgv3h5orz2oGrmWzUJHxMBtJvZu3V3orN', value: 0, live: false, kind:'watch' },
-  { id:'w4', alias: 'Active Trader',      addr: 'cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy', value: 0, live: false, kind:'watch' },
+// No example wallets: a name is either a real on-chain identity or an alias
+// the user typed. The app used to seed seven top holders under made-up
+// labels ("Polkaswap Treasury", "XOR Whale", …) that then showed up in the
+// identity columns as if they were facts.
+const INITIAL_WALLETS = [];
+const INITIAL_WATCHED = [];
+
+// One-off cleanup for browsers that were seeded with those examples. Only
+// the exact original (alias, address) pairs go; anything the user renamed or
+// added stays.
+const FORMER_SEED_EXAMPLES = [
+  ['Polkaswap Treasury', 'cnRwt3q7DkvJqr3YkuN7dFibTx6yu8rqDDYKmBp4Sko5TW2Dd'],
+  ['XOR Whale',          'cnVhh27kkYkfJ1mH4jyPWWV6Tq4vfWjrC7Avnf3Bq1ZawcTgQ'],
+  ['DEX Maker',          'cnSpcE5QSjKf9x2yJgv3h5orz2oGrmWzUJHxMBtJvZu3V3orN'],
+  ['Active Trader',      'cnRWUatULzf8AVfKVexXMKJx9bT9UeTEM4wmWG7B7g1cxVjXy'],
+  ['XOR Holder #1',      'cnV2jLWvHYE54sbh34Xvbmt2UcHs3KcahNYN5sbP3W7nDYNrv'],
+  ['XOR Holder #2',      'cnWX6Y7dT9FEY8DX9BcxQJyCRaHwYZYRoW2ENcwLgfoHhz8aP'],
+  ['XOR Holder #3',      'cnSGSCSMgDFRH6zKvYA75CAyruJhBokQ4csX9uA2rZ6Rq4NN4'],
 ];
-// Verified SS58 holders from prod's /holders/XOR top list.
-const INITIAL_WATCHED = [
-  { id:'v1', alias: 'XOR Holder #1', addr: 'cnV2jLWvHYE54sbh34Xvbmt2UcHs3KcahNYN5sbP3W7nDYNrv', value: 0 },
-  { id:'v2', alias: 'XOR Holder #2', addr: 'cnWX6Y7dT9FEY8DX9BcxQJyCRaHwYZYRoW2ENcwLgfoHhz8aP', value: 0 },
-  { id:'v3', alias: 'XOR Holder #3', addr: 'cnSGSCSMgDFRH6zKvYA75CAyruJhBokQ4csX9uA2rZ6Rq4NN4', value: 0 },
-];
+function purgeSeededExamples() {
+  try {
+    if (localStorage.getItem('sm.seedPurge.v1') === '1') return;
+    const isSeed = (w) => FORMER_SEED_EXAMPLES.some(([alias, addr]) => w && w.alias === alias && w.addr === addr);
+    for (const key of ['sm.wallets', 'sm.watched']) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) continue;
+      const kept = arr.filter(w => !isSeed(w));
+      if (kept.length !== arr.length) localStorage.setItem(key, JSON.stringify(kept));
+    }
+    localStorage.setItem('sm.seedPurge.v1', '1');
+    if (window.refreshAliasMap) window.refreshAliasMap();
+  } catch (_) {}
+}
+purgeSeededExamples();
 
 function loadLS(k, fallback) {
   try { const s = localStorage.getItem(k); if (s) return JSON.parse(s); } catch (_) {}
