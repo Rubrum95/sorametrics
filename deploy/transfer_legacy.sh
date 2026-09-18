@@ -133,4 +133,9 @@ if wanted "$CHUNKED_CALLS"; then
   done
 fi
 
+# The copy carries no indexes; the ETL reads by keyset cursor and the
+# extrinsics detail/reconciliation look up events by (block, index).
+echo "== indexes (deploy/legacy_indexes.sql)"
+dst < "$(dirname "$0")/legacy_indexes.sql"
+
 echo "== done. Next: LEGACY_DATABASE_URL=<$DST_DB> sorametrics-ops migrate-legacy ..."
