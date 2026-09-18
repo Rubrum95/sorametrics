@@ -329,10 +329,15 @@ function _fetchMofSupply(symbol) {
 
 // Primary fetch — supply + price + mcap only. Fast because MOF is parallel
 // and /burns/supply is a single small VPS query.
+// The only symbols /burns/supply/:symbol serves; any other answers 400.
+const BURNS_SUPPLY_SYMBOLS = new Set(['XOR', 'VAL', 'PSWAP', 'TBCD', 'KUSD']);
+
 async function _fetchNativeDirect(symbol, assetId) {
   const [burns, mofSupply] = await Promise.all([
-    fetch('/burns/supply/' + encodeURIComponent(symbol))
-      .then(r => r.ok ? r.json() : null).catch(() => null),
+    BURNS_SUPPLY_SYMBOLS.has(String(symbol).toUpperCase())
+      ? fetch('/burns/supply/' + encodeURIComponent(symbol))
+          .then(r => r.ok ? r.json() : null).catch(() => null)
+      : Promise.resolve(null),
     _fetchMofSupply(symbol),
   ]);
   const price = Number(burns?.price) || 0;
