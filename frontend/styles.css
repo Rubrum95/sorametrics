@@ -77,7 +77,7 @@ html, body {
   padding: 0;
   background: var(--bg-0);
   color: var(--fg-1);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -206,7 +206,7 @@ body {
   background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.5), transparent 50%);
 }
 .brand-logo { display: block; flex-shrink: 0; }
-.brand-name { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: -0.015em; line-height: 1.1; }
+.brand-name { font-family: 'Sora', 'Inter', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: -0.015em; line-height: 1.1; }
 .brand-sora    { color: #9B1B30; }
 .brand-metrics { color: #ffffff; }
 .brand-sub { font-size: 10px; color: var(--fg-3); letter-spacing: 0.12em; text-transform: uppercase; }
@@ -680,7 +680,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
 .flow-node rect, .flow-node circle {
   transition: all var(--t);
 }
-.flow-label { fill: var(--fg-1); font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; }
+.flow-label { fill: var(--fg-1); font-size: 11px; font-weight: 600; font-family: 'Sora', 'Inter', sans-serif; }
 .flow-sub   { fill: var(--fg-3); font-size: 10px; font-family: 'JetBrains Mono', monospace; }
 
 /* Burn stats grid */
@@ -719,7 +719,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
 .holder-row:last-child { border-bottom: none; }
 .holder-rank { font-family: 'JetBrains Mono', monospace; color: var(--fg-3); font-size: 11px; text-align: center; }
 .holder-addr { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.holder-addr .ident { color: var(--fg-0); font-weight: 700; font-family: 'Inter', sans-serif; }
+.holder-addr .ident { color: var(--fg-0); font-weight: 700; font-family: 'Sora', 'Inter', sans-serif; }
 .holder-bar { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
 .holder-bar .fill { height: 100%; background: var(--tok-grad, var(--grad-ember)); border-radius: 3px; transition: width 600ms; }
 .holder-pct { font-family: 'JetBrains Mono', monospace; text-align: right; font-weight: 700; color: var(--fg-0); font-size: 12px; }
