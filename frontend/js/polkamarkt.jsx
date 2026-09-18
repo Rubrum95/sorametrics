@@ -356,6 +356,7 @@ function PolkamarktPositions({ addr, title }) {
   const t = useT();
   const [data, setData] = useState(null);
   useEffect(() => {
+    setData(null);
     if (!addr) return;
     let cancelled = false;
     fetch('/polkamarkt/positions/' + encodeURIComponent(addr))

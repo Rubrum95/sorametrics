@@ -45,9 +45,17 @@ function useHistory(endpoint, { pageSize = 20, page = 1, pollMs = 30_000 } = {})
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nonce, setNonce] = useState(0);
+  const lastKey = useRef(null);
   useEffect(() => {
     let cancelled = false;
     const url = endpoint + (endpoint.includes('?') ? '&' : '?') + 'limit=' + pageSize + '&page=' + page;
+    // A new filter or page never keeps the previous rows on screen: if the
+    // request is slow or fails they would sit under the new selection.
+    // Polls and manual refreshes of the same URL keep the rows (no flicker).
+    if (lastKey.current !== url) {
+      lastKey.current = url;
+      setItems([]); setTotal(null); setTotalPages(null); setLoading(true);
+    }
     const pull = async () => {
       try {
         const r = await fetch(url);

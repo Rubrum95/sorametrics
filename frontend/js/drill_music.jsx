@@ -475,6 +475,7 @@ function ExtrinsicDetail({ r }) {
   const extrinsicId = block && idx != null ? (block + '-' + idx) : (r.extrinsic_id || null);
 
   useEffect(() => {
+    setLive(null);
     if (!block || idx == null) return;
     let cancelled = false;
     fetch('/history/extrinsic/' + encodeURIComponent(block) + '/' + encodeURIComponent(idx))

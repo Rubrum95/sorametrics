@@ -1710,10 +1710,22 @@ function HoldersSection({ tweaks }) {
   // which walks the known assets in series every 5 minutes.
   useEffect(() => {
     let cancelled = false;
-    window.getHoldersCached?.(assetId, page, 25).then(({ data }) => {
-      if (!cancelled && data) setRaw(data);
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    let timer = null;
+    // Never keep another asset's (or page's) rows under the new title: the
+    // table empties first. A cold scan answers 503 "retry", so a null result
+    // is retried instead of leaving stale balances on screen.
+    setRaw(null);
+    const load = (attempt) => {
+      window.getHoldersCached?.(assetId, page, 25).then(({ data }) => {
+        if (cancelled) return;
+        if (data) { setRaw(data); return; }
+        if (attempt < 12) timer = setTimeout(() => load(attempt + 1), 5000);
+      }).catch(() => {
+        if (!cancelled && attempt < 12) timer = setTimeout(() => load(attempt + 1), 5000);
+      });
+    };
+    load(0);
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, [assetId, page]);
 
   // No background pre-warm: we only fetch the token the user actually clicks.
@@ -1831,7 +1843,7 @@ function HoldersSection({ tweaks }) {
             <TokenBadge sym={asset} size={20}/>
             <span>{asset}</span>
           </div>
-          <span className="tag">{totalHolders} ranked total</span>
+          <span className="tag" title="The API counts accounts whose free balance is above this threshold, not every account that holds the asset.">{totalHolders} · &gt; {asset === 'XOR' ? '1' : '0.1'} {asset}</span>
         </div>
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
@@ -1845,7 +1857,7 @@ function HoldersSection({ tweaks }) {
             </thead>
             <tbody>
               {holders.length === 0 && (
-                <tr><td colSpan="4" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>Cargando holders desde prod…</td></tr>
+                <tr><td colSpan="4" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>Calculando titulares en la cadena…</td></tr>
               )}
               {holders.map(h => (
                 <tr key={h.rank} className="swap-row clickable"
