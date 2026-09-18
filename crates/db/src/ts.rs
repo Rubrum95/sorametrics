@@ -110,9 +110,11 @@ pub async fn latest_prices(
     Ok(rows)
 }
 
-/// Latest quotes usable for a USD VALUATION: assets the last depth check
-/// flagged as illiquid are left out (an unmeasured asset stays in). Market
-/// caps, wallet values and pool TVL must use this, never [`latest_prices`].
+/// Latest quotes usable for a USD VALUATION: only assets whose depth check
+/// passed. Unmeasured assets are left out too (the sweep covers the
+/// whitelist; a price quoted on demand for anything else was never
+/// checked). Market caps, wallet values and pool TVL must use this, never
+/// [`latest_prices`].
 pub async fn valuation_prices(
     pool: &PgPool,
     asset_ids: &[String],
@@ -122,8 +124,8 @@ pub async fn valuation_prices(
         r#"
         SELECT p.asset_id AS "asset_id!", p.price_usd AS "price_usd!"
         FROM ts.price_latest p
-        LEFT JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id
-        WHERE p.asset_id = ANY($1) AND l.liquid IS DISTINCT FROM false
+        JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id
+        WHERE p.asset_id = ANY($1) AND l.liquid
         "#,
         asset_ids,
     )
@@ -132,10 +134,16 @@ pub async fn valuation_prices(
     Ok(rows)
 }
 
-/// The assets of `asset_ids` flagged illiquid by the last depth check.
+/// The assets of `asset_ids` that have a price but no passed depth check
+/// (failed, or never measured): priced, yet not to be valued.
 pub async fn illiquid_assets(pool: &PgPool, asset_ids: &[String]) -> Result<Vec<String>, DbError> {
     let rows = sqlx::query_scalar!(
-        r#"SELECT asset_id FROM sm.asset_liquidity WHERE asset_id = ANY($1) AND NOT liquid"#,
+        r#"
+        SELECT p.asset_id AS "asset_id!"
+        FROM ts.price_latest p
+        LEFT JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id
+        WHERE p.asset_id = ANY($1) AND l.liquid IS NOT TRUE
+        "#,
         asset_ids,
     )
     .fetch_all(pool)

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.asset_id AS \"asset_id!\", p.price_usd AS \"price_usd!\"\n        FROM ts.price_latest p\n        LEFT JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id\n        WHERE p.asset_id = ANY($1) AND l.liquid IS DISTINCT FROM false\n        ",
+  "query": "\n        SELECT p.asset_id AS \"asset_id!\", p.price_usd AS \"price_usd!\"\n        FROM ts.price_latest p\n        JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id\n        WHERE p.asset_id = ANY($1) AND l.liquid\n        ",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "3dc74866f0cc2c18d381c43832eb7c46e47edde1c543e98f0667d282fbea8b12"
+  "hash": "816a965881240e1a7d7f5d32ec4d9c1321254433598be204c63fb794f5f5f93c"
 }

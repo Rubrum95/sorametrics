@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.asset_id AS \"asset_id!\"\n        FROM ts.price_latest p\n        LEFT JOIN sm.asset_liquidity l ON l.asset_id = p.asset_id\n        WHERE p.asset_id = ANY($1) AND l.liquid IS NOT TRUE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "asset_id!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9e16fe9b8dbbdfd29fdf656428e0827b43b3f5978d8cdb6322914553e72366bc"
+}
