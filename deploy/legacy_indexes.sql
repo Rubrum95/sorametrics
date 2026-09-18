@@ -25,3 +25,4 @@ ANALYZE sm.mv_liquidity_events; ANALYZE sm.mv_order_book_events; ANALYZE sm.fee_
 ANALYZE sm.supply_snapshots; ANALYZE sm.price_history; ANALYZE sm.supply_history; ANALYZE public.asset_snapshot; ANALYZE sm.site_events;
 CREATE INDEX IF NOT EXISTS extrinsic_events_block_idx ON sm.extrinsic_events (block_height, extrinsic_index);
 ANALYZE sm.extrinsic_events; ANALYZE public.history_element;
+CREATE INDEX IF NOT EXISTS mv_extrinsics_block_idx ON sm.mv_extrinsics (block, extrinsic_index);
