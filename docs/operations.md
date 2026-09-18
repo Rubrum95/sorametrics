@@ -6,7 +6,7 @@
 |---------|---------|-------|
 | SORA v2 indexer | `sorametrics-ingest --source substrate` | Applies migrations at start, resumes from `sm.indexer_state.substrate_live`, fills any gap before following the finalized stream. |
 | Minamoto indexer | `sorametrics-ingest --source iroha` | Polls Torii; every job run is recorded in `mn.indexer_state` (`/api/minamoto/indexer/state`). |
-| API | `sorametrics-api` | Stateless. Socket.IO on `/socket.io/*`. Needs `WS_ENDPOINTS` for chain-backed routes, `MINAMOTO_TORII` for `/api/minamoto/*` passthroughs, `STATIC_DIR` for the SPA files (`landing.html`, `index.html`, `minamoto.html`, `styles.css`, `sw.js`, `manifest.json`, `favicon.svg`, `header-banner.jpg`, `js/*.jsx`, `js/minamoto/*.jsx` — only those are served), `MUSIC_DIR` / `NEWS_DIR` for the media. `HOLDERS_PREWARM_SECS` (240) keeps the `/holders` scans of the recently requested assets warm with one chain walk per cycle. Site analytics (`/analytics/*`) run in-process: `ANALYTICS_SALT`, `ANALYTICS_RAW_RETENTION_DAYS`. Compression and the security headers (CSP) are set by the API itself, as the Node did. |
+| API | `sorametrics-api` | Stateless. Socket.IO on `/socket.io/*`. Needs `WS_ENDPOINTS` for chain-backed routes (`ARCHIVE_WS_ENDPOINT`, default `wss://mof2.sora.org`, for the reads at historical blocks: `/block/:n`, governance preimage scans), `MINAMOTO_TORII` for `/api/minamoto/*` passthroughs, `STATIC_DIR` for the SPA files (`landing.html`, `index.html`, `minamoto.html`, `styles.css`, `sw.js`, `manifest.json`, `favicon.svg`, `header-banner.jpg`, `js/*.jsx`, `js/minamoto/*.jsx` — only those are served), `MUSIC_DIR` / `NEWS_DIR` for the media. `HOLDERS_PREWARM_SECS` (240) keeps the `/holders` scans of the recently requested assets warm with one chain walk per cycle. Site analytics (`/analytics/*`) run in-process: `ANALYTICS_SALT`, `ANALYTICS_RAW_RETENTION_DAYS`. Compression and the security headers (CSP) are set by the API itself, as the Node did. |
 
 Run them as separate supervised processes (PM2 or systemd) with the environment from
 `.env.example`. Logs are `tracing` lines on stdout; set `RUST_LOG` per target.
@@ -105,6 +105,7 @@ block's state and the quote is folded into the hour's bucket:
 
 ```bash
 PRICE_ARCHIVE_RPC=wss://mof2.sora.org            # ingest (.env): applies to gap fills
+ARCHIVE_WS_ENDPOINT=wss://mof2.sora.org          # api (.env): /block/:n and the governance preimage scans read at historical blocks here (the Node's getArchiveApi); default mof2
 sorametrics-ops backfill --from … --to … --price-rpc wss://mof2.sora.org
 ```
 
