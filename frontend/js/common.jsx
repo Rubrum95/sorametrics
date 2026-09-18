@@ -147,8 +147,19 @@ function seededRand(seed) {
 }
 
 // generic sparkline path
+// Series come either as plain numbers or as the API's {value, time} points
+// (/tokens sparkline); anything non-numeric is dropped.
+function sparkNumbers(values) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .map(v => (v !== null && typeof v === 'object') ? v.value : v)
+    .map(raw => (raw === null || raw === undefined || raw === '') ? NaN : Number(raw))
+    .filter(Number.isFinite);
+}
+
 function sparkPath(values, w, h, pad = 2) {
-  if (!values || values.length < 2) return '';
+  values = sparkNumbers(values);
+  if (values.length < 2) return '';
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = Math.max(1e-9, max - min);
@@ -161,7 +172,8 @@ function sparkPath(values, w, h, pad = 2) {
 
 // area path (returns both line and area)
 function areaPath(values, w, h, pad = 4) {
-  if (!values || values.length < 2) return { line: '', area: '' };
+  values = sparkNumbers(values);
+  if (values.length < 2) return { line: '', area: '' };
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = Math.max(1e-9, max - min);
