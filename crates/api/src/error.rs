@@ -135,6 +135,9 @@ impl ApiError {
 
 #[derive(Serialize)]
 struct ErrorBody<'a> {
+    /// The Node's error contract (`{"error": "..."}`): the frontend tells an
+    /// error body from data with `!j.error`.
+    error: &'a str,
     code: ErrorCode,
     message: &'a str,
 }
@@ -146,9 +149,11 @@ impl IntoResponse for ApiError {
         // payload minimal.
         error!(error = %self, code = ?code, "api error");
 
+        let message = self.public_message();
         let body = ErrorBody {
+            error: &message,
             code,
-            message: &self.public_message(),
+            message: &message,
         };
         let status = match &self {
             Self::Torii(e) => e
