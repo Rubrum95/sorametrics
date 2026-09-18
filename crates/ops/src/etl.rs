@@ -972,8 +972,7 @@ async fn copy_extrinsics(
     let h = bound.height;
     let sql = format!(
         r#"
-        SELECT x._row_id,
-               x.block::bigint AS block_height,
+        SELECT x.block::bigint AS block_height,
                x.extrinsic_index::int AS extrinsic_index,
                to_timestamp(x.timestamp / 1000.0) AS block_timestamp,
                COALESCE(x.hash, '') AS hash,
@@ -981,16 +980,30 @@ async fn copy_extrinsics(
                (x.success = 1) AS success,
                COALESCE(x.error_msg, '') AS error_msg
         FROM sm.mv_extrinsics x
-        WHERE x._row_id > $1 AND x.block < {h} AND {EXTRINSICS_FILTER}
-        ORDER BY x._row_id
-        LIMIT $2
+        WHERE (x.block, x.extrinsic_index) > ($1::int, $2::int)
+          AND x.block < {h} AND {EXTRINSICS_FILTER}
+        ORDER BY x.block, x.extrinsic_index
+        LIMIT $3
         "#
     );
     let mut copied = 0u64;
-    let mut cursor = get_cursor(target, "extrinsics").await?.unwrap_or_default();
+    // Block order (not `_row_id`, a hash): the per-batch event lookups then
+    // read `extrinsic_events` sequentially instead of 10 000 random pages.
+    let (mut cur_block, mut cur_idx) = get_cursor(target, "extrinsics")
+        .await?
+        .and_then(|c| {
+            c.split_once('|').map(|(b, i)| {
+                (
+                    b.parse::<i32>().unwrap_or(-1),
+                    i.parse::<i32>().unwrap_or(-1),
+                )
+            })
+        })
+        .unwrap_or((-1, -1));
     loop {
         let rows = sqlx::query(&sql)
-            .bind(&cursor)
+            .bind(cur_block)
+            .bind(cur_idx)
             .bind(batch)
             .fetch_all(source)
             .await
@@ -1018,7 +1031,9 @@ async fn copy_extrinsics(
             signers.push(r.try_get::<String, _>("signer")?);
             successes.push(r.try_get::<bool, _>("success")?);
             errors.push(r.try_get::<String, _>("error_msg")?);
-            cursor = r.try_get::<String, _>("_row_id")?;
+            cur_block = i32::try_from(r.try_get::<i64, _>("block_height")?)
+                .context("legacy block height does not fit i32")?;
+            cur_idx = r.try_get::<i32, _>("extrinsic_index")?;
         }
         let args_by_hash = legacy_args(source, &hashes).await?;
         let events_by_key = legacy_events(source, &blocks, &idxs).await?;
@@ -1064,6 +1079,7 @@ async fn copy_extrinsics(
         .await
         .context("inserting extrinsics batch")?;
         copied += n as u64;
+        let cursor = format!("{cur_block}|{cur_idx}");
         set_cursor(target, "extrinsics", &cursor, n as i64).await?;
         info!(copied, cursor = %cursor, "extrinsics progress");
     }
