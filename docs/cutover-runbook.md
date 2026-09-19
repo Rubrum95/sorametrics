@@ -103,3 +103,7 @@ v33. Both are production being stale, not v33 defects; a Node restart would real
 Move the rest (opos-v3, oposbombero landing, IPFS seeder, validator — see
 `project_sorametrics_vps_consolidation`), then cancel the `sorametrics` VPS. Drop `legacy_copy`
 on Rubrum afterwards.
+
+## After the apex cutover
+
+- [ ] Remind the owner to publish the MCP server in the official MCP Registry (needs his GitHub login): endpoint `https://sorametrics.org/mcp`, transport streamable-http. Do not register the `v33.` test host.

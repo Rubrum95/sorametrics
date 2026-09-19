@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main, v33]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Queries compile from the committed .sqlx cache: no job needs a database
+  # to build.
+  SQLX_OFFLINE: "true"
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg14
+        env:
+          POSTGRES_USER: sorametrics
+          POSTGRES_PASSWORD: sorametrics_dev
+          POSTGRES_DB: sorametrics_v33
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sorametrics -d sorametrics_v33"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://sorametrics:sorametrics_dev@localhost:5432/sorametrics_v33
+      REDIS_URL: redis://localhost:6379
+      # Queries compile from the committed .sqlx cache; the migrated
+      # service database is only used by the tests that talk to it.
+      SQLX_OFFLINE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install sqlx-cli --no-default-features --features postgres,rustls --locked
+      - run: cargo sqlx migrate run
+      - run: cargo test --workspace --all-features
+
+  metadata-compat:
+    # Non-blocking: warns when the SORA runtime changed one of the 29
+    # pinned pallets (regenerate the metadata and review the decoders).
+    name: runtime metadata compatibility
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.94.0
+      - uses: Swatinem/rust-cache@v2
+      - run: SQLX_OFFLINE=true cargo run -p sorametrics-ops -- metadata-check --rpc wss://mof2.sora.org
