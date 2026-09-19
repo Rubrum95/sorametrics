@@ -610,9 +610,17 @@ async fn rewards(State(state): State<AppState>) -> Result<Json<RewardsResponse>,
             } else {
                 0
             };
+            // Paged-reward runtimes record claims in `ClaimedRewards(era, v)`;
+            // the ledger's legacy list is only what older runtimes left.
+            let paged_claim = claimed
+                .iter()
+                .filter(|((_, who), pages)| *who == v.0 && !pages.is_empty())
+                .map(|((e, _), _)| *e)
+                .max();
             let ledger_claim = ledgers[i]
                 .as_ref()
-                .and_then(|l| l.legacy_claimed_rewards.0.iter().max().copied());
+                .and_then(|l| l.legacy_claimed_rewards.0.iter().max().copied())
+                .max(paged_claim);
             let ix = indexed.get(&address);
             let ix_last_era = ix.and_then(|x| x.last_era).map(|e| e as u32);
             let last_era = match (ix_last_era, ledger_claim) {
