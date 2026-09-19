@@ -561,50 +561,6 @@ function TokenCompareCard() {
   );
 }
 
-// Agent access: the MCP endpoint and the two discovery documents, served by
-// this same host.
-function AgentAccessCard() {
-  const t = useT();
-  const [copied, setCopied] = useState('');
-  const origin = window.location.origin;
-  const mcpUrl = origin + '/mcp';
-  const cmd = 'claude mcp add --transport http sorametrics ' + mcpUrl;
-  const copy = (id, text) => {
-    if (!navigator.clipboard) return;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(id);
-      setTimeout(() => setCopied(''), 1500);
-    });
-  };
-  const Row = ({ id, label, value, href }) => (
-    <div style={{display:'grid', gridTemplateColumns:'minmax(110px, 160px) 1fr auto', gap:12, alignItems:'center', padding:'10px 0', borderTop:'1px solid var(--border)'}}>
-      <span className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'0.06em'}}>{label}</span>
-      {href
-        ? <a href={href} target="_blank" rel="noopener" className="mono" style={{color:'var(--fg-0)', overflowWrap:'anywhere'}}>{value}</a>
-        : <code className="mono" style={{color:'var(--fg-0)', overflowWrap:'anywhere'}}>{value}</code>}
-      <button className="btn ghost" onClick={() => copy(id, value)}>
-        {copied === id ? t('tools.agents.copied', 'Copied') : t('tools.agents.copy', 'Copy')}
-      </button>
-    </div>
-  );
-  return (
-    <div className="card" style={{padding: 0}}>
-      <div className="card-header">
-        <div className="card-title"><span className="dot"/> {t('tools.agents.title', 'API · MCP for AI agents')}</div>
-      </div>
-      <div style={{padding:'4px 20px 16px'}}>
-        <p className="muted" style={{margin:'12px 0', maxWidth:760}}>
-          {t('tools.agents.sub', 'Connect an AI agent to SoraMetrics: read-only, free, no API key. Every answer carries its caveats (marginal prices, illiquid tokens).')}
-        </p>
-        <Row id="mcp" label={t('tools.agents.mcp', 'MCP server')} value={mcpUrl}/>
-        <Row id="cmd" label="Claude Code" value={cmd}/>
-        <Row id="oas" label="OpenAPI 3.1" value={origin + '/openapi.json'} href="/openapi.json"/>
-        <Row id="llms" label="llms.txt" value={origin + '/llms.txt'} href="/llms.txt"/>
-      </div>
-    </div>
-  );
-}
-
 function ToolsSection() {
   const t = useT();
   return (
@@ -613,7 +569,6 @@ function ToolsSection() {
       <div style={{display:'grid', gap:16}}>
         <TokenCompareCard/>
         <PredictionBlockCard/>
-        <AgentAccessCard/>
       </div>
     </div>
   );

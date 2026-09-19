@@ -67,6 +67,7 @@ const NAV_GROUPS = [
     titleKey: 'nav.toolsGroup',
     items: [
       { id: 'tools', key: 'nav.tools', icon: 'bolt' },
+      { id: 'agents', key: 'nav.agents', icon: 'code' },
       { id: 'metrics', key: 'nav.metrics', icon: 'pulse' },
     ],
   },

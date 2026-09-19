@@ -20,6 +20,7 @@ const SECTION_COMPONENTS = {
   polkamarkt: 'PolkamarktSection',
   tools: 'ToolsSection',
   metrics: 'MetricsSection',
+  agents: 'AgentsSection',
   studio: 'MusicStudioSection',
   news: 'NewsSection',
   xormig: 'XorMigrationSection',
