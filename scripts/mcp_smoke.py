@@ -37,7 +37,7 @@ s, r = modern("server/discover")
 check("discover", s == 200 and r["result"]["supportedVersions"] == [V] and r["result"]["resultType"] == "complete", s)
 s, r = modern("tools/list")
 tools = r["result"]["tools"]
-check("tools/list", s == 200 and len(tools) == 21 and r["result"]["cacheScope"] == "public", len(tools))
+check("tools/list", s == 200 and len(tools) == 22 and r["result"]["cacheScope"] == "public", len(tools))
 s, r = modern("tools/list", hdr={"MCP-Protocol-Version": "2025-11-25"})
 check("version header mismatch -> 400/-32020", s == 400 and r["error"]["code"] == -32020, s)
 s, r = modern("tools/list", hdr={"Mcp-Method": "tools/call"})
@@ -66,7 +66,7 @@ check("legacy initialize", s == 200 and r["result"]["protocolVersion"] == "2025-
 s, r = post({"jsonrpc": "2.0", "method": "notifications/initialized"})
 check("notification -> 202", s == 202, s)
 s, r = post({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
-check("legacy tools/list", s == 200 and len(r["result"]["tools"]) == 21 and "resultType" not in r["result"], s)
+check("legacy tools/list", s == 200 and len(r["result"]["tools"]) == 22 and "resultType" not in r["result"], s)
 
 WALLET = sys.argv[2] if len(sys.argv) > 2 else "cnRus2m2Rn776v88H5RUtyiaXtr3daN6ePn6yenLKepx1SqYo"
 XOR = "0x0200000000000000000000000000000000000000000000000000000000000000"
@@ -78,7 +78,7 @@ calls = [
  ("governance", {"section": "council"}), ("staking_validators", {}), ("prediction_markets", {"limit": 2}),
  ("resolve_identities", {"addresses": [WALLET]}), ("top_holders", {"asset_id": XOR}),
  ("price_history", {"asset_ids": [XOR], "labels": ["XOR"], "window": "7d"}), ("wallet_staking", {"address": WALLET}),
- ("wallet_liquidity", {"address": WALLET}), ("prediction_market", {"id": 0}), ("network_overview", {}), ("data_freshness", {}),
+ ("wallet_liquidity", {"address": WALLET}), ("wallet_realizable_value", {"address": WALLET, "pct": 10}), ("prediction_market", {"id": 0}), ("network_overview", {}), ("data_freshness", {}),
 ]
 for name, args in calls:
     s, r = modern("tools/call", {"name": name, "arguments": args}, name=name)
@@ -106,7 +106,7 @@ check("unknown resource -> -32602", s == 400 and r["error"]["code"] == -32602, s
 pt = [t for t in tools if t["name"] == "price_history"][0]
 check("price_history links the chart", pt["_meta"]["ui"]["resourceUri"] == "ui://sorametrics/price-chart")
 card = json.load(urllib.request.urlopen(urllib.request.Request(BASE + "/.well-known/mcp/server-card.json", headers={"User-Agent": "Mozilla/5.0"}), timeout=30))
-check("server card", card["transport"]["endpoint"] == "/mcp" and len(card["tools"]) == 21)
+check("server card", card["transport"]["endpoint"] == "/mcp" and len(card["tools"]) == 22)
 s, r = modern("tools/call", {"name": "wallet_balances", "arguments": {"address": "bad"}}, name="wallet_balances")
 check("bad argument -> isError result", s == 200 and r["result"]["isError"] is True, s)
 print("ALL OK" if ok else "SOME FAILED")

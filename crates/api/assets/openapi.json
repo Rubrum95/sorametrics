@@ -2473,6 +2473,74 @@
      }
     }
    }
+  },
+  "/wallet/realizable/{address}": {
+   "get": {
+    "operationId": "getWalletRealizable",
+    "summary": "Realizable value of a wallet",
+    "description": "DAI the SORA DEX would pay right now for selling `pct` % of each holding (`liquidityProxy.quote`, DAI = 1 USD), next to the marginal value of the same share. Each token is quoted on its own; other exit venues are not counted. `realizableUsd` null = no route to DAI.",
+    "tags": [
+     "wallet"
+    ],
+    "parameters": [
+     {
+      "name": "address",
+      "in": "path",
+      "required": true,
+      "description": "SS58 address (SORA addresses start with `cn`; other SS58 prefixes are accepted and re-encoded) or 0x-prefixed 32-byte hex.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "pct",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "enum": [
+        10,
+        25,
+        50,
+        100
+       ],
+       "default": 100
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": true
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "components": {

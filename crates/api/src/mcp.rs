@@ -626,7 +626,7 @@ const PROMPTS: &[PromptSpec] = &[
         title: "Wallet report",
         description: "Holdings, staking, liquidity positions and recent activity of one SORA address.",
         arguments: &[("address", "SS58 address (cn…)")],
-        template: "Write a report on the SORA v2 wallet {address}.\n1. `resolve_identities` for its on-chain identity (if none, say it has none).\n2. `wallet_balances`: holdings; separate liquid value from illiquid tokens.\n3. `wallet_staking` and `wallet_liquidity`.\n4. `wallet_history` for swaps, transfers and bridges (latest 25 of each): counterparties, direction of flows, anything unusual.\nFinish with a short factual summary.",
+        template: "Write a report on the SORA v2 wallet {address}.\n1. `resolve_identities` for its on-chain identity (if none, say it has none).\n2. `wallet_balances` and `wallet_realizable_value`: holdings, their marginal value and what they would actually sell for.\n3. `wallet_staking` and `wallet_liquidity`.\n4. `wallet_history` for swaps, transfers and bridges (latest 25 of each): counterparties, direction of flows, anything unusual.\nFinish with a short factual summary.",
     },
     PromptSpec {
         name: "token_due_diligence",
@@ -1140,6 +1140,29 @@ fn tools() -> &'static [ToolSpec] {
             },
             notes: &["`t` is unix seconds, `p` the mean USD quote of the bucket. Marginal quotes: for illiquid tokens the series is not a tradable price. There is no XOR price before February 2026 (redenomination)."],
             ui: Some(PRICE_CHART_URI),
+        },
+        ToolSpec {
+            name: "wallet_realizable_value",
+            title: "Wallet realizable value",
+            description: "What the SORA DEX would pay in DAI right now for selling 10, 25, 50 or 100 % of each holding of an address, next to the marginal value of the same share. The honest answer to 'what is this wallet worth'.",
+            input_schema: || {
+                schema(
+                    json!({
+                        "address": { "type": "string", "description": "SS58 address (cn…)" },
+                        "pct": { "type": "integer", "enum": [10, 25, 50, 100], "default": 100 }
+                    }),
+                    &["address"],
+                )
+            },
+            build: |a| {
+                let pct = int_arg(a, "pct")?.unwrap_or(100);
+                if ![10, 25, 50, 100].contains(&pct) {
+                    return Err("`pct` must be 10, 25, 50 or 100".into());
+                }
+                Ok(RestCall::get(format!("/wallet/realizable/{}?pct={pct}", address_arg(a, "address")?)))
+            },
+            notes: &["Each token is quoted on its own towards DAI on the SORA DEX; selling several at once pays less, and other venues (bridges, exchanges) are not counted. `realizableUsd` null = no route."],
+            ui: None,
         },
         ToolSpec {
             name: "wallet_staking",

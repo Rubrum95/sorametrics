@@ -16,7 +16,7 @@
 use crate::legacy::{decimals_for, logo_for, symbol_for};
 use crate::{error::ApiError, AppState};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::{get, post},
     Json, Router,
 };
@@ -24,7 +24,9 @@ use bigdecimal::{BigDecimal, RoundingMode};
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 use sorametrics_core::chain::ss58_decode;
-use sorametrics_db::ts::{illiquid_assets, valuation_prices};
+use sorametrics_core::chain::AssetId;
+use sorametrics_db::ts::{illiquid_assets, latest_prices, valuation_prices};
+use sorametrics_substrate::price::{quote_sell_in_dai, DAI_ASSET_ID};
 use sorametrics_substrate::runtime::sora;
 use std::collections::HashMap;
 use subxt::utils::AccountId32;
@@ -34,6 +36,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/balances", post(balances))
         .route("/balance/:address", get(balance))
+        .route("/wallet/realizable/:address", get(realizable))
         .route("/wallet/info/:address", get(wallet_info))
 }
 
@@ -51,6 +54,9 @@ struct TokenBalance {
     amount: String,
     #[serde(rename = "usdValue")]
     usd_value: String,
+    /// Latest quote, the figure the Tokens page shows (also for illiquid
+    /// assets, which `usdValue` leaves out); `null` when never quoted.
+    price: Option<f64>,
     #[serde(rename = "assetId")]
     asset_id: String,
     /// `true` when the asset failed the depth check: it is not valued
@@ -137,16 +143,15 @@ async fn balances(
     Ok(Json(BalancesResponse { result }))
 }
 
-/// One wallet's priced holdings (`getAddressBalances`).
-async fn wallet_balances(
-    state: &AppState,
+/// Free balances of an account: XOR from `system.account`, the rest from
+/// `tokens.accounts`.
+async fn fetch_holdings(
     chain: &crate::chain::ChainClient,
-    address: String,
-) -> Result<WalletBalances, ApiError> {
-    let (bytes, _) = ss58_decode(&address)
+    address: &str,
+) -> Result<Vec<RawHolding>, ApiError> {
+    let (bytes, _) = ss58_decode(address)
         .map_err(|_| ApiError::BadRequest("Invalid address format in list".into()))?;
     let account = AccountId32(bytes);
-
     let holdings = chain
         .with_client(|client| async move {
             let at = client.storage().at_latest().await?;
@@ -185,7 +190,16 @@ async fn wallet_balances(
             Ok(out)
         })
         .await?;
+    Ok(holdings)
+}
 
+/// One wallet's priced holdings (`getAddressBalances`).
+async fn wallet_balances(
+    state: &AppState,
+    chain: &crate::chain::ChainClient,
+    address: String,
+) -> Result<WalletBalances, ApiError> {
+    let holdings = fetch_holdings(chain, &address).await?;
     let registry = state.registry.read().await;
     let threshold = BigDecimal::new(BigInt::from(1), 4); // 0.0001
     let mut kept: Vec<Holding> = Vec::new();
@@ -218,6 +232,11 @@ async fn wallet_balances(
         .await?
         .into_iter()
         .collect();
+    let quoted: HashMap<String, f64> = latest_prices(&state.db, &asset_ids)
+        .await?
+        .into_iter()
+        .map(|p| (p.asset_id, p.price_usd))
+        .collect();
 
     let mut tokens: Vec<(f64, TokenBalance)> = kept
         .into_iter()
@@ -232,6 +251,7 @@ async fn wallet_balances(
                     logo: h.logo,
                     amount: fmt_fixed(&h.amount, 4),
                     usd_value: fmt_fixed(&usd, 2),
+                    price: quoted.get(&h.asset_id).copied(),
                     illiquid: illiquid.contains(&h.asset_id),
                     asset_id: h.asset_id,
                 },
@@ -254,6 +274,8 @@ struct SimpleBalance {
     amount: String,
     #[serde(rename = "usdValue")]
     usd_value: String,
+    /// See [`TokenBalance::price`].
+    price: Option<f64>,
     /// See [`TokenBalance::illiquid`]. Omitted when false.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     illiquid: bool,
@@ -280,10 +302,177 @@ async fn balance(
                 logo: t.logo,
                 amount: t.amount,
                 usd_value: t.usd_value,
+                price: t.price,
                 illiquid: t.illiquid,
             })
             .collect(),
     ))
+}
+
+// ---------------------------------------------------------------------
+// /wallet/realizable/:address
+// ---------------------------------------------------------------------
+
+/// Shares of a holding the realizable value can be asked for.
+const REALIZABLE_PCTS: &[u32] = &[10, 25, 50, 100];
+const REALIZABLE_TTL: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+/// Simultaneous `liquidityProxy_quote` calls per request.
+const QUOTE_CONCURRENCY: usize = 8;
+
+#[derive(Deserialize)]
+struct RealizableQuery {
+    #[serde(default, deserialize_with = "crate::util::lenient_i64")]
+    pct: Option<i64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RealizableToken {
+    symbol: String,
+    #[serde(rename = "assetId")]
+    asset_id: String,
+    /// Whole holding and the share of it being sold, human units.
+    amount: String,
+    #[serde(rename = "soldAmount")]
+    sold_amount: String,
+    /// Latest marginal quote (the Tokens page price).
+    price: Option<f64>,
+    /// `soldAmount x price`.
+    #[serde(rename = "marginalUsd")]
+    marginal_usd: Option<f64>,
+    /// DAI the chain pays for selling `soldAmount` now
+    /// (`liquidityProxy.quote`, DAI = 1 USD); `null` = no route.
+    #[serde(rename = "realizableUsd")]
+    realizable_usd: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RealizableResponse {
+    address: String,
+    pct: u32,
+    tokens: Vec<RealizableToken>,
+    #[serde(rename = "totalMarginalUsd")]
+    total_marginal_usd: f64,
+    #[serde(rename = "totalRealizableUsd")]
+    total_realizable_usd: f64,
+}
+
+/// `free x pct / 100` in raw units (integer division, as a sale would be).
+pub fn share_raw(free: u128, pct: u32) -> u128 {
+    free / 100 * u128::from(pct) + free % 100 * u128::from(pct) / 100
+}
+
+fn round2(v: f64) -> f64 {
+    (v * 100.0).round() / 100.0
+}
+
+/// What selling `pct` % of every holding would pay right now. Each token
+/// is quoted on its own: selling several at once through shared pools
+/// would pay less than the sum.
+async fn realizable(
+    State(state): State<AppState>,
+    Path(address): Path<String>,
+    Query(q): Query<RealizableQuery>,
+) -> Result<Json<RealizableResponse>, ApiError> {
+    let address = crate::util::validate_address(&address)?;
+    let pct = u32::try_from(q.pct.unwrap_or(100)).unwrap_or(0);
+    if !REALIZABLE_PCTS.contains(&pct) {
+        return Err(ApiError::BadRequest("pct must be 10, 25, 50 or 100".into()));
+    }
+    let key = format!("realizable:{address}:{pct}");
+    if let Some(v) = state.cached_scan(&key, REALIZABLE_TTL).await {
+        return serde_json::from_value(v)
+            .map(Json)
+            .map_err(|e| ApiError::Internal(e.to_string()));
+    }
+    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let holdings = fetch_holdings(chain, &address).await?;
+
+    let registry = state.registry.read().await;
+    let threshold = BigDecimal::new(BigInt::from(1), 4);
+    let kept: Vec<(RawHolding, u32, String)> = holdings
+        .into_iter()
+        .filter_map(|h| {
+            let decimals = decimals_for(&registry, &h.asset_id);
+            let keep = if h.asset_id == XOR_ASSET_ID {
+                h.free > 0
+            } else {
+                human(h.free, decimals) > threshold
+            };
+            keep.then(|| {
+                let symbol = symbol_for_wallet(&registry, &h.asset_id);
+                (h, decimals, symbol)
+            })
+        })
+        .collect();
+    drop(registry);
+
+    let asset_ids: Vec<String> = kept.iter().map(|(h, _, _)| h.asset_id.clone()).collect();
+    let quoted: HashMap<String, f64> = latest_prices(&state.db, &asset_ids)
+        .await?
+        .into_iter()
+        .map(|p| (p.asset_id, p.price_usd))
+        .collect();
+
+    let rpc = chain.rpc().await?;
+    let mut tokens = Vec::with_capacity(kept.len());
+    for batch in kept.chunks(QUOTE_CONCURRENCY) {
+        let quotes = futures::future::join_all(batch.iter().map(|(h, decimals, _)| {
+            let rpc = rpc.clone();
+            let sold = share_raw(h.free, pct);
+            let asset_id = h.asset_id.clone();
+            let decimals = *decimals;
+            async move {
+                if sold == 0 {
+                    return Ok(None);
+                }
+                if asset_id == DAI_ASSET_ID {
+                    return Ok(human(sold, decimals).to_string().parse::<f64>().ok());
+                }
+                quote_sell_in_dai(&rpc, &AssetId::new(asset_id), &sold.to_string()).await
+            }
+        }))
+        .await;
+        for ((h, decimals, symbol), quote) in batch.iter().zip(quotes) {
+            let sold = share_raw(h.free, pct);
+            let sold_human = human(sold, *decimals);
+            let price = quoted.get(&h.asset_id).copied();
+            let marginal_usd = price.and_then(|p| {
+                sold_human
+                    .to_string()
+                    .parse::<f64>()
+                    .ok()
+                    .map(|a| round2(a * p))
+            });
+            let realizable_usd = quote
+                .map_err(|e| ApiError::Internal(format!("quote {}: {e}", h.asset_id)))?
+                .map(round2);
+            tokens.push(RealizableToken {
+                symbol: symbol.clone(),
+                asset_id: h.asset_id.clone(),
+                amount: fmt_fixed(&human(h.free, *decimals), 4),
+                sold_amount: fmt_fixed(&sold_human, 4),
+                price,
+                marginal_usd,
+                realizable_usd,
+            });
+        }
+    }
+    tokens.sort_by(|a, b| {
+        b.realizable_usd
+            .unwrap_or(0.0)
+            .partial_cmp(&a.realizable_usd.unwrap_or(0.0))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let response = RealizableResponse {
+        address,
+        pct,
+        total_marginal_usd: round2(tokens.iter().filter_map(|t| t.marginal_usd).sum()),
+        total_realizable_usd: round2(tokens.iter().filter_map(|t| t.realizable_usd).sum()),
+        tokens,
+    };
+    let json = serde_json::to_value(&response).map_err(|e| ApiError::Internal(e.to_string()))?;
+    state.store_scan(&key, json).await;
+    Ok(Json(response))
 }
 
 /// Node: `assetInfo?.symbol || 'UNK'` (no `0xXXXX` fallback here).
@@ -637,6 +826,15 @@ async fn wallet_info(
 #[cfg(test)]
 mod info_tests {
     use super::*;
+
+    #[test]
+    fn share_raw_is_exact_and_never_overflows() {
+        assert_eq!(share_raw(1_000, 10), 100);
+        assert_eq!(share_raw(999, 50), 499);
+        assert_eq!(share_raw(7, 100), 7);
+        assert_eq!(share_raw(u128::MAX, 100), u128::MAX);
+        assert_eq!(share_raw(u128::MAX, 25), u128::MAX / 4);
+    }
 
     #[test]
     fn whale_score_matches_prod_wallet() {

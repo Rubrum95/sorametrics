@@ -209,13 +209,41 @@ function PortfolioSection({ tweaks }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets.map(w => w.addr).join(',')]);
 
+  // Realizable value: what the SORA DEX pays, in DAI, for selling `realPct` %
+  // of each holding now (/wallet/realizable). Summed per symbol across wallets.
+  const [realPct, setRealPct] = useState(() => {
+    try { const v = Number(localStorage.getItem('sm.portfolio.realPct')); return [10, 25, 50, 100].includes(v) ? v : 100; }
+    catch (e) { return 100; }
+  });
+  const [realizable, setRealizable] = useState({ bySym: {}, loading: false, failed: false });
+  useEffect(() => {
+    try { localStorage.setItem('sm.portfolio.realPct', String(realPct)); } catch (e) {}
+    const addrs = wallets.map(w => w.addr).filter(Boolean);
+    if (!addrs.length) { setRealizable({ bySym: {}, loading: false, failed: false }); return; }
+    let cancelled = false;
+    setRealizable({ bySym: {}, loading: true, failed: false });
+    (async () => {
+      const results = await Promise.all(addrs.map(a =>
+        fetch('/wallet/realizable/' + a + '?pct=' + realPct).then(r => r.ok ? r.json() : null).catch(() => null)));
+      if (cancelled) return;
+      const bySym = {};
+      results.forEach(r => (r?.tokens || []).forEach(tk => {
+        if (tk.realizableUsd == null) { if (!(tk.symbol in bySym)) bySym[tk.symbol] = null; return; }
+        bySym[tk.symbol] = (bySym[tk.symbol] || 0) + Number(tk.realizableUsd);
+      }));
+      setRealizable({ bySym, loading: false, failed: results.every(r => !r) });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets.map(w => w.addr).join(','), realPct]);
+
   // Aggregate holdings across the user's wallets, keyed by symbol.
   const holdings = useMemo(() => {
     const bySym = {};
     wallets.forEach(w => (w.tokens || []).forEach(tk => {
       const sym = tk.symbol;
       if (!sym) return;
-      if (!bySym[sym]) bySym[sym] = { sym, amount: 0, usdValue: 0, logo: tk.logo, illiquid: !!tk.illiquid };
+      if (!bySym[sym]) bySym[sym] = { sym, amount: 0, usdValue: 0, logo: tk.logo, illiquid: !!tk.illiquid, quote: tk.price ?? null };
       bySym[sym].amount += Number(tk.amount) || 0;
       bySym[sym].usdValue += Number(tk.usdValue) || 0;
     }));
@@ -223,7 +251,7 @@ function PortfolioSection({ tweaks }) {
     return Object.values(bySym).map(h => {
       const meta = tokenMeta[h.sym] || {};
       // An illiquid asset is not priced here: the API already values it at 0.
-      const price = h.illiquid ? 0 : (meta.price || (h.amount > 0 ? h.usdValue / h.amount : 0));
+      const price = h.quote != null ? Number(h.quote) : (meta.price || (h.amount > 0 ? h.usdValue / h.amount : 0));
       return { ...h, price, change: meta.change || 0, sparkline: meta.sparkline, name: meta.name };
     }).sort((a, b) => b.usdValue - a.usdValue);
   }, [wallets, tokenMeta]);
@@ -456,6 +484,13 @@ function PortfolioSection({ tweaks }) {
                      style={{cursor:'pointer', accentColor:'var(--accent, #E5243B)'}}/>
               {t('portfolio.hideLow', 'Ocultar saldos bajos')} <span className="muted tiny">(≤$0.05)</span>
             </label>
+            <label style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--fg-2)'}} title={t('portfolio.realTip')}>
+              {t('portfolio.realIfSell', 'If I sell')}
+              <select value={realPct} onChange={e => setRealPct(Number(e.target.value))}
+                      style={{background:'var(--bg-2)', color:'var(--fg-0)', border:'1px solid var(--border)', borderRadius:6, padding:'2px 6px', fontSize:12}}>
+                {[10, 25, 50, 100].map(p => <option key={p} value={p}>{p}%</option>)}
+              </select>
+            </label>
             <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> on-chain</span>
             <span className="tag">
               {visibleHoldings.length}
@@ -472,12 +507,17 @@ function PortfolioSection({ tweaks }) {
                 <th className="num" style={{textAlign:'right'}}>Price</th>
                 <th className="num" style={{textAlign:'right'}}>24h</th>
                 <th style={{textAlign:'right'}}>Chart</th>
-                <th className="num" style={{textAlign:'right', paddingRight: 20}}>Value</th>
+                <th className="num" style={{textAlign:'right'}}>{t('portfolio.col.value', 'Value')}</th>
+                <th className="num" style={{textAlign:'right', paddingRight: 20, whiteSpace:'nowrap'}}>
+                  {t('portfolio.col.realizable', 'Realizable')} · {realPct}%{' '}
+                  <span title={t('portfolio.realTip')} aria-label={t('portfolio.realTip')}
+                        style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:14, height:14, borderRadius:'50%', border:'1px solid var(--fg-2)', fontSize:9, fontWeight:700, cursor:'help', textTransform:'none'}}>i</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {visibleHoldings.length === 0 && hideLow && holdings.length > 0 && (
-                <tr><td colSpan={6} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>
+                <tr><td colSpan={7} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>
                   {t('portfolio.allLowHidden', 'Todos los saldos están por debajo del umbral. Desactiva el filtro para verlos.')}
                 </td></tr>
               )}
@@ -496,7 +536,10 @@ function PortfolioSection({ tweaks }) {
                       </div>
                     </td>
                     <td className="num" style={{textAlign:'right'}}>{fmt.num(h.amount, h.amount > 1000 ? 0 : 4)}</td>
-                    <td className="num" style={{textAlign:'right'}}>{h.illiquid ? <span className="tag warn" title={t('liq.tip')}>{t('liq.tag')}</span> : (h.price > 0 ? ('$' + (h.price < 1 ? h.price.toFixed(6) : h.price.toFixed(2))) : '—')}</td>
+                    <td className="num" style={{textAlign:'right'}}>
+                      {h.price > 0 ? ('$' + (h.price < 1 ? (h.price < 0.000001 ? h.price.toPrecision(3) : h.price.toFixed(6)) : h.price.toFixed(2))) : '—'}
+                      {h.illiquid && <div><span className="tag warn" title={t('liq.tip')}>{t('liq.tag')}</span></div>}
+                    </td>
                     <td className="num" style={{textAlign:'right'}}>
                       <span style={{color: change >= 0 ? '#6EE7B7' : '#FCA5A5', fontWeight: 700}}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
@@ -505,8 +548,11 @@ function PortfolioSection({ tweaks }) {
                     <td style={{textAlign:'right'}}>
                       <MiniSpark data={h.sparkline} color={change >= 0 ? '#10B981' : '#EF4444'}/>
                     </td>
-                    <td className="num" style={{textAlign:'right', paddingRight: 20, fontWeight: 700, color: 'var(--fg-0)'}}>
+                    <td className="num" style={{textAlign:'right', fontWeight: 700, color: 'var(--fg-0)'}}>
                       {fmtCur(h.usdValue)}
+                    </td>
+                    <td className="num" style={{textAlign:'right', paddingRight: 20, fontWeight: 700, color: 'var(--fg-0)'}}>
+                      {realizable.loading ? '…' : (realizable.bySym[h.sym] != null ? fmtCur(realizable.bySym[h.sym]) : '—')}
                     </td>
                   </tr>
                 );

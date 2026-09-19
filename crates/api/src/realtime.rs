@@ -55,7 +55,8 @@ struct BlockStats {
 }
 
 async fn block_stats_loop(state: AppState, io: SocketIo) {
-    let mut last_block: Option<i64> = None;
+    let mut last_cursor: Option<i64> = None;
+    let mut last_shown: Option<i64> = None;
     let mut last_ts: Option<DateTime<Utc>> = None;
     let mut intervals: VecDeque<i64> = VecDeque::with_capacity(BLOCK_TIMES_WINDOW + 1);
     let mut ticker = tokio::time::interval(Duration::from_millis(BLOCK_POLL_MS));
@@ -69,26 +70,32 @@ async fn block_stats_loop(state: AppState, io: SocketIo) {
                 continue;
             }
         };
-        let Some(block) = cursor else { continue };
-        if last_block.is_some_and(|lb| block <= lb) {
-            continue;
-        }
-        if last_block.is_none() {
-            // First observation: adopt the head without emitting.
-            last_block = Some(block);
-            last_ts = block_timestamp(&state, block).await;
-            continue;
-        }
-        if let Some(ts) = block_timestamp(&state, block).await {
-            if let Some(prev) = last_ts {
-                intervals.push_back((ts - prev).num_milliseconds());
-                while intervals.len() > BLOCK_TIMES_WINDOW {
-                    intervals.pop_front();
+        let Some(cursor) = cursor else { continue };
+        // `avgTime` comes from the decoded (finalized) blocks.
+        if last_cursor.is_none_or(|lc| cursor > lc) {
+            if let Some(ts) = block_timestamp(&state, cursor).await {
+                if let (Some(prev), true) = (last_ts, last_cursor.is_some()) {
+                    intervals.push_back((ts - prev).num_milliseconds());
+                    while intervals.len() > BLOCK_TIMES_WINDOW {
+                        intervals.pop_front();
+                    }
                 }
+                last_ts = Some(ts);
             }
-            last_ts = Some(ts);
+            last_cursor = Some(cursor);
         }
-        last_block = Some(block);
+        // `block` is the node's best head, as the Node emitted it (the same
+        // figure `/staking/network` shows); the indexer cursor without a node.
+        let block = best_number(&state).await.map_or(cursor, |b| b.max(cursor));
+        if last_shown.is_none() {
+            // First observation: adopt the head without emitting.
+            last_shown = Some(block);
+            continue;
+        }
+        if last_shown.is_some_and(|ls| block <= ls) {
+            continue;
+        }
+        last_shown = Some(block);
         let avg_time = (!intervals.is_empty()).then(|| {
             let mean = intervals.iter().sum::<i64>() as f64 / intervals.len() as f64 / 1000.0;
             format!("{mean:.3}")
@@ -103,6 +110,14 @@ async fn block_stats_loop(state: AppState, io: SocketIo) {
             debug!(error = %e, "realtime: new-block-stats emit failed");
         }
     }
+}
+
+/// Best head number (`chain_getHeader`); `None` without a chain client or
+/// on RPC failure.
+async fn best_number(state: &AppState) -> Option<i64> {
+    let legacy = state.chain.as_ref()?.legacy_rpc().await.ok()?;
+    let header = legacy.chain_get_header(None).await.ok()??;
+    Some(i64::from(header.number))
 }
 
 /// On-chain time of a block from its `timestamp.set` inherent (index 0).
