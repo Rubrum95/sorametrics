@@ -6,7 +6,8 @@ Everything here is indexed from the chain itself or read from a node at request 
 
 ## For agents
 
-- [MCP server](/mcp): Model Context Protocol over Streamable HTTP, `POST /mcp`. Stateless (revision 2026-07-28, `server/discover`) and also answers the `initialize` handshake of earlier revisions. 15 read-only tools with structured output.
+- [MCP server](/mcp): Model Context Protocol over Streamable HTTP, `POST /mcp`. Stateless (revision 2026-07-28, `server/discover`) and also answers the `initialize` handshake of earlier revisions. 21 read-only tools with structured output, 4 prompts (wallet report, token due diligence, network health, governance brief), the guide as a resource, and an interactive price chart for hosts with MCP Apps.
+- [Server card](/.well-known/mcp/server-card.json): what the MCP server offers, readable without connecting (SEP-1649 draft).
 - [OpenAPI 3.1](/openapi.json): the same data as plain REST + JSON.
 
 ## Read this before using the numbers

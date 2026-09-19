@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoraMetrics price history</title>
+<style>
+  :root { color-scheme: light dark; --bg: #ffffff; --fg: #171717; --muted: #6b7280; --grid: rgba(127,127,127,0.18); }
+  :root[data-theme="dark"] { --bg: #111114; --fg: #f4f4f5; --muted: #9ca3af; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111114; --fg: #f4f4f5; --muted: #9ca3af; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 14px 16px; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1 { font-size: 14px; margin: 0 0 2px; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  svg { width: 100%; height: auto; display: block; }
+  .axis { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 11px; margin-top: 8px; }
+  .up { color: #10b981; } .down { color: #ef4444; }
+</style>
+</head>
+<body>
+<h1 id="title">Price history</h1>
+<div class="sub" id="sub">Waiting for data…</div>
+<div class="legend" id="legend"></div>
+<svg id="chart" viewBox="0 0 720 280" role="img" aria-label="Price history chart"></svg>
+<div class="note" id="note"></div>
+<script>
+(function () {
+  var COLORS = ['#e5484d', '#3b82f6', '#10b981', '#f59e0b'];
+  var NS = 'http://www.w3.org/2000/svg';
+  var nextId = 1, labels = [], payload = null;
+
+  function send(msg) { window.parent.postMessage(msg, '*'); }
+  function notify(method, params) { send({ jsonrpc: '2.0', method: method, params: params || {} }); }
+  function reportSize() {
+    notify('ui/notifications/size-changed', { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight });
+  }
+  function setTheme(theme) { if (theme === 'dark' || theme === 'light') document.documentElement.setAttribute('data-theme', theme); }
+
+  function fmt(x) {
+    if (!isFinite(x)) return '—';
+    var a = Math.abs(x);
+    if (a >= 1000) return x.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (a >= 1) return x.toFixed(3);
+    if (a >= 0.001) return x.toFixed(5);
+    return x.toPrecision(3);
+  }
+  function el(name, attrs, text) {
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function shortId(id) { return id.slice(0, 6) + '…' + id.slice(-4); }
+
+  function draw() {
+    var svg = document.getElementById('chart');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var data = payload && payload.data;
+    var series = data && data.series;
+    if (!series) { document.getElementById('sub').textContent = 'No price series in this result.'; reportSize(); return; }
+    var ids = Object.keys(series).filter(function (id) { return series[id] && series[id].length > 1; });
+    if (!ids.length) { document.getElementById('sub').textContent = 'No price history for the requested assets in this window.'; reportSize(); return; }
+
+    var relative = ids.length > 1;
+    var W = 720, H = 280, L = 8, R = 64, T = 10, B = 24;
+    var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+    var lines = ids.map(function (id) {
+      var pts = series[id], base = pts[0].p;
+      var vals = pts.map(function (q) { return { t: q.t, v: relative ? (base ? (q.p / base - 1) * 100 : 0) : q.p, p: q.p }; });
+      vals.forEach(function (q) {
+        if (q.t < tMin) tMin = q.t; if (q.t > tMax) tMax = q.t;
+        if (q.v < vMin) vMin = q.v; if (q.v > vMax) vMax = q.v;
+      });
+      return { id: id, vals: vals };
+    });
+    if (vMax === vMin) { vMax += 1; vMin -= 1; }
+    var pad = (vMax - vMin) * 0.06; vMin -= pad; vMax += pad;
+    function x(t) { return L + (t - tMin) / (tMax - tMin || 1) * (W - L - R); }
+    function y(v) { return T + (1 - (v - vMin) / (vMax - vMin)) * (H - T - B); }
+
+    for (var i = 0; i <= 4; i++) {
+      var v = vMin + (vMax - vMin) * i / 4;
+      svg.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }));
+      svg.appendChild(el('text', { x: W - R + 6, y: y(v) + 3, 'class': 'axis' }, relative ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '$' + fmt(v)));
+    }
+    var longWindow = (tMax - tMin) > 120 * 86400;
+    for (var j = 0; j <= 4; j++) {
+      var t = tMin + (tMax - tMin) * j / 4, d = new Date(t * 1000);
+      var label = d.toLocaleDateString('en-GB', longWindow ? { month: 'short', year: '2-digit' } : { day: '2-digit', month: 'short' });
+      svg.appendChild(el('text', { x: x(t), y: H - 6, 'class': 'axis', 'text-anchor': j === 0 ? 'start' : j === 4 ? 'end' : 'middle' }, label));
+    }
+    var legend = document.getElementById('legend');
+    legend.textContent = '';
+    lines.forEach(function (line, k) {
+      var color = COLORS[k % COLORS.length];
+      var dPath = line.vals.map(function (q, n) { return (n ? 'L' : 'M') + x(q.t).toFixed(1) + ' ' + y(q.v).toFixed(1); }).join(' ');
+      svg.appendChild(el('path', { d: dPath, fill: 'none', stroke: color, 'stroke-width': 1.6, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }));
+      var first = line.vals[0].p, last = line.vals[line.vals.length - 1].p;
+      var change = first ? (last / first - 1) * 100 : 0;
+      var item = document.createElement('span');
+      var sw = document.createElement('i'); sw.style.background = color;
+      var name = document.createElement('b'); name.textContent = labels[ids.indexOf(line.id)] || shortId(line.id);
+      var val = document.createElement('span'); val.textContent = '$' + fmt(last);
+      var ch = document.createElement('span'); ch.className = change >= 0 ? 'up' : 'down';
+      ch.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      item.appendChild(sw); item.appendChild(name); item.appendChild(val); item.appendChild(ch);
+      legend.appendChild(item);
+    });
+    document.getElementById('title').textContent = relative ? 'Relative performance' : 'Price (USD)';
+    document.getElementById('sub').textContent = 'Window ' + (data.window || '') + ' · bucket ' + Math.round((data.bucketSec || 0) / 3600) + ' h · source SoraMetrics, SORA v2 on-chain quotes';
+    document.getElementById('note').textContent = (payload.notes || []).join(' ');
+    reportSize();
+  }
+
+  window.addEventListener('message', function (ev) {
+    var m = ev.data;
+    if (!m || m.jsonrpc !== '2.0') return;
+    if (m.id === 1 && m.result) {
+      setTheme(m.result.hostContext && m.result.hostContext.theme);
+      notify('ui/notifications/initialized');
+      reportSize();
+      return;
+    }
+    if (m.method === 'ui/notifications/tool-input') {
+      var a = (m.params && m.params.arguments) || {};
+      labels = Array.isArray(a.labels) ? a.labels.map(String) : [];
+      if (payload) draw();
+    } else if (m.method === 'ui/notifications/tool-result') {
+      payload = (m.params && m.params.structuredContent) || null;
+      draw();
+    } else if (m.method === 'ui/notifications/host-context-changed') {
+      setTheme(m.params && m.params.theme);
+    } else if (m.method === 'ui/resource-teardown' && m.id != null) {
+      send({ jsonrpc: '2.0', id: m.id, result: {} });
+    }
+  });
+
+  send({ jsonrpc: '2.0', id: nextId++, method: 'ui/initialize', params: {
+    protocolVersion: '2026-01-26', capabilities: {},
+    clientInfo: { name: 'sorametrics-price-chart', version: '1.0.0' },
+    appCapabilities: { availableDisplayModes: ['inline'] }
+  } });
+})();
+</script>
+</body>
+</html>

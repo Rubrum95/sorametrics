@@ -193,8 +193,10 @@ The API exposes three discovery surfaces for AI agents, all read-only and unauth
 | `GET /openapi.json` | OpenAPI 3.1 of the curated public routes (`crates/api/assets/openapi.json`). |
 | `GET /llms.txt` | What the data means and its caveats (`crates/api/assets/llms.txt`). |
 
-The 15 tools live in `crates/api/src/mcp.rs` (`tools()`). A tool maps its arguments to one REST route and calls it in-process through the same router, so there is no second implementation to keep in sync; results carry `structuredContent = {data, source, notes}` and drop `logo` / `sparkline` blobs. To add a tool, add a `ToolSpec`; to document a route, edit `openapi.json` (a unit test checks ids and path parameters).
+The 21 tools live in `crates/api/src/mcp.rs` (`tools()`), next to 4 prompts (`PROMPTS`: wallet report, token due diligence, network health, governance brief; arguments validated like tool arguments) and 3 resources (`RESOURCES`: the guide, the OpenAPI document and the price chart). A tool maps its arguments to one REST route and calls it in-process through the same router, so there is no second implementation to keep in sync; results carry `structuredContent = {data, source, notes}` and drop `logo` / `sparkline` blobs. To add a tool, add a `ToolSpec`; to document a route, edit `openapi.json` (a unit test checks ids and path parameters).
 
+- **MCP Apps** (`io.modelcontextprotocol/ui`): `price_history` carries `_meta.ui.resourceUri = ui://sorametrics/price-chart`; hosts that support the extension render `crates/api/assets/price_chart.html` (self-contained, no network, default CSP) in a sandboxed iframe and feed it the tool result; every other host ignores the link and gets the JSON.
+- `GET /.well-known/mcp/server-card.json`: MCP Server Card built from the same tables (SEP-1649, a draft: the shape may change).
 - Rate limit: `/mcp` 120 requests per minute per IP; the in-process REST calls are not limited again.
 - `MCP_ALLOWED_ORIGINS` (comma-separated, optional): browser origins allowed to call `/mcp` besides the site's own host. Requests without an `Origin` header (every non-browser client) are always accepted; a foreign origin gets 403.
 - Connect a client: `claude mcp add --transport http sorametrics https://sorametrics.org/mcp`.
