@@ -86,3 +86,7 @@ subxt compatibility \
 ```
 
 This is wired into Phase 1.2's CI as a non-blocking check.
+
+## History
+
+- **spec 131 (2026-09-19)**: regenerated after `ops metadata-check` flagged `EthBridge` (28/29). The change is three new error variants (`HttpResponseTooLarge`, `IncomingRequestHashMismatch`, `TooManyApprovals`); event and call shapes are unchanged, no decoder edits. Verified with blocks 27700828 (incoming) and 27695633 (outgoing). Previous pin kept as `sora-mainnet.scale.bak.spec130`. The runtime's new `Liveness` pallet is not pinned: nothing decodes it.
