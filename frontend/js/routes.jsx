@@ -2008,9 +2008,13 @@ function StakingSection({ tweaks }) {
         other: Number(v.otherStake) || 0,
         nominators: Number(v.nominatorsCount) || 0,
         commission: Number(v.commission) || 0,
-        points: Math.round(Number(v.erasSincePayout) * 1000) || 0,
-        erasSincePayout: Number(v.erasSincePayout) || 0,
-        status: v.isBlocked ? 'blocked' : 'active',
+        points: Number(v.eraPoints) || 0,
+        prevPoints: Number(v.prevEraPoints) || 0,
+        lastPayoutEra: v.lastPayoutEra ?? null,
+        daysSincePayout: v.erasSincePayout ?? null,
+        status: v.isBlocked ? 'blocked'
+          : (Number(v.eraPoints) || 0) === 0 && (Number(v.prevEraPoints) || 0) === 0 ? 'idle'
+          : 'active',
       });
     });
   }, [rawValidators, identTick]);
@@ -2138,7 +2142,10 @@ function StakingSection({ tweaks }) {
                       <td style={{textAlign:'right'}} className="num">{v.points.toLocaleString()}</td>
                       <td style={{paddingRight:20}}>
                         <span className={'val-status ' + v.status}>
-                          {v.status === 'active' ? '● ' + t('status.active') : v.status === 'waiting' ? '◌ ' + t('status.waiting') : '⚠ ' + t('status.oversub')}
+                          {v.status === 'active' ? '● ' + t('status.active')
+                            : v.status === 'idle' ? '○ ' + t('status.idle')
+                            : v.status === 'blocked' ? '⛔ ' + t('status.blocked')
+                            : '◌ ' + t('status.waiting')}
                         </span>
                       </td>
                     </tr>

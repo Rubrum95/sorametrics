@@ -800,11 +800,13 @@ function ValidatorDetail({ r }) {
       <div className="drill-section">
         <div className="drill-sec-title">Performance</div>
         {Number.isFinite(commission) && <Field label="Commission" mono>{commission.toFixed(2)}%</Field>}
-        {points > 0 && <Field label="Era points" mono>{points.toLocaleString()}</Field>}
+        <Field label="Era points" mono>{points.toLocaleString()}</Field>
+        <Field label="Previous era" mono>{(Number(r.prevPoints) || 0).toLocaleString()}</Field>
+        {r.lastPayoutEra != null && <Field label="Last payout era" mono>{r.lastPayoutEra}</Field>}
         <Field label="Status">
           {r.status
             ? <span className={'val-status ' + r.status}>
-                {r.status === 'active' ? '● Active' : r.status === 'waiting' ? '◌ Waiting' : r.status === 'blocked' ? '⛔ Blocked' : r.status}
+                {r.status === 'active' ? '● Active' : r.status === 'waiting' ? '◌ Waiting' : r.status === 'blocked' ? '⛔ Blocked' : r.status === 'idle' ? '○ No blocks (2 eras)' : r.status}
               </span>
             : <span className="muted tiny">—</span>}
         </Field>

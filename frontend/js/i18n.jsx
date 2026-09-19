@@ -253,6 +253,8 @@ const DICT = {
 
   'status.active':       { en:'Active',       es:'Activo',      fr:'Actif',      de:'Aktiv',      it:'Attivo',      pt:'Ativo',      ru:'Активен',     zh:'活跃',    ja:'アクティブ',  ko:'활성',     ar:'نشط',       he:'פעיל',    ur:'ایکٹو',    hi:'सक्रिय' },
   'status.waiting':      { en:'Waiting',      es:'En Espera',   fr:'En attente', de:'Wartend',    it:'In attesa',   pt:'Aguardando', ru:'Ожидание',    zh:'等待中',  ja:'待機',       ko:'대기',     ar:'قيد الانتظار', he:'ממתין',  ur:'انتظار',   hi:'प्रतीक्षारत' },
+  'status.idle':         { en:'No blocks', es:'Sin bloques', fr:'Sans blocs', de:'Keine Blöcke', it:'Nessun blocco', pt:'Sem blocos', ru:'Нет блоков', zh:'未出块', ja:'ブロックなし', ko:'블록 없음', ar:'بلا كتل', he:'ללא בלוקים', ur:'کوئی بلاک نہیں', hi:'कोई ब्लॉक नहीं' },
+  'status.blocked':      { en:'Blocked', es:'Bloqueado', fr:'Bloqué', de:'Blockiert', it:'Bloccato', pt:'Bloqueado', ru:'Заблокирован', zh:'已屏蔽', ja:'ブロック中', ko:'차단됨', ar:'محظور', he:'חסום', ur:'مسدود', hi:'अवरुद्ध' },
   'status.oversub':      { en:'Oversub.',     es:'Sobresusc.',  fr:'Sur-abonné', de:'Überbucht',  it:'Sovrascritto',pt:'Sobrescrito',ru:'Переподписка',zh:'超额',   ja:'定員超',     ko:'초과',     ar:'مفرط الاشتراك', he:'עודף',  ur:'اوور سب',  hi:'ओवरसब' },
 
   /* ===== Tweaks ===== */
@@ -549,6 +551,11 @@ const DICT = {
   'predict.positions.title':{ en:'Prediction Market Positions', es:'Posiciones en Mercados de Predicción', fr:'Positions de Marchés de Prédiction', de:'Positionen in Vorhersagemärkten', it:'Posizioni in Mercati di Predizione', pt:'Posições em Mercados de Previsão', ru:'Позиции в рынках прогнозов', zh:'预测市场持仓', ja:'予測市場ポジション', ko:'예측 시장 포지션', ar:'المراكز في أسواق التنبؤ', he:'פוזיציות בשוקי תחזיות', ur:'پیش گوئی مارکیٹ پوزیشنز', hi:'पूर्वानुमान बाजार स्थितियां' },
 
   /* ===== Tools section ===== */
+  'tools.agents.title':   { en:'API · MCP for AI agents', es:'API · MCP para agentes de IA', fr:'API · MCP pour agents IA', de:'API · MCP für KI-Agenten', it:'API · MCP per agenti IA', pt:'API · MCP para agentes de IA', ru:'API · MCP для ИИ-агентов', zh:'面向 AI 代理的 API · MCP', ja:'AIエージェント向け API · MCP', ko:'AI 에이전트용 API · MCP', ar:'API · MCP لوكلاء الذكاء الاصطناعي', he:'API · MCP לסוכני AI', ur:'AI ایجنٹس کے لیے API · MCP', hi:'AI एजेंटों के लिए API · MCP' },
+  'tools.agents.sub':     { en:'Connect an AI agent to SoraMetrics: read-only, free, no API key. Every answer carries its caveats (marginal prices, illiquid tokens).', es:'Conecta un agente de IA a SoraMetrics: solo lectura, gratis y sin clave. Cada respuesta lleva sus advertencias (precios marginales, tokens sin liquidez).' },
+  'tools.agents.mcp':     { en:'MCP server', es:'Servidor MCP' },
+  'tools.agents.copy':    { en:'Copy', es:'Copiar', fr:'Copier', de:'Kopieren', it:'Copia', pt:'Copiar', ru:'Копировать', zh:'复制', ja:'コピー', ko:'복사', ar:'نسخ', he:'העתק', ur:'کاپی', hi:'कॉपी' },
+  'tools.agents.copied':  { en:'Copied', es:'Copiado', fr:'Copié', de:'Kopiert', it:'Copiato', pt:'Copiado', ru:'Скопировано', zh:'已复制', ja:'コピー済み', ko:'복사됨', ar:'تم النسخ', he:'הועתק', ur:'کاپی ہو گیا', hi:'कॉपी हुआ' },
   'tools.title':          { en:'Tools',                       es:'Herramientas',                      fr:'Outils',                            de:'Werkzeuge',                         it:'Strumenti',                         pt:'Ferramentas',                       ru:'Инструменты',                       zh:'工具',              ja:'ツール',                     ko:'도구',                       ar:'الأدوات',                    he:'כלים',                        ur:'اوزار',                     hi:'उपकरण' },
   'tools.compare.title':  { en:'Price comparison', es:'Comparador de precios', fr:'Comparateur de prix', de:'Preisvergleich', it:'Confronto prezzi', pt:'Comparador de preços', ru:'Сравнение цен', zh:'价格对比', ja:'価格比較', ko:'가격 비교', ar:'مقارنة الأسعار', he:'השוואת מחירים', ur:'قیمت موازنہ', hi:'मूल्य तुलना' },
   'tools.compare.ratioLabel': { en:'ratio', es:'ratio', fr:'ratio', de:'Verhältnis', it:'rapporto', pt:'razão', ru:'отношение', zh:'比率', ja:'比率', ko:'비율', ar:'النسبة', he:'יחס', ur:'تناسب', hi:'अनुपात' },

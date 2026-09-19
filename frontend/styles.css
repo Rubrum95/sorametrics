@@ -1687,6 +1687,8 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
 
 .val-status { display: inline-flex; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .val-status.active { color: #6EE7B7; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+.val-status.idle { color: #F5B041; background: rgba(245,176,65,0.1); border: 1px solid rgba(245,176,65,0.3); }
+.val-status.blocked { color: #F87171; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); }
 .val-status.waiting { color: var(--fg-2); background: rgba(255,255,255,0.04); border: 1px solid var(--border); }
 .val-status.oversubscribed { color: #F5B041; background: rgba(245,176,65,0.1); border: 1px solid rgba(245,176,65,0.3); }
 

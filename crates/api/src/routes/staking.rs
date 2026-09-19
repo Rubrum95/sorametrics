@@ -35,7 +35,7 @@ use sorametrics_core::chain::{ss58_decode, ss58_encode_sora};
 use sorametrics_db::ts::latest_prices;
 use sorametrics_substrate::runtime::sora;
 use sorametrics_substrate::runtime::sora::runtime_types::pallet_staking::{
-    ActiveEraInfo, StakingLedger, ValidatorPrefs,
+    ActiveEraInfo, EraRewardPoints, StakingLedger, ValidatorPrefs,
 };
 use sorametrics_substrate::runtime::sora::runtime_types::sp_staking::{
     Exposure, PagedExposureMetadata,
@@ -266,6 +266,15 @@ struct ValidatorRow {
     is_blocked: bool,
     #[serde(rename = "erasSincePayout")]
     eras_since_payout: Option<f64>,
+    /// Last era with a claimed payout (`ClaimedRewards` over the history
+    /// depth, else the ledger's legacy list).
+    #[serde(rename = "lastPayoutEra")]
+    last_payout_era: Option<u32>,
+    /// `erasRewardPoints` of the active era and of the one before.
+    #[serde(rename = "eraPoints")]
+    era_points: u32,
+    #[serde(rename = "prevEraPoints")]
+    prev_era_points: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -273,6 +282,13 @@ struct ValidatorsResponse {
     era: u32,
     #[serde(rename = "validatorCount")]
     validator_count: usize,
+    /// `staking.validatorCount`: the seats governance allows.
+    #[serde(rename = "maxValidators")]
+    max_validators: u32,
+    #[serde(rename = "eraPointsTotal")]
+    era_points_total: u32,
+    #[serde(rename = "prevEraPointsTotal")]
+    prev_era_points_total: u32,
     validators: Vec<ValidatorRow>,
     #[serde(rename = "xorPrice")]
     xor_price: f64,
@@ -313,8 +329,9 @@ async fn exposures(
         .collect())
 }
 
-/// Ledger claimed eras per validator (`claimedRewards` else
-/// `legacyClaimedRewards`), via `bonded` → `ledger`.
+/// Ledger `legacyClaimedRewards` per validator, via `bonded` → `ledger`.
+/// Runtimes with paged rewards no longer append here: see
+/// [`last_claimed_era`].
 async fn claimed_eras(
     state: &AppState,
     client: &OnlineClient<SubstrateConfig>,
@@ -343,11 +360,59 @@ async fn claimed_eras(
         .collect())
 }
 
+/// Newest era of the claimable window with a non-empty
+/// `staking.claimedRewards(era, validator)`, per validator.
+async fn last_claimed_era(
+    state: &AppState,
+    client: &OnlineClient<SubstrateConfig>,
+    era: u32,
+    validators: &[AccountId32],
+) -> Result<Vec<Option<u32>>, ApiError> {
+    let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+    let depth: u32 = client
+        .constants()
+        .at(&sora::constants().staking().history_depth())
+        .map_err(ChainErr)?;
+    let eras: Vec<u32> = (era.saturating_sub(depth)..era).rev().collect();
+    let mut out = vec![None; validators.len()];
+    for chunk in eras.chunks(10) {
+        let pending: Vec<usize> = (0..validators.len())
+            .filter(|i| out[*i].is_none())
+            .collect();
+        if pending.is_empty() {
+            break;
+        }
+        let pairs: Vec<(u32, usize)> = chunk
+            .iter()
+            .flat_map(|e| pending.iter().map(move |i| (*e, *i)))
+            .collect();
+        let keys: Vec<Vec<u8>> = pairs
+            .iter()
+            .map(|(e, i)| {
+                key_bytes(
+                    client,
+                    &sora::storage()
+                        .staking()
+                        .claimed_rewards(*e, &validators[*i]),
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        let pages: Vec<Option<Vec<u32>>> = chain.fetch_many(&keys).await?;
+        for ((e, i), page) in pairs.iter().zip(pages) {
+            let claimed = page.is_some_and(|p| !p.is_empty());
+            if claimed && out[*i].is_none_or(|seen| *e > seen) {
+                out[*i] = Some(*e);
+            }
+        }
+    }
+    Ok(out)
+}
+
 async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResponse>, ApiError> {
     let v = cached(&state, "staking:validators", VALIDATORS_TTL, || async {
         let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
         let client = chain.client().await?;
-        let (era, set) = chain
+        let (era, set, max_validators, points, prev_points) = chain
             .with_client(|client| async move {
                 let at = client.storage().at_latest().await?;
                 let era = at
@@ -359,9 +424,35 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
                     .fetch(&sora::storage().session().validators())
                     .await?
                     .unwrap_or_default();
-                Ok((era, set))
+                let max_validators = at
+                    .fetch(&sora::storage().staking().validator_count())
+                    .await?
+                    .unwrap_or(0);
+                let points: Option<EraRewardPoints<AccountId32>> = at
+                    .fetch(&sora::storage().staking().eras_reward_points(era))
+                    .await?;
+                let prev_points: Option<EraRewardPoints<AccountId32>> = at
+                    .fetch(
+                        &sora::storage()
+                            .staking()
+                            .eras_reward_points(era.saturating_sub(1)),
+                    )
+                    .await?;
+                Ok((era, set, max_validators, points, prev_points))
             })
             .await?;
+        let by_validator = |p: Option<EraRewardPoints<AccountId32>>| match p {
+            Some(p) => (
+                p.total,
+                p.individual
+                    .into_iter()
+                    .map(|(a, n)| (a.0, n))
+                    .collect::<HashMap<[u8; 32], u32>>(),
+            ),
+            None => (0, HashMap::new()),
+        };
+        let (era_points_total, era_points) = by_validator(points);
+        let (prev_era_points_total, prev_era_points) = by_validator(prev_points);
         let consts = era_consts(&client)?;
         let era_ms =
             u64::from(consts.sessions_per_era) * consts.epoch_duration * consts.expected_block_time;
@@ -374,6 +465,7 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
         let prefs: Vec<Option<ValidatorPrefs>> = chain.fetch_many(&pref_keys).await?;
         let exposures = exposures(&state, &client, era, &set).await?;
         let claimed = claimed_eras(&state, &client, &set).await?;
+        let paged_claimed = last_claimed_era(&state, &client, era, &set).await?;
         let names = display_names(&state, &addresses).await;
         let xor_price = xor_price(&state).await?;
 
@@ -390,8 +482,9 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
                 let total_stake = planck_to_f64(total);
                 let own_stake = planck_to_f64(own);
                 let other_stake = planck_to_f64(total.saturating_sub(own));
-                let eras_since_payout = claimed[i].iter().max().map(|last| {
-                    let eras_since = f64::from(era.saturating_sub(*last));
+                let last_payout_era = claimed[i].iter().max().copied().max(paged_claimed[i]);
+                let eras_since_payout = last_payout_era.map(|last| {
+                    let eras_since = f64::from(era.saturating_sub(last));
                     round_to(eras_since * era_ms as f64 / 86_400_000.0, 1)
                 });
                 ValidatorRow {
@@ -404,12 +497,18 @@ async fn validators(State(state): State<AppState>) -> Result<Json<ValidatorsResp
                     nominators_count: nominators,
                     is_blocked: blocked,
                     eras_since_payout,
+                    last_payout_era,
+                    era_points: era_points.get(&set[i].0).copied().unwrap_or(0),
+                    prev_era_points: prev_era_points.get(&set[i].0).copied().unwrap_or(0),
                 }
             })
             .collect::<Vec<_>>();
         Ok(ValidatorsResponse {
             era,
             validator_count: validators.len(),
+            max_validators,
+            era_points_total,
+            prev_era_points_total,
             validators,
             xor_price,
         })
