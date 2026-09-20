@@ -1,0 +1,9 @@
+# SoraMetrics: public, read-only analytics of the SORA blockchain.
+# Crawlers and AI agents are welcome on every path.
+#
+# For agents: guide at /llms.txt, REST description at /openapi.json,
+# Model Context Protocol server at /mcp.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes
+Allow: /

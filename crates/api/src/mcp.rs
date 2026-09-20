@@ -63,6 +63,7 @@ struct McpState {
 
 const OPENAPI_JSON: &str = include_str!("../assets/openapi.json");
 const LLMS_TXT: &str = include_str!("../assets/llms.txt");
+const ROBOTS_TXT: &str = include_str!("../assets/robots.txt");
 
 async fn openapi() -> Response {
     (
@@ -104,6 +105,19 @@ async fn server_card() -> Response {
         .into_response()
 }
 
+/// Explicit welcome for crawlers and agents (without it the CDN serves a
+/// comments-only file, which some clients read as "unknown policy").
+async fn robots_txt() -> Response {
+    (
+        [
+            (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=3600"),
+        ],
+        ROBOTS_TXT,
+    )
+        .into_response()
+}
+
 async fn llms_txt() -> Response {
     (
         [
@@ -122,6 +136,7 @@ pub fn router(inner: Router) -> Router {
         .route("/openapi.json", get(openapi))
         .route("/.well-known/mcp/server-card.json", get(server_card))
         .route("/llms.txt", get(llms_txt))
+        .route("/robots.txt", get(robots_txt))
         .route(
             "/mcp",
             post(handle)

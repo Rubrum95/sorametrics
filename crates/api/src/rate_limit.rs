@@ -39,6 +39,7 @@ const LIMITS: &[(&str, u32)] = &[
     ("/wallet/realizable/:p", 20),
     ("/openapi.json", 30),
     ("/llms.txt", 30),
+    ("/robots.txt", 30),
     ("/.well-known/mcp/server-card.json", 30),
     ("/health", 30),
     ("/health/rpc-source", 60),
