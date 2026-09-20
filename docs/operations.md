@@ -201,3 +201,7 @@ The 22 tools live in `crates/api/src/mcp.rs` (`tools()`), next to 4 prompts (`PR
 - `MCP_ALLOWED_ORIGINS` (comma-separated, optional): browser origins allowed to call `/mcp` besides the site's own host. Requests without an `Origin` header (every non-browser client) are always accepted; a foreign origin gets 403.
 - Connect a client: `claude mcp add --transport http sorametrics https://sorametrics.org/mcp`.
 - Smoke test: `python3 scripts/mcp_smoke.py https://v33.sorametrics.org <address>`.
+
+## TLS certificates on Rubrum
+
+Both hosts are certbot `--webroot` lineages (`/usr/share/nginx/html`, HTTP-01 through Cloudflare): `sorametrics.org-rubrum` (apex + `www`, ECDSA, issued 2026-09-20) and `v33.sorametrics.org`. `certbot-renew.timer` renews them; `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh` reloads nginx. The copied `live/sorametrics.org` lineage from the old VPS is unused (no renewal config) and can be deleted after 2026-11-10. Check: `certbot certificates`, `certbot renew --dry-run`.
