@@ -56,6 +56,9 @@ async fn main() -> Result<()> {
         .with_archive(Some(archive))
         .with_torii(Some(torii));
     state.spawn_registry_refresh();
+    if let Some(chain) = state.chain.as_ref() {
+        chain.spawn_primary_recovery(std::time::Duration::from_secs(120));
+    }
     sorametrics_api::routes::staking_rewards::spawn_live_sampler(state.clone());
     sorametrics_api::routes::polkamarkt::spawn_reconcile(state.clone());
     sorametrics_api::routes::analytics::spawn(state.clone());

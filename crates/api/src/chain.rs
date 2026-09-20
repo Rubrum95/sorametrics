@@ -137,6 +137,44 @@ impl ChainClient {
         })
     }
 
+    /// When a failover left the client on a secondary endpoint, try the
+    /// primary again and move back if it answers. Returns `true` on a move.
+    /// The probe connects before taking the lock, so requests keep being
+    /// served by the secondary meanwhile.
+    pub async fn recover_primary(&self) -> bool {
+        let Some(primary) = self.endpoints.first() else {
+            return false;
+        };
+        match self.active_endpoint().await {
+            Some(active) if active != *primary => {}
+            _ => return false,
+        }
+        match Self::connect(primary).await {
+            Ok(c) => {
+                info!(endpoint = %primary, "api chain client back on the primary endpoint");
+                *self.inner.lock().await = Some(c);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Probe for the primary every `every` (the Node did it every 2 min).
+    pub fn spawn_primary_recovery(&self, every: std::time::Duration) {
+        if self.endpoints.len() < 2 {
+            return;
+        }
+        let chain = self.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(every);
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            loop {
+                tick.tick().await;
+                chain.recover_primary().await;
+            }
+        });
+    }
+
     async fn connect(url: &Url) -> Result<Connected, subxt::Error> {
         let rpc = RpcClient::from_url(url.as_str()).await?;
         let client = sorametrics_substrate::online_client::<SubstrateConfig>(rpc.clone()).await?;
