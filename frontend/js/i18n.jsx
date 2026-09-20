@@ -850,14 +850,33 @@ const BCP47 = {
   ur: 'ur-PK', hi: 'hi-IN',
 };
 
+// First supported language of the browser's preference list (`zh-TW` → `zh`,
+// `pt-BR` → `pt`); English when none matches.
+function detectBrowserLang() {
+  try {
+    const prefs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+    for (const pref of prefs) {
+      const base = String(pref || '').toLowerCase().split('-')[0];
+      if (LANG_BY_CODE[base]) return base;
+    }
+  } catch (_) {}
+  return 'en';
+}
+
+// A saved language counts only if the user picked it. Older versions wrote
+// the Spanish default into storage for every visitor, so a bare 'es' without
+// the "chosen" mark is not a choice.
+function initialLang() {
+  try {
+    const saved = localStorage.getItem('sorametrics.lang');
+    const chosen = localStorage.getItem('sorametrics.lang.chosen') === '1';
+    if (saved && LANG_BY_CODE[saved] && (chosen || saved !== 'es')) return saved;
+  } catch (_) {}
+  return detectBrowserLang();
+}
+
 function LangProvider({ children }) {
-  const [lang, setLangState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('sorametrics.lang');
-      if (saved && LANG_BY_CODE[saved]) return saved;
-    } catch (_) {}
-    return 'es';
-  });
+  const [lang, setLangState] = useState(initialLang);
 
   const meta = LANG_BY_CODE[lang] || LANG_BY_CODE.es;
   const dir = meta.rtl ? 'rtl' : 'ltr';
@@ -866,7 +885,6 @@ function LangProvider({ children }) {
     document.documentElement.lang = lang;
     document.documentElement.dir = dir;
     document.body.classList.toggle('rtl', dir === 'rtl');
-    try { localStorage.setItem('sorametrics.lang', lang); } catch (_) {}
     window.__CURRENT_LANG__ = lang;
   }, [lang, dir]);
 
@@ -877,7 +895,12 @@ function LangProvider({ children }) {
   }, [lang]);
 
   const setLang = useCallback((code) => {
-    if (LANG_BY_CODE[code]) setLangState(code);
+    if (!LANG_BY_CODE[code]) return;
+    setLangState(code);
+    try {
+      localStorage.setItem('sorametrics.lang', code);
+      localStorage.setItem('sorametrics.lang.chosen', '1');
+    } catch (_) {}
   }, []);
 
   const value = useMemo(() => ({

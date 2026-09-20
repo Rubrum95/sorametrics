@@ -299,6 +299,7 @@ function migrateV1WalletsOnce() {
     const v1lang = localStorage.getItem('sora_lang');
     if (v1lang && !localStorage.getItem('sorametrics.lang')) {
       localStorage.setItem('sorametrics.lang', v1lang);
+      localStorage.setItem('sorametrics.lang.chosen', '1');
     }
     const v1favs = localStorage.getItem('sora_favorites');
     if (v1favs && !localStorage.getItem('sm.favTokens')) {
@@ -1905,7 +1906,7 @@ function restoreBackup(file, setTweak) {
         if (data.settings?.lang) {
           saveLS('sorametrics.lang', data.settings.lang);
           // sorametrics.lang is stored as raw string in loadLS — keep as string
-          try { localStorage.setItem('sorametrics.lang', data.settings.lang); } catch {}
+          try { localStorage.setItem('sorametrics.lang', data.settings.lang); localStorage.setItem('sorametrics.lang.chosen', '1'); } catch {}
         }
         if (data.settings?.tweaks && setTweak) {
           Object.entries(data.settings.tweaks).forEach(([k,v]) => setTweak(k, v));
