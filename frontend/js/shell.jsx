@@ -234,6 +234,11 @@ function Topbar({ block }) {
         <span className="label">{t('topbar.eraEpoch')}</span>
         <span className="val">{eraLabel}</span>
       </div>
+      <a className="block-chip agents-chip" href="?tab=agents" title={t('agents.chip.tip', 'Ask SoraMetrics from Claude, ChatGPT or your code')}
+         onClick={(e) => { if (window.__SM_NAV__) { e.preventDefault(); window.__SM_NAV__('agents'); } }}>
+        <I.code style={{width:13,height:13}}/>
+        <span className="val hide-mobile">{t('agents.chip', 'Agents')}</span>
+      </a>
       <LangPicker/>
       <NetworkSwitcher/>
     </div>

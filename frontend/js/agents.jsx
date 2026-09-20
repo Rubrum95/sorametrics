@@ -45,6 +45,7 @@ function AgentsSection() {
   const mcpUrl = origin + '/mcp';
   const [tools, setTools] = useStateAg(null);
   const [prompts, setPrompts] = useStateAg(null);
+  const [client, setClient] = useStateAg('claude');
   useEffectAg(() => {
     let cancelled = false;
     mcpCall('tools/list').then(r => { if (!cancelled) setTools((r && r.tools) || []); });
@@ -64,20 +65,48 @@ function AgentsSection() {
 
   return (
     <div>
-      <PageHeader title={t('agents.title', 'API · MCP')} sub={t('agents.sub', 'Connect agents and code to SoraMetrics')}/>
+      <PageHeader title={t('agents.title', 'Agents · API')} sub={t('agents.sub', 'Ask SoraMetrics from Claude, ChatGPT or your own code')}/>
       <div style={{display:'grid', gap:16}}>
         <AgCard title={t('agents.what.title', 'What this is')}>
           <p className="muted" style={{margin:'12px 0', maxWidth:820, lineHeight:1.6}}>
-            {t('agents.what.body', 'SoraMetrics can be queried by agents (Claude, Cursor and any client that speaks the Model Context Protocol) and by your own code. It is read-only, free and needs no account or API key. Every answer comes with its caveats, such as marginal prices and tokens without liquidity, so an agent does not draw false conclusions.')}
+            {t('agents.what.body', 'You can plug SoraMetrics into your assistant and simply ask it things: what a wallet holds, whether a token can really be sold at its price, which validators are not producing blocks, what is being voted. The assistant reads the same on-chain data as this site. It is free, read-only and needs no account or key.')}
           </p>
         </AgCard>
 
-        <AgCard title={t('agents.connect.title', 'Connect an agent (MCP)')}>
-          <AgCopyRow label={t('tools.agents.mcp', 'MCP server')} value={mcpUrl}/>
-          <AgCopyRow label="Claude Code" value={'claude mcp add --transport http sorametrics ' + mcpUrl}/>
-          <AgCopyRow label={t('agents.connect.json', 'JSON config')} value={jsonConfig}/>
+        <AgCard title={t('agents.quick.title', 'Connect it in 3 steps')}>
+          <div style={{display:'flex', gap:8, flexWrap:'wrap', margin:'12px 0 4px'}}>
+            {[['claude', 'Claude'], ['chatgpt', 'ChatGPT'], ['code', t('agents.quick.code', 'Claude Code · Cursor · VS Code')]].map(([id, label]) => (
+              <button key={id} className={'btn ' + (client === id ? 'primary' : 'ghost')} onClick={() => setClient(id)}>{label}</button>
+            ))}
+          </div>
+          {client === 'claude' && (
+            <ol className="agents-steps">
+              <li>{t('agents.claude.1', 'In Claude (web or desktop) open Customize → Connectors, press "+" and choose "Add custom connector".')}</li>
+              <li>{t('agents.claude.2', 'Paste the address below and press Add. No login or key is needed.')}</li>
+              <li>{t('agents.claude.3', 'Start a chat and ask, for example: "Using SoraMetrics, what does wallet cn… hold?" Works on every plan, including Free (one custom connector).')}</li>
+            </ol>
+          )}
+          {client === 'chatgpt' && (
+            <ol className="agents-steps">
+              <li>{t('agents.gpt.1', 'In ChatGPT on the web open Settings and turn on Developer mode (under Apps or Connectors → Advanced, depending on your version). It needs a paid plan: Plus, Pro, Business, Enterprise or Edu.')}</li>
+              <li>{t('agents.gpt.2', 'Add a custom connector, paste the address below and choose "no authentication".')}</li>
+              <li>{t('agents.gpt.3', 'In a new chat press "+" → More → Developer mode, select SoraMetrics and ask your question.')}</li>
+            </ol>
+          )}
+          {client === 'code' && (
+            <ol className="agents-steps">
+              <li>{t('agents.code.1', 'Claude Code: run the command below in your terminal.')}</li>
+              <li>{t('agents.code.2', 'Cursor, VS Code and other clients: add the JSON block below to their MCP configuration.')}</li>
+              <li>{t('agents.code.3', 'Restart the client: the SoraMetrics tools appear on their own.')}</li>
+            </ol>
+          )}
+          <div style={{marginTop:14}}>
+            <AgCopyRow label={t('tools.agents.mcp', 'MCP server')} value={mcpUrl}/>
+            {client === 'code' && <AgCopyRow label="Claude Code" value={'claude mcp add --transport http sorametrics ' + mcpUrl}/>}
+            {client === 'code' && <AgCopyRow label={t('agents.connect.json', 'JSON config')} value={jsonConfig}/>}
+          </div>
           <p className="muted tiny" style={{margin:'12px 0 0', maxWidth:820, lineHeight:1.6}}>
-            {t('agents.connect.note', 'In Claude (web or desktop): Settings → Connectors → Add custom connector, and paste the MCP server URL. The JSON block is the usual format for Cursor, VS Code and other clients. No authentication.')}
+            {t('agents.quick.note', 'Menus change between versions of each assistant; what matters is adding a custom connector (MCP) with that address. If your assistant cannot reach the internet from its code sandbox, use its connector or browsing feature instead.')}
           </p>
         </AgCard>
 

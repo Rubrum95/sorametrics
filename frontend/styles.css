@@ -2614,3 +2614,10 @@ body.rtl .palette-row.active { border-right-color: var(--accent); }
   color: #4CAF50 !important;
   transition: color 120ms ease-out;
 }
+
+/* Topbar shortcut to the agents page */
+.agents-chip { display:inline-flex; align-items:center; gap:6px; text-decoration:none; cursor:pointer; color:var(--fg-1); }
+.agents-chip:hover { color:var(--fg-0); border-color: var(--accent, #E5243B); }
+.agents-steps { counter-reset: step; list-style:none; margin:12px 0 0; padding:0; display:grid; gap:10px; }
+.agents-steps li { counter-increment: step; display:grid; grid-template-columns:28px 1fr; gap:10px; align-items:start; line-height:1.55; color:var(--fg-1); }
+.agents-steps li::before { content: counter(step); width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--fg-0); background:rgba(229,36,59,0.18); border:1px solid rgba(229,36,59,0.45); }

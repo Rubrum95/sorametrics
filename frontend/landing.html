@@ -205,6 +205,14 @@
   .card:active { transform: translateY(-3px); }
   .card > * { position: relative; z-index: 1; }
 
+  .agents-banner { display:grid; grid-template-columns:auto 1fr auto; gap:16px; align-items:center; margin:22px 0 0; padding:16px 20px; border-radius:16px; text-decoration:none; color:inherit; border:1px solid rgba(255,255,255,0.10); background:linear-gradient(135deg, rgba(229,36,59,0.10), rgba(74,53,102,0.16)); transition:border-color .2s ease, transform .2s ease; }
+  .agents-banner:hover { border-color:rgba(229,36,59,0.55); transform:translateY(-1px); }
+  .agents-banner-icon { width:42px; height:42px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:rgba(229,36,59,0.16); color:#ff6b7f; }
+  .agents-banner-text { display:grid; gap:4px; }
+  .agents-banner-text strong { font-size:16px; }
+  .agents-banner-text span { font-size:13px; opacity:.72; line-height:1.5; }
+  .agents-banner-cta { font-weight:700; font-size:13px; white-space:nowrap; color:#ff6b7f; }
+  @media (max-width: 640px) { .agents-banner { grid-template-columns:auto 1fr; } .agents-banner-cta { grid-column:1 / -1; } }
   .card-v2 { --card-grad: var(--grad-v2); --card-accent: #E5243B; --card-glow: rgba(229,36,59,0.30); }
   .card-mn { --card-grad: var(--grad-mn); --card-accent: #A062B0; --card-glow: rgba(160,98,176,0.30); }
   .card-sh { --card-grad: var(--grad-sh); --card-accent: #14B8A6; --card-glow: rgba(20,184,166,0.30); }
@@ -511,6 +519,17 @@
         </span>
       </div>
     </section>
+
+    <a class="agents-banner" href="/sorav2?tab=agents" aria-label="Connect an agent to SoraMetrics">
+      <span class="agents-banner-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="m8 6-6 6 6 6M16 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="agents-banner-text">
+        <strong>Ask SoraMetrics from Claude, ChatGPT or your own code</strong>
+        <span>Wallets, tokens, validators, burns and governance, straight from the chain. Free, read-only, no account. Paste one URL into your assistant.</span>
+      </span>
+      <span class="agents-banner-cta">How to connect →</span>
+    </a>
 
     <section class="combined-stats" aria-label="Combined ecosystem stats">
       <div class="combined-stat">
