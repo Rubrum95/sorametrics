@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sm.site_events WHERE ts < date_trunc('day', now() - ($1 || ' days')::interval)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "da0c5ac156059364be64c846ddd2a04f41326893da976c62b9feb707ff6f397e"
+}

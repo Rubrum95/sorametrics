@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO sm.site_daily (day, section, section_views, uniques)\n        SELECT (ts AT TIME ZONE 'UTC')::date, section, COUNT(*), COUNT(DISTINCT visitor)\n        FROM sm.site_events\n        WHERE ts < date_trunc('day', now())\n          AND ts >= date_trunc('day', now() - ($1 || ' days')::interval)\n          AND type='section' AND section IS NOT NULL\n        GROUP BY 1, 2\n        ON CONFLICT (day, section) DO UPDATE SET\n            section_views=EXCLUDED.section_views, uniques=EXCLUDED.uniques\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a415f7b9e945f7d8022b680b096fcb6b5d096c8ce5da518bdff2a447d733ca1d"
+}

@@ -315,7 +315,14 @@ async fn flush(db: &PgPool, a: &Analytics) {
 
 /// Complete past days → `sm.site_daily` (site-wide row `section = ''`
 /// and one row per section), then raw rows past the retention deleted.
+///
+/// Both the recount and the prune are aligned to whole UTC days: a day is
+/// only recounted while ALL its raw rows are still there. The Node pruned at
+/// `now - 30 days` (mid-day) and recounted every day it found, so the day on
+/// the edge was recounted from a partial set and its totals shrank for good
+/// (2026-08-20: 93 pageviews, 52 in the Node's rollup).
 pub async fn rollup_and_prune(db: &PgPool, retention_days: i64) -> Result<u64, sqlx::Error> {
+    let days = retention_days.to_string();
     sqlx::query!(
         r#"
         INSERT INTO sm.site_daily (day, section, pageviews, section_views, sessions, uniques, avg_session_ms)
@@ -329,11 +336,13 @@ pub async fn rollup_and_prune(db: &PgPool, retention_days: i64) -> Result<u64, s
             COALESCE(AVG(duration_ms) FILTER (WHERE type='session_end'), 0)::bigint
         FROM sm.site_events
         WHERE ts < date_trunc('day', now())
+          AND ts >= date_trunc('day', now() - ($1 || ' days')::interval)
         GROUP BY 1
         ON CONFLICT (day, section) DO UPDATE SET
             pageviews=EXCLUDED.pageviews, section_views=EXCLUDED.section_views,
             sessions=EXCLUDED.sessions, uniques=EXCLUDED.uniques, avg_session_ms=EXCLUDED.avg_session_ms
-        "#
+        "#,
+        days
     )
     .execute(db)
     .await?;
@@ -342,17 +351,19 @@ pub async fn rollup_and_prune(db: &PgPool, retention_days: i64) -> Result<u64, s
         INSERT INTO sm.site_daily (day, section, section_views, uniques)
         SELECT (ts AT TIME ZONE 'UTC')::date, section, COUNT(*), COUNT(DISTINCT visitor)
         FROM sm.site_events
-        WHERE ts < date_trunc('day', now()) AND type='section' AND section IS NOT NULL
+        WHERE ts < date_trunc('day', now())
+          AND ts >= date_trunc('day', now() - ($1 || ' days')::interval)
+          AND type='section' AND section IS NOT NULL
         GROUP BY 1, 2
         ON CONFLICT (day, section) DO UPDATE SET
             section_views=EXCLUDED.section_views, uniques=EXCLUDED.uniques
-        "#
+        "#,
+        days
     )
     .execute(db)
     .await?;
-    let days = retention_days.to_string();
     let del = sqlx::query!(
-        r#"DELETE FROM sm.site_events WHERE ts < now() - ($1 || ' days')::interval"#,
+        r#"DELETE FROM sm.site_events WHERE ts < date_trunc('day', now() - ($1 || ' days')::interval)"#,
         days
     )
     .execute(db)
