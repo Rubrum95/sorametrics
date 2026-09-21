@@ -16,6 +16,7 @@ async function fetchJson(url) {
 // flows whose band thickness is proportional to its real share; particles ride
 // each band via SVG animateMotion. Pure SVG — no DOM-manipulated embers.
 function Furnace({ token, liveSpeed, motion, feeFlow }) {
+  const t = useT();
   const speed = Math.max(0.4, Number(liveSpeed) || 1);
   const animate = motion !== 'none';
 
@@ -24,10 +25,10 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
   const dist = feeFlow?.distribution || {};
   const hasLive = ['xorBurn', 'valStaking', 'valBurn', 'referrer'].some(k => Number(dist[k]) > 0);
   const flowDefs = [
-    { key: 'xorBurn',    label: 'XOR Burn',       color: '#E5243B', kind: 'burn' },
-    { key: 'valStaking', label: '→ VAL · Staking', color: '#7DD3FC', kind: 'node' },
-    { key: 'referrer',   label: 'Referrer',        color: '#8B7FD9', kind: 'node' },
-    { key: 'valBurn',    label: 'VAL Burn',         color: '#F5B041', kind: 'burn' },
+    { key: 'xorBurn',    label: t('s.xorBurn', 'XOR Burn'),       color: '#E5243B', kind: 'burn' },
+    { key: 'valStaking', label: t('s.valStaking', '→ VAL · Staking'), color: '#7DD3FC', kind: 'node' },
+    { key: 'referrer',   label: t('s.referrer', 'Referrer'),        color: '#8B7FD9', kind: 'node' },
+    { key: 'valBurn',    label: t('s.valBurn', 'VAL Burn'),         color: '#F5B041', kind: 'burn' },
   ];
   const flows = flowDefs
     .map(f => ({ ...f, v: hasLive ? (Number(dist[f.key]) || 0) : 0 }))
@@ -68,7 +69,7 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
 
         {/* Source node */}
         <rect x="14" y={SPLIT_Y - 24} width="150" height="48" rx="10" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.12)"/>
-        <text x="28" y={SPLIT_Y - 4} className="flow-label">XOR fees in</text>
+        <text x="28" y={SPLIT_Y - 4} className="flow-label">{t('s.xorFeesIn', 'XOR fees in')}</text>
         <text x="28" y={SPLIT_Y + 15} className="flow-sub">{totalLabel}</text>
 
         {/* Inflow band + particles */}
@@ -120,17 +121,18 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
 }
 
 function BurnChart({ token, type, series }) {
+  const t = useT();
   const tk = TOKENS[token];
   // Real cumulative burn curve from the indexer (/burns/series). No synthetic data.
   const data = useMemo(() => (series || []).map(p => p.cumulative), [series]);
 
   const W = 560, H = 200, pad = 8;
   if (series === null) {
-    return <div className="chart-wrap" style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,color:'var(--fg-2)',fontSize:13}}>Cargando…</div>;
+    return <div className="chart-wrap" style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,color:'var(--fg-2)',fontSize:13}}>{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>;
   }
   if (data.length < 2) {
     return <div className="chart-wrap" style={{display:'flex',alignItems:'center',justifyContent:'center',height:200,color:'var(--fg-2)',fontSize:13,textAlign:'center',padding:'0 24px'}}>
-      Esperando histórico del indexer · {token} burns reales por día (se llena con el tiempo).
+      {t('s.waitingForIndexerHistory', 'Esperando histórico del indexer ·')} {token} {t('s.realBurnsPerDayFills', 'burns reales por día (se llena con el tiempo).')}
     </div>;
   }
   const { line, area } = areaPath(data, W, H, pad);
@@ -293,15 +295,15 @@ function BurnSection({ tweaks }) {
             <button key={r} className={tf === r ? 'active' : ''} onClick={() => setTf(r)}>{r}</button>
           ))}
         </div>
-        <button className="btn" onClick={shareLink} title="Copiar link">{copied ? '✓ Copiado' : 'Share'}</button>
-        <button className="btn primary" onClick={screenshot} title="Imprimir / exportar PDF">Screenshot</button>
+        <button className="btn" onClick={shareLink} title={t('s.copyLink', 'Copiar link')}>{copied ? t('s.copied', '✓ Copiado') : t('intel.fees.shareCol', 'Share')}</button>
+        <button className="btn primary" onClick={screenshot} title={t('s.printExportPdf', 'Imprimir / exportar PDF')}>{t('s.screenshot', 'Screenshot')}</button>
       </PageHeader>
 
       <div className="burn-layout">
         {/* Hero + furnace */}
         <div className="card burn-hero">
           <div className="burn-title-row">
-            <div className="card-title"><span className="dot"/> Total {token} Burned</div>
+            <div className="card-title"><span className="dot"/> {t('col.total', 'Total')} {token} {t('intel.fees.burnedCol', 'Burned')}</div>
             <div className="burn-token-selector">
               {/* 4.8.6: KUSD & TBCD no longer burn via fees (kusd weight = 0, TBCD out of the fee model). */}
               {['XOR', 'VAL', 'PSWAP'].map(t => {
@@ -321,22 +323,22 @@ function BurnSection({ tweaks }) {
           </div>
 
           <div className="burn-hero-value num">{fmt.num(heroVal, 2)}</div>
-          <div className="burn-hero-unit">{token} · {price > 0 ? fmt.usd(heroVal * price) : '—'} @ current price</div>
+          <div className="burn-hero-unit">{token} · {price > 0 ? fmt.usd(heroVal * price) : '—'} {t('s.currentPrice', '@ current price')}</div>
 
           <div className="burn-hero-meta">
             <div className="mi"><span>24h</span> <strong>+{fmt.num(d24, 2)}</strong></div>
             <div className="mi"><span>7d</span>  <strong>+{fmt.num(d7, 2)}</strong></div>
             <div className="mi"><span>30d</span> <strong>+{fmt.num(d30, 2)}</strong></div>
-            <div className="mi"><span>24h usd</span> <strong style={{color: '#10B981'}}>{fmt.usd(usd24)}</strong></div>
+            <div className="mi"><span>{t('s.24hUsd', '24h usd')}</span> <strong style={{color: '#10B981'}}>{fmt.usd(usd24)}</strong></div>
           </div>
 
           <Furnace token={token} liveSpeed={tweaks.liveSpeed} motion={tweaks.motion} feeFlow={feeFlow}/>
 
           <div className="burn-stats">
-            <div className="bstat"><div className="l">Current Supply</div><div className="v">{fmt.num(currentSupply, 1)}</div><div className="d">{token}</div></div>
-            <div className="bstat"><div className="l">Market Cap</div><div className="v">{price > 0 ? fmt.usd(currentSupply * price) : '—'}</div><div className="d">live</div></div>
-            <div className="bstat"><div className="l">Price</div><div className="v">{price > 0 ? '$' + price.toFixed(price < 1 ? 4 : 2) : '—'}</div><div className="d">from 24h burn</div></div>
-            <div className="bstat"><div className="l">Holders</div><div className="v">{holdersData ? holdersData.totalHolders.toLocaleString() : '—'}</div><div className="d">{holdersData ? 'total' : 'loading…'}</div></div>
+            <div className="bstat"><div className="l">{t('s.currentSupply', 'Current Supply')}</div><div className="v">{fmt.num(currentSupply, 1)}</div><div className="d">{token}</div></div>
+            <div className="bstat"><div className="l">{t('col.marketCap', 'Market Cap')}</div><div className="v">{price > 0 ? fmt.usd(currentSupply * price) : '—'}</div><div className="d">live</div></div>
+            <div className="bstat"><div className="l">{t('col.price', 'Price')}</div><div className="v">{price > 0 ? '$' + price.toFixed(price < 1 ? 4 : 2) : '—'}</div><div className="d">{t('s.from24hBurn', 'from 24h burn')}</div></div>
+            <div className="bstat"><div className="l">{t('nav.holders', 'Holders')}</div><div className="v">{holdersData ? holdersData.totalHolders.toLocaleString() : '—'}</div><div className="d">{holdersData ? 'total' : t('s.loading', 'loading…')}</div></div>
           </div>
 
           {/* Referral activity (XOR only) — real per-timeframe split: paid to referrers
@@ -380,7 +382,7 @@ function BurnSection({ tweaks }) {
                       <div className="muted tiny" style={{marginTop:8, fontSize:10}}>{t('burn.referral.note')}</div>
                     </>
                   );
-                })() : <div className="muted tiny" style={{padding:'8px 0'}}>Cargando…</div>}
+                })() : <div className="muted tiny" style={{padding:'8px 0'}}>{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
               </div>
             </div>
           )}
@@ -407,11 +409,11 @@ function BurnSection({ tweaks }) {
           <div className="card">
             <div className="card-header">
               <div className="card-title"><span className="dot"/> {t('burn.topHolders')} · {token}</div>
-              <span className="tag accent">LIVE</span>
+              <span className="tag accent">{t('common.live', 'LIVE')}</span>
             </div>
             <div className="card-body">
               {holders.length === 0 && (
-                <div className="muted tiny" style={{padding:'8px 0'}}>Cargando holders...</div>
+                <div className="muted tiny" style={{padding:'8px 0'}}>{t('s.loadingHolders', 'Cargando holders...')}</div>
               )}
               {holders.map((h) => (
                 <div className="holder-row" key={h.addr}>
@@ -426,9 +428,9 @@ function BurnSection({ tweaks }) {
               ))}
               {allHolders.length > HOLDERS_PER_PAGE && (
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10, paddingTop:8, borderTop:'1px solid var(--border-color)', fontSize:12}}>
-                  <button className="btn" disabled={holdersPage === 1} onClick={() => setHoldersPage(p => Math.max(1, p - 1))} style={{padding:'4px 10px'}}>← Prev</button>
-                  <span className="muted">Página {holdersPage} / {holdersTotalPages}</span>
-                  <button className="btn" disabled={holdersPage === holdersTotalPages} onClick={() => setHoldersPage(p => Math.min(holdersTotalPages, p + 1))} style={{padding:'4px 10px'}}>Next →</button>
+                  <button className="btn" disabled={holdersPage === 1} onClick={() => setHoldersPage(p => Math.max(1, p - 1))} style={{padding:'4px 10px'}}>{t('s.prev', '← Prev')}</button>
+                  <span className="muted">{t('pag.pageOf', 'Página')} {holdersPage} / {holdersTotalPages}</span>
+                  <button className="btn" disabled={holdersPage === holdersTotalPages} onClick={() => setHoldersPage(p => Math.min(holdersTotalPages, p + 1))} style={{padding:'4px 10px'}}>{t('s.next', 'Next →')}</button>
                 </div>
               )}
             </div>
@@ -438,7 +440,7 @@ function BurnSection({ tweaks }) {
           {feeFlow && (
             <div className="card">
               <div className="card-header">
-                <div className="card-title"><span className="dot"/> Fee Flow · distribución</div>
+                <div className="card-title"><span className="dot"/> {t('s.feeFlowDistribution', 'Fee Flow · distribución')}</div>
                 <span className="tag">on-chain</span>
               </div>
               <div className="card-body">
@@ -449,8 +451,8 @@ function BurnSection({ tweaks }) {
                     .sort((a, b) => b[1] - a[1]);
                   const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
                   const palette = { xorBurn:'#E5243B', valStaking:'#7DD3FC', valBurn:'#F5B041', referrer:'#8B7FD9', kusdBuyback:'#60A5FA', unallocated:'#6B7280' };
-                  const label   = { xorBurn:'XOR burn', valStaking:'→ VAL · staking', valBurn:'VAL burn', referrer:'Referrer', kusdBuyback:'KUSD buy-back', unallocated:'Unallocated' };
-                  if (entries.length === 0) return <div className="muted tiny">Sin datos de fee flow.</div>;
+                  const label   = { xorBurn:t('s.xorBurn', 'XOR burn'), valStaking:t('s.valStaking', '→ VAL · staking'), valBurn:t('s.valBurn', 'VAL burn'), referrer:t('s.referrer', 'Referrer'), kusdBuyback:t('s.kusdBuyback', 'KUSD buy-back'), unallocated:t('s.unallocated', 'Unallocated') };
+                  if (entries.length === 0) return <div className="muted tiny">{t('s.noFeeFlowData', 'Sin datos de fee flow.')}</div>;
                   return entries.map(([k, v]) => {
                     const pct = (v / total) * 100;
                     const color = palette[k] || '#94A3B8';

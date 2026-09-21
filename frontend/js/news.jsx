@@ -294,7 +294,7 @@ function NewsSection() {
             </div>
             <div style={{flex:1, color:'rgba(255,255,255,0.7)', fontSize:13}}>{summary}</div>
             <div style={{display:'flex', alignItems:'center', gap:8}}>
-              <span className="muted tiny">VOL</span>
+              <span className="muted tiny">{t('s.vol', 'VOL')}</span>
               <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:110, accentColor:'#EC4899'}}/>
             </div>
           </div>
@@ -312,8 +312,8 @@ function NewsSection() {
                 <th style={{paddingLeft:20, width:44}}>#</th>
                 <th style={{width:56}}></th>
                 <th>{t('news.episodes')}</th>
-                <th style={{width:140}}>{uiLang === 'es' ? 'Fecha' : 'Date'}</th>
-                <th style={{textAlign:'right', paddingRight:20, width:80}}>Dur</th>
+                <th style={{width:140}}>{uiLang === 'es' ? t('s.date', 'Fecha') : t('s.date2', 'Date')}</th>
+                <th style={{textAlign:'right', paddingRight:20, width:80}}>{t('s.dur', 'Dur')}</th>
               </tr>
             </thead>
             <tbody>

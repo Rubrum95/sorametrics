@@ -225,10 +225,10 @@ function TransfersSection({ tweaks }) {
         const netUnique = Number(networkOverview?.network?.uniqueAddresses) || unique.size;
         return (
           <KpiGrid items={[
-            { label: t('nav.transfers') + ' · 24h', value: netCount.toLocaleString(), sub: 'last 24h' },
-            { label: t('col.volume') + ' · 24h',    value: fmt.usd(netVol), sub: 'across all assets' },
-            { label: 'Top Sender',      value: topSender, valStyle:{fontSize: 18}, sub: topSenderCount ? (topSenderCount + ' transfers') : '—' },
-            { label: 'Counterparties',  value: netUnique.toLocaleString(), sub: 'unique addresses' },
+            { label: t('nav.transfers') + ' · 24h', value: netCount.toLocaleString(), sub: t('s.last24h', 'last 24h') },
+            { label: t('col.volume') + ' · 24h',    value: fmt.usd(netVol), sub: t('s.acrossAllAssets', 'across all assets') },
+            { label: t('s.topSender', 'Top Sender'),      value: topSender, valStyle:{fontSize: 18}, sub: topSenderCount ? (topSenderCount + ' transfers') : '—' },
+            { label: t('s.counterparties', 'Counterparties'),  value: netUnique.toLocaleString(), sub: t('s.uniqueAddresses', 'unique addresses') },
           ]}/>
         );
       })()}
@@ -249,32 +249,32 @@ function TransfersSection({ tweaks }) {
             className="swap-date-input"
             value={dateFilter}
             onChange={e => { setDateFilter(e.target.value); setPage(1); }}
-            title="Filtrar transfers anteriores a esta fecha/hora"
+            title={t('s.showTransfersBeforeThisDate', 'Filtrar transfers anteriores a esta fecha/hora')}
             style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13}}/>
           {dateFilter && (
             <button
               className="btn"
               onClick={() => { setDateFilter(''); setPage(1); }}
-              title="Limpiar filtro de fecha"
+              title={t('s.clearDateFilter', 'Limpiar filtro de fecha')}
               style={{padding:'4px 10px'}}>✕</button>
           )}
           <div className="swaps-filter-spacer"/>
-          <span className="tag">{(total ?? rows.length).toLocaleString()} transfers{loading ? ' · cargando' : ''}</span>
-          <button className="btn" onClick={refresh} disabled={loading} title="Actualizar">↻ Refresh</button>
+          <span className="tag">{(total ?? rows.length).toLocaleString()} transfers{loading ? t('s.loading3', ' · cargando') : ''}</span>
+          <button className="btn" onClick={refresh} disabled={loading} title={t('common.refresh', 'Actualizar')}>{t('s.refresh', '↻ Refresh')}</button>
         </div>
 
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft: 20}}>Time</th>
-                <th>Block</th>
-                <th>Asset</th>
-                <th>From</th>
+                <th style={{paddingLeft: 20}}>{t('col.time', 'Time')}</th>
+                <th>{t('gov.scheduler.block', 'Block')}</th>
+                <th>{t('col.asset', 'Asset')}</th>
+                <th>{t('drill.from', 'From')}</th>
                 <th>To</th>
-                <th style={{textAlign:'right'}}>Amount</th>
-                <th style={{textAlign:'right'}}>Fee</th>
-                <th style={{paddingRight: 20}}>Memo</th>
+                <th style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
+                <th style={{textAlign:'right'}}>{t('drill.fee', 'Fee')}</th>
+                <th style={{paddingRight: 20}}>{t('col.memo', 'Memo')}</th>
               </tr>
             </thead>
             <tbody>
@@ -414,10 +414,10 @@ function BridgesSection({ tweaks }) {
         const netAssets = Number(networkOverview?.network?.bridgesAssets) || uniqueAssets;
         return (
           <KpiGrid items={[
-            { label:'Bridge Vol · 24h', value: fmt.usd(netVol), sub: 'across ' + networks.size + ' networks' },
-            { label:'Assets Bridged',   value: String(netAssets), sub: 'unique assets' },
-            { label:'Pending Now',      value: String(pending), valStyle:{color:'#F5B041'}, sub: 'awaiting confirmations' },
-            { label:'Networks',         value: networks.size > 0 ? [...networks].slice(0,3).join(', ') : '—', valStyle:{fontSize: 18}, sub: 'active counterparties' },
+            { label:t('s.bridgeVol24h', 'Bridge Vol · 24h'), value: fmt.usd(netVol), sub: t('s.acrossNNetworks', 'across {n} networks').replace('{n}', networks.size) },
+            { label:t('s.assetsBridged', 'Assets Bridged'),   value: String(netAssets), sub: t('s.uniqueAssets', 'unique assets') },
+            { label:t('s.pendingNow', 'Pending Now'),      value: String(pending), valStyle:{color:'#F5B041'}, sub: t('s.awaitingConfirmations', 'awaiting confirmations') },
+            { label:t('s.networks', 'Networks'),         value: networks.size > 0 ? [...networks].slice(0,3).join(', ') : '—', valStyle:{fontSize: 18}, sub: t('s.activeCounterparties', 'active counterparties') },
           ]}/>
         );
       })()}
@@ -426,10 +426,10 @@ function BridgesSection({ tweaks }) {
         <div className="swaps-filter-bar">
           <div className="status-toggle">
             {[
-              {id:'all', label:'All'},
-              {id:'done', label:'✓ Done'},
-              {id:'pending', label:'⏳ Pending'},
-              {id:'failed', label:'✗ Failed'},
+              {id:'all', label:t('chip.all', 'All')},
+              {id:'done', label:t('s.done', '✓ Done')},
+              {id:'pending', label:t('s.pending', '⏳ Pending')},
+              {id:'failed', label:t('s.failed', '✗ Failed')},
             ].map(o => (
               <button key={o.id} className={'status-opt' + (statusF === o.id ? ' active' : '') + ' ' + o.id}
                 onClick={() => { setStatusF(o.id); setPage(1); }}>{o.label}</button>
@@ -460,9 +460,9 @@ function BridgesSection({ tweaks }) {
               <select
                 value={networkF}
                 onChange={e => { setNetworkF(e.target.value); setPage(1); }}
-                title="Filtrar por red"
+                title={t('s.filterByNetwork', 'Filtrar por red')}
                 style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, cursor:'pointer'}}>
-                <option value="all">Todas las redes</option>
+                <option value="all">{t('s.allNetworks', 'Todas las redes')}</option>
                 {allNets.map(n => (
                   <option key={n} value={n}>{n}{counts[n] ? '' : ' (0)'}</option>
                 ))}
@@ -474,27 +474,27 @@ function BridgesSection({ tweaks }) {
             className="swap-date-input"
             value={dateFilter}
             onChange={e => { setDateFilter(e.target.value); setPage(1); }}
-            title="Filtrar bridges anteriores a esta fecha/hora"
+            title={t('s.showBridgesBeforeThisDate', 'Filtrar bridges anteriores a esta fecha/hora')}
             style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13}}/>
           {dateFilter && (
-            <button className="btn" onClick={() => { setDateFilter(''); setPage(1); }} style={{padding:'4px 10px'}} title="Limpiar">✕</button>
+            <button className="btn" onClick={() => { setDateFilter(''); setPage(1); }} style={{padding:'4px 10px'}} title={t('common.clear', 'Limpiar')}>✕</button>
           )}
           <div className="swaps-filter-spacer"/>
-          <span className="tag">{(total ?? rows.length).toLocaleString()} bridges{loading ? ' · cargando' : ''}</span>
-          <button className="btn" onClick={refresh} disabled={loading} title="Actualizar">↻ Refresh</button>
+          <span className="tag">{(total ?? rows.length).toLocaleString()} bridges{loading ? t('s.loading3', ' · cargando') : ''}</span>
+          <button className="btn" onClick={refresh} disabled={loading} title={t('common.refresh', 'Actualizar')}>{t('s.refresh', '↻ Refresh')}</button>
         </div>
 
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft: 20}}>Time</th>
-                <th>Dir</th>
-                <th>Asset</th>
-                <th>Route</th>
+                <th style={{paddingLeft: 20}}>{t('col.time', 'Time')}</th>
+                <th>{t('s.dir', 'Dir')}</th>
+                <th>{t('col.asset', 'Asset')}</th>
+                <th>{t('s.route', 'Route')}</th>
                 <th>By</th>
-                <th style={{textAlign:'right'}}>Amount</th>
-                <th style={{textAlign:'center'}}>Status</th>
+                <th style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
+                <th style={{textAlign:'center'}}>{t('drill.status', 'Status')}</th>
                 <th style={{paddingRight:20}}>Tx</th>
               </tr>
             </thead>
@@ -530,7 +530,7 @@ function BridgesSection({ tweaks }) {
                       if (!soraAddr) return <span className="muted tiny">—</span>;
                       return (
                         <span className="num tiny"
-                          title={soraAddr + ' · clic para abrir detalle'}
+                          title={soraAddr + ' · ' + t('s.clickToOpenDetail', 'clic para abrir detalle')}
                           onClick={(e) => {
                             e.stopPropagation();
                             window.openWalletDetails?.(soraAddr);
@@ -546,7 +546,7 @@ function BridgesSection({ tweaks }) {
                   </td>
                   <td data-label="Status" style={{textAlign:'center'}}>
                     <span className={'br-status ' + r.status}>
-                      {r.status === 'done' ? '✓ Done' : r.status === 'pending' ? '⏳ Pending' : '✗ Failed'}
+                      {r.status === 'done' ? t('s.done', '✓ Done') : r.status === 'pending' ? t('s.pending', '⏳ Pending') : t('s.failed', '✗ Failed')}
                     </span>
                   </td>
                   <td data-label="Tx" style={{paddingRight:20}}>
@@ -653,10 +653,10 @@ function OrderBookSection({ tweaks }) {
       </PageHeader>
 
       <KpiGrid items={[
-        { label:'Fills (recent)', value: String(fills.length), sub: 'from /history/global/orderbook' },
-        { label:'Spread',         value: spread != null ? spread.toFixed(1) : '—', unit: spread != null ? 'bps' : '', valStyle:{color:'#F5B041'} },
-        { label:'Mid price',      value: mid != null ? mid.toFixed(6) : '—', unit: mid != null ? quote : '', sub: 'avg(last buy, last sell)' },
-        { label:'Last Fill',      value: fills[0] ? fills[0].side.toUpperCase() : '—', valStyle:{color: fills[0]?.side === 'buy' ? '#10B981' : '#EF4444'}, sub: fills[0] ? fmt.ago(fills[0].ts) : '' },
+        { label:t('s.fillsRecent', 'Fills (recent)'), value: String(fills.length), sub: 'from /history/global/orderbook' },
+        { label:t('s.spread', 'Spread'),         value: spread != null ? spread.toFixed(1) : '—', unit: spread != null ? 'bps' : '', valStyle:{color:'#F5B041'} },
+        { label:t('s.midPrice', 'Mid price'),      value: mid != null ? mid.toFixed(6) : '—', unit: mid != null ? quote : '', sub: t('s.avgLastBuyLastSell', 'avg(last buy, last sell)') },
+        { label:t('s.lastFill', 'Last Fill'),      value: fills[0] ? fills[0].side.toUpperCase() : '—', valStyle:{color: fills[0]?.side === 'buy' ? '#10B981' : '#EF4444'}, sub: fills[0] ? fmt.ago(fills[0].ts) : '' },
       ]}/>
 
       {/* Honest disclosure: SORA has no public orderbook-snapshot endpoint, so
@@ -672,25 +672,25 @@ function OrderBookSection({ tweaks }) {
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> Recent Fills · {pair}</div>
+          <div className="card-title"><span className="dot"/> {t('s.recentFills', 'Recent Fills ·')} {pair}</div>
           <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> live</span>
         </div>
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft:20}}>Time</th>
-                <th>Side</th>
-                <th style={{textAlign:'right'}}>Price</th>
-                <th style={{textAlign:'right'}}>Amount</th>
-                <th style={{textAlign:'right', paddingRight:20}}>Total</th>
+                <th style={{paddingLeft:20}}>{t('col.time', 'Time')}</th>
+                <th>{t('s.side', 'Side')}</th>
+                <th style={{textAlign:'right'}}>{t('col.price', 'Price')}</th>
+                <th style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
+                <th style={{textAlign:'right', paddingRight:20}}>{t('col.total', 'Total')}</th>
               </tr>
             </thead>
             <tbody>
               {fills.map((f, i) => (
                 <tr key={i} className="clickable" onClick={() => open({type:'order', title:`${f.side.toUpperCase()} · ${pair}`, side:f.side, pair, size:f.amount, price:f.price, ts:f.ts, hash:f.hash, wallet:f.wallet, caller:f.wallet, event:f.eventType})}>
                   <td data-label="Time" style={{paddingLeft:20}}><span className="muted tiny" title={fmt.fullDate(f.ts)}>{fmt.ago(f.ts)}</span></td>
-                  <td data-label="Side"><span className={'fill-side ' + f.side}>{f.side === 'buy' ? '▲ BUY' : '▼ SELL'}</span></td>
+                  <td data-label="Side"><span className={'fill-side ' + f.side}>{f.side === 'buy' ? t('s.buy', '▲ BUY') : t('s.sell', '▼ SELL')}</span></td>
                   <td data-label="Price" style={{textAlign:'right'}} className="num">{f.price.toFixed(4)}</td>
                   <td data-label="Amount" style={{textAlign:'right'}} className="num">{f.amount.toFixed(2)}</td>
                   <td data-label="Total" style={{textAlign:'right', paddingRight:20}} className="num">{(f.price * f.amount).toFixed(2)}</td>
@@ -705,18 +705,18 @@ function OrderBookSection({ tweaks }) {
           Matches v1's standalone Orderbook tab (Placed/Canceled/Executed/Filled/Market). */}
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> Todos los eventos</div>
+          <div className="card-title"><span className="dot"/> {t('s.allEvents', 'Todos los eventos')}</div>
           <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              title="Tipo de evento"
+              title={t('s.eventType', 'Tipo de evento')}
               style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, cursor:'pointer'}}>
-              <option value="">All Types</option>
-              <option value="placed">Placed</option>
-              <option value="canceled">Canceled</option>
-              <option value="executed">Executed</option>
-              <option value="filled">Filled</option>
+              <option value="">{t('s.allTypes', 'All Types')}</option>
+              <option value="placed">{t('s.placed', 'Placed')}</option>
+              <option value="canceled">{t('s.canceled', 'Canceled')}</option>
+              <option value="executed">{t('s.executed', 'Executed')}</option>
+              <option value="filled">{t('s.filled', 'Filled')}</option>
               <option value="market">Market</option>
             </select>
             <input
@@ -724,33 +724,33 @@ function OrderBookSection({ tweaks }) {
               className="swap-date-input"
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
-              title="Filtrar eventos anteriores a esta fecha/hora"
+              title={t('pool.activity.dateFilterTip', 'Filtrar eventos anteriores a esta fecha/hora')}
               style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13}}/>
             {dateFilter && (
-              <button className="btn" onClick={() => setDateFilter('')} style={{padding:'4px 10px'}} title="Limpiar">✕</button>
+              <button className="btn" onClick={() => setDateFilter('')} style={{padding:'4px 10px'}} title={t('common.clear', 'Limpiar')}>✕</button>
             )}
-            <span className="tag">{(rawOrders || []).length} eventos{loading ? ' · cargando' : ''}</span>
-            <button className="btn" onClick={refresh} disabled={loading} title="Actualizar">↻ Refresh</button>
+            <span className="tag">{(rawOrders || []).length} eventos{loading ? t('s.loading3', ' · cargando') : ''}</span>
+            <button className="btn" onClick={refresh} disabled={loading} title={t('common.refresh', 'Actualizar')}>{t('s.refresh', '↻ Refresh')}</button>
           </div>
         </div>
         <div className="swaps-table-wrap">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft:20}}>Hora</th>
-                <th>Bloque</th>
-                <th>Tipo</th>
-                <th>Par</th>
-                <th>Lado</th>
-                <th style={{textAlign:'right'}}>Precio</th>
-                <th style={{textAlign:'right'}}>Cantidad</th>
+                <th style={{paddingLeft:20}}>{t('explorer.col.time', 'Hora')}</th>
+                <th>{t('gov.scheduler.block', 'Bloque')}</th>
+                <th>{t('pool.col.type', 'Tipo')}</th>
+                <th>{t('col.pair', 'Par')}</th>
+                <th>{t('s.side2', 'Lado')}</th>
+                <th style={{textAlign:'right'}}>{t('col.price', 'Precio')}</th>
+                <th style={{textAlign:'right'}}>{t('drill.amount', 'Cantidad')}</th>
                 <th style={{paddingRight:20}}>Wallet</th>
               </tr>
             </thead>
             <tbody>
               {(rawOrders || []).length === 0 && (
                 <tr><td colSpan={8} style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>
-                  {loading ? 'Cargando eventos...' : 'Sin eventos para este filtro'}
+                  {loading ? t('s.loadingEvents', 'Cargando eventos...') : t('s.noEventsForThisFilter', 'Sin eventos para este filtro')}
                 </td></tr>
               )}
               {(rawOrders || []).slice(0, 50).map((o, i) => {
@@ -767,7 +767,7 @@ function OrderBookSection({ tweaks }) {
                     <td><a className="block-link num" href="#" onClick={e => e.preventDefault()}>#{(o.block || 0).toLocaleString()}</a></td>
                     <td><span className="tag">{o.event_type || '—'}</span></td>
                     <td><TokenPair a={baseSym} b={quoteSym} logoA={TOKEN_LOGOS[baseSym]} logoB={TOKEN_LOGOS[quoteSym]}/></td>
-                    <td><span className={'fill-side ' + side}>{side === 'buy' ? '▲ BUY' : side === 'sell' ? '▼ SELL' : '—'}</span></td>
+                    <td><span className={'fill-side ' + side}>{side === 'buy' ? t('s.buy', '▲ BUY') : side === 'sell' ? t('s.sell', '▼ SELL') : '—'}</span></td>
                     <td style={{textAlign:'right'}} className="num">{Number(o.price || 0).toFixed(6)}</td>
                     <td style={{textAlign:'right'}} className="num">{Number(o.amount || 0).toFixed(4)}</td>
                     <td style={{paddingRight:20}}>
@@ -870,12 +870,12 @@ function PoolsSection({ tweaks }) {
       </PageHeader>
 
       <KpiGrid items={[
-        { label:'Total TVL (page)', value: fmt.usd(totalTvl), sub:'sum of visible pools' },
-        { label:'Total Pools',      value: String(total), sub:'across all 4 DEX' },
-        { label:'Top Pool',         value: pools[0] ? (pools[0].base.symbol + '/' + pools[0].target.symbol) : '—',
+        { label:t('s.totalTvlPage', 'Total TVL (page)'), value: fmt.usd(totalTvl), sub:t('s.sumOfVisiblePools', 'sum of visible pools') },
+        { label:t('s.totalPools', 'Total Pools'),      value: String(total), sub:t('s.acrossAll4Dex', 'across all 4 DEX') },
+        { label:t('s.topPool', 'Top Pool'),         value: pools[0] ? (pools[0].base.symbol + '/' + pools[0].target.symbol) : '—',
           pair: pools[0] ? { a: pools[0].base.symbol, b: pools[0].target.symbol } : null,
           sub: pools[0] ? fmt.usd(pools[0].totalUsd) : '' },
-        { label:'DEX Filter',       value: baseFilter === 'all' ? 'Todo' : baseFilter, sub: baseFilter === 'all' ? 'all 4 DEX' : 'DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') },
+        { label:t('s.dexFilter', 'DEX Filter'),       value: baseFilter === 'all' ? 'Todo' : baseFilter, sub: baseFilter === 'all' ? 'all 4 DEX' : 'DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') },
       ]}/>
 
       {/* DEX filter pills — Todo + 4 base-asset pills (XOR/XST/KUSD/VXOR). */}
@@ -883,9 +883,9 @@ function PoolsSection({ tweaks }) {
         <div
           className={'filter-chip' + (baseFilter === 'all' ? ' active' : '')}
           onClick={() => setBaseFilter('all')}
-          title="Todos los DEX"
+          title={t('s.allDexes', 'Todos los DEX')}
           style={{cursor:'pointer'}}>
-          Todo
+          {t('chip.all', 'Todo')}
         </div>
         {DEX_BASES.map(d => (
           <div
@@ -903,18 +903,18 @@ function PoolsSection({ tweaks }) {
 
       <div className="card">
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> {baseFilter === 'all' ? 'Todos los pools' : baseFilter + ' / … (DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') + ')'}</div>
-          <span className="tag">{total} pools · página {page} de {totalPages}</span>
+          <div className="card-title"><span className="dot"/> {baseFilter === 'all' ? t('s.allPools', 'Todos los pools') : baseFilter + ' / … (DEX ' + (DEX_BASES.find(d => d.base === baseFilter)?.dex ?? '?') + ')'}</div>
+          <span className="tag">{total} {t('s.poolsPage', 'pools · página')} {page} de {totalPages}</span>
         </div>
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
             <thead>
               <tr>
-                <th style={{paddingLeft: 20}}>Par</th>
-                <th style={{textAlign:'right'}}>Reservas</th>
-                <th style={{textAlign:'right'}}>Total</th>
-                <th style={{textAlign:'center'}}>Providers</th>
-                <th style={{textAlign:'center', paddingRight: 20}}>Activity</th>
+                <th style={{paddingLeft: 20}}>{t('col.pair', 'Par')}</th>
+                <th style={{textAlign:'right'}}>{t('s.reserves', 'Reservas')}</th>
+                <th style={{textAlign:'right'}}>{t('col.total', 'Total')}</th>
+                <th style={{textAlign:'center'}}>{t('s.providers', 'Providers')}</th>
+                <th style={{textAlign:'center', paddingRight: 20}}>{t('nav.balance', 'Activity')}</th>
               </tr>
             </thead>
             <tbody>
@@ -935,16 +935,16 @@ function PoolsSection({ tweaks }) {
                     {fmt.usd(p.totalUsd)}
                   </td>
                   <td data-label="Providers" style={{textAlign:'center'}}>
-                    <button className="btn" onClick={() => setProvidersModal({ base: p.base, target: p.target })}>Providers</button>
+                    <button className="btn" onClick={() => setProvidersModal({ base: p.base, target: p.target })}>{t('s.providers', 'Providers')}</button>
                   </td>
                   <td data-label="Activity" style={{textAlign:'center', paddingRight: 20}}>
-                    <button className="btn" onClick={() => setActivityModal({ base: p.base, target: p.target })}>Activity</button>
+                    <button className="btn" onClick={() => setActivityModal({ base: p.base, target: p.target })}>{t('nav.balance', 'Activity')}</button>
                   </td>
                 </tr>
               ))}
               {pools.length === 0 && (
                 <tr><td colSpan="5" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>
-                  Cargando pools…
+                  {t('s.loadingPools', 'Cargando pools…')}
                 </td></tr>
               )}
             </tbody>
@@ -1128,6 +1128,7 @@ function GlobalLiquidityActivity() {
 // Prod endpoint: /pool/providers?base=<id>&target=<id>
 // Response shape: { providers: [{ address, balance, share }], totalProviders, ... }
 function PoolProvidersModal({ base, target, onClose }) {
+  const t = useT();
   const [data, setData] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -1142,14 +1143,14 @@ function PoolProvidersModal({ base, target, onClose }) {
     <div className="sm-modal-backdrop" onClick={onClose}>
       <div className="sm-modal" style={{width: 620}} onClick={e => e.stopPropagation()}>
         <div className="sm-modal-head">
-          <h3 style={{margin:0}}>Providers · {base.symbol}/{target.symbol}</h3>
+          <h3 style={{margin:0}}>{t('s.providers2', 'Providers ·')} {base.symbol}/{target.symbol}</h3>
           <button className="sm-modal-x" onClick={onClose}>×</button>
         </div>
         <div className="sm-modal-body">
-          {!data ? <div className="muted">Cargando…</div> :
-            providers.length === 0 ? <div className="muted">Sin proveedores retornados por prod.</div> :
+          {!data ? <div className="muted">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div> :
+            providers.length === 0 ? <div className="muted">{t('s.noProvidersReturned', 'Sin proveedores retornados por prod.')}</div> :
             <table className="lp-table">
-              <thead><tr><th>#</th><th>Proveedor</th><th style={{textAlign:'right'}}>Balance</th><th style={{textAlign:'right'}}>Share</th></tr></thead>
+              <thead><tr><th>#</th><th>{t('predict.drill.provider', 'Proveedor')}</th><th style={{textAlign:'right'}}>{t('s.balance', 'Balance')}</th><th style={{textAlign:'right'}}>{t('intel.fees.shareCol', 'Share')}</th></tr></thead>
               <tbody>
                 {providers.slice(0, 50).map((p, i) => {
                   const bal = Number(p.balance) || 0;
@@ -1461,7 +1462,7 @@ function TokensSection({ tweaks }) {
           className="icon-btn"
           onClick={refresh}
           disabled={loading}
-          title="Actualizar"
+          title={t('common.refresh', 'Actualizar')}
           style={{background:'none', border:'1px solid var(--border-color)', borderRadius:8, color:'var(--fg-0)', padding:'6px 10px', cursor:'pointer', fontSize:14, opacity: loading ? 0.5 : 1}}>
           {loading ? '⌛' : '⟳'}
         </button>
@@ -1480,7 +1481,7 @@ function TokensSection({ tweaks }) {
       <div className="filter-row" style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', margin:'10px 0 14px'}}>
         <input
           type="text"
-          placeholder="Buscar por nombre, símbolo o ID..."
+          placeholder={t('s.searchByNameSymbolOr', 'Buscar por nombre, símbolo o ID...')}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{flex:1, minWidth:220, padding:'8px 12px', borderRadius:8, border:'1px solid var(--border-color)', background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, outline:'none'}}/>
@@ -1488,7 +1489,7 @@ function TokensSection({ tweaks }) {
           value={timeframe}
           onChange={e => { setTimeframe(e.target.value); setPage(1); }}
           style={{padding:'8px 10px', borderRadius:8, border:'1px solid var(--border-color)', background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, cursor:'pointer'}}
-          title="Timeframe para el % de cambio">
+          title={t('s.timeframeForTheChange', 'Timeframe para el % de cambio')}>
           <option value="1h">1h %</option>
           <option value="4h">4h %</option>
           <option value="24h">24h %</option>
@@ -1497,15 +1498,15 @@ function TokensSection({ tweaks }) {
       </div>
 
       <KpiGrid items={[
-        { label:'Total Tokens',   value: String(tokens.length), sub:'registered' },
-        { label:'Volume · 24H',   value: fmt.usd(vol24h), sub: 'network-wide' },
-        { label:'Top Gainer',     value: gainer.sym, logoSym: gainer.sym !== '—' ? gainer.sym : null, valStyle:{color: '#6EE7B7'}, sub: '+' + gainer.change.toFixed(1) + '% · ' + tfLabel },
-        { label:'Top Loser',      value: loser.sym,  logoSym: loser.sym  !== '—' ? loser.sym  : null, valStyle:{color: '#FCA5A5'}, sub: loser.change.toFixed(1) + '% · ' + tfLabel },
+        { label:t('s.totalTokens', 'Total Tokens'),   value: String(tokens.length), sub:'registered' },
+        { label:t('s.volume24h', 'Volume · 24H'),   value: fmt.usd(vol24h), sub: 'network-wide' },
+        { label:t('s.topGainer', 'Top Gainer'),     value: gainer.sym, logoSym: gainer.sym !== '—' ? gainer.sym : null, valStyle:{color: '#6EE7B7'}, sub: '+' + gainer.change.toFixed(1) + '% · ' + tfLabel },
+        { label:t('s.topLoser', 'Top Loser'),      value: loser.sym,  logoSym: loser.sym  !== '—' ? loser.sym  : null, valStyle:{color: '#FCA5A5'}, sub: loser.change.toFixed(1) + '% · ' + tfLabel },
       ]}/>
 
       {visible.length === 0 && !loading && (
         <div className="card" style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>
-          {searchDebounced ? `No se encontraron tokens para "${searchDebounced}".` : 'No hay tokens disponibles.'}
+          {searchDebounced ? t('s.noTokensFor', 'No se encontraron tokens para "{q}".').replace('{q}', searchDebounced) : t('s.noTokensAvailable', 'No hay tokens disponibles.')}
         </div>
       )}
 
@@ -1518,7 +1519,7 @@ function TokensSection({ tweaks }) {
               className="token-card clickable"
               onClick={() => setChartToken(tk)}
               style={{cursor:'pointer'}}
-              title="Ver gráfico histórico">
+              title={t('s.viewPriceHistoryChart', 'Ver gráfico histórico')}>
               <div className="token-card-head">
                 <TokenBadge sym={tk.sym} logo={tk.logo} size={36}/>
                 <div style={{flex:1, minWidth:0}}>
@@ -1542,16 +1543,16 @@ function TokensSection({ tweaks }) {
                 </svg>
               </div>
               <div className="token-card-foot">
-                <div><span className="muted tiny">Mcap</span><div className="num small">{tk.mcap > 0 ? fmt.usd(tk.mcap, 1) : '—'}</div></div>
-                <div><span className="muted tiny">Supply</span><div className="num small">{tk.supply > 0 ? fmt.num(tk.supply, 1) : '—'}</div></div>
+                <div><span className="muted tiny">{t('s.mcap', 'Mcap')}</span><div className="num small">{tk.mcap > 0 ? fmt.usd(tk.mcap, 1) : '—'}</div></div>
+                <div><span className="muted tiny">{t('col.supply', 'Supply')}</span><div className="num small">{tk.supply > 0 ? fmt.num(tk.supply, 1) : '—'}</div></div>
                 <div>
-                  <span className="muted tiny">Holders</span>
+                  <span className="muted tiny">{t('nav.holders', 'Holders')}</span>
                   <div className="num small">
                     {tk.holders != null && tk.holders > 0 ? (
                       <span
                         style={{cursor:'pointer', textDecoration:'underline dotted'}}
                         onClick={e => { e.stopPropagation(); window.location.hash = '#holders/' + encodeURIComponent(tk.sym); }}
-                        title="Ver holders">
+                        title={t('s.viewHolders', 'Ver holders')}>
                         {fmt.num(tk.holders, 0)}
                       </span>
                     ) : '—'}
@@ -1584,6 +1585,7 @@ function TokensSection({ tweaks }) {
 // Modal with full Chart.js line chart for a single token.
 // Uses /chart/:symbol?res=... to fetch candles.
 function TokenChartModal({ token, onClose }) {
+  const t = useT();
   const canvasRef = React.useRef(null);
   const chartRef = React.useRef(null);
   const [data, setData] = useState(null);
@@ -1658,11 +1660,11 @@ function TokenChartModal({ token, onClose }) {
             ))}
             <button
               onClick={onClose}
-              style={{padding:'4px 12px', border:'1px solid var(--border-color)', borderRadius:6, background:'transparent', color:'var(--fg-0)', cursor:'pointer'}}>Cerrar</button>
+              style={{padding:'4px 12px', border:'1px solid var(--border-color)', borderRadius:6, background:'transparent', color:'var(--fg-0)', cursor:'pointer'}}>{t('common.close', 'Cerrar')}</button>
           </div>
         </div>
         <div style={{height:420, position:'relative'}}>
-          {loading && <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--fg-2)'}}>Cargando gráfico...</div>}
+          {loading && <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--fg-2)'}}>{t('s.loadingChart', 'Cargando gráfico...')}</div>}
           <canvas ref={canvasRef}/>
         </div>
       </div>
@@ -1770,7 +1772,7 @@ function HoldersSection({ tweaks }) {
           rows={holders.map(r => ({
             Rank: r.rank, Address: r.addr, Balance: r.balanceStr || String(r.value),
           }))}/>
-        <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> snapshot · now</span>
+        <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> {t('s.snapshotNow', 'snapshot · now')}</span>
       </PageHeader>
 
       {/* Asset selector: always-visible pills for the 4 main tokens + a
@@ -1795,9 +1797,9 @@ function HoldersSection({ tweaks }) {
                 className={'filter-chip' + (activeExtra ? ' active' : '')}
                 onClick={() => setExtraOpen(o => !o)}
                 style={{cursor:'pointer', fontWeight:600, display:'flex', alignItems:'center', gap:6}}
-                title="Más tokens">
+                title={t('s.moreTokens', 'Más tokens')}>
                 {activeExtra ? <TokenBadge sym={activeExtra.sym} size={18}/> : null}
-                <span>{activeExtra ? activeExtra.sym : 'Más'}</span>
+                <span>{activeExtra ? activeExtra.sym : t('s.more', 'Más')}</span>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="m2 4 3 3 3-3"/>
                 </svg>
@@ -1833,21 +1835,21 @@ function HoldersSection({ tweaks }) {
       </div>
 
       <KpiGrid items={[
-        { label: 'Total Holders', value: totalHolders ? totalHolders.toLocaleString() : '—', sub: 'for ' + asset },
-        { label: 'Top 10 Share',  value: top10Share != null ? top10Share.toFixed(1) : '—', unit: top10Share != null ? '%' : '', sub: 'of page total' },
-        { label: 'Pages',         value: String(totalPages), sub: '25 per page' },
-        { label: 'Current Page',  value: '#' + page + ' of ' + totalPages, sub: 'paginated' },
+        { label: t('s.totalHolders', 'Total Holders'), value: totalHolders ? totalHolders.toLocaleString() : '—', sub: t('s.forAsset', 'for {asset}').replace('{asset}', asset) },
+        { label: t('s.top10Share', 'Top 10 Share'),  value: top10Share != null ? top10Share.toFixed(1) : '—', unit: top10Share != null ? '%' : '', sub: t('s.ofPageTotal', 'of page total') },
+        { label: t('s.pages', 'Pages'),         value: String(totalPages), sub: t('s.25PerPage', '25 per page') },
+        { label: t('s.currentPage', 'Current Page'),  value: '#' + page + ' of ' + totalPages, sub: 'paginated' },
       ]}/>
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header">
           <div className="card-title" style={{display:'flex', alignItems:'center', gap:8}}>
             <span className="dot"/>
-            Top holders ·
+            {t('s.topHolders', 'Top holders ·')}
             <TokenBadge sym={asset} size={20}/>
             <span>{asset}</span>
           </div>
-          <span className="tag" title="The API counts accounts whose free balance is above this threshold, not every account that holds the asset.">{totalHolders} · &gt; {asset === 'XOR' ? '1' : '0.1'} {asset}</span>
+          <span className="tag" title={t('s.theApiCountsAccountsWhose', 'The API counts accounts whose free balance is above this threshold, not every account that holds the asset.')}>{totalHolders} · &gt; {asset === 'XOR' ? '1' : '0.1'} {asset}</span>
         </div>
         <div className="swaps-table-wrap responsive-table">
           <table className="swaps-table">
@@ -1856,12 +1858,12 @@ function HoldersSection({ tweaks }) {
                 <th style={{paddingLeft: 20, width: 56}}>#</th>
                 <th>{t('col.account')}</th>
                 <th>{t('col.identity')}</th>
-                <th style={{textAlign:'right', paddingRight: 20}}>Balance ({asset})</th>
+                <th style={{textAlign:'right', paddingRight: 20}}>{t('s.balance2', 'Balance (')}{asset})</th>
               </tr>
             </thead>
             <tbody>
               {holders.length === 0 && (
-                <tr><td colSpan="4" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>Calculando titulares en la cadena…</td></tr>
+                <tr><td colSpan="4" style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>{t('s.countingHoldersOnChain', 'Calculando titulares en la cadena…')}</td></tr>
               )}
               {holders.map(h => (
                 <tr key={h.rank} className="swap-row clickable"
@@ -2075,9 +2077,9 @@ function StakingSection({ tweaks }) {
         <>
           <KpiGrid items={[
             { label: t('staking.kpi.activeValidators'), value: activeCount + (maxV ? ' / ' + maxV : ''), sub: t('staking.kpi.activeSet') },
-            { label: t('staking.kpi.totalStaked'),      value: fmt.num(totalStake, 0) + ' XOR', sub: 'across active set' },
-            { label: t('staking.kpi.avgCommission'),    value: avgCommission.toFixed(2), unit:'%', sub: 'mean of active set' },
-            { label: t('staking.kpi.era'),              value: stakingMeta?.era != null ? String(stakingMeta.era) : '—', sub: 'current era' },
+            { label: t('staking.kpi.totalStaked'),      value: fmt.num(totalStake, 0) + ' XOR', sub: t('s.acrossActiveSet', 'across active set') },
+            { label: t('staking.kpi.avgCommission'),    value: avgCommission.toFixed(2), unit:'%', sub: t('s.meanOfActiveSet', 'mean of active set') },
+            { label: t('staking.kpi.era'),              value: stakingMeta?.era != null ? String(stakingMeta.era) : '—', sub: t('s.currentEra', 'current era') },
           ]}/>
 
           <div className="card" style={{marginTop: 18}}>
@@ -2088,7 +2090,7 @@ function StakingSection({ tweaks }) {
                   type="text"
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  placeholder="Buscar validator..."
+                  placeholder={t('s.searchValidator', 'Buscar validator...')}
                   style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, width:200, outline:'none'}}/>
                 <span className="tag">{filtered.length} validators</span>
               </div>
@@ -2118,7 +2120,7 @@ function StakingSection({ tweaks }) {
                           cursor: 'pointer',
                           userSelect: 'none',
                         }}
-                        title="Click para ordenar">
+                        title={t('s.clickToSort', 'Click para ordenar')}>
                         {h.label}
                         {sortKey === h.k && <span style={{marginLeft: 4, opacity: 0.7}}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
                       </th>
@@ -2152,7 +2154,7 @@ function StakingSection({ tweaks }) {
                   ))}
                   {visible.length === 0 && (
                     <tr><td colSpan={8} style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>
-                      {search ? `Sin resultados para "${search}".` : 'Cargando validators...'}
+                      {search ? t('s.noResultsFor', 'Sin resultados para "{q}".').replace('{q}', search) : t('s.loadingValidators', 'Cargando validators...')}
                     </td></tr>
                   )}
                 </tbody>
@@ -2193,23 +2195,23 @@ function StakingSection({ tweaks }) {
 
           <div className="card" style={{marginTop: 18}}>
             <div className="card-header">
-              <div className="card-title"><span className="dot"/> Recent blocks <span className="tag ok" style={{marginLeft:8}}><span className="live-dot" style={{width:5,height:5}}/> live</span></div>
-              <span className="tag">{recentBlocks.length} últimos</span>
+              <div className="card-title"><span className="dot"/> {t('s.recentBlocks', 'Recent blocks')} <span className="tag ok" style={{marginLeft:8}}><span className="live-dot" style={{width:5,height:5}}/> live</span></div>
+              <span className="tag">{recentBlocks.length} {t('s.last', 'últimos')}</span>
             </div>
             <div className="swaps-table-wrap">
               <table className="swaps-table">
                 <thead>
                   <tr>
-                    <th style={{paddingLeft:20}}>Bloque</th>
+                    <th style={{paddingLeft:20}}>{t('gov.scheduler.block', 'Bloque')}</th>
                     <th>Hash</th>
-                    <th>Validator</th>
-                    <th>Hora</th>
+                    <th>{t('staking.rewards.perValidator.validator', 'Validator')}</th>
+                    <th>{t('explorer.col.time', 'Hora')}</th>
                     <th style={{paddingRight:20, textAlign:'right'}}>Txs</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentBlocks.length === 0 && (
-                    <tr><td colSpan={5} style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>Esperando bloques...</td></tr>
+                    <tr><td colSpan={5} style={{padding:32, textAlign:'center', color:'var(--fg-2)'}}>{t('s.waitingForBlocks', 'Esperando bloques...')}</td></tr>
                   )}
                   {recentBlocks.map(b => {
                     const bn = b.number || b.block || b.height;
@@ -2432,25 +2434,25 @@ function StakingSection({ tweaks }) {
                 <div className="card-body" style={{padding:'18px 20px'}}>
                   <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:18}}>
                     <div>
-                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>VAL distributed</div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>{t('s.valDistributed', 'VAL distributed')}</div>
                       <div className="num" style={{fontSize:28, fontWeight:700, color:'var(--fg-0)', lineHeight:1.1}}>
                         {fmtValN(tfVal, 4)} <span style={{fontSize:13, color:'var(--fg-2)'}}>VAL</span>
                       </div>
                       <div className="num" style={{fontSize:13, fontWeight:600, color: GREEN, marginTop:2}}>≈ {fmt.usd(tfUsd)}</div>
                     </div>
                     <div>
-                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>Payouts</div>
+                      <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>{t('s.payouts', 'Payouts')}</div>
                       <div className="num" style={{fontSize:28, fontWeight:700, color:'var(--fg-0)', lineHeight:1.1}}>{tfData.payout_count}</div>
-                      <div className="muted tiny" style={{marginTop:2}}>{tfData.validator_count} validators · {tfData.destination_count} recipients</div>
+                      <div className="muted tiny" style={{marginTop:2}}>{tfData.validator_count} {t('s.validators2', 'validators ·')} {tfData.destination_count} recipients</div>
                     </div>
                   </div>
                   <div style={{marginTop:14, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:18, fontSize:11}}>
                     <div>
-                      <div className="muted tiny">Bucket era actual</div>
+                      <div className="muted tiny">{t('s.currentEraBucket', 'Bucket era actual')}</div>
                       <div className="num" style={{fontWeight:700, color:'var(--fg-0)'}}>{fmtValN(toVal(rd?.valBucketCurrentEra), 4)} VAL<InlineUsd usd={valUsdN(toVal(rd?.valBucketCurrentEra))}/></div>
                     </div>
                     <div>
-                      <div className="muted tiny">Unassigned</div>
+                      <div className="muted tiny">{t('s.unassigned', 'Unassigned')}</div>
                       <div className="num" style={{fontWeight:700, color:'var(--fg-0)'}}>{fmtValN(toVal(rd?.valBucketUnassigned), 4)} VAL</div>
                     </div>
                   </div>
@@ -2521,12 +2523,12 @@ function StakingSection({ tweaks }) {
                   <thead>
                     <tr>
                       <th style={{paddingLeft:20, textAlign:'left'}}>{t('staking.rewards.perValidator.validator')}</th>
-                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.commission')}>Comm</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.commission')}>{t('staking.rewards.perValidator.commission', 'Comm')}</th>
                       <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.outstanding')}>
-                        <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'flex-end'}}>Outstanding <ValLogo size={13}/></span>
+                        <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'flex-end'}}>{t('staking.rewards.perValidator.outstanding', 'Outstanding')} <ValLogo size={13}/></span>
                       </th>
                       <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.pendingEras')}>{t('staking.rewards.perValidator.pendingEras')}</th>
-                      <th style={{textAlign:'center', cursor:'help'}} title={t('staking.rewards.tt.claim') + ' (vía precio USD)'}>{t('staking.rewards.perValidator.claim')} $</th>
+                      <th style={{textAlign:'center', cursor:'help'}} title={t('staking.rewards.tt.claim') + ' ' + t('s.viaUsdPrice', '(vía precio USD)')}>{t('staking.rewards.perValidator.claim')} $</th>
                       <th style={{textAlign:'center', cursor:'help'}} title={t('staking.rewards.tt.claim') + ' — ' + t('staking.rewards.tt.claimXorNet')}>
                         <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'center'}}>
                           {t('staking.rewards.perValidator.claim')}
@@ -2535,9 +2537,9 @@ function StakingSection({ tweaks }) {
                           </span>
                         </span>
                       </th>
-                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.valReceived')}>Received</th>
-                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.lastClaim')}>Last claim</th>
-                      <th style={{paddingRight:20, textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.payouts')}>Payouts</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.valReceived')}>{t('s.received', 'Received')}</th>
+                      <th style={{textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.lastClaim')}>{t('staking.rewards.perValidator.lastClaim', 'Last claim')}</th>
+                      <th style={{paddingRight:20, textAlign:'right', cursor:'help'}} title={t('staking.rewards.tt.payouts')}>{t('s.payouts', 'Payouts')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2556,13 +2558,14 @@ function StakingSection({ tweaks }) {
                       const ownOutVal = toVal(v.ownOutstanding);
                       const ownOutXor = (rd?.valPrice && rd?.xorPrice) ? ownOutVal * rd.valPrice / rd.xorPrice : 0;
                       const claimCostXor = pendingEras * PAYOUT_FEE_XOR;
-                      let claimColor = 'var(--fg-2)', claimPct = null, claimTitle = 'Nada pendiente de reclamar';
+                      let claimColor = 'var(--fg-2)', claimPct = null, claimTitle = t('s.nothingToClaim', 'Nada pendiente de reclamar');
                       if (pendingEras > 0 && claimCostXor > 0) {
                         const net = ownOutXor - claimCostXor;
                         const ratio = net / claimCostXor;
                         claimPct = ratio * 100;
                         claimColor = ratio < 0 ? '#EF4444' : ratio < 0.03 ? '#F5B041' : GREEN;
-                        claimTitle = `${pendingEras} era(s) pendiente(s) × ${PAYOUT_FEE_XOR} = ${claimCostXor.toFixed(4)} XOR coste · validador cobra ${ownOutXor.toFixed(4)} XOR (${ownOutVal.toFixed(2)} VAL) · neto ${net >= 0 ? '+' : ''}${net.toFixed(4)} XOR`;
+                        claimTitle = t('s.claimTip', '{eras} era(s) pendiente(s) × {fee} = {cost} XOR coste · validador cobra {out} XOR ({val} VAL) · neto {net} XOR')
+                          .replace('{eras}', pendingEras).replace('{fee}', PAYOUT_FEE_XOR).replace('{cost}', claimCostXor.toFixed(4)).replace('{out}', ownOutXor.toFixed(4)).replace('{val}', ownOutVal.toFixed(2)).replace('{net}', (net >= 0 ? '+' : '') + net.toFixed(4));
                       }
                       // Cap the displayed ratio so it stays legible (anything >500% is just "very profitable").
                       const claimLabel = claimPct == null ? '—'
@@ -2572,12 +2575,13 @@ function StakingSection({ tweaks }) {
                       // reward VAL converted at the direct DEX rate, minus the XOR fee. Distinct from
                       // the $ column's %, which is currency-invariant (showing the same % twice is moot).
                       const ownOutXorDirect = rd?.valToXorRate ? ownOutVal * rd.valToXorRate : 0;
-                      let claimColorXV = 'var(--fg-2)', netXorXV = null, claimTitleXV = 'Ratio DEX no disponible';
+                      let claimColorXV = 'var(--fg-2)', netXorXV = null, claimTitleXV = t('s.dexRateUnavailable', 'Ratio DEX no disponible');
                       if (pendingEras > 0 && claimCostXor > 0 && rd?.valToXorRate) {
                         netXorXV = ownOutXorDirect - claimCostXor;
                         const ratioXV = netXorXV / claimCostXor;
                         claimColorXV = ratioXV < 0 ? '#EF4444' : ratioXV < 0.03 ? '#F5B041' : GREEN;
-                        claimTitleXV = `${pendingEras} era(s) × ${PAYOUT_FEE_XOR} = ${claimCostXor.toFixed(4)} XOR coste · cobra ${ownOutXorDirect.toFixed(4)} XOR (${ownOutVal.toFixed(2)} VAL × ${rd.valToXorRate.toExponential(3)} XOR/VAL directo del DEX) · neto ${netXorXV >= 0 ? '+' : ''}${netXorXV.toFixed(4)} XOR`;
+                        claimTitleXV = t('s.claimTipXV', '{eras} era(s) × {fee} = {cost} XOR coste · cobra {out} XOR ({val} VAL × {rate} XOR/VAL directo del DEX) · neto {net} XOR')
+                          .replace('{eras}', pendingEras).replace('{fee}', PAYOUT_FEE_XOR).replace('{cost}', claimCostXor.toFixed(4)).replace('{out}', ownOutXorDirect.toFixed(4)).replace('{val}', ownOutVal.toFixed(2)).replace('{rate}', rd.valToXorRate.toExponential(3)).replace('{net}', (netXorXV >= 0 ? '+' : '') + netXorXV.toFixed(4));
                       }
                       const claimLabelXV = netXorXV == null ? '—'
                         : (netXorXV >= 0 ? '+' : '') + netXorXV.toFixed(4);
@@ -2684,7 +2688,7 @@ function StakingSection({ tweaks }) {
                             </div>
                             {/* Metrics — wrap to next line on mobile */}
                             <div style={{display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', justifyContent:'flex-end', flex:'0 0 auto'}}>
-                              <span className="num tiny" style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}% comm</span>
+                              <span className="num tiny" style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}{t('s.comm', '% comm')}</span>
                               <span className="num" style={{fontSize:11, color:'var(--fg-2)'}}>{v.yieldPerXorEra > 0.0001 ? v.yieldPerXorEra.toFixed(6) : v.yieldPerXorEra.toExponential(2)} <span style={{opacity:0.7}}>VAL/XOR/era</span></span>
                               <span className="num" style={{fontSize:13, fontWeight:700, color: v.aprPct > 5 ? GREEN : 'var(--fg-0)'}}>{v.aprPct.toFixed(2)}% <span style={{fontSize:10, color:'var(--fg-2)'}}>APR</span></span>
                             </div>
@@ -2702,14 +2706,14 @@ function StakingSection({ tweaks }) {
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.stakingRatio')}</div>
                           <div className="num" style={{fontSize:18, fontWeight:700, color:'var(--fg-0)'}}>{stakingRatio > 0.0001 ? stakingRatio.toFixed(4) + '%' : stakingRatio.toExponential(2) + '%'}</div>
-                          <div className="muted tiny" style={{fontSize:10}}>{fmt.num(totalStakedN, 0)} staked / {totalIssuanceN > 1e15 ? totalIssuanceN.toExponential(2) : fmt.num(totalIssuanceN, 0)} XOR total</div>
+                          <div className="muted tiny" style={{fontSize:10}}>{fmt.num(totalStakedN, 0)} {t('s.staked2', 'staked /')} {totalIssuanceN > 1e15 ? totalIssuanceN.toExponential(2) : fmt.num(totalIssuanceN, 0)} {t('s.xorTotal', 'XOR total')}</div>
                         </div>
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.medianApr')}</div>
                           <div className="num" style={{fontSize:18, fontWeight:700, color: medianAPR != null ? (medianAPR > 5 ? GREEN : 'var(--fg-0)') : 'var(--fg-2)'}}>
                             {medianAPR != null ? medianAPR.toFixed(2) + '%' : '—'}
                           </div>
-                          <div className="muted tiny" style={{fontSize:10}}>{aprValues.length} validators con yield real</div>
+                          <div className="muted tiny" style={{fontSize:10}}>{aprValues.length} {t('s.validatorsWithRealYield', 'validators con yield real')}</div>
                         </div>
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('staking.rewards.smart.rewardsEra')}</div>
@@ -2717,7 +2721,7 @@ function StakingSection({ tweaks }) {
                             {fmt.num(bucketRewards, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>VAL</span>
                             <InlineUsd usd={valUsdN(bucketRewards)}/>
                           </div>
-                          <div className="muted tiny" style={{fontSize:10}}>era {rd?.era} · 90% se redistribuye</div>
+                          <div className="muted tiny" style={{fontSize:10}}>era {rd?.era} {t('s.90IsRedistributed', '· 90% se redistribuye')}</div>
                         </div>
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3, color: ORANGE}}>{t('staking.rewards.smart.deflation')}</div>
@@ -3052,8 +3056,8 @@ function GovSection({ tweaks }) {
                 <div style={{fontSize:15, fontWeight:700, color:'var(--fg-0)', marginBottom: 10}}>{m.title}</div>
                 <div className="muted tiny">{t('gov.motions.proposedBy', 'Propuesta por')} <strong>{m.proposer}</strong></div>
                 <div className="vote-bar" style={{marginTop: 12}}>
-                  <div className="vote-aye" style={{flex: m.votes.aye}}>✓ {m.votes.aye} AYE</div>
-                  <div className="vote-nay" style={{flex: m.votes.nay || 0.3}}>✗ {m.votes.nay} NAY</div>
+                  <div className="vote-aye" style={{flex: m.votes.aye}}>✓ {m.votes.aye} {t('gov.col.aye', 'AYE')}</div>
+                  <div className="vote-nay" style={{flex: m.votes.nay || 0.3}}>✗ {m.votes.nay} {t('gov.col.nay', 'NAY')}</div>
                 </div>
               </div>
             ))}
@@ -3083,8 +3087,8 @@ function GovSection({ tweaks }) {
                     {r.nay > 0 && <div className="vote-nay" style={{flex: r.nay, whiteSpace:'nowrap', overflow:'hidden'}}>✗ {r.nay}%</div>}
                   </div>
                   <div style={{display:'flex', gap:16, marginTop:5, fontSize:11}}>
-                    <span style={{color:'#4ADE80'}}>✓ AYE · {r.ayesLabel}</span>
-                    {r.nay > 0 && <span style={{color:'#F87171'}}>✗ NAY · {r.naysLabel}</span>}
+                    <span style={{color:'#4ADE80'}}>{t('s.aye', '✓ AYE ·')} {r.ayesLabel}</span>
+                    {r.nay > 0 && <span style={{color:'#F87171'}}>{t('s.nay', '✗ NAY ·')} {r.naysLabel}</span>}
                   </div>
                 </div>
               ))}
@@ -3295,10 +3299,10 @@ function PreimagesPanel() {
           <thead>
             <tr>
               <th style={{paddingLeft:20}}>Hash</th>
-              <th>Action</th>
-              <th>Status</th>
+              <th>{t('predict.drill.action', 'Action')}</th>
+              <th>{t('drill.status', 'Status')}</th>
               <th style={{textAlign:'right'}}>{t('gov.preimages.size', 'Tamaño')}</th>
-              <th>Author</th>
+              <th>{t('s.author', 'Author')}</th>
               <th style={{textAlign:'right'}}>{t('gov.preimages.deposit', 'Depósito')}</th>
               <th>{t('gov.preimages.published', 'Publicada')}</th>
               <th>Ref.</th>
@@ -3354,13 +3358,13 @@ function PreimagesPanel() {
                       <span
                         style={{cursor:'pointer', color:'var(--accent)', textDecoration:'underline dotted'}}
                         onClick={() => setRefModal({ id: link.refId })}
-                        title="Abrir detalle del referendum">
+                        title={t('s.openReferendumDetails', 'Abrir detalle del referendum')}>
                         Ref #{link.refId}
                       </span>
                     )}
                   </td>
                   <td style={{paddingRight:20, whiteSpace:'nowrap'}}>
-                    <button className="btn" style={{padding:'4px 10px', marginRight:4}} onClick={(e) => { e.stopPropagation(); console.log('[Preimages] open decode modal', p.hash, p.len); setDecodeModal({ hash: p.hash, len: p.len || 0 }); }}>Decode</button>
+                    <button className="btn" style={{padding:'4px 10px', marginRight:4}} onClick={(e) => { e.stopPropagation(); console.log('[Preimages] open decode modal', p.hash, p.len); setDecodeModal({ hash: p.hash, len: p.len || 0 }); }}>{t('s.decode', 'Decode')}</button>
                     <button className="btn" style={{padding:'4px 10px'}} onClick={(e) => { e.stopPropagation(); console.log('[Preimages] open history modal', p.hash); setHistoryModal({ hash: p.hash }); }}>{t('gov.preimages.history', 'Historial')}</button>
                   </td>
                 </tr>
@@ -3440,12 +3444,12 @@ function ReferendumDetailModal({ refId, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:880, width:'100%', maxHeight:'92vh', overflow:'auto', padding:22, border:'1px solid var(--border-color)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, gap:10, flexWrap:'wrap'}}>
           <div>
-            <h3 style={{margin:0, fontSize:18}}>Referendum #{refId}</h3>
+            <h3 style={{margin:0, fontSize:18}}>{t('s.referendum', 'Referendum #')}{refId}</h3>
             <div className="muted tiny" style={{marginTop:4}}>
-              {ref ? (ref.status + (ref.timeRemaining ? ' · Termina en ' + ref.timeRemaining : '')) : 'Cargando...'}
+              {ref ? (ref.status + (ref.timeRemaining ? ' · ' + t('gov.democracy.endsIn', 'Termina en') + ' ' + ref.timeRemaining : '')) : t('preimage.history.loading', 'Cargando...')}
             </div>
           </div>
-          <button className="btn" onClick={onClose}>Cerrar</button>
+          <button className="btn" onClick={onClose}>{t('common.close', 'Cerrar')}</button>
         </div>
 
         <div style={{display:'flex', gap:4, borderBottom:'1px solid var(--border-color)', marginBottom:14, flexWrap:'wrap'}}>
@@ -3459,31 +3463,31 @@ function ReferendumDetailModal({ refId, onClose }) {
                 borderBottom: tab === k ? '2px solid var(--accent, #10b981)' : '2px solid transparent',
                 cursor:'pointer', fontSize:14,
               }}>
-              {k === 'overview' ? 'Overview' : k === 'timeline' ? 'Timeline' : 'Proposal Preimage'}
+              {k === 'overview' ? t('drill.overview', 'Overview') : k === 'timeline' ? t('s.timeline', 'Timeline') : t('s.proposalPreimage', 'Proposal Preimage')}
             </button>
           ))}
         </div>
 
         {tab === 'overview' && (
           <div>
-            {!ref ? <div className="muted" style={{padding:20, textAlign:'center'}}>Cargando...</div> : (
+            {!ref ? <div className="muted" style={{padding:20, textAlign:'center'}}>{t('preimage.history.loading', 'Cargando...')}</div> : (
               <div>
                 <div style={{background:'rgba(255,255,255,0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:14, marginBottom:12}}>
                   <div style={{display:'grid', gridTemplateColumns:'max-content 1fr', gap:'6px 16px', fontSize:13}}>
-                    <div className="muted">Status</div><div>{ref.status}</div>
-                    <div className="muted">Ends in</div><div>{ref.timeRemaining || '—'}</div>
-                    <div className="muted">End block</div><div className="num">{ref.detail?.end || '—'}</div>
-                    <div className="muted">Threshold</div><div>{ref.detail?.threshold || '—'}</div>
+                    <div className="muted">{t('drill.status', 'Status')}</div><div>{ref.status}</div>
+                    <div className="muted">{t('gov.democracy.endsIn', 'Ends in')}</div><div>{ref.timeRemaining || '—'}</div>
+                    <div className="muted">{t('s.endBlock', 'End block')}</div><div className="num">{ref.detail?.end || '—'}</div>
+                    <div className="muted">{t('gov.col.threshold', 'Threshold')}</div><div>{ref.detail?.threshold || '—'}</div>
                   </div>
                 </div>
                 <div style={{padding:14, border:'1px solid var(--border-color)', borderRadius:8}}>
-                  <div className="muted tiny" style={{marginBottom:6}}>Voting</div>
+                  <div className="muted tiny" style={{marginBottom:6}}>{t('s.voting', 'Voting')}</div>
                   <div className="vote-bar" style={{height: 28}}>
-                    <div className="vote-aye" style={{flex: ayes / total}}>✓ AYE · {fmt.num(ayes / 1e18, 2)}</div>
-                    <div className="vote-nay" style={{flex: nays / total}}>✗ NAY · {fmt.num(nays / 1e18, 2)}</div>
+                    <div className="vote-aye" style={{flex: ayes / total}}>{t('s.aye', '✓ AYE ·')} {fmt.num(ayes / 1e18, 2)}</div>
+                    <div className="vote-nay" style={{flex: nays / total}}>{t('s.nay', '✗ NAY ·')} {fmt.num(nays / 1e18, 2)}</div>
                   </div>
                   <div className="muted tiny" style={{marginTop:8}}>
-                    Participación · {fmt.num(Number(tally.turnout || 0) / 1e18, 2)}
+                    {t('s.turnout', 'Participación ·')} {fmt.num(Number(tally.turnout || 0) / 1e18, 2)}
                   </div>
                 </div>
               </div>
@@ -3495,7 +3499,7 @@ function ReferendumDetailModal({ refId, onClose }) {
           <div>
             {!preimageHistory ? <div className="muted" style={{padding:20, textAlign:'center'}}>{t('preimage.history.loadingTimeline')}</div> : (() => {
               const events = (preimageHistory.events || []).slice().sort((a, b) => a.block - b.block);
-              if (events.length === 0) return <div className="muted" style={{padding:20, textAlign:'center'}}>Sin eventos indexados para este referendum.</div>;
+              if (events.length === 0) return <div className="muted" style={{padding:20, textAlign:'center'}}>{t('s.noIndexedEventsForThis', 'Sin eventos indexados para este referendum.')}</div>;
               return (
                 <div style={{position:'relative', paddingLeft:20}}>
                   <div style={{position:'absolute', top:4, bottom:4, left:6, width:2, background:'var(--border-color)'}}/>
@@ -3528,19 +3532,19 @@ function ReferendumDetailModal({ refId, onClose }) {
                     <div className="muted">Hash</div><div className="num tiny" style={{wordBreak:'break-all'}}>{preimage.hash}</div>
                     <div className="muted">Bytes len</div><div>{preimage.len || '—'}</div>
                     {preimage.decoded && <>
-                      <div className="muted">Module</div><div>{preimage.decoded.section}</div>
-                      <div className="muted">Call</div><div style={{color:'var(--accent)', fontWeight:600}}>{preimage.decoded.method}</div>
+                      <div className="muted">{t('s.module', 'Module')}</div><div>{preimage.decoded.section}</div>
+                      <div className="muted">{t('gov.scheduler.call', 'Call')}</div><div style={{color:'var(--accent)', fontWeight:600}}>{preimage.decoded.method}</div>
                     </>}
                   </div>
                 </div>
                 {preimage.decoded?.args && (
                   <>
-                    <div className="muted tiny" style={{marginBottom:6}}>Parameters</div>
+                    <div className="muted tiny" style={{marginBottom:6}}>{t('s.parameters', 'Parameters')}</div>
                     <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'50vh', fontSize:12}}>{JSON.stringify(preimage.decoded.args, null, 2)}</pre>
                   </>
                 )}
                 {!preimage.decoded && (
-                  <div className="muted" style={{padding:14, textAlign:'center'}}>No se pudo decodificar (bytes no disponibles en storage).</div>
+                  <div className="muted" style={{padding:14, textAlign:'center'}}>{t('s.couldNotDecodeBytesNot', 'No se pudo decodificar (bytes no disponibles en storage).')}</div>
                 )}
               </div>
             )}
@@ -3926,7 +3930,7 @@ function PreimageDecodeModal({ hash, len, onClose }) {
         {loading && <div style={{padding:30, textAlign:'center', color:'var(--fg-2)'}}>{len > 1_000_000 ? t('preimage.decode.decodingLarge') : t('preimage.decode.decoding')}</div>}
         {!loading && fetchErr && (
           <div style={{padding:14, border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, background:'rgba(239,68,68,0.08)'}}>
-            <div style={{color:'#ef4444', fontWeight:700, marginBottom:6}}>Error: {fetchErr}</div>
+            <div style={{color:'#ef4444', fontWeight:700, marginBottom:6}}>{t('s.error', 'Error:')} {fetchErr}</div>
             {is429 && (
               <div style={{color:'var(--fg-2)', fontSize:12, marginBottom:10}}>
                 {t('preimage.decode.rateLimitHint')}
@@ -4187,8 +4191,8 @@ function SchedulerAgendaPanel() {
                   : <span className="muted">?</span>;
               let preimageLabel;
               if (e.lookupHash) {
-                if (e.preimage?.bytesAvailable) preimageLabel = <span style={{color:'#10b981'}}>✓ disponible ({e.preimage.len} bytes)</span>;
-                else if (e.preimage) preimageLabel = <span><span style={{color:'#ef4444', fontWeight:700}}>✗ FALTA</span> <span className="muted tiny">(status: {e.preimage.status || '-'})</span></span>;
+                if (e.preimage?.bytesAvailable) preimageLabel = <span style={{color:'#10b981'}}>{t('s.available', '✓ disponible (')}{e.preimage.len} bytes)</span>;
+                else if (e.preimage) preimageLabel = <span><span style={{color:'#ef4444', fontWeight:700}}>{t('s.missing', '✗ FALTA')}</span> <span className="muted tiny">(status: {e.preimage.status || '-'})</span></span>;
                 else preimageLabel = <span className="muted">?</span>;
               } else {
                 preimageLabel = <span className="muted">n/a (inline)</span>;
@@ -4373,7 +4377,7 @@ function BalanceSection({ tweaks }) {
           onChange={e => setCurrency(e.target.value)}
           className="pill"
           style={{padding:'6px 12px', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', border:'1px solid var(--border-color)', fontSize:13, cursor:'pointer'}}
-          title="Moneda de visualización">
+          title={t('s.displayCurrency', 'Moneda de visualización')}>
           <option value="USD">$ USD</option>
           <option value="EUR">€ EUR</option>
           <option value="XOR">✕ XOR</option>
@@ -4385,12 +4389,12 @@ function BalanceSection({ tweaks }) {
           style={{background:'none', border:'none', color:'var(--fg-0)', fontSize:18, cursor:'pointer', padding:'4px 8px', opacity: hideBalances ? 1 : 0.6}}>
           {hideBalances ? '👁‍🗨' : '👁'}
         </button>
-        <button className="btn primary" onClick={() => setAddOpen(true)}>+ Añadir Wallet</button>
+        <button className="btn primary" onClick={() => setAddOpen(true)}>{t('portfolio.addWallet', '+ Añadir Wallet')}</button>
       </PageHeader>
 
       <Tabs tabs={[
-        { id:'mis', label:'Mis Wallets', count: wallets.length },
-        { id:'vig', label:'Vigiladas', count: watched.length },
+        { id:'mis', label:t('wallet.myWallets', 'Mis Wallets'), count: wallets.length },
+        { id:'vig', label:t('scope.watched', 'Vigiladas'), count: watched.length },
         { id:'swaps', label:'Swaps' },
         { id:'transfers', label:'Transfers' },
         { id:'bridges', label:'Bridges' },
@@ -4403,7 +4407,7 @@ function BalanceSection({ tweaks }) {
 
       {tab === 'mis' && (
         <div className="card" style={{marginTop: 18}}>
-          <div className="card-header"><div className="card-title"><span className="dot"/> Mis Wallets</div></div>
+          <div className="card-header"><div className="card-title"><span className="dot"/> {t('wallet.myWallets', 'Mis Wallets')}</div></div>
           <div className="wallet-list">
             {wallets.map((w, i) => {
               const toks = (w.tokens || []).filter(t => Number(t.amount) > 0);
@@ -4418,7 +4422,7 @@ function BalanceSection({ tweaks }) {
                   <div style={{textAlign:'right'}}>
                     <div className="num" style={{fontWeight:700, fontSize:15}}>{totalUsd > 0 ? '$' + totalUsd.toLocaleString(undefined,{maximumFractionDigits:2}) : '—'}</div>
                     <span className={'tag ' + (toks.length > 0 ? 'ok' : '')} style={{fontSize:10}}>
-                      {toks.length > 0 ? <><span className="live-dot" style={{width:5,height:5}}/> {toks.length} tokens</> : 'sin saldo'}
+                      {toks.length > 0 ? <><span className="live-dot" style={{width:5,height:5}}/> {toks.length} tokens</> : t('s.noBalance', 'sin saldo')}
                     </span>
                   </div>
                 </div>
@@ -4431,8 +4435,8 @@ function BalanceSection({ tweaks }) {
       {tab === 'vig' && (
         <div className="card" style={{marginTop: 18}}>
           <div className="card-header">
-            <div className="card-title"><span className="dot"/> Wallets Vigiladas</div>
-            <span className="tag">solo lectura</span>
+            <div className="card-title"><span className="dot"/> {t('s.watchedWallets', 'Wallets Vigiladas')}</div>
+            <span className="tag">{t('s.readOnly', 'solo lectura')}</span>
           </div>
           <div className="wallet-list">
             {watched.map((w, i) => {
@@ -4443,7 +4447,7 @@ function BalanceSection({ tweaks }) {
                      className="wallet-list-card clickable"
                      style={{cursor:'pointer'}}
                      onClick={() => setDetailWallet(w)}
-                     title="Abrir detalle de la wallet">
+                     title={t('s.openWalletDetails', 'Abrir detalle de la wallet')}>
                   <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#7B5B90,#4A3566)', display:'grid', placeItems:'center', fontWeight:800}}>👁</div>
                   <div style={{flex:1, minWidth: 0}}>
                     <div style={{fontWeight: 700}}>{w.alias}</div>
@@ -4452,7 +4456,7 @@ function BalanceSection({ tweaks }) {
                   <div style={{textAlign:'right'}}>
                     <div className="num" style={{fontWeight:700, fontSize:15}}>{totalUsd > 0 ? '$' + totalUsd.toLocaleString(undefined, {maximumFractionDigits:2}) : '—'}</div>
                     <span className={'tag ' + (toks.length > 0 ? 'ok' : '')} style={{fontSize:10}}>
-                      {toks.length > 0 ? <><span className="live-dot" style={{width:5,height:5}}/> {toks.length} tokens</> : 'sin saldo'}
+                      {toks.length > 0 ? <><span className="live-dot" style={{width:5,height:5}}/> {toks.length} tokens</> : t('s.noBalance', 'sin saldo')}
                     </span>
                   </div>
                 </div>
@@ -4478,6 +4482,7 @@ function BalanceSection({ tweaks }) {
 // per symbol in localStorage ('sm.pegHistory') and plot them with Chart.js.
 // Each sample = { t: ts, KUSD: px, XSTUSD: px, TBCD: px }.
 function PegHistoryChart({ stables }) {
+  const t = useT();
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const [history, setHistory] = useState(() => {
@@ -4539,12 +4544,12 @@ function PegHistoryChart({ stables }) {
   return (
     <div className="card" style={{marginBottom: 18}}>
       <div className="card-header">
-        <div className="card-title"><span className="dot"/> Peg history · KUSD / XSTUSD / TBCD</div>
-        <span className="tag">{history.length} snapshots · ref $1.00</span>
+        <div className="card-title"><span className="dot"/> {t('s.pegHistoryKusdXstusdTbcd', 'Peg history · KUSD / XSTUSD / TBCD')}</div>
+        <span className="tag">{history.length} {t('s.snapshotsRef100', 'snapshots · ref $1.00')}</span>
       </div>
       <div className="card-body" style={{height: 220}}>
         {history.length < 2
-          ? <div className="muted tiny" style={{padding: 20, textAlign:'center'}}>Recogiendo datos… el primer punto se guarda ahora mismo.</div>
+          ? <div className="muted tiny" style={{padding: 20, textAlign:'center'}}>{t('s.collectingDataTheFirstPoint', 'Recogiendo datos… el primer punto se guarda ahora mismo.')}</div>
           : <canvas ref={canvasRef}/>}
       </div>
     </div>
@@ -4610,7 +4615,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
   if (!wallets.length && !watched.length) {
     return (
       <div className="card" style={{marginTop:14, padding:24, textAlign:'center', color:'var(--fg-2)'}}>
-        Añade una wallet (mía o vigilada) para ver su actividad aquí.
+        {t('s.addAWalletOwnOr', 'Añade una wallet (mía o vigilada) para ver su actividad aquí.')}
       </div>
     );
   }
@@ -4704,7 +4709,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
   return (
     <div className="card" style={{marginTop:14}}>
       <div className="card-header" style={{flexWrap:'wrap', gap:10}}>
-        <div className="card-title"><span className="dot"/> {kindTitle} · actividad agregada</div>
+        <div className="card-title"><span className="dot"/> {kindTitle} {t('s.aggregatedActivity', '· actividad agregada')}</div>
         <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
           <div className="status-toggle">
             {[
@@ -4723,8 +4728,8 @@ function AggregatedHistory({ kind, wallets, watched }) {
             value={walletFilter}
             onChange={e => setWalletFilter(e.target.value)}
             style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, cursor:'pointer'}}
-            title="Filtrar por wallet concreta">
-            <option value="all">Todas las wallets</option>
+            title={t('s.filterByASpecificWallet', 'Filtrar por wallet concreta')}>
+            <option value="all">{t('s.allWallets', 'Todas las wallets')}</option>
             {activeSet.map(w => <option key={w.addr} value={w.addr}>{w.alias}</option>)}
           </select>
           <span className="tag">{rows === null ? '…' : filteredRows.length + ' rows'}</span>
@@ -4743,18 +4748,18 @@ function AggregatedHistory({ kind, wallets, watched }) {
           </colgroup>
           <thead>
             <tr>
-              <th style={{paddingLeft:20, whiteSpace:'nowrap'}}>Hora / Bloque</th>
+              <th style={{paddingLeft:20, whiteSpace:'nowrap'}}>{t('s.timeBlock', 'Hora / Bloque')}</th>
               <th style={{whiteSpace:'nowrap'}}>Wallet</th>
-              <th style={{textAlign:'center'}}>Detalle</th>
+              <th style={{textAlign:'center'}}>{t('s.detail2', 'Detalle')}</th>
               <th style={{textAlign:'right', paddingRight:20, whiteSpace:'nowrap'}}>USD</th>
             </tr>
           </thead>
           <tbody>
             {rows === null && (
-              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>Cargando actividad…</td></tr>
+              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>{t('s.loadingActivity', 'Cargando actividad…')}</td></tr>
             )}
             {rows && filteredRows.length === 0 && (
-              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>Sin {kind} recientes para este filtro.</td></tr>
+              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>{t('s.noRecentKindFilter', 'Sin {kind} recientes para este filtro.').replace('{kind}', kind)}</td></tr>
             )}
             {filteredRows.map((r, i) => {
               const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : '');
@@ -4773,7 +4778,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
                     className="clickable"
                     style={{cursor:'pointer', overflow:'hidden'}}
                     onClick={() => window.openWalletDetails?.(r.__walletAddr, r.__walletAlias)}
-                    title="Open wallet details">
+                    title={t('s.openWalletDetails2', 'Open wallet details')}>
                     <div style={{fontWeight:700, fontSize:12, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{r.__walletAlias}</div>
                     <div className="muted tiny num" style={{textDecoration:'underline dotted', marginTop:2, whiteSpace:'nowrap'}}>
                       <span style={{marginRight:6, padding:'1px 5px', borderRadius:4, background: r.__walletKind === 'mis' ? 'rgba(16,185,129,0.15)' : 'rgba(96,165,250,0.15)', color: r.__walletKind === 'mis' ? '#10B981' : '#60A5FA', fontSize:10, fontWeight:700}}>

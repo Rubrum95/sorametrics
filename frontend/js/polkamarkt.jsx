@@ -66,11 +66,12 @@ function ProbBar({ m }) {
 
 // Status chip with Polkamarkt vocabulary.
 function StatusChip({ status, resolution }) {
+  const t = useT();
   const map = {
-    Open:      { label: 'Open',           cls: 'ok'  },
-    Locked:    { label: '🔒 Locked',       cls: ''    },
-    Resolved:  { label: '✓ Resolved',     cls: 'ok'  },
-    Cancelled: { label: '✗ Cancelled',    cls: 'err' },
+    Open:      { label: t('gov.status.open', 'Open'),           cls: 'ok'  },
+    Locked:    { label: t('s.locked', '🔒 Locked'),       cls: ''    },
+    Resolved:  { label: t('s.resolved', '✓ Resolved'),     cls: 'ok'  },
+    Cancelled: { label: t('s.cancelled', '✗ Cancelled'),    cls: 'err' },
   };
   const m = map[status] || { label: status, cls: '' };
   const extra = status === 'Resolved' && resolution ? ' ' + resolution : '';
@@ -276,7 +277,7 @@ function PolkamarktSection() {
 
       <KpiGrid items={[
         { label: t('predict.kpi.total', 'Markets'),       value: totals.markets.toLocaleString(),        sub: 'all-time' },
-        { label: t('predict.kpi.active', 'Active'),       value: totals.active.toLocaleString(),         sub: 'currently open' },
+        { label: t('predict.kpi.active', 'Active'),       value: totals.active.toLocaleString(),         sub: t('s.currentlyOpen', 'currently open') },
         { label: t('predict.kpi.volume', 'Trading vol.'), value: fmtNative(totals.volume) + (volSym ? ' ' + volSym : ''), sub: 'cumulative' },
         { label: t('predict.kpi.resolved', 'Resolved'), value: (totals.resolved || 0).toLocaleString(), sub: 'settled' },
       ]}/>
@@ -327,7 +328,7 @@ function PolkamarktSection() {
                     onClick={() => openDrill({ type: 'polkamarkt', title: '#' + m.market_id + ' · ' + (m.question || 'Untitled'), ...m })}>
                   <td style={{paddingLeft: 16, fontWeight: 700, color: 'var(--accent)'}} className="num">#{m.market_id}</td>
                   <td style={{maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                    {m.question || <span className="muted tiny">(condition #{m.condition_id})</span>}
+                    {m.question || <span className="muted tiny">{t('s.condition', '(condition #')}{m.condition_id})</span>}
                   </td>
                   <td><ProbBar m={m}/></td>
                   <td style={{textAlign: 'right'}} className="num">{fmtNative(m.volume)} <span className="muted tiny">{pmAssetSym(m.collateral_asset)}</span></td>
@@ -394,7 +395,7 @@ function PolkamarktPositions({ addr, title }) {
               <tr key={p.market_id}>
                 <td style={{paddingLeft: 16, maxWidth: 320, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                   <span style={{color:'var(--accent)', fontWeight:700}}>#{p.market_id}</span>{' '}
-                  <span className="muted tiny">{p.question || '(untitled)'}</span>
+                  <span className="muted tiny">{p.question || t('s.untitled', '(untitled)')}</span>
                 </td>
                 <td style={{textAlign:'right'}} className="num">{fmt.num(Number(p.yes_shares) || 0, 2)}</td>
                 <td style={{textAlign:'right'}} className="num">{fmt.num(Number(p.no_shares) || 0, 2)}</td>
@@ -491,7 +492,7 @@ function PolkamarktDrill({ market }) {
       <div className="drill-section">
         <KV k={t('predict.drill.volume', 'Volume')}>{fmtNative(m.volume)} {pmAssetSym(m.collateral_asset)}</KV>
         <KV k={t('predict.drill.collateral', 'Collateral')}>{pmAssetSym(m.collateral_asset)}</KV>
-        {m.mechanism && <KV k={t('predict.drill.mechanism', 'Mechanism')}>{m.mechanism === 'DynamicPariMutuel' ? 'Dynamic Pari-Mutuel' : 'Migrated legacy'}</KV>}
+        {m.mechanism && <KV k={t('predict.drill.mechanism', 'Mechanism')}>{m.mechanism === 'DynamicPariMutuel' ? t('s.dynamicPariMutuel', 'Dynamic Pari-Mutuel') : t('s.migratedLegacy', 'Migrated legacy')}</KV>}
         <KV k={t('predict.drill.seed', 'Seed liquidity')}>{fmtNative(m.seed_liquidity)} {pmAssetSym(m.collateral_asset)}</KV>
         <KV k={t('predict.drill.creator', 'Creator')}>{m.creator ? fmt.addr(m.creator, 8, 6) : '—'}</KV>
         <KV k={t('predict.drill.oracle', 'Oracle')}>{m.oracle || '—'}</KV>

@@ -754,7 +754,7 @@ function CommandPalette({ open, onClose }) {
         <div className="palette-results">
           {!q.trim() && recents.length > 0 && (
             <div className="palette-group">
-              <div className="palette-grouptitle">{lang === 'es' ? 'Recientes' : 'Recent'}</div>
+              <div className="palette-grouptitle">{lang === 'es' ? t('s.recent', 'Recientes') : t('s.recent2', 'Recent')}</div>
               {recents.map((r, i) => (
                 <div key={i} className="palette-row palette-recent" onClick={() => setQ(r.q)}>
                   <I.search style={{width:14,height:14, opacity:0.5}}/>
@@ -768,7 +768,7 @@ function CommandPalette({ open, onClose }) {
           {flat.length === 0 && (
             <div className="palette-empty">
               <div style={{fontSize: 32, opacity:0.3, marginBottom: 8}}>⌕</div>
-              <div className="muted">{lang === 'es' ? 'Buscar por dirección, hash, bloque…' : 'No matches'}</div>
+              <div className="muted">{lang === 'es' ? t('s.searchByAddressHashBlock', 'Buscar por dirección, hash, bloque…') : t('s.noMatches', 'No matches')}</div>
             </div>
           )}
 
@@ -927,6 +927,7 @@ function TinyTokLogo({ sym, logo, size = 18 }) {
 // Inline hash chip with copy. Used in WalletHistoryTable extrinsics rows where
 // the surrounding modal table has no native hash column.
 function HashChip({ hash }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   if (!hash) return null;
   const isHex = hash.startsWith('0x') && hash.length >= 18;
@@ -944,7 +945,7 @@ function HashChip({ hash }) {
             style={{fontSize: 10, padding:'2px 6px', borderRadius: 4,
                     background:'rgba(255,255,255,0.02)', border:'1px solid var(--border)',
                     color:'var(--fg-1)'}}>{short}</code>
-      <button onClick={onCopy} title="Copiar hash"
+      <button onClick={onCopy} title={t('s.copyHash2', 'Copiar hash')}
               style={{width: 22, height: 22, padding: 0, background:'transparent',
                       border:'1px solid transparent', borderRadius: 4, cursor:'pointer',
                       color: copied ? 'var(--accent)' : 'var(--fg-3)', fontSize: 12,
@@ -956,14 +957,15 @@ function HashChip({ hash }) {
 }
 
 function WalletHistoryTable({ kind, rows }) {
-  if (rows === null) return <div className="muted">Cargando {kind}…</div>;
-  if (!rows || rows.length === 0) return <div className="muted tiny">Sin {kind} recientes para esta cartera.</div>;
+  const t = useT();
+  if (rows === null) return <div className="muted">{t('s.loadingKind', 'Cargando {kind}…').replace('{kind}', kind)}</div>;
+  if (!rows || rows.length === 0) return <div className="muted tiny">{t('s.noRecentKindWallet', 'Sin {kind} recientes para esta cartera.').replace('{kind}', kind)}</div>;
   return (
     <table className="lp-table">
       <thead>
         <tr>
-          <th style={{width: 150}}>Hora / Bloque</th>
-          <th>Detalle</th>
+          <th style={{width: 150}}>{t('s.timeBlock', 'Hora / Bloque')}</th>
+          <th>{t('s.detail2', 'Detalle')}</th>
         </tr>
       </thead>
       <tbody>
@@ -1064,14 +1066,15 @@ function liquidityPositions(liquidity) {
 }
 
 function LiquidityPane({ liquidity }) {
+  const t = useT();
   const positions = liquidityPositions(liquidity);
   return (
     <div className="sm-field">
-      <label>Posiciones de liquidez</label>
-      {positions === null ? <div className="muted">Cargando…</div> :
-       positions.length === 0 ? <div className="muted tiny">Sin posiciones de liquidez.</div> :
+      <label>{t('s.liquidityPositions', 'Posiciones de liquidez')}</label>
+      {positions === null ? <div className="muted">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div> :
+       positions.length === 0 ? <div className="muted tiny">{t('s.noLiquidityPositions', 'Sin posiciones de liquidez.')}</div> :
         <table className="lp-table">
-          <thead><tr><th>Pool</th><th style={{textAlign:'right'}}>Cantidad</th><th style={{textAlign:'right'}}>Share</th><th style={{textAlign:'right'}}>Valor</th></tr></thead>
+          <thead><tr><th>{t('col.pool', 'Pool')}</th><th style={{textAlign:'right'}}>{t('drill.amount', 'Cantidad')}</th><th style={{textAlign:'right'}}>{t('intel.fees.shareCol', 'Share')}</th><th style={{textAlign:'right'}}>{t('predict.drill.value', 'Valor')}</th></tr></thead>
           <tbody>
             {positions.slice(0, 30).map((p, i) => {
               const baseSym = p.base?.symbol || (typeof p.base === 'string' ? p.base : '');
@@ -1115,7 +1118,8 @@ function MiniStat({ label, value, hint }) {
 }
 
 function StakingPane({ staking }) {
-  if (!staking) return <div className="sm-field"><label>Staking</label><div className="muted">Cargando…</div></div>;
+  const t = useT();
+  if (!staking) return <div className="sm-field"><label>{t('nav.staking', 'Staking')}</label><div className="muted">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div></div>;
   const staked    = Number(staking.staked) || 0;
   const unbonding = Number(staking.unbonding) || 0;
   const rewards   = Number(staking.rewards) || 0;
@@ -1124,19 +1128,19 @@ function StakingPane({ staking }) {
   const isEmpty = staked === 0 && unbonding === 0 && rewards === 0 && validators.length === 0;
   return (
     <div className="sm-field">
-      <label>Staking</label>
-      {isEmpty ? <div className="muted tiny">Esta cuenta no tiene posiciones de staking activas.</div> : (<>
+      <label>{t('nav.staking', 'Staking')}</label>
+      {isEmpty ? <div className="muted tiny">{t('s.thisAccountHasNoActive', 'Esta cuenta no tiene posiciones de staking activas.')}</div> : (<>
         <div className="sm-mini-grid">
-          <MiniStat label="Staked"    value={fmt.num(staked, 2)}/>
-          <MiniStat label="Unbonding" value={fmt.num(unbonding, 2)}/>
-          <MiniStat label="Rewards"   value={fmt.num(rewards, 4)}/>
-          <MiniStat label="Valor USD" value={fmt.usd(usdValue)}/>
+          <MiniStat label={t('s.staked', 'Staked')}    value={fmt.num(staked, 2)}/>
+          <MiniStat label={t('s.unbonding', 'Unbonding')} value={fmt.num(unbonding, 2)}/>
+          <MiniStat label={t('staking.tab.rewards', 'Rewards')}   value={fmt.num(rewards, 4)}/>
+          <MiniStat label={t('s.usdValue', 'Valor USD')} value={fmt.usd(usdValue)}/>
         </div>
         {validators.length > 0 && (
           <div style={{marginTop: 12}}>
-            <div className="sm-subhead">Validadores ({validators.length})</div>
+            <div className="sm-subhead">{t('s.validators', 'Validadores (')}{validators.length})</div>
             <table className="lp-table">
-              <thead><tr><th>Validador</th><th style={{textAlign:'right'}}>Stake</th><th style={{textAlign:'right'}}>Estado</th></tr></thead>
+              <thead><tr><th>{t('staking.col.validator', 'Validador')}</th><th style={{textAlign:'right'}}>{t('s.stake', 'Stake')}</th><th style={{textAlign:'right'}}>{t('drill.status', 'Estado')}</th></tr></thead>
               <tbody>
                 {validators.slice(0, 50).map((v, i) => {
                   const vAddr = v.address || v.stash || v.validator || '';
@@ -1164,7 +1168,8 @@ function StakingPane({ staking }) {
 }
 
 function InfoPane({ info }) {
-  if (!info) return <div className="sm-field"><label>Información on-chain</label><div className="muted">Cargando…</div></div>;
+  const t = useT();
+  if (!info) return <div className="sm-field"><label>{t('s.onChainInformation', 'Información on-chain')}</label><div className="muted">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div></div>;
   const txCount = Number(info.txCount) || 0;
   const tInCount  = Number(info.transfersIn?.count)  || 0;
   const tOutCount = Number(info.transfersOut?.count) || 0;
@@ -1173,7 +1178,7 @@ function InfoPane({ info }) {
   const swapCount = Number(info.swapCount) || 0;
   const hasAnyActivity = txCount > 0 || info.firstTx || tInCount > 0 || tOutCount > 0 || bInCount > 0 || bOutCount > 0 || swapCount > 0;
   if (!hasAnyActivity) {
-    return <div className="sm-field"><label>Información on-chain</label><div className="muted tiny">Sin actividad on-chain registrada para esta cuenta.</div></div>;
+    return <div className="sm-field"><label>{t('s.onChainInformation', 'Información on-chain')}</label><div className="muted tiny">{t('s.noOnChainActivityRecorded', 'Sin actividad on-chain registrada para esta cuenta.')}</div></div>;
   }
   const firstTxMs = info.firstTx ? Number(info.firstTx) : null;
   const lastTxMs  = info.lastTx  ? Number(info.lastTx)  : null;
@@ -1193,25 +1198,25 @@ function InfoPane({ info }) {
   return (
     <>
       <div className="sm-field">
-        <label>Actividad</label>
+        <label>{t('nav.balance', 'Actividad')}</label>
         <div className="sm-mini-grid">
-          <MiniStat label="Primera tx"    value={dateShort(firstTxMs)}/>
-          <MiniStat label="Última tx"     value={dateShort(lastTxMs)}/>
-          <MiniStat label="Total txs"     value={fmt.int(txCount)} hint={`${successRate.toFixed(1)}% éxito`}/>
-          <MiniStat label="Días activos"  value={fmt.int(Number(info.daysActive) || 0)}/>
-          <MiniStat label="Tokens únicos" value={fmt.int(Number(info.uniqueTokens) || 0)}/>
-          <MiniStat label="Gobernanza"    value={fmt.int(Number(info.governanceTx) || 0)}/>
+          <MiniStat label={t('s.firstTx', 'Primera tx')}    value={dateShort(firstTxMs)}/>
+          <MiniStat label={t('s.lastTx', 'Última tx')}     value={dateShort(lastTxMs)}/>
+          <MiniStat label={t('s.totalTxs', 'Total txs')}     value={fmt.int(txCount)} hint={t('s.successPct', '{pct}% éxito').replace('{pct}', successRate.toFixed(1))}/>
+          <MiniStat label={t('s.activeDays', 'Días activos')}  value={fmt.int(Number(info.daysActive) || 0)}/>
+          <MiniStat label={t('s.uniqueTokens', 'Tokens únicos')} value={fmt.int(Number(info.uniqueTokens) || 0)}/>
+          <MiniStat label={t('nav.governance', 'Gobernanza')}    value={fmt.int(Number(info.governanceTx) || 0)}/>
         </div>
       </div>
 
       <div className="sm-field">
-        <label>Whale score · {info.whaleTier || '—'}</label>
+        <label>{t('s.whaleScore', 'Whale score ·')} {info.whaleTier || '—'}</label>
         <div className="sm-whale-row">
           <div className="sm-whale-score">{whaleScore}</div>
           <div className="sm-whale-bars">
-            <WhaleBar label="Volumen"    pct={Number(whaleBreak.volume)    || 0}/>
-            <WhaleBar label="Frecuencia" pct={Number(whaleBreak.frequency) || 0}/>
-            <WhaleBar label="Diversidad" pct={Number(whaleBreak.diversity) || 0}/>
+            <WhaleBar label={t('predict.drill.volume', 'Volumen')}    pct={Number(whaleBreak.volume)    || 0}/>
+            <WhaleBar label={t('s.frequency', 'Frecuencia')} pct={Number(whaleBreak.frequency) || 0}/>
+            <WhaleBar label={t('s.diversity', 'Diversidad')} pct={Number(whaleBreak.diversity) || 0}/>
           </div>
         </div>
       </div>
@@ -1220,19 +1225,19 @@ function InfoPane({ info }) {
         <div className="sm-field">
           <label>Swaps</label>
           <div className="sm-mini-grid">
-            <MiniStat label="Nº swaps"     value={fmt.int(Number(info.swapCount) || 0)}/>
-            <MiniStat label="Volumen"      value={fmt.usd(Number(info.swapTotalVolume) || 0)}/>
-            <MiniStat label="Promedio"     value={fmt.usd(Number(info.swapAvgUsd)      || 0)}/>
-            <MiniStat label="Máximo"       value={fmt.usd(Number(info.swapMaxUsd)      || 0)}/>
+            <MiniStat label={t('s.noOfSwaps', 'Nº swaps')}     value={fmt.int(Number(info.swapCount) || 0)}/>
+            <MiniStat label={t('predict.drill.volume', 'Volumen')}      value={fmt.usd(Number(info.swapTotalVolume) || 0)}/>
+            <MiniStat label={t('s.average', 'Promedio')}     value={fmt.usd(Number(info.swapAvgUsd)      || 0)}/>
+            <MiniStat label={t('s.maximum', 'Máximo')}       value={fmt.usd(Number(info.swapMaxUsd)      || 0)}/>
           </div>
         </div>
       )}
 
       {topTokens.length > 0 && (
         <div className="sm-field">
-          <label>Top tokens</label>
+          <label>{t('s.topTokens', 'Top tokens')}</label>
           <table className="lp-table">
-            <thead><tr><th>Token</th><th style={{textAlign:'right'}}>Trades</th><th style={{textAlign:'right'}}>Volumen USD</th></tr></thead>
+            <thead><tr><th>Token</th><th style={{textAlign:'right'}}>{t('s.trades', 'Trades')}</th><th style={{textAlign:'right'}}>{t('s.usdVolume', 'Volumen USD')}</th></tr></thead>
             <tbody>
               {topTokens.slice(0, 10).map((t, i) => (
                 <tr key={i}>
@@ -1248,9 +1253,9 @@ function InfoPane({ info }) {
 
       {topContacts.length > 0 && (
         <div className="sm-field">
-          <label>Top contactos</label>
+          <label>{t('s.topContacts', 'Top contactos')}</label>
           <table className="lp-table">
-            <thead><tr><th>Dirección</th><th style={{textAlign:'right'}}>Txs</th><th style={{textAlign:'right'}}>Volumen USD</th></tr></thead>
+            <thead><tr><th>{t('predict.drill.creatorAddr', 'Dirección')}</th><th style={{textAlign:'right'}}>Txs</th><th style={{textAlign:'right'}}>{t('s.usdVolume', 'Volumen USD')}</th></tr></thead>
             <tbody>
               {topContacts.slice(0, 10).map((c, i) => (
                 <tr key={i}>
@@ -1269,20 +1274,20 @@ function InfoPane({ info }) {
       )}
 
       <div className="sm-field">
-        <label>Flujos</label>
+        <label>{t('s.flows', 'Flujos')}</label>
         <div className="sm-mini-grid">
-          <MiniStat label="Transfers in"  value={fmt.int(Number(tIn.count)  || 0)} hint={fmt.usd(Number(tIn.usd)  || 0)}/>
-          <MiniStat label="Transfers out" value={fmt.int(Number(tOut.count) || 0)} hint={fmt.usd(Number(tOut.usd) || 0)}/>
-          <MiniStat label="Bridges in"    value={fmt.int(Number(bIn.count)  || 0)} hint={fmt.usd(Number(bIn.usd)  || 0)}/>
-          <MiniStat label="Bridges out"   value={fmt.int(Number(bOut.count) || 0)} hint={fmt.usd(Number(bOut.usd) || 0)}/>
-          <MiniStat label="LP depósitos"  value={fmt.int(Number(info.lpDeposits)    || 0)} hint={fmt.usd(Number(info.lpDepositedUsd) || 0)}/>
-          <MiniStat label="LP retiros"    value={fmt.int(Number(info.lpWithdrawals) || 0)} hint={fmt.usd(Number(info.lpWithdrawnUsd) || 0)}/>
+          <MiniStat label={t('s.transfersIn', 'Transfers in')}  value={fmt.int(Number(tIn.count)  || 0)} hint={fmt.usd(Number(tIn.usd)  || 0)}/>
+          <MiniStat label={t('s.transfersOut', 'Transfers out')} value={fmt.int(Number(tOut.count) || 0)} hint={fmt.usd(Number(tOut.usd) || 0)}/>
+          <MiniStat label={t('s.bridgesIn', 'Bridges in')}    value={fmt.int(Number(bIn.count)  || 0)} hint={fmt.usd(Number(bIn.usd)  || 0)}/>
+          <MiniStat label={t('s.bridgesOut', 'Bridges out')}   value={fmt.int(Number(bOut.count) || 0)} hint={fmt.usd(Number(bOut.usd) || 0)}/>
+          <MiniStat label={t('s.lpDeposits', 'LP depósitos')}  value={fmt.int(Number(info.lpDeposits)    || 0)} hint={fmt.usd(Number(info.lpDepositedUsd) || 0)}/>
+          <MiniStat label={t('s.lpWithdrawals', 'LP retiros')}    value={fmt.int(Number(info.lpWithdrawals) || 0)} hint={fmt.usd(Number(info.lpWithdrawnUsd) || 0)}/>
         </div>
       </div>
 
       {modules.length > 0 && (
         <div className="sm-field">
-          <label>Módulos usados</label>
+          <label>{t('s.modulesUsed', 'Módulos usados')}</label>
           <div className="sm-chip-row">
             {modules.map((m, i) => (
               <span key={i} className="sm-chip">
@@ -1517,13 +1522,13 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
             </h3>
             <div className="muted tiny" style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:2}}>
               <span className="num" style={{overflowWrap:'anywhere'}}>{fmt.addr(wallet.addr, 8, 6)}</span>
-              <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={copyAddr} title="Copiar dirección">
-                {copied ? '✓ Copiado' : '⎘ Copiar'}
+              <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={copyAddr} title={t('s.copyAddress', 'Copiar dirección')}>
+                {copied ? t('s.copied', '✓ Copiado') : t('s.copy2', '⎘ Copiar')}
               </button>
-              <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={shareLink} title="Copiar enlace a esta wallet">
-                {shared ? '✓ Enlace copiado' : '🔗 Compartir'}
+              <button className="btn" style={{padding:'2px 8px', fontSize:11}} onClick={shareLink} title={t('s.copyLinkToThisWallet', 'Copiar enlace a esta wallet')}>
+                {shared ? t('s.linkCopied', '✓ Enlace copiado') : t('s.share', '🔗 Compartir')}
               </button>
-              {identity?.display && identity.display !== wallet.alias && <span>· alias: {wallet.alias}</span>}
+              {identity?.display && identity.display !== wallet.alias && <span>{t('s.alias', '· alias:')} {wallet.alias}</span>}
             </div>
             {(identity?.twitter || identity?.web || identity?.email || identity?.discord) && (
               <div className="muted tiny" style={{display:'flex', gap:10, marginTop:4}}>
@@ -1566,7 +1571,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
                 : t('wallet.savePrompt')}
             </label>
             <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
-              <input className="sm-input" value={alias} onChange={e => setAlias(e.target.value)} placeholder="Alias" style={{flex:'1 1 220px'}}/>
+              <input className="sm-input" value={alias} onChange={e => setAlias(e.target.value)} placeholder={t('wallet.alias', 'Alias')} style={{flex:'1 1 220px'}}/>
               {storedHere ? (
                 /* Already stored — single rename button. Which list it lives
                    in is shown in the label above, so the user always knows. */
@@ -1574,7 +1579,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
                   className="btn primary"
                   onClick={() => saveRename()}
                   disabled={!alias.trim() || alias === (storedWallet?.alias || storedWatched?.alias)}>
-                  Guardar
+                  {t('wallet.save', 'Guardar')}
                 </button>
               ) : (
                 /* Not stored yet — offer both destinations explicitly. */
@@ -1583,37 +1588,37 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
                     className="btn primary"
                     onClick={() => saveRename('wallets')}
                     disabled={!alias.trim()}
-                    title="Añadir a Mis Wallets (carteras propias)">
-                    ＋ Mis Wallets
+                    title={t('wallet.myWalletsTip', 'Añadir a Mis Wallets (carteras propias)')}>
+                    {t('s.myWallets', '＋ Mis Wallets')}
                   </button>
                   <button
                     className="btn"
                     onClick={() => saveRename('watched')}
                     disabled={!alias.trim()}
-                    title="Añadir a Seguidas (carteras a vigilar)">
-                    👁 Seguir
+                    title={t('wallet.followTip', 'Añadir a Seguidas (carteras a vigilar)')}>
+                    {t('s.watch', '👁 Seguir')}
                   </button>
                 </>
               )}
             </div>
             {!storedHere && (
               <div className="muted tiny" style={{marginTop:6, lineHeight:1.4}}>
-                <strong>Mis Wallets</strong> = tus carteras propias ·
-                <strong> Seguidas</strong> = otras carteras que quieres vigilar.
+                <strong>{t('wallet.myWallets', 'Mis Wallets')}</strong> {t('s.yourOwnWallets', '= tus carteras propias ·')}
+                <strong> {t('s.watched', 'Seguidas')}</strong> {t('s.otherWalletsYouWantTo', '= otras carteras que quieres vigilar.')}
               </div>
             )}
           </div>
 
           <div className="sm-field">
-            <label>Dirección</label>
+            <label>{t('predict.drill.creatorAddr', 'Dirección')}</label>
             <div className="sm-addr-row">
               <span className="num tiny" style={{flex:1, overflowWrap:'anywhere'}}>{wallet.addr}</span>
-              <button className="btn" onClick={copyAddr}>{copied ? '✓ Copiado' : 'Copiar'}</button>
+              <button className="btn" onClick={copyAddr}>{copied ? t('s.copied', '✓ Copiado') : t('common.copy', 'Copiar')}</button>
             </div>
           </div>
 
           <div className="sm-field">
-            <label>Desglose por activo · ${totalUsd.toLocaleString(undefined,{maximumFractionDigits:2})} · {numericTokens.length} tokens</label>
+            <label>{t('s.breakdownByAsset', 'Desglose por activo · $')}{totalUsd.toLocaleString(undefined,{maximumFractionDigits:2})} · {numericTokens.length} tokens</label>
             <div className="sm-breakdown" style={{maxHeight: 380, overflowY:'auto'}}>
               {breakdown.map((b, i) => (
                 <div key={b.sym + '_' + i} className="sm-breakdown-row">
@@ -1629,7 +1634,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
               ))}
             </div>
             {rawTokens.length === 0 && (
-              <div className="muted tiny" style={{marginTop:8}}>Cargando balances desde sorametrics.org…</div>
+              <div className="muted tiny" style={{marginTop:8}}>{t('s.loadingBalancesFromSorametricsOrg', 'Cargando balances desde sorametrics.org…')}</div>
             )}
           </div>
         </>)}
@@ -1651,7 +1656,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
         {subtab === 'predict' && (
           window.PolkamarktPositions
             ? <window.PolkamarktPositions addr={addr}/>
-            : <div className="muted tiny" style={{padding: 20, textAlign: 'center'}}>Prediction Markets module not loaded.</div>
+            : <div className="muted tiny" style={{padding: 20, textAlign: 'center'}}>{t('s.predictionMarketsModuleNotLoaded', 'Prediction Markets module not loaded.')}</div>
         )}
 
         {subtab === 'info' && <InfoPane info={info}/>}
@@ -1772,27 +1777,27 @@ function ExportCsvButton({ section, headers, rows, label, className }) {
   return (
     <>
       <button className={'btn ' + (className || '')} onClick={() => setOpen(true)}>
-        {label || t('btn.exportCsv') || 'Export CSV'}
+        {label || t('btn.exportCsv') || t('btn.exportCsv', 'Export CSV')}
       </button>
       {open && (
         <div className="sm-modal-backdrop" onClick={() => setOpen(false)}>
           <div className="sm-modal" style={{width: 480}} onClick={e => e.stopPropagation()}>
             <div className="sm-modal-head">
-              <h3 style={{margin:0}}>Exportar CSV — {section}</h3>
+              <h3 style={{margin:0}}>{t('s.exportCsv', 'Exportar CSV —')} {section}</h3>
               <button className="sm-modal-x" onClick={() => setOpen(false)}>×</button>
             </div>
             <div className="sm-modal-body">
               <div className="sm-field">
-                <label>Formato</label>
+                <label>{t('s.format', 'Formato')}</label>
                 <div className="tweaks-opts" style={{flexWrap:'wrap', gap:6}}>
                   <button className="tweaks-opt active" onClick={clickLocal} disabled={busy}>
-                    SoraMetrics (local · {rows?.length || 0} filas visibles)
+                    {t('s.sorametricsLocal', 'SoraMetrics (local ·')} {rows?.length || 0} {t('s.visibleRows', 'filas visibles)')}
                   </button>
                 </div>
               </div>
               <div className="sm-field">
-                <label>O exportar historial completo para una dirección (tax tools)</label>
-                <input className="sm-input" placeholder="cnR… dirección SS58"
+                <label>{t('s.orExportTheFullHistory', 'O exportar historial completo para una dirección (tax tools)')}</label>
+                <input className="sm-input" placeholder={t('s.cnrSs58Address', 'cnR… dirección SS58')}
                        value={address} onChange={e => setAddress(e.target.value)}/>
                 <div className="tweaks-opts" style={{flexWrap:'wrap', gap:6, marginTop:8}}>
                   {CSV_FORMATS.filter(f => f.id !== 'sorametrics').map(f => (
@@ -1803,7 +1808,7 @@ function ExportCsvButton({ section, headers, rows, label, className }) {
                   ))}
                 </div>
                 <div className="muted tiny" style={{marginTop:6}}>
-                  Descarga de prod /export/csv?format=… · limit 50.000 filas.
+                  {t('s.downloadedFromExportCsvFormat', 'Descarga de prod /export/csv?format=… · limit 50.000 filas.')}
                 </div>
               </div>
             </div>
@@ -1931,6 +1936,7 @@ function restoreBackup(file, setTweak) {
 }
 
 function BackupRestore({ tweaks, setTweak }) {
+  const t = useT();
   const toast = useToast();
   const fileRef = useRef(null);
   const doBackup = () => {
@@ -1951,10 +1957,10 @@ function BackupRestore({ tweaks, setTweak }) {
   };
   return (
     <div className="tweaks-group" style={{borderTop:'1px solid var(--border)', paddingTop: 14, marginTop: 8}}>
-      <label>Backup / Restore</label>
+      <label>{t('s.backupRestore', 'Backup / Restore')}</label>
       <div className="tweaks-opts">
-        <button className="tweaks-opt" onClick={doBackup}>↓ Backup</button>
-        <button className="tweaks-opt" onClick={() => fileRef.current?.click()}>↑ Restore</button>
+        <button className="tweaks-opt" onClick={doBackup}>{t('s.backup', '↓ Backup')}</button>
+        <button className="tweaks-opt" onClick={() => fileRef.current?.click()}>{t('s.restore', '↑ Restore')}</button>
         <input type="file" ref={fileRef} accept="application/json" style={{display:'none'}} onChange={onPick}/>
       </div>
     </div>

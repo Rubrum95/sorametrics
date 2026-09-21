@@ -511,21 +511,21 @@ function PulseSection({ tweaks }) {
           return (
             <>
               <PulseStat
-                label={'SWAPS · ' + label24or7}
+                label={t('s.pulseSwaps', 'SWAPS') + ' · ' + label24or7}
                 value={bucket ? Number(bucket.txCount || 0).toLocaleString() : '—'}
                 sub={statsNetwork ? 'vs ' + Number((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.txCount || 0).toLocaleString() + ' ' + (use7d ? '24H' : '7D') : 'loading…'}/>
               <PulseStat
-                label={'VOLUME · ' + label24or7}
+                label={t('s.pulseVolume', 'VOLUME') + ' · ' + label24or7}
                 value={bucket ? fmt.usd(bucket.volume || 0) : '—'}
                 sub={statsNetwork ? (use7d ? '24H: ' : '7D: ') + fmt.usd((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.volume || 0) : '—'}/>
               <PulseStat
-                label={'ACTIVE WALLETS · ' + label24or7}
+                label={t('s.pulseActiveWallets', 'ACTIVE WALLETS') + ' · ' + label24or7}
                 value={bucket ? Number(bucket.users || 0).toLocaleString() : '—'}
                 sub={statsNetwork ? Number((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.users || 0).toLocaleString() + ' ' + (use7d ? '24H' : '7D') : 'unique signers'}/>
               <PulseStat
                 label={t('pulse.kpi.block')}
                 value={stakingNet ? (Number(stakingNet.avgBlockTime || 0)).toFixed(2) + 's' : '—'}
-                sub={stakingNet ? 'best #' + Number(stakingNet.bestBlock || 0).toLocaleString() : 'finality'}/>
+                sub={stakingNet ? t('s.bestN', 'best #') + Number(stakingNet.bestBlock || 0).toLocaleString() : t('s.finality', 'Finality')}/>
             </>
           );
         })()}
@@ -534,19 +534,19 @@ function PulseSection({ tweaks }) {
       <div className="pulse-layout">
         <div className="card">
           <div className="card-header">
-            <div className="card-title"><span className="dot"/> Live feed</div>
+            <div className="card-title"><span className="dot"/> {t('s.liveFeed', 'Live feed')}</div>
             <div className="row">
               <span className="tag">{events.length} events</span>
             </div>
           </div>
           <div className="filter-row">
             <div className={'filter-chip' + (filter === 'all' ? ' active' : '')}
-                 onClick={() => setFilter('all')}>All <span className="n">{counts.all || 0}</span></div>
+                 onClick={() => setFilter('all')}>{t('chip.all', 'All')} <span className="n">{counts.all || 0}</span></div>
             {KINDS.map(k => (
               <div key={k.id}
                    className={'filter-chip' + (filter === k.id ? ' active' : '')}
                    onClick={() => setFilter(k.id)}>
-                {k.label} <span className="n">{counts[k.id] || 0}</span>
+                {t('chip.' + k.id, k.label)} <span className="n">{counts[k.id] || 0}</span>
               </div>
             ))}
           </div>
@@ -558,7 +558,7 @@ function PulseSection({ tweaks }) {
                      // BlockDetail then calls /block/:n.
                      const rawBlock = e.raw?.finalized || (e.id?.startsWith('wsB-') ? Number(e.id.slice(4)) : null);
                      if (e.kind === 'block' && rawBlock) {
-                       open({ type: 'block', title: 'BLOCK · ' + fmt.ago(e.ts) + ' ago', ts: e.ts, block: rawBlock, num: rawBlock });
+                       open({ type: 'block', title: t('s.blockAgo', 'BLOCK · {ago} ago').replace('{ago}', fmt.ago(e.ts)), ts: e.ts, block: rawBlock, num: rawBlock });
                        return;
                      }
                      // Every other kind opens with the fields the socket row carries
@@ -604,11 +604,11 @@ function PulseSection({ tweaks }) {
           <div className="card">
             <div className="card-header">
               <div className="card-title"><span className="dot"/> {t('pulse.trending')}</div>
-              <span className="tag">Top 6</span>
+              <span className="tag">{t('s.top6', 'Top 6')}</span>
             </div>
             <div className="card-body">
               {trending.length === 0 ? (
-                <div className="muted tiny" style={{padding: 12}}>Cargando…</div>
+                <div className="muted tiny" style={{padding: 12}}>{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>
               ) : trending.slice(0, 6).map((tk, i) => {
                 const sym = tk.symbol;
                 const vol = Number(tk.volume) || 0;
@@ -620,7 +620,7 @@ function PulseSection({ tweaks }) {
                     <div className="holder-pct num" style={{ textAlign:'right', fontWeight: 600 }}>
                       {fmt.usd(vol)}
                     </div>
-                    <div className="muted tiny" style={{ textAlign:'right' }}>24h vol</div>
+                    <div className="muted tiny" style={{ textAlign:'right' }}>{t('s.24hVol', '24h vol')}</div>
                   </div>
                 );
               })}
@@ -639,10 +639,10 @@ function PulseSection({ tweaks }) {
                 const finalityLag = stakingNet ? Number(stakingNet.bestBlock || 0) - Number(stakingNet.finalizedBlock || 0) : 0;
                 const tps = statsNetwork?.tps || (stakingNet ? (Number(statsNetwork?.stats24h?.txCount || 0) / 86400).toFixed(3) : '—');
                 const rows = [
-                  { l: 'Validadores', v: stakingNet ? vCount + ' activos' : '—', ok: vCount > 0 },
+                  { l: t('staking.tab.validators', 'Validadores'), v: stakingNet ? vCount + ' ' + t('s.activeLower', 'activos') : '—', ok: vCount > 0 },
                   { l: 'Era',          v: stakingNet ? '#' + stakingNet.activeEra : '—', ok: !!stakingNet },
-                  { l: 'Era Progress', v: stakingNet ? eraProgress.toFixed(0) + '%' : '—', ok: !!stakingNet, bar: eraProgress },
-                  { l: 'Finality Lag', v: stakingNet ? finalityLag + ' blocks' : '—', ok: finalityLag <= 2 },
+                  { l: t('s.eraProgress', 'Era Progress'), v: stakingNet ? eraProgress.toFixed(0) + '%' : '—', ok: !!stakingNet, bar: eraProgress },
+                  { l: t('s.finalityLag', 'Finality Lag'), v: stakingNet ? finalityLag + ' ' + t('s.blocksUnit', 'blocks') : '—', ok: finalityLag <= 2 },
                   { l: 'TPS',          v: tps, ok: true },
                 ];
                 return rows.map((r, i) => (

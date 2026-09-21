@@ -94,7 +94,7 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
 
       {/* Theme — dark / light / auto (prefers-color-scheme). Persists via tweaks.theme. */}
       <div className="tweaks-group">
-        <label>Theme</label>
+        <label>{t('s.theme', 'Theme')}</label>
         <div className="tweaks-opts">
           {opt('theme', 'dark')}
           {opt('theme', 'light')}
@@ -106,11 +106,11 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
           main.jsx short-circuits, so no toast fires. When ON, pegThreshold
           controls the sensitivity (max allowed |deviation| %). */}
       <div className="tweaks-group">
-        <label>Peg alerts</label>
+        <label>{t('s.pegAlerts', 'Peg alerts')}</label>
         <div className="tweaks-opts">
           <button
             className={'tweaks-opt' + (!tweaks.pegAlerts ? ' active' : '')}
-            onClick={() => setTweak('pegAlerts', false)}>Off</button>
+            onClick={() => setTweak('pegAlerts', false)}>{t('s.off', 'Off')}</button>
           <button
             className={'tweaks-opt' + (tweaks.pegAlerts ? ' active' : '')}
             onClick={() => setTweak('pegAlerts', true)}>On</button>
@@ -118,7 +118,7 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
       </div>
       {tweaks.pegAlerts && (
         <div className="tweaks-group">
-          <label>Peg alert · trigger if |dev| &gt; {(tweaks.pegThreshold ?? 2).toFixed(1)}%</label>
+          <label>{t('s.pegAlertTriggerIfDev', 'Peg alert · trigger if |dev| >')} {(tweaks.pegThreshold ?? 2).toFixed(1)}%</label>
           <input
             type="range" min="0.5" max="10" step="0.1"
             value={tweaks.pegThreshold ?? 2}

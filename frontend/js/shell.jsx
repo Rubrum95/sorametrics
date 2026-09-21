@@ -96,7 +96,7 @@ function Sidebar({ section, setSection }) {
               the brand identity users already recognise from v1. */}
           <img className="brand-logo" src="/favicon.svg" alt="SoraMetrics" width="28" height="28"/>
           <div>
-            <div className="brand-name"><span className="brand-sora">Sora</span><span className="brand-metrics">Metrics</span></div>
+            <div className="brand-name"><span className="brand-sora">Sora</span><span className="brand-metrics">{t('nav.metrics', 'Metrics')}</span></div>
           </div>
         </div>
 
@@ -150,15 +150,15 @@ function RpcSourcePill() {
   }
   if (!src.connected) {
     return (
-      <div className="live-pill" style={{color: '#FCA5A5'}} title="WS disconnected">
-        <span className="live-dot" style={{background:'#EF4444'}}/> Disconnected
+      <div className="live-pill" style={{color: '#FCA5A5'}} title={t('s.wsDisconnected', 'WS disconnected')}>
+        <span className="live-dot" style={{background:'#EF4444'}}/> {t('s.disconnected', 'Disconnected')}
       </div>
     );
   }
   if (src.isLocal || src.isPrimary) {
     return (
       <div className="live-pill" title={src.active}>
-        <span className="live-dot"/> Sorametrics node · {t('common.connected')}
+        <span className="live-dot"/> {t('s.sorametricsNode', 'Sorametrics node ·')} {t('common.connected')}
       </div>
     );
   }
@@ -166,7 +166,7 @@ function RpcSourcePill() {
   return (
     <div className="live-pill" style={{color:'#FBBF24'}} title={src.active}>
       <span className="live-dot" style={{background:'#F59E0B'}}/>
-      Fallback · {src.label}
+      {t('s.fallback', 'Fallback ·')} {src.label}
     </div>
   );
 }
@@ -216,8 +216,8 @@ function Topbar({ block }) {
       <button
         className="mobile-hamburger"
         onClick={toggleDrawer}
-        aria-label="Open navigation menu"
-        title="Menú">
+        aria-label={t('s.openNavigationMenu', 'Open navigation menu')}
+        title={t('s.menu', 'Menú')}>
         <span/><span/><span/>
       </button>
       <div className="search" onClick={() => search.open()} role="button" tabIndex={0}
@@ -230,7 +230,7 @@ function Topbar({ block }) {
         <span className="label">{t('topbar.block')}</span>
         <span className="val">#{block.toLocaleString()}</span>
       </div>
-      <div className="block-chip hide-mobile" title={staking ? 'Era progress ' + (staking.eraProgress || 0) + '%' : ''}>
+      <div className="block-chip hide-mobile" title={staking ? t('s.eraProgress', 'Era progress') + ' ' + (staking.eraProgress || 0) + '%' : ''}>
         <span className="label">{t('topbar.eraEpoch')}</span>
         <span className="val">{eraLabel}</span>
       </div>
@@ -252,6 +252,7 @@ function Topbar({ block }) {
 // Self-contained (no external state) — closes on outside click.
 // ---------------------------------------------------------------
 function NetworkSwitcher() {
+  const t = useT();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -295,7 +296,7 @@ function NetworkSwitcher() {
           </a>
           <a href="/" style={itemStyle}>
             <span style={chipStyle('#262634')}>↩</span>
-            <span>Networks</span>
+            <span>{t('s.networks', 'Networks')}</span>
           </a>
         </div>
       )}

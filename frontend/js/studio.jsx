@@ -392,7 +392,7 @@ function MusicStudioSection() {
   const t = useT();
   const s = useStudio();
   const [search, setSearch] = useState('');
-  if (!s) return <div>Studio provider missing.</div>;
+  if (!s) return <div>{t('s.studioProviderMissing', 'Studio provider missing.')}</div>;
 
   const { tracks, idx, track, playing, elapsed, volume, dur, freq,
           setVolume, toggle, prev, next, seek, selectIdx,
@@ -420,10 +420,10 @@ function MusicStudioSection() {
 
   return (
     <div>
-      <PageHeader title={t('nav.studio')} sub="Listen on-chain. Visualize off-chain.">
+      <PageHeader title={t('nav.studio')} sub={t('s.listenOnChainVisualizeOff', 'Listen on-chain. Visualize off-chain.')}>
         <span className="tag" style={{display:'flex', alignItems:'center', gap:6}}>
           <span className="live-dot" style={{width:6, height:6, background: playing ? '#10B981' : '#6B7280'}}/>
-          {playing ? 'Playing' : 'Paused'} · {tracks.length} tracks
+          {playing ? t('s.playing', 'Playing') : t('s.paused', 'Paused')} · {tracks.length} tracks
         </span>
       </PageHeader>
 
@@ -458,7 +458,7 @@ function MusicStudioSection() {
           </div>
           <div style={{position:'absolute', top:18, left:22, right:22, zIndex:4, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, pointerEvents:'none'}}>
             <div style={{minWidth:0}}>
-              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase', textShadow:'0 1px 6px rgba(0,0,0,0.7)'}}>Now playing</div>
+              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase', textShadow:'0 1px 6px rgba(0,0,0,0.7)'}}>{t('news.nowPlaying', 'Now playing')}</div>
               <div style={{fontSize:26, fontWeight:800, color:'#fff', marginTop:2, textShadow:'0 2px 20px rgba(0,0,0,0.75), 0 0 24px rgba(236,72,153,0.5)'}}>{track?.title || '—'}</div>
               <div style={{fontSize:14, color:'rgba(255,255,255,0.85)', marginTop:2, textShadow:'0 1px 8px rgba(0,0,0,0.75)'}}>{track?.artist || ''}</div>
             </div>
@@ -486,15 +486,15 @@ function MusicStudioSection() {
                   borderColor: shuffle ? 'rgba(236,72,153,0.5)' : 'rgba(255,255,255,0.12)',
                   boxShadow: shuffle ? '0 0 12px rgba(236,72,153,0.4)' : 'none',
                 }}>🔀</button>
-              <button onClick={prev} title="Previous" style={btnStyle}>⏮</button>
+              <button onClick={prev} title={t('music.prev', 'Previous')} style={btnStyle}>⏮</button>
               <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...btnStyle, width:52, height:52, fontSize:22, background:'linear-gradient(135deg, #EC4899, #9B1B30)', color:'#fff', boxShadow:'0 0 24px rgba(236,72,153,0.5)'}}>
                 {playing ? '⏸' : '▶'}
               </button>
-              <button onClick={next} title="Next" style={btnStyle}>⏭</button>
+              <button onClick={next} title={t('common.next', 'Next')} style={btnStyle}>⏭</button>
               {/* Repeat — cycles off → all → one. Emoji swaps for 'one'. */}
               <button
                 onClick={cycleRepeat}
-                title={'Repeat: ' + repeat}
+                title={t('s.repeat', 'Repeat') + ': ' + repeat}
                 aria-pressed={repeat !== 'off'}
                 style={{...btnStyle,
                   color: repeat === 'off' ? 'rgba(255,255,255,0.55)' : '#EC4899',
@@ -507,7 +507,7 @@ function MusicStudioSection() {
             </div>
             <div style={{flex:1}}/>
             <div style={{display:'flex', alignItems:'center', gap:8}}>
-              <span className="muted tiny">VOL</span>
+              <span className="muted tiny">{t('s.vol', 'VOL')}</span>
               <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:120, accentColor:'#EC4899'}}/>
               <span className="num tiny" style={{width:32, textAlign:'right', color:'rgba(255,255,255,0.65)'}}>{Math.round(volume * 100)}</span>
             </div>
@@ -517,8 +517,8 @@ function MusicStudioSection() {
 
       <div className="card" style={{marginTop: 20}}>
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> Tracklist</div>
-          <input type="text" placeholder="Search title or artist…" value={search} onChange={e => setSearch(e.target.value)}
+          <div className="card-title"><span className="dot"/> {t('s.tracklist', 'Tracklist')}</div>
+          <input type="text" placeholder={t('s.searchTitleOrArtist', 'Search title or artist…')} value={search} onChange={e => setSearch(e.target.value)}
                  style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, width:240, outline:'none'}}/>
         </div>
         <div className="swaps-table-wrap">
@@ -526,15 +526,15 @@ function MusicStudioSection() {
             <thead>
               <tr>
                 <th style={{paddingLeft:20, width:44}}>#</th>
-                <th>Title</th>
-                <th>Artist</th>
-                <th style={{textAlign:'right', paddingRight:20, width:80}}>Dur</th>
+                <th>{t('gov.col.title', 'Title')}</th>
+                <th>{t('music.artist', 'Artist')}</th>
+                <th style={{textAlign:'right', paddingRight:20, width:80}}>{t('s.dur', 'Dur')}</th>
                 <th style={{textAlign:'right', paddingRight:16, width:40}}></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={5} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>No matches.</td></tr>
+                <tr><td colSpan={5} style={{padding:24, textAlign:'center', color:'var(--fg-2)'}}>{t('s.noMatches2', 'No matches.')}</td></tr>
               )}
               {filtered.map(tr => {
                 const isActive = tr.originalIdx === idx;
@@ -557,7 +557,7 @@ function MusicStudioSection() {
                     <td className="muted tiny">{tr.artist}</td>
                     <td style={{textAlign:'right', paddingRight:20}} className="num tiny muted">{tr.dur ? fmtMMSS(tr.dur) : '—'}</td>
                     <td style={{textAlign:'right', paddingRight:16}}>
-                      <button title="Copy link to this track"
+                      <button title={t('s.copyLinkToThisTrack', 'Copy link to this track')}
                         onClick={(e) => {
                           e.stopPropagation();
                           try {
@@ -584,6 +584,7 @@ function MusicStudioSection() {
    Floating mini-player (only shown when NOT on the Studio page)
    ========================================================================== */
 function StudioMiniPlayer() {
+  const t = useT();
   const s = useStudio();
   if (!s) return null;
   const { track, playing, elapsed, dur, toggle, next, prev, seek, stop, setSection } = s;
@@ -612,15 +613,15 @@ function StudioMiniPlayer() {
         )}
         <button
           onClick={() => setSection?.('studio')}
-          title="Open Studio"
+          title={t('s.openStudio', 'Open Studio')}
           style={{flex:1, textAlign:'left', background:'transparent', border:0, color:'inherit', cursor:'pointer', padding:0, minWidth:0}}>
-          <div style={{fontSize:10, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase'}}>Studio</div>
+          <div style={{fontSize:10, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase'}}>{t('nav.studio', 'Studio')}</div>
           <div style={{fontSize:13, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{track?.title || '—'}</div>
           <div style={{fontSize:11, color:'rgba(255,255,255,0.6)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{track?.artist || ''}</div>
         </button>
         <button
           onClick={stop}
-          title="Stop and hide"
+          title={t('s.stopAndHide', 'Stop and hide')}
           style={{background:'transparent', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:14, lineHeight:1}}>
           ×
         </button>
@@ -630,11 +631,11 @@ function StudioMiniPlayer() {
       </div>
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', gap:8}}>
         <div style={{display:'flex', gap:6}}>
-          <button onClick={prev} title="Previous" style={miniBtn}>⏮</button>
+          <button onClick={prev} title={t('music.prev', 'Previous')} style={miniBtn}>⏮</button>
           <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...miniBtn, width:34, height:34, background:'linear-gradient(135deg, #EC4899, #9B1B30)', color:'#fff'}}>
             {playing ? '⏸' : '▶'}
           </button>
-          <button onClick={next} title="Next" style={miniBtn}>⏭</button>
+          <button onClick={next} title={t('common.next', 'Next')} style={miniBtn}>⏭</button>
         </div>
         <div className="num tiny" style={{color:'rgba(255,255,255,0.6)', fontFamily:'JetBrains Mono'}}>
           {fmtMMSS(elapsed)} / {fmtMMSS(dur)}

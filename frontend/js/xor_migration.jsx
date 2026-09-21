@@ -79,14 +79,14 @@ const { useState, useEffect, useMemo } = React;
       <div className="section">
         <div className="page-header">
           <div>
-            <h1 className="page-title">{t('xormig.title') || 'XOR cross-chain migration'}</h1>
-            <div className="page-sub">{t('xormig.subtitle') || 'XOR burned on SORA v2 with eligibility from block #25,867,650 is reclaimable on Minamoto. Each verified migration carries the v2 burn-tx hash on-chain in Minamoto so we can stitch both sides into one timeline.'}</div>
+            <h1 className="page-title">{t('xormig.title') || t('xormig.title', 'XOR cross-chain migration')}</h1>
+            <div className="page-sub">{t('xormig.subtitle') || t('xormig.subtitle', 'XOR burned on SORA v2 with eligibility from block #25,867,650 is reclaimable on Minamoto. Each verified migration carries the v2 burn-tx hash on-chain in Minamoto so we can stitch both sides into one timeline.')}</div>
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginTop: 16 }}>
           <Kpi label={t('xormig.totalClaims') || 'Migrations'}     value={(s.total_claims != null ? s.total_claims : 0).toLocaleString()} />
-          <Kpi label={t('xormig.totalXor')    || 'XOR migrated'}    value={fmtXor(s.total_xor_claimed)}   sub="leaves v2 supply" />
+          <Kpi label={t('xormig.totalXor')    || 'XOR migrated'}    value={fmtXor(s.total_xor_claimed)}   sub={t('s.leavesV2Supply', 'leaves v2 supply')} />
           <Kpi label={t('xormig.uniqueWallets') || 'Unique senders'} value={(s.unique_recipients != null ? s.unique_recipients : 0).toLocaleString()} />
           <Kpi label={t('xormig.lastClaim')   || 'Last migration'}  value={s.last_claim_at ? relative(s.last_claim_at) : '—'} sub={s.last_claim_at} />
         </div>
@@ -96,20 +96,20 @@ const { useState, useEffect, useMemo } = React;
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
-                <th style={th()}>{t('xormig.when') || 'When'}</th>
+                <th style={th()}>{t('xormig.when') || t('predict.drill.when', 'When')}</th>
                 <th style={th()}>XOR</th>
-                <th style={th()}>{t('xormig.v2Block')   || 'v2 block'}</th>
-                <th style={th()}>{t('xormig.v2BurnTx') || 'v2 burn tx'}</th>
-                <th style={th()}>{t('xormig.v2Signer') || 'v2 signer'}</th>
-                <th style={{ ...th(), borderLeft: '1px solid var(--border)' }}>{t('xormig.mnBlock')     || 'MN block'}</th>
-                <th style={th()}>{t('xormig.mnClaimTx') || 'MN claim tx'}</th>
-                <th style={th()}>{t('xormig.mnRecipient') || 'MN recipient'}</th>
+                <th style={th()}>{t('xormig.v2Block')   || t('xormig.v2Block', 'v2 block')}</th>
+                <th style={th()}>{t('xormig.v2BurnTx') || t('xormig.v2BurnTx', 'v2 burn tx')}</th>
+                <th style={th()}>{t('xormig.v2Signer') || t('xormig.v2Signer', 'v2 signer')}</th>
+                <th style={{ ...th(), borderLeft: '1px solid var(--border)' }}>{t('xormig.mnBlock')     || t('xormig.mnBlock', 'MN block')}</th>
+                <th style={th()}>{t('xormig.mnClaimTx') || t('xormig.mnClaimTx', 'MN claim tx')}</th>
+                <th style={th()}>{t('xormig.mnRecipient') || t('xormig.mnRecipient', 'MN recipient')}</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr><td colSpan={8} style={{ padding: 32, textAlign: 'center', color: 'var(--fg-3)' }}>
-                  {list.loading ? (t('common.loading') || 'Loading…') : (t('xormig.noClaims') || 'No verified migrations yet — they appear here once a Minamoto claim references its v2 burn-tx hash on-chain.')}
+                  {list.loading ? (t('common.loading') || t('staking.rewards.perValidator.loading', 'Loading…')) : (t('xormig.noClaims') || t('xormig.noClaims', 'No verified migrations yet — they appear here once a Minamoto claim references its v2 burn-tx hash on-chain.'))}
                 </td></tr>
               )}
               {items.map(r => (

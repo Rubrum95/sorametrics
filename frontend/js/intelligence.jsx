@@ -39,6 +39,7 @@ function WidgetCard({ title, severity = 'none', tag, children }) {
 // TBCD is excluded because it's a TBC dollar whose target is its supply-based
 // formula price, not $1, so treating it as depegged at $4k is misleading.
 function PegMonitor() {
+  const t = useT();
   const STABLE_TARGETS = { KUSD: 1, XSTUSD: 1, DAI: 1 };
   const [data, setData] = useState(null);
   useEffect(() => {
@@ -61,11 +62,11 @@ function PegMonitor() {
 
   return (
     <WidgetCard
-      title="Peg Monitor"
+      title={t('s.pegMonitor', 'Peg Monitor')}
       severity={severity}
-      tag={worst ? (worst.dev > 0.02 ? worst.symbol + ' DEPEG ' + (worst.dev * 100).toFixed(1) + '%' : 'within range') : '…'}>
-      {!data && <div className="muted tiny">Cargando…</div>}
-      {data && data.length === 0 && <div className="muted tiny">Sin stablecoins monitorizados.</div>}
+      tag={worst ? (worst.dev > 0.02 ? worst.symbol + ' DEPEG ' + (worst.dev * 100).toFixed(1) + '%' : t('s.withinRange', 'within range')) : '…'}>
+      {!data && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {data && data.length === 0 && <div className="muted tiny">{t('s.noStablecoinsMonitored', 'Sin stablecoins monitorizados.')}</div>}
       {data && data.length > 0 && (
         <div style={{display:'grid', gap:10}}>
           {data.map(s => {
@@ -107,6 +108,7 @@ function PegMonitor() {
 // Concentration Risk — top 10 share + Gini for the 4 main SORA tokens.
 // Uses the Holders cache so we don't re-hit the VPS per intel refresh.
 function ConcentrationRisk() {
+  const t = useT();
   const ASSETS = [
     { sym:'XOR',   id:'0x0200000000000000000000000000000000000000000000000000000000000000' },
     { sym:'VAL',   id:'0x0200040000000000000000000000000000000000000000000000000000000000' },
@@ -149,10 +151,10 @@ function ConcentrationRisk() {
   const severity = !worst ? 'none' : worst.top10Pct > 80 ? 'alert' : worst.top10Pct > 60 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title="Concentration Risk" severity={severity} tag={worst ? worst.sym + ' top10: ' + worst.top10Pct.toFixed(0) + '%' : '…'}>
-      {!rows && <div className="muted tiny">Calculando…</div>}
+    <WidgetCard title={t('s.concentrationRisk', 'Concentration Risk')} severity={severity} tag={worst ? worst.sym + ' top10: ' + worst.top10Pct.toFixed(0) + '%' : '…'}>
+      {!rows && <div className="muted tiny">{t('s.calculating', 'Calculando…')}</div>}
       {rows && rows.map(r => {
-        if (r.err) return <div key={r.sym} className="muted tiny">{r.sym}: no disponible</div>;
+        if (r.err) return <div key={r.sym} className="muted tiny">{r.sym}{t('s.notAvailable2', ': no disponible')}</div>;
         const rowSev = r.top10Pct > 80 ? 'alert' : r.top10Pct > 60 ? 'warn' : 'ok';
         return (
           <div key={r.sym} style={{display:'grid', gridTemplateColumns:'14px 60px 1fr 80px 80px', alignItems:'center', gap:10, padding:'6px 0'}}>
@@ -171,7 +173,7 @@ function ConcentrationRisk() {
           </div>
         );
       })}
-      {rows && <div className="muted tiny" style={{marginTop:8}}>Top 10 wallets control X% del supply on-chain. Umbral alert ≥ 80%.</div>}
+      {rows && <div className="muted tiny" style={{marginTop:8}}>{t('s.theTop10WalletsHold', 'Top 10 wallets control X% del supply on-chain. Umbral alert ≥ 80%.')}</div>}
     </WidgetCard>
   );
 }
@@ -564,6 +566,7 @@ function BridgeNetFlow() {
 //   redirectedXor — XOR redirected to the KUSD bucket (no-referrer fallback)
 //   isLive        — true → only show estimated bucket portion (no event data)
 function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
+  const t = useT();
   const colorOf = sym =>
     sym === 'XOR'  ? '#E3232C' :
     sym === 'VAL'  ? '#FBC02D' :
@@ -602,7 +605,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
       <div style={{padding:'6px 0 0 0', marginTop:4, borderTop:'1px solid rgba(255,255,255,0.06)', opacity:0.85}}>
         <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0'}}>
           <span style={{fontSize:14, textAlign:'center'}}>👥</span>
-          <span style={{fontWeight:700, fontSize:12}}>Referrer</span>
+          <span style={{fontWeight:700, fontSize:12}}>{t('s.referrer', 'Referrer')}</span>
           <div className="muted tiny" style={{fontStyle:'italic'}}>
             {refRow.isLive
               ? tt('intel.fees.refLiveBucket', 'reserved 11.76% (split paid/redirected unknown until remint)')
@@ -956,6 +959,7 @@ function FeeWeekly() {
 // always `0.0000 XOR`. Fixed by removing that false comparison and sourcing
 // fees from the dedicated /stats/fees endpoint.
 function FeeTpsAnomalies() {
+  const t = useT();
   const [net, setNet] = useState(null);
   const [fees, setFees] = useState(null);
   useEffect(() => {
@@ -996,8 +1000,8 @@ function FeeTpsAnomalies() {
   );
 
   return (
-    <WidgetCard title="Fee / TPS Anomalies · 24h vs 7d" severity={severity} tag={net ? 'live' : '…'}>
-      {!net && <div className="muted tiny">Cargando…</div>}
+    <WidgetCard title={t('s.feeTpsAnomalies24hVs', 'Fee / TPS Anomalies · 24h vs 7d')} severity={severity} tag={net ? 'live' : '…'}>
+      {!net && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
       {net && (
         <>
           {row('Tx/day', tx24.toLocaleString(), Math.round(tx7 / 7).toLocaleString(), tpsRatio, '')}
@@ -1005,7 +1009,7 @@ function FeeTpsAnomalies() {
           {fees && fees.length > 0 && (
             <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)'}}>
               <div className="muted tiny" style={{marginBottom:6}}>
-                Fee split · {totalFeeXor.toFixed(2)} XOR · ${totalFeeUsd.toFixed(0)}
+                {t('s.feeSplit', 'Fee split ·')} {totalFeeXor.toFixed(2)} XOR · ${totalFeeUsd.toFixed(0)}
               </div>
               <div style={{display:'grid', gap:4}}>
                 {fees.map(f => {
@@ -1032,6 +1036,7 @@ function FeeTpsAnomalies() {
 // Validator Health — validators that produced blocks in the *last* era but
 // none in the current window. Uses /staking/recent-blocks (1 per head slot).
 function ValidatorHealth() {
+  const t = useT();
   const [snapshot, setSnapshot] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -1065,12 +1070,12 @@ function ValidatorHealth() {
   const severity = !snapshot ? 'none' : snapshot.silent.length > 2 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title="Validator Health" severity={severity} tag={snapshot ? snapshot.activeRecent + ' active · ' + snapshot.silent.length + ' silent' : '…'}>
-      {!snapshot && <div className="muted tiny">Cargando…</div>}
-      {snapshot && snapshot.silent.length === 0 && <div className="muted tiny">Todos los validadores activos producen bloques.</div>}
+    <WidgetCard title={t('s.validatorHealth', 'Validator Health')} severity={severity} tag={snapshot ? t('s.activeSilent', '{a} active · {s} silent').replace('{a}', snapshot.activeRecent).replace('{s}', snapshot.silent.length) : '…'}>
+      {!snapshot && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {snapshot && snapshot.silent.length === 0 && <div className="muted tiny">{t('s.allActiveValidatorsAreProducing', 'Todos los validadores activos producen bloques.')}</div>}
       {snapshot && snapshot.silent.length > 0 && (
         <>
-          <div className="muted tiny" style={{marginBottom:6}}>Produjeron bloques 1-6h atrás pero no en la última hora:</div>
+          <div className="muted tiny" style={{marginBottom:6}}>{t('s.producedBlocks16H', 'Produjeron bloques 1-6h atrás pero no en la última hora:')}</div>
           {snapshot.silent.map(v => (
             <div key={v.addr} style={{display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12}}>
               <Severity level="warn"/>
@@ -1088,6 +1093,7 @@ function ValidatorHealth() {
 
 // Governance Pulse — referendums + scheduler + preimages snapshot.
 function GovernancePulse() {
+  const t = useT();
   const [data, setData] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -1117,17 +1123,17 @@ function GovernancePulse() {
   const severity = !data ? 'none' : data.scheduledCalls > 0 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title="Governance Pulse" severity={severity} tag={data ? (data.scheduledCalls + ' scheduled') : '…'}>
-      {!data && <div className="muted tiny">Cargando…</div>}
+    <WidgetCard title={t('s.governancePulse', 'Governance Pulse')} severity={severity} tag={data ? (data.scheduledCalls + ' scheduled') : '…'}>
+      {!data && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
       {data && (
         <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, textAlign:'center'}}>
           {[
             // Active referendums. Sub-line shows the historical count so an
             // empty "0" is not misread as "the chain has zero governance".
-            { label: data.totalReferendums ? 'Active · ' + data.totalReferendums + ' all-time' : 'Referendums', value: data.referendums },
-            { label:'Proposals',   value: data.proposals },
-            { label:'Scheduled',   value: data.scheduledCalls, alert: data.scheduledCalls > 0 },
-            { label:'Preimages',   value: data.preimages },
+            { label: data.totalReferendums ? t('s.activeAllTime', 'Active · {n} all-time').replace('{n}', data.totalReferendums) : t('s.referendums', 'Referendums'), value: data.referendums },
+            { label:t('s.proposals', 'Proposals'),   value: data.proposals },
+            { label:t('s.scheduled', 'Scheduled'),   value: data.scheduledCalls, alert: data.scheduledCalls > 0 },
+            { label:t('gov.preimages.title', 'Preimages'),   value: data.preimages },
           ].map(s => (
             <div key={s.label} style={{padding:'8px 6px', background:'rgba(255,255,255,0.03)', borderRadius:8, border: s.alert ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.04)'}}>
               <div className="num" style={{fontSize:22, fontWeight:800, color: s.alert ? '#F59E0B' : 'var(--fg-0)'}}>{s.value}</div>
@@ -1143,6 +1149,7 @@ function GovernancePulse() {
 // New Listings — tokens that weren't in the previous /tokens snapshot we saw
 // (stored in localStorage as a symbol set, rolled over every 24h).
 function NewListings() {
+  const t = useT();
   const STORAGE_KEY = 'sm.intel.knownTokens';
   const [result, setResult] = useState(null);
   useEffect(() => {
@@ -1170,9 +1177,9 @@ function NewListings() {
   const severity = !result ? 'none' : result.length > 0 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title="New Listings · 24h" severity={severity} tag={result ? result.length + ' new' : '…'}>
-      {!result && <div className="muted tiny">Cargando…</div>}
-      {result && result.length === 0 && <div className="muted tiny">Sin nuevos tokens en la última ventana de 24h.</div>}
+    <WidgetCard title={t('s.newListings24h', 'New Listings · 24h')} severity={severity} tag={result ? result.length + ' new' : '…'}>
+      {!result && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {result && result.length === 0 && <div className="muted tiny">{t('s.noNewTokensInThe', 'Sin nuevos tokens en la última ventana de 24h.')}</div>}
       {result && result.length > 0 && result.slice(0, 8).map(tk => (
         <div key={tk.symbol} style={{display:'flex', alignItems:'center', gap:10, padding:'6px 0', fontSize:13}}>
           <TokenLogo sym={tk.symbol} logo={tk.logo} size={24}/>
@@ -1196,6 +1203,7 @@ function NewListings() {
 // exists that closes the gap. We surface the best pair-pair divergence per
 // base token, and label the rows with the pair (not a fake DEX).
 function CrossDexArb() {
+  const t = useT();
   const [spread, setSpread] = useState(null);
   useEffect(() => {
     let cancelled = false;
@@ -1232,9 +1240,9 @@ function CrossDexArb() {
   const severity = !spread ? 'none' : best?.spreadPct > 2 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title="Cross-Pair Arbitrage" severity={severity} tag={best ? best.sym + ' spread ' + best.spreadPct.toFixed(2) + '%' : '…'}>
-      {!spread && <div className="muted tiny">Analizando pools…</div>}
-      {spread && spread.length === 0 && <div className="muted tiny">Sin spreads &gt; 0.5% entre pares.</div>}
+    <WidgetCard title={t('s.crossPairArbitrage', 'Cross-Pair Arbitrage')} severity={severity} tag={best ? best.sym + ' spread ' + best.spreadPct.toFixed(2) + '%' : '…'}>
+      {!spread && <div className="muted tiny">{t('s.analysingPools', 'Analizando pools…')}</div>}
+      {spread && spread.length === 0 && <div className="muted tiny">{t('s.noSpreads05Between', 'Sin spreads > 0.5% entre pares.')}</div>}
       {spread && spread.map(s => (
         <div key={s.sym} style={{display:'grid', gridTemplateColumns:'60px 1fr 1fr 80px', gap:10, alignItems:'center', padding:'6px 0', fontSize:12}}>
           <span style={{fontWeight:700}}>{s.sym}</span>
@@ -1253,11 +1261,11 @@ function IntelligenceSection() {
   return (
     <div>
       <PageHeader title={t('intel.title')} sub={t('intel.sub')}>
-        <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> on-chain signals</span>
+        <span className="tag ok"><span className="live-dot" style={{width:5,height:5}}/> {t('s.onChainSignals', 'on-chain signals')}</span>
       </PageHeader>
 
       <div style={{marginBottom:12}}>
-        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>Tier 1 · Alerts</h3>
+        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier1Alerts', 'Tier 1 · Alerts')}</h3>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
           <PegMonitor/>
           <WhaleActivity/>
@@ -1266,7 +1274,7 @@ function IntelligenceSection() {
       </div>
 
       <div style={{marginBottom:12, marginTop:22}}>
-        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>Tier 2 · Algorithmic Signals</h3>
+        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier2AlgorithmicSignals', 'Tier 2 · Algorithmic Signals')}</h3>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
           <FeeWeekly/>
           <FeeTpsAnomalies/>
@@ -1275,7 +1283,7 @@ function IntelligenceSection() {
       </div>
 
       <div style={{marginTop:22}}>
-        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>Tier 3 · Extras</h3>
+        <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier3Extras', 'Tier 3 · Extras')}</h3>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
           <GovernancePulse/>
           <NewListings/>

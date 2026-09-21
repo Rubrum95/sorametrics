@@ -353,24 +353,24 @@ function ExtrinsicsSection({ tweaks }) {
 
       <div className="swaps-stats-grid">
         <div className="stat-card">
-          <span className="stat-label">Extrinsics · 24h</span>
+          <span className="stat-label">{t('s.extrinsics24h', 'Extrinsics · 24h')}</span>
           <span className="stat-value num">{stats.total.toLocaleString()}</span>
-          <span className="stat-sub">{stats.windowed ? 'network-wide · 24h' : 'loading…'}</span>
+          <span className="stat-sub">{stats.windowed ? t('s.networkWide24h', 'network-wide · 24h') : t('s.loading', 'loading…')}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Success Rate · 24h</span>
+          <span className="stat-label">{t('s.successRate24h', 'Success Rate · 24h')}</span>
           <span className="stat-value num" style={{color: '#6EE7B7'}}>{stats.successRate}%</span>
-          <span className="stat-sub">{stats.failed.toLocaleString()} failed · 24h</span>
+          <span className="stat-sub">{stats.failed.toLocaleString()} {t('s.failed24h', 'failed · 24h')}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Avg Fee · 24h</span>
+          <span className="stat-label">{t('s.avgFee24h', 'Avg Fee · 24h')}</span>
           <span className="stat-value num">{stats.feesKnown ? stats.avgFee.toFixed(4) : '—'}<span style={{fontSize: 16, color:'var(--fg-2)', marginLeft: 6}}>XOR</span></span>
-          <span className="stat-sub">{stats.feesKnown ? '$' + stats.avgFeeUsd.toFixed(4) + ' · per extrinsic' : 'loading…'}</span>
+          <span className="stat-sub">{stats.feesKnown ? '$' + stats.avgFeeUsd.toFixed(4) + ' · ' + t('s.perExtrinsic', 'per extrinsic') : t('s.loading', 'loading…')}</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">Top Pallet · 24h</span>
+          <span className="stat-label">{t('s.topPallet24h', 'Top Pallet · 24h')}</span>
           <span className="stat-value" style={{fontSize: 20, color: PALLET_COLORS[stats.topPallet] || 'var(--fg-0)'}}>{stats.topPallet}</span>
-          <span className="stat-sub">{stats.topPalletCount.toLocaleString()} calls · 24h</span>
+          <span className="stat-sub">{stats.topPalletCount.toLocaleString()} {t('s.calls24h', 'calls · 24h')}</span>
         </div>
       </div>
 
@@ -381,14 +381,14 @@ function ExtrinsicsSection({ tweaks }) {
                     onClick={() => setPalletOpen(o => !o)}>
               <span style={{width: 8, height: 8, borderRadius: '50%',
                 background: palletFilter ? PALLET_COLORS[palletFilter] : 'linear-gradient(135deg,#9B1B30,#7B5B90)'}}/>
-              <span>{palletFilter || 'All Pallets'}</span>
+              <span>{palletFilter || t('s.allPallets', 'All Pallets')}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2 4 3 3 3-3"/></svg>
             </button>
             {palletOpen && (
               <div className="swap-dropdown-content">
                 <div className="swap-dd-item" onClick={() => { setPalletFilter(null); setPalletOpen(false); setPage(1); }}>
                   <span style={{width:8,height:8,borderRadius:'50%',background:'linear-gradient(135deg,#9B1B30,#7B5B90)'}}/>
-                  <span>🌟 All Pallets</span>
+                  <span>{t('s.allPallets2', '🌟 All Pallets')}</span>
                 </div>
                 {palletList.map(p => (
                   <div key={p} className={'swap-dd-item' + (palletFilter === p ? ' active' : '')}
@@ -405,29 +405,29 @@ function ExtrinsicsSection({ tweaks }) {
             type="text"
             value={methodSearch}
             onChange={e => setMethodSearch(e.target.value)}
-            placeholder="Buscar método..."
-            title="Filtrar por nombre del método (debounce 500ms)"
+            placeholder={t('s.searchMethod', 'Buscar método...')}
+            title={t('s.filterByMethodName500', 'Filtrar por nombre del método (debounce 500ms)')}
             style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13, minWidth: 180, outline:'none'}}/>
 
           <input
             type="datetime-local"
             value={dateFilter}
             onChange={e => { setDateFilter(e.target.value); setPage(1); }}
-            title="Filtrar extrinsics anteriores a esta fecha/hora"
+            title={t('s.showExtrinsicsBeforeThisDate', 'Filtrar extrinsics anteriores a esta fecha/hora')}
             style={{padding:'6px 10px', border:'1px solid var(--border-color)', borderRadius:8, background:'var(--bg-card)', color:'var(--fg-0)', fontSize:13}}/>
           {dateFilter && (
-            <button className="btn" onClick={() => { setDateFilter(''); setPage(1); }} style={{padding:'4px 10px'}} title="Limpiar fecha">✕</button>
+            <button className="btn" onClick={() => { setDateFilter(''); setPage(1); }} style={{padding:'4px 10px'}} title={t('s.clearDate', 'Limpiar fecha')}>✕</button>
           )}
 
           {blockFilter && (
             <span className="tag" style={{display:'inline-flex', alignItems:'center', gap:6, background:'var(--accent-bg, #9B1B3022)', color:'var(--accent, #F5B041)', borderColor:'var(--accent, #F5B041)'}}>
-              Block #{Number(blockFilter).toLocaleString()}
-              <button className="btn" onClick={() => { setBlockFilter(''); setHashHighlight(''); setPage(1); }} style={{padding:'0 6px', marginLeft:4}} title="Quitar filtro de bloque">✕</button>
+              {t('s.block', 'Block #')}{Number(blockFilter).toLocaleString()}
+              <button className="btn" onClick={() => { setBlockFilter(''); setHashHighlight(''); setPage(1); }} style={{padding:'0 6px', marginLeft:4}} title={t('s.removeBlockFilter', 'Quitar filtro de bloque')}>✕</button>
             </span>
           )}
 
-          <button className="btn" onClick={refresh} disabled={histLoading} title="Actualizar" style={{marginLeft:'auto'}}>
-            ↻ {histLoading ? 'Cargando…' : 'Refresh'}
+          <button className="btn" onClick={refresh} disabled={histLoading} title={t('common.refresh', 'Actualizar')} style={{marginLeft:'auto'}}>
+            ↻ {histLoading ? t('staking.rewards.perValidator.loading', 'Cargando…') : t('common.refresh', 'Refresh')}
           </button>
 
           <div className="status-toggle">
@@ -457,7 +457,7 @@ function ExtrinsicsSection({ tweaks }) {
                 <th style={{paddingLeft: 20}}>{t('col.time')}</th>
                 <th>{t('drill.block')}</th>
                 <th>{t('col.extrinsic')}</th>
-                <th>Pallet :: Method</th>
+                <th>{t('s.palletMethod', 'Pallet :: Method')}</th>
                 <th>{t('col.caller')}</th>
                 <th style={{textAlign:'right'}}>{t('col.fee')}</th>
                 <th style={{textAlign:'center'}}>{t('col.status')}</th>
@@ -486,7 +486,7 @@ function ExtrinsicsSection({ tweaks }) {
                     <td data-label={t('col.extrinsic')}>
                       <div className="ext-hash-cell" onClick={(ev) => ev.stopPropagation()}>
                         <code className="num">{e.hash.slice(0, 10)}…{e.hash.slice(-6)}</code>
-                        <button className="copy-btn" onClick={() => copyTx(e.hash)} title="Copy hash">⎘</button>
+                        <button className="copy-btn" onClick={() => copyTx(e.hash)} title={t('s.copyHash', 'Copy hash')}>⎘</button>
                       </div>
                     </td>
                     <td data-label="Pallet :: Method">
@@ -521,11 +521,11 @@ function ExtrinsicsSection({ tweaks }) {
                     </td>
                     <td data-label={t('col.status')} style={{textAlign:'center'}}>
                       {e.ok
-                        ? <span className="status-pill ok" title="Success">✓</span>
-                        : <span className="status-pill err" title="Failed">✗</span>}
+                        ? <span className="status-pill ok" title={t('status.success', 'Success')}>✓</span>
+                        : <span className="status-pill err" title={t('status.failed', 'Failed')}>✗</span>}
                     </td>
                     <td style={{paddingRight: 20, textAlign:'center'}}>
-                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title="Más Info">↗</button>
+                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title={t('s.moreInfo', 'Más Info')}>↗</button>
                       <span className={'ext-caret' + (expanded === e.id ? ' open' : '')} style={{marginLeft: 6}}>▾</span>
                     </td>
                   </tr>
@@ -535,17 +535,17 @@ function ExtrinsicsSection({ tweaks }) {
                         <div className="ext-detail">
                           {!e.ok && (
                             <div className="ext-fail-banner">
-                              <span style={{fontWeight:700, color:'#FCA5A5'}}>Failed:</span>
+                              <span style={{fontWeight:700, color:'#FCA5A5'}}>{t('s.failed2', 'Failed:')}</span>
                               <span style={{color:'#FCA5A5', marginLeft: 8}}>{e.failReason}</span>
                             </div>
                           )}
                           <div className="ext-detail-grid">
                             <div>
-                              <div className="ext-detail-label">Decoded Args</div>
+                              <div className="ext-detail-label">{t('drill.decodedArgs', 'Decoded Args')}</div>
                               <pre className="ext-args">{argsFor(e)}</pre>
                             </div>
                             <div>
-                              <div className="ext-detail-label">Events Emitted · {eventsFor(e).length}</div>
+                              <div className="ext-detail-label">{t('s.eventsEmitted', 'Events Emitted ·')} {eventsFor(e).length}</div>
                               <div className="ext-events">
                                 {eventsFor(e).map((ev, i) => (
                                   <div key={i} className="ext-event-chip" style={{['--ec']: ev.color}}>
@@ -569,7 +569,7 @@ function ExtrinsicsSection({ tweaks }) {
               })}
               {visible.length === 0 && (
                 <tr><td colSpan="8" style={{padding:40, textAlign:'center', color:'var(--fg-2)'}}>
-                  No extrinsics match your filters.
+                  {t('s.noExtrinsicsMatchYourFilters', 'No extrinsics match your filters.')}
                 </td></tr>
               )}
             </tbody>
@@ -577,11 +577,11 @@ function ExtrinsicsSection({ tweaks }) {
         </div>
 
         <div className="swaps-pag">
-          <button className="btn" disabled={curPage === 1} onClick={() => setPage(1)}>« First</button>
-          <button className="btn" disabled={curPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>⬅ Prev</button>
-          <span className="pag-indicator">Page {curPage} of {totalPages}</span>
-          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next ➡</button>
-          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(totalPages)}>Last »</button>
+          <button className="btn" disabled={curPage === 1} onClick={() => setPage(1)}>{t('pag.first', '« First')}</button>
+          <button className="btn" disabled={curPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>{t('pag.prev', '⬅ Prev')}</button>
+          <span className="pag-indicator">{t('pag.pageOf', 'Page')} {curPage} of {totalPages}</span>
+          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>{t('pag.next', 'Next ➡')}</button>
+          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(totalPages)}>{t('pag.last', 'Last »')}</button>
         </div>
       </div>
     </div>

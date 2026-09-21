@@ -199,10 +199,10 @@ function PredictionBlockCard() {
                   background:'var(--bg-card)', color:'var(--fg-0)',
                   outline:'none',
                 }}/>
-              <button className="btn" onClick={() => bumpBlock(-600)}  title="-1h (−600 blocks)">-1h</button>
+              <button className="btn" onClick={() => bumpBlock(-600)}  title={t('s.1h600Blocks', '-1h (−600 blocks)')}>-1h</button>
               <button className="btn" onClick={() => bumpBlock(-100)}  title="-10min">-10m</button>
               <button className="btn" onClick={() => bumpBlock( 100)}  title="+10min">+10m</button>
-              <button className="btn" onClick={() => bumpBlock( 600)}  title="+1h (+600 blocks)">+1h</button>
+              <button className="btn" onClick={() => bumpBlock( 600)}  title={t('s.1h600Blocks2', '+1h (+600 blocks)')}>+1h</button>
             </div>
           </div>
         ) : (

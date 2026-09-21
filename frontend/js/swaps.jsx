@@ -8,6 +8,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 //   · Address → opens the wallet drill.
 // When no name is resolved, the address row stays clickable for the drill.
 function AccountCell({ addr, size = 22 }) {
+  const t = useT();
   const name = useIdentity(addr);
   const source = useIdentitySource(addr);
   const openWallet = (ev) => {
@@ -46,7 +47,7 @@ function AccountCell({ addr, size = 22 }) {
           <div style={{display:'flex', alignItems:'center', gap:4}}>
             <span
               style={{fontSize: 12, fontWeight: 700, color:'var(--fg-0)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor:'pointer'}}
-              title={'Copiar dirección · ' + addr}
+              title={t('s.copyAddress', 'Copiar dirección') + ' · ' + addr}
               onClick={copyAddr}>
               {name}
             </span>
@@ -56,7 +57,7 @@ function AccountCell({ addr, size = 22 }) {
         <span
           className="muted tiny num"
           style={{whiteSpace:'nowrap', textDecoration:'underline dotted', textUnderlineOffset: 2, cursor:'pointer'}}
-          title={'Abrir wallet · ' + addr}
+          title={t('s.openWallet', 'Abrir wallet') + ' · ' + addr}
           onClick={openWallet}>
           {fmt.addr(addr, 5, 4)}
         </span>
@@ -246,10 +247,10 @@ function SwapsSection({ tweaks }) {
         const [a, b] = (stats.topPair || '').split('/');
         return (
           <KpiGrid items={[
-            { label:'Swaps · 24h',     value: stats.count.toLocaleString(),    sub:'last 24h' },
-            { label:'Volume · 24h',    value: fmt.usd(stats.vol),              sub:'network-wide' },
-            { label:'Unique Accounts', value: stats.uniqueAccs.toLocaleString(), sub:'signers · 24h' },
-            { label:'Top Pair',        value: stats.topPair,                    sub:'highest volume', pair: a && b ? { a, b } : null },
+            { label:t('pulse.kpi.swaps24', 'Swaps · 24h'),     value: stats.count.toLocaleString(),    sub:t('s.last24h', 'last 24h') },
+            { label:t('s.volume24h2', 'Volume · 24h'),    value: fmt.usd(stats.vol),              sub:'network-wide' },
+            { label:t('s.uniqueAccounts', 'Unique Accounts'), value: stats.uniqueAccs.toLocaleString(), sub:t('s.signers24h', 'signers · 24h') },
+            { label:t('s.topPair', 'Top Pair'),        value: stats.topPair,                    sub:t('s.highestVolume', 'highest volume'), pair: a && b ? { a, b } : null },
           ]}/>
         );
       })()}
@@ -260,8 +261,8 @@ function SwapsSection({ tweaks }) {
           <div className="swap-dropdown-wrap">
             <button className={'swap-dropdown-btn' + (filter ? ' has-filter' : '')}
                     onClick={() => setDropdownOpen(o => !o)}>
-              {filter ? <><TokenLogo sym={filter} size={18}/> <span>Filter: {filter}</span></>
-                      : <><span style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#FFD166,#E5243B)',display:'inline-block'}}/> <span>All Tokens</span></>}
+              {filter ? <><TokenLogo sym={filter} size={18}/> <span>{t('s.filter', 'Filter:')} {filter}</span></>
+                      : <><span style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#FFD166,#E5243B)',display:'inline-block'}}/> <span>{t('s.allTokens', 'All Tokens')}</span></>}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2 4 3 3 3-3"/></svg>
             </button>
             {dropdownOpen && (
@@ -270,13 +271,13 @@ function SwapsSection({ tweaks }) {
                   type="text"
                   className="swap-dd-search"
                   autoFocus
-                  placeholder="Buscar token..."
+                  placeholder={t('s.searchToken', 'Buscar token...')}
                   value={dropdownSearch}
                   onChange={e => setDropdownSearch(e.target.value)}
                   style={{width:'100%', padding:'8px 10px', border:'1px solid var(--border-color)', borderRadius:6, background:'var(--bg-card)', color:'var(--fg-0)', marginBottom:6, fontSize:13, outline:'none'}}/>
                 <div className="swap-dd-item" onClick={() => { setFilter(null); setDropdownOpen(false); setDropdownSearch(''); setPage(1); }}>
                   <span style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#FFD166,#E5243B)',display:'inline-block'}}/>
-                  <span>🌟 All Tokens</span>
+                  <span>{t('s.allTokens2', '🌟 All Tokens')}</span>
                 </div>
                 {tokenList
                   .filter(s => !dropdownSearch || s.toLowerCase().includes(dropdownSearch.toLowerCase()) || (TOKENS[s]?.name || '').toLowerCase().includes(dropdownSearch.toLowerCase()))
@@ -297,19 +298,19 @@ function SwapsSection({ tweaks }) {
             className="swap-date-input"
             value={dateFilter}
             onChange={e => { setDateFilter(e.target.value); setPage(1); }}
-            title="Filtrar swaps anteriores a esta fecha/hora"/>
+            title={t('s.showSwapsBeforeThisDate', 'Filtrar swaps anteriores a esta fecha/hora')}/>
           {dateFilter && (
             <button
               className="btn"
               onClick={() => { setDateFilter(''); setPage(1); }}
-              title="Limpiar filtro de fecha"
+              title={t('s.clearDateFilter', 'Limpiar filtro de fecha')}
               style={{padding:'4px 10px'}}>✕</button>
           )}
 
           <div className="swaps-filter-spacer"/>
 
-          <span className="tag">{(backendTotal ?? items.length).toLocaleString()} swaps{loading ? ' · cargando' : ''}</span>
-          <button className="btn" onClick={refresh} disabled={loading} title="Actualizar">↻ Refresh</button>
+          <span className="tag">{(backendTotal ?? items.length).toLocaleString()} swaps{loading ? t('s.loading3', ' · cargando') : ''}</span>
+          <button className="btn" onClick={refresh} disabled={loading} title={t('common.refresh', 'Actualizar')}>{t('s.refresh', '↻ Refresh')}</button>
         </div>
 
         {/* Table (desktop) */}
@@ -319,11 +320,11 @@ function SwapsSection({ tweaks }) {
               <tr>
                 <th style={{paddingLeft: 20}}>{t('col.time')}</th>
                 <th>{t('drill.block')}</th>
-                <th>Input</th>
+                <th>{t('s.input', 'Input')}</th>
                 <th style={{textAlign:'center', width: 50}}></th>
-                <th>Output</th>
+                <th>{t('s.output', 'Output')}</th>
                 <th>{t('col.account')}</th>
-                <th style={{textAlign:'right', paddingRight: 20}}>Action</th>
+                <th style={{textAlign:'right', paddingRight: 20}}>{t('predict.drill.action', 'Action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -364,7 +365,7 @@ function SwapsSection({ tweaks }) {
                     <AccountCell addr={s.acc}/>
                   </td>
                   <td style={{textAlign:'right', paddingRight: 20}}>
-                    <button className="row-action-btn" title="Más Info"
+                    <button className="row-action-btn" title={t('s.moreInfo', 'Más Info')}
                       onClick={(ev) => { ev.stopPropagation(); open({
                         type:'swap',
                         title: s.inTok + ' → ' + s.outTok,
@@ -383,7 +384,7 @@ function SwapsSection({ tweaks }) {
               ))}
               {visible.length === 0 && (
                 <tr><td colSpan="7" style={{padding:40, textAlign:'center', color:'var(--fg-2)'}}>
-                  No swaps found{filter ? ` for ${filter}` : ''}.
+                  {t('s.noSwapsFound', 'No swaps found')}{filter ? ` for ${filter}` : ''}.
                 </td></tr>
               )}
             </tbody>
@@ -392,11 +393,11 @@ function SwapsSection({ tweaks }) {
 
         {/* Pagination */}
         <div className="swaps-pag">
-          <button className="btn" disabled={curPage === 1} onClick={() => setPage(1)}>« First</button>
-          <button className="btn" disabled={curPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>⬅ Prev</button>
-          <span className="pag-indicator">Page {curPage} of {totalPages}</span>
-          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next ➡</button>
-          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(totalPages)}>Last »</button>
+          <button className="btn" disabled={curPage === 1} onClick={() => setPage(1)}>{t('pag.first', '« First')}</button>
+          <button className="btn" disabled={curPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>{t('pag.prev', '⬅ Prev')}</button>
+          <span className="pag-indicator">{t('pag.pageOf', 'Page')} {curPage} of {totalPages}</span>
+          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>{t('pag.next', 'Next ➡')}</button>
+          <button className="btn" disabled={curPage === totalPages} onClick={() => setPage(totalPages)}>{t('pag.last', 'Last »')}</button>
         </div>
       </div>
     </div>

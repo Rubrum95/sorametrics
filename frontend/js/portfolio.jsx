@@ -46,6 +46,7 @@ function WalletBackupControls() {
 
 // --- Visual: donut chart for token allocation -------------------------------
 function Donut({ slices }) {
+  const t = useT();
   const R = 78, r = 54, cx = 90, cy = 90;
   let acc = 0;
   const total = slices.reduce((s, x) => s + x.value, 0) || 1;
@@ -66,7 +67,7 @@ function Donut({ slices }) {
         const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r} ${r} 0 ${large} 0 ${x4} ${y4} Z`;
         return <path key={i} d={d} fill={s.color} opacity="0.92" stroke="#111" strokeWidth="0.6"/>;
       })}
-      <text x={cx} y={cy-4} textAnchor="middle" fill="#e5e7eb" fontSize="10" fontFamily="Inter" letterSpacing="1.5" fontWeight="700">NET WORTH</text>
+      <text x={cx} y={cy-4} textAnchor="middle" fill="#e5e7eb" fontSize="10" fontFamily="Inter" letterSpacing="1.5" fontWeight="700">{t('s.netWorth', 'NET WORTH')}</text>
       <text x={cx} y={cy+14} textAnchor="middle" fill="#fff" fontSize="15" fontFamily="JetBrains Mono" fontWeight="800">
         {fmt.usd(total)}
       </text>
@@ -357,7 +358,7 @@ function PortfolioSection({ tweaks }) {
       <div className="pf-hero">
         {/* Net worth + wallet cards */}
         <div className="card pf-worth-card">
-          <div className="pf-worth-label">Total Net Worth</div>
+          <div className="pf-worth-label">{t('s.totalNetWorth', 'Total Net Worth')}</div>
           <div className="pf-worth-value num">
             <span className="cur">{cur === 'USD' ? '$' : cur === 'EUR' ? '€' : ''}</span>
             {fmtCur(net).replace(/^[$€]/, '').replace(/\s*XOR$/, '')}
@@ -367,7 +368,7 @@ function PortfolioSection({ tweaks }) {
             <span className="stat-sub">
               {wallets.length} wallet{wallets.length === 1 ? '' : 's'} · {holdings.length} tokens
               {(lpSummary.lpUsd + lpSummary.stakingUsd) > 0 && (
-                <> · tokens {fmtCur(tokensNet)} + LP {fmtCur(lpSummary.lpUsd)} + staking {fmtCur(lpSummary.stakingUsd)}</>
+                <> {t('s.tokens', '· tokens')} {fmtCur(tokensNet)} + LP {fmtCur(lpSummary.lpUsd)} {t('s.staking', '+ staking')} {fmtCur(lpSummary.stakingUsd)}</>
               )}
             </span>
           </div>
@@ -416,7 +417,7 @@ function PortfolioSection({ tweaks }) {
                     className="pf-wallet-card clickable"
                     style={{cursor:'pointer'}}
                     onClick={() => window.openWalletDetails?.(w.addr, w.alias)}
-                    title="Abrir detalle de la wallet">
+                    title={t('s.openWalletDetails', 'Abrir detalle de la wallet')}>
                     <div className="pf-wallet-head">
                       <div className="pf-wallet-av">{w.alias ? w.alias[0] : '?'}</div>
                       <div style={{flex:1, minWidth:0}}>
@@ -426,9 +427,9 @@ function PortfolioSection({ tweaks }) {
                     </div>
                     <div className="pf-wallet-value num">{fmtCur(w.total)}</div>
                     <div className="stat-sub" style={{fontSize:11}}>
-                      {pct.toFixed(1)}% of total
+                      {pct.toFixed(1)}{t('s.ofTotal', '% of total')}
                       {w.lpUsd > 0 && <> · LP {fmtCur(w.lpUsd)}</>}
-                      {w.stUsd > 0 && <> · stake {fmtCur(w.stUsd)}</>}
+                      {w.stUsd > 0 && <> {t('s.stake2', '· stake')} {fmtCur(w.stUsd)}</>}
                     </div>
                   </div>
                 );
@@ -440,7 +441,7 @@ function PortfolioSection({ tweaks }) {
         {/* Donut allocation */}
         <div className="card">
           <div className="card-header">
-            <div className="card-title"><span className="dot"/> Allocation</div>
+            <div className="card-title"><span className="dot"/> {t('balance.allocation', 'Allocation')}</div>
             <span className="tag">{holdings.length} tokens</span>
           </div>
           <div className="card-body">
@@ -458,7 +459,7 @@ function PortfolioSection({ tweaks }) {
                 {rest > 0 && (
                   <div className="lg-row" style={{ ['--c']: '#4A3566' }}>
                     <span className="lg-dot" style={{background:'#4A3566'}}/>
-                    <span className="lg-sym">Others</span>
+                    <span className="lg-sym">{t('s.others', 'Others')}</span>
                     <span className="lg-val">{fmtCur(rest)}</span>
                     <span className="lg-pct">{tokensNet > 0 ? (rest / tokensNet * 100).toFixed(1) : '0'}%</span>
                   </div>
@@ -472,7 +473,7 @@ function PortfolioSection({ tweaks }) {
       {/* Holdings table */}
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header" style={{gap:10, flexWrap:'wrap'}}>
-          <div className="card-title"><span className="dot"/> Holdings · Live</div>
+          <div className="card-title"><span className="dot"/> {t('s.holdingsLive', 'Holdings · Live')}</div>
           <div className="row" style={{gap:10, flexWrap:'wrap'}}>
             {/* Match v1 "Ocultar saldos bajos (≤$0.05)" — hides tokens with
                 value at or below the threshold. Total net worth / allocation
@@ -503,10 +504,10 @@ function PortfolioSection({ tweaks }) {
             <thead>
               <tr>
                 <th style={{paddingLeft: 20}}>Token</th>
-                <th className="num" style={{textAlign:'right'}}>Amount</th>
-                <th className="num" style={{textAlign:'right'}}>Price</th>
+                <th className="num" style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
+                <th className="num" style={{textAlign:'right'}}>{t('col.price', 'Price')}</th>
                 <th className="num" style={{textAlign:'right'}}>24h</th>
-                <th style={{textAlign:'right'}}>Chart</th>
+                <th style={{textAlign:'right'}}>{t('s.chart', 'Chart')}</th>
                 <th className="num" style={{textAlign:'right'}}>{t('portfolio.col.value', 'Value')}</th>
                 <th className="num" style={{textAlign:'right', paddingRight: 20, whiteSpace:'nowrap'}}>
                   {t('portfolio.col.realizable', 'Realizable')} · {realPct}%{' '}
@@ -565,27 +566,27 @@ function PortfolioSection({ tweaks }) {
       {/* LP & Staking */}
       <div className="card" style={{marginTop: 18}}>
         <div className="card-header">
-          <div className="card-title"><span className="dot"/> LP & Staking</div>
+          <div className="card-title"><span className="dot"/> {t('s.lpStaking', 'LP & Staking')}</div>
           <span className="tag">
-            LP {fmtCur(lpSummary.lpUsd)} · Staking {fmtCur(lpSummary.stakingUsd)}
+            LP {fmtCur(lpSummary.lpUsd)} {t('s.staking2', '· Staking')} {fmtCur(lpSummary.stakingUsd)}
           </span>
         </div>
         <div className="card-body" style={{padding: 0}}>
-          {lpSummary.loading && <div className="muted tiny" style={{padding:16, textAlign:'center'}}>Cargando posiciones…</div>}
+          {lpSummary.loading && <div className="muted tiny" style={{padding:16, textAlign:'center'}}>{t('s.loadingPositions', 'Cargando posiciones…')}</div>}
           {!lpSummary.loading && lpSummary.positions.length === 0 && Object.keys(lpSummary.stakingByWallet).length === 0 && (
-            <div className="muted tiny" style={{padding:20, textAlign:'center'}}>No hay posiciones de LP ni staking en tus wallets.</div>
+            <div className="muted tiny" style={{padding:20, textAlign:'center'}}>{t('s.noLpOrStakingPositions', 'No hay posiciones de LP ni staking en tus wallets.')}</div>
           )}
           {lpSummary.positions.length > 0 && (
             <div style={{padding:'4px 0 12px'}}>
-              <div className="muted tiny" style={{padding:'10px 20px 6px', letterSpacing:'0.12em', textTransform:'uppercase', fontWeight:700}}>Liquidity Positions</div>
+              <div className="muted tiny" style={{padding:'10px 20px 6px', letterSpacing:'0.12em', textTransform:'uppercase', fontWeight:700}}>{t('s.liquidityPositions2', 'Liquidity Positions')}</div>
               <table className="holdings-table">
                 <thead>
                   <tr>
                     <th style={{paddingLeft:20}}>Wallet</th>
-                    <th>Pool</th>
-                    <th className="num" style={{textAlign:'right'}}>Amount</th>
-                    <th className="num" style={{textAlign:'right'}}>Share</th>
-                    <th className="num" style={{textAlign:'right', paddingRight:20}}>Value</th>
+                    <th>{t('col.pool', 'Pool')}</th>
+                    <th className="num" style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
+                    <th className="num" style={{textAlign:'right'}}>{t('intel.fees.shareCol', 'Share')}</th>
+                    <th className="num" style={{textAlign:'right', paddingRight:20}}>{t('predict.drill.value', 'Value')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -613,14 +614,14 @@ function PortfolioSection({ tweaks }) {
           )}
           {Object.keys(lpSummary.stakingByWallet).length > 0 && (
             <div style={{padding:'4px 0 14px'}}>
-              <div className="muted tiny" style={{padding:'10px 20px 6px', letterSpacing:'0.12em', textTransform:'uppercase', fontWeight:700}}>Staking</div>
+              <div className="muted tiny" style={{padding:'10px 20px 6px', letterSpacing:'0.12em', textTransform:'uppercase', fontWeight:700}}>{t('nav.staking', 'Staking')}</div>
               <table className="holdings-table">
                 <thead>
                   <tr>
                     <th style={{paddingLeft:20}}>Wallet</th>
-                    <th className="num" style={{textAlign:'right'}}>Validators</th>
-                    <th className="num" style={{textAlign:'right'}}>Rewards</th>
-                    <th className="num" style={{textAlign:'right', paddingRight:20}}>Staked</th>
+                    <th className="num" style={{textAlign:'right'}}>{t('staking.tab.validators', 'Validators')}</th>
+                    <th className="num" style={{textAlign:'right'}}>{t('staking.tab.rewards', 'Rewards')}</th>
+                    <th className="num" style={{textAlign:'right', paddingRight:20}}>{t('s.staked', 'Staked')}</th>
                   </tr>
                 </thead>
                 <tbody>

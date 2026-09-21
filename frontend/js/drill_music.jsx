@@ -47,6 +47,7 @@ const TYPE_META = {
 };
 
 function Copy({ text, short = false }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const onClick = (e) => {
     e.stopPropagation();
@@ -56,7 +57,7 @@ function Copy({ text, short = false }) {
   };
   return (
     <button className="drill-copy" onClick={onClick} title={copied ? 'Copied!' : 'Copy'}>
-      {copied ? '✓' : (short ? '⎘' : '⎘ copy')}
+      {copied ? '✓' : (short ? '⎘' : t('s.copy', '⎘ copy'))}
     </button>
   );
 }
@@ -84,17 +85,19 @@ function Addr({ addr }) {
 }
 
 function TimeLine({ ts }) {
+  const t = useT();
   const d = new Date(ts);
   return (
     <>
-      <Field label="Relative">{fmt.ago(ts)} ago</Field>
+      <Field label={t('s.relative', 'Relative')}>{fmt.ago(ts)} ago</Field>
       <Field label="UTC" mono>{d.toISOString().replace('T', ' ').slice(0,19)}Z</Field>
-      <Field label="Local" mono>{d.toLocaleString()}</Field>
+      <Field label={t('s.local', 'Local')} mono>{d.toLocaleString()}</Field>
     </>
   );
 }
 
 function DrillPanel({ row, onClose }) {
+  const t = useT();
   const meta = TYPE_META[row.type] || TYPE_META.feed;
   const [visible, setVisible] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
@@ -105,7 +108,7 @@ function DrillPanel({ row, onClose }) {
              onClick={(e) => e.stopPropagation()}>
         <div className="drill-head">
           <span className="drill-badge" style={{['--bc']: meta.color}}>{meta.badge}</span>
-          <div className="drill-head-title">{row.title || 'Detail'}</div>
+          <div className="drill-head-title">{row.title || t('s.detail', 'Detail')}</div>
           {row.hash && <Copy text={row.hash} short/>}
           <button className="drill-close" onClick={onClose}>×</button>
         </div>
@@ -137,6 +140,7 @@ function DrillBody({ row }) {
 }
 
 function SwapDetail({ r }) {
+  const t = useT();
   // All fields come from /history/global/swaps → {in, out, wallet, block, hash, time}.
   // Route/pool/slippage/fee-breakdown aren't exposed by the endpoint, so we
   // don't synthesize them anymore — we show only what's real.
@@ -147,7 +151,7 @@ function SwapDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Pair</div>
+        <div className="drill-sec-title">{t('col.pair', 'Pair')}</div>
         <div className="drill-swap-pair">
           <div className="drill-side">
             <TokenLogo sym={r.inSym} size={40}/>
@@ -171,16 +175,16 @@ function SwapDetail({ r }) {
 
       {r.caller && (
         <div className="drill-section">
-          <div className="drill-sec-title">Caller</div>
+          <div className="drill-sec-title">{t('col.caller', 'Caller')}</div>
           <Addr addr={r.caller}/>
         </div>
       )}
 
       <div className="drill-section">
-        <div className="drill-sec-title">Chain</div>
-        {r.block && <Field label="Block" mono>#{Number(r.block).toLocaleString()}</Field>}
+        <div className="drill-sec-title">{t('col.chain', 'Chain')}</div>
+        {r.block && <Field label={t('gov.scheduler.block', 'Block')} mono>#{Number(r.block).toLocaleString()}</Field>}
         {r.hash && (
-          <Field label="Extrinsic" mono>
+          <Field label={t('col.extrinsic', 'Extrinsic')} mono>
             <span style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span>
             <Copy text={r.hash} short/>
           </Field>
@@ -192,6 +196,7 @@ function SwapDetail({ r }) {
 }
 
 function TransferDetail({ r }) {
+  const t = useT();
   // /history/global/transfers returns {symbol, amount, usdValue, from, to,
   // block, hash, logo, time}. No `fee` field is exposed — remove the fake
   // 0.008 XOR default instead of misleading the user.
@@ -201,7 +206,7 @@ function TransferDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Asset</div>
+        <div className="drill-sec-title">{t('col.asset', 'Asset')}</div>
         <div className="drill-swap-pair" style={{justifyContent:'flex-start'}}>
           <TokenLogo sym={sym} logo={r.logo} size={40}/>
           <div>
@@ -212,7 +217,7 @@ function TransferDetail({ r }) {
       </div>
       {r.from && (
         <div className="drill-section">
-          <div className="drill-sec-title">From</div>
+          <div className="drill-sec-title">{t('drill.from', 'From')}</div>
           <Addr addr={r.from}/>
         </div>
       )}
@@ -223,11 +228,11 @@ function TransferDetail({ r }) {
         </div>
       )}
       <div className="drill-section">
-        <div className="drill-sec-title">Chain</div>
-        {r.memo && r.memo !== '—' && <Field label="Memo">{r.memo}</Field>}
-        {r.block && <Field label="Block" mono>#{Number(r.block).toLocaleString()}</Field>}
+        <div className="drill-sec-title">{t('col.chain', 'Chain')}</div>
+        {r.memo && r.memo !== '—' && <Field label={t('col.memo', 'Memo')}>{r.memo}</Field>}
+        {r.block && <Field label={t('gov.scheduler.block', 'Block')} mono>#{Number(r.block).toLocaleString()}</Field>}
         {r.hash && (
-          <Field label="Extrinsic" mono>
+          <Field label={t('col.extrinsic', 'Extrinsic')} mono>
             <span style={{flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span>
             <Copy text={r.hash} short/>
           </Field>
@@ -239,6 +244,7 @@ function TransferDetail({ r }) {
 }
 
 function BlockDetail({ r }) {
+  const t = useT();
   const num = r.block || r.num;
   // Pull real data from /block/:n — includes hash, parentHash, stateRoot, all
   // extrinsics (with success, section, method, events, args) and block logs.
@@ -268,26 +274,26 @@ function BlockDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Block</div>
-        <Field label="Number" mono>#{Number(num).toLocaleString()}</Field>
-        <Field label="Finality"><span className="br-status done">✓ Finalized</span></Field>
+        <div className="drill-sec-title">{t('gov.scheduler.block', 'Block')}</div>
+        <Field label={t('s.number', 'Number')} mono>#{Number(num).toLocaleString()}</Field>
+        <Field label={t('s.finality', 'Finality')}><span className="br-status done">{t('s.finalized', '✓ Finalized')}</span></Field>
         <Field label="Extrinsics"><span className="num">{data ? exts.length : '…'}</span>{exts.length > 0 && <span className="muted tiny" style={{marginLeft:8}}>{okCount} ok · {exts.length - okCount} fail</span>}</Field>
-        <Field label="Events"><span className="num">{data ? totalEvents : '…'}</span>{inherent.length > 0 && <span className="muted tiny" style={{marginLeft:8}}>{inherent.length} inherent</span>}</Field>
+        <Field label={t('drill.events', 'Events')}><span className="num">{data ? totalEvents : '…'}</span>{inherent.length > 0 && <span className="muted tiny" style={{marginLeft:8}}>{inherent.length} inherent</span>}</Field>
         <Field label="Spec">{data ? (data.specName + ' · v' + data.specVersion) : '…'}</Field>
       </div>
       <div className="drill-section">
-        <div className="drill-sec-title">Hashes</div>
+        <div className="drill-sec-title">{t('s.hashes', 'Hashes')}</div>
         <Field label="Hash" mono>{shortHash(data?.hash)}{data?.hash && <Copy text={data.hash} short/>}</Field>
-        <Field label="Parent" mono>{shortHash(data?.parentHash)}{data?.parentHash && <Copy text={data.parentHash} short/>}</Field>
+        <Field label={t('s.parent', 'Parent')} mono>{shortHash(data?.parentHash)}{data?.parentHash && <Copy text={data.parentHash} short/>}</Field>
         <Field label="State root" mono>{shortHash(data?.stateRoot)}{data?.stateRoot && <Copy text={data.stateRoot} short/>}</Field>
         <Field label="Extrinsics root" mono>{shortHash(data?.extrinsicsRoot)}{data?.extrinsicsRoot && <Copy text={data.extrinsicsRoot} short/>}</Field>
         <TimeLine ts={ts}/>
       </div>
       {exts.length > 0 && (
         <div className="drill-section">
-          <div className="drill-sec-title">Extrinsics ({exts.length}) <span className="muted tiny" style={{fontWeight:400}}>· click para ver eventos</span></div>
+          <div className="drill-sec-title">Extrinsics ({exts.length}) <span className="muted tiny" style={{fontWeight:400}}>{t('s.clickToSeeEvents', '· click para ver eventos')}</span></div>
           <table className="lp-table">
-            <thead><tr><th style={{width:28}}></th><th>#</th><th>Call</th><th>Signer</th><th style={{textAlign:'right'}}>Events</th><th style={{textAlign:'center'}}>OK</th></tr></thead>
+            <thead><tr><th style={{width:28}}></th><th>#</th><th>{t('gov.scheduler.call', 'Call')}</th><th>{t('col.signer', 'Signer')}</th><th style={{textAlign:'right'}}>{t('drill.events', 'Events')}</th><th style={{textAlign:'center'}}>OK</th></tr></thead>
             <tbody>
               {visibleExts.map((e) => {
                 const open = openExt === e.index;
@@ -315,9 +321,9 @@ function BlockDetail({ r }) {
                               <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:180, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(e.args, null, 2)}</pre>
                             </>
                           )}
-                          <div className="muted tiny" style={{margin:'8px 0 2px', fontWeight:700}}>Events ({evs.length})</div>
+                          <div className="muted tiny" style={{margin:'8px 0 2px', fontWeight:700}}>{t('s.events', 'Events (')}{evs.length})</div>
                           {evs.length === 0 ? (
-                            <div className="muted tiny">Sin eventos.</div>
+                            <div className="muted tiny">{t('s.noEvents', 'Sin eventos.')}</div>
                           ) : (
                             <>
                               {(() => {
@@ -371,20 +377,20 @@ function BlockDetail({ r }) {
           </table>
           {exts.length > 8 && (
             <button className="btn" style={{marginTop:8}} onClick={() => setExpandExt(v => !v)}>
-              {expandExt ? '↑ Ver menos' : '↓ Ver todos (' + exts.length + ')'}
+              {expandExt ? t('s.showLess', '↑ Ver menos') : t('s.showAllN', '↓ Ver todos ({n})').replace('{n}', exts.length)}
             </button>
           )}
         </div>
       )}
       {inherent.length > 0 && (
         <div className="drill-section">
-          <div className="drill-sec-title">Inherent events ({inherent.length})</div>
+          <div className="drill-sec-title">{t('s.inherentEvents', 'Inherent events (')}{inherent.length})</div>
           <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:240, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(inherent, null, 2)}</pre>
         </div>
       )}
       {data && exts.length === 0 && inherent.length === 0 && (
         <div className="drill-section">
-          <div className="muted tiny">Sin extrinsics en este bloque.</div>
+          <div className="muted tiny">{t('s.noExtrinsicsInThisBlock', 'Sin extrinsics en este bloque.')}</div>
         </div>
       )}
     </>
@@ -392,6 +398,7 @@ function BlockDetail({ r }) {
 }
 
 function OrderDetail({ r }) {
+  const t = useT();
   // Render only the fields we actually have from /history/global/orderbook
   // rather than fabricating placeholder fill%, remaining, lifespan, etc.
   const pair = (r.base_asset && r.quote_asset) ? (r.base_asset + '/' + r.quote_asset) : (r.pair || '—');
@@ -403,30 +410,31 @@ function OrderDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Order</div>
-        <Field label="Event"><span className="tag">{r.event_type || '—'}</span></Field>
-        <Field label="Side">
+        <div className="drill-sec-title">{t('chip.order', 'Order')}</div>
+        <Field label={t('s.event', 'Event')}><span className="tag">{r.event_type || '—'}</span></Field>
+        <Field label={t('s.side', 'Side')}>
           {side
             ? <span className={'fill-side ' + side}>{side.toUpperCase()}</span>
             : <span className="muted tiny">—</span>}
         </Field>
-        <Field label="Pair">{pair}</Field>
-        <Field label="Price" mono>{price > 0 ? price.toFixed(6) : '—'}</Field>
-        <Field label="Amount" mono>{amount > 0 ? fmt.num(amount, 2) + ' ' + (r.base_asset || pair.split('/')[0] || '') : '—'}</Field>
+        <Field label={t('col.pair', 'Pair')}>{pair}</Field>
+        <Field label={t('col.price', 'Price')} mono>{price > 0 ? price.toFixed(6) : '—'}</Field>
+        <Field label={t('drill.amount', 'Amount')} mono>{amount > 0 ? fmt.num(amount, 2) + ' ' + (r.base_asset || pair.split('/')[0] || '') : '—'}</Field>
         {usd > 0 && <Field label="USD">${usd.toFixed(2)}</Field>}
-        {r.order_id && <Field label="Order ID" mono>{r.order_id}</Field>}
+        {r.order_id && <Field label={t('s.orderId', 'Order ID')} mono>{r.order_id}</Field>}
       </div>
       <div className="drill-section">
-        <div className="drill-sec-title">Caller</div>
+        <div className="drill-sec-title">{t('col.caller', 'Caller')}</div>
         {caller
           ? <Addr addr={caller}/>
-          : <div className="muted tiny">No disponible</div>}
+          : <div className="muted tiny">{t('s.notAvailable', 'No disponible')}</div>}
       </div>
     </>
   );
 }
 
 function BurnDetail({ r }) {
+  const t = useT();
   // Only render data that was actually passed in. No synthetic fee-type /
   // pool / $USD inference — the Burn event in prod feeds doesn't expose it,
   // so making it up would mislead the user.
@@ -436,7 +444,7 @@ function BurnDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Burn</div>
+        <div className="drill-sec-title">{t('chip.burn', 'Burn')}</div>
         <div style={{fontSize: 36, fontWeight: 800, color: '#E5243B', fontFamily:'JetBrains Mono', letterSpacing: '-0.02em'}}>
           {amt > 0 ? fmt.num(amt, 2) + ' ' + sym : '—'}
         </div>
@@ -446,12 +454,12 @@ function BurnDetail({ r }) {
         <div className="drill-section">
           <div className="drill-sec-title">On-chain</div>
           {r.hash && (
-            <Field label="Extrinsic" mono>
+            <Field label={t('col.extrinsic', 'Extrinsic')} mono>
               <span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span>
               <Copy text={r.hash} short/>
             </Field>
           )}
-          {r.block && <Field label="Block" mono>#{Number(r.block).toLocaleString()}</Field>}
+          {r.block && <Field label={t('gov.scheduler.block', 'Block')} mono>#{Number(r.block).toLocaleString()}</Field>}
           {r.ts && <TimeLine ts={r.ts}/>}
         </div>
       )}
@@ -460,6 +468,7 @@ function BurnDetail({ r }) {
 }
 
 function ExtrinsicDetail({ r }) {
+  const t = useT();
   const [argsOpen, setArgsOpen] = useState(true);
   const [eventsOpen, setEventsOpen] = useState(true);
   const [showRawEvents, setShowRawEvents] = useState(false);
@@ -528,8 +537,8 @@ function ExtrinsicDetail({ r }) {
     <>
       {/* Header field set — mirrors prod's "Detalles del Extrinsic" card */}
       <div className="drill-section">
-        <div className="drill-sec-title">Detalles del Extrinsic</div>
-        <Field label="Extrinsic ID">
+        <div className="drill-sec-title">{t('s.extrinsicDetails', 'Detalles del Extrinsic')}</div>
+        <Field label={t('s.extrinsicId', 'Extrinsic ID')}>
           <span className="num" style={{fontWeight: 600}}>{extrinsicId || '—'}</span>
           {extrinsicId && (
             <button className="btn tiny" style={{marginLeft:8, fontSize:11}} onClick={() => copy(extrinsicId, 'id')}>
@@ -545,7 +554,7 @@ function ExtrinsicDetail({ r }) {
             </button>
           )}
         </Field>
-        <Field label="Block">
+        <Field label={t('gov.scheduler.block', 'Block')}>
           <span className="num" style={{fontWeight: 600}}>#{block ? Number(block).toLocaleString('es-ES') : '—'}</span>
         </Field>
         <Field label="Pallet">
@@ -555,20 +564,20 @@ function ExtrinsicDetail({ r }) {
             <span style={{color:'var(--fg-0)'}}>{method || '—'}</span>
           </span>
         </Field>
-        <Field label="Firmante">
+        <Field label={t('col.signer', 'Firmante')}>
           {signer ? <Addr addr={signer}/> : <span className="muted">—</span>}
         </Field>
-        <Field label="Resultado">
+        <Field label={t('col.result', 'Resultado')}>
           {success
-            ? <span className="br-status done">✓ Success</span>
-            : <span className="br-status failed">✗ {live?.error_msg || r.failReason || 'Failed'}</span>}
+            ? <span className="br-status done">{t('s.success', '✓ Success')}</span>
+            : <span className="br-status failed">✗ {live?.error_msg || r.failReason || t('status.failed', 'Failed')}</span>}
         </Field>
-        <Field label="Hora">
+        <Field label={t('explorer.col.time', 'Hora')}>
           <span className="num tiny">{timeStr || '—'}</span>
         </Field>
-        <Field label="Valor USD (al momento de TX)">
+        <Field label={t('s.usdValueAtTxTime', 'Valor USD (al momento de TX)')}>
           <span className="num" style={{fontWeight:700, color:'#6EE7B7'}}>
-            {usd != null ? '$' + Number(usd.usd_value).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (extrinsicId ? 'cargando…' : '—')}
+            {usd != null ? '$' + Number(usd.usd_value).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (extrinsicId ? t('s.loading2', 'cargando…') : '—')}
           </span>
           {usd?.source && <span className="muted tiny" style={{marginLeft:6}}>({usd.source})</span>}
         </Field>
@@ -576,11 +585,11 @@ function ExtrinsicDetail({ r }) {
 
       <div className="drill-section">
         <div className="drill-sec-title" style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}} onClick={() => setArgsOpen(o => !o)}>
-          <span>Arguments (JSON)</span>
+          <span>{t('s.argumentsJson', 'Arguments (JSON)')}</span>
           <span style={{color:'var(--fg-3)'}}>{argsOpen ? '▾' : '▸'}</span>
           {argsJson && (
             <button className="btn tiny" style={{marginLeft:'auto', fontSize:11}} onClick={(e) => { e.stopPropagation(); copy(prettyArgs, 'args'); }}>
-              {copied === 'args' ? '✓ copiado' : 'copiar'}
+              {copied === 'args' ? t('s.copied2', '✓ copiado') : 'copiar'}
             </button>
           )}
         </div>
@@ -591,7 +600,7 @@ function ExtrinsicDetail({ r }) {
 
       <div className="drill-section">
         <div className="drill-sec-title" style={{display:'flex', alignItems:'center', gap:8, cursor:'pointer'}} onClick={() => setEventsOpen(o => !o)}>
-          <span>Events · {events.length}</span>
+          <span>{t('s.events2', 'Events ·')} {events.length}</span>
           <span style={{color:'var(--fg-3)'}}>{eventsOpen ? '▾' : '▸'}</span>
           {decodedEvents && (
             <button className="btn tiny" style={{marginLeft:'auto', fontSize:11}}
@@ -619,23 +628,23 @@ function ExtrinsicDetail({ r }) {
 
       {Number.isFinite(Number(r.fee)) && Number(r.fee) > 0 && (
         <div className="drill-section">
-          <div className="drill-sec-title">Fee</div>
+          <div className="drill-sec-title">{t('drill.fee', 'Fee')}</div>
           <div className="drill-fee">
-            <div className="total"><span>Total</span><span className="num">{Number(r.fee).toFixed(4)} XOR</span></div>
+            <div className="total"><span>{t('col.total', 'Total')}</span><span className="num">{Number(r.fee).toFixed(4)} XOR</span></div>
           </div>
         </div>
       )}
 
       {r.caller && (
         <div className="drill-section">
-          <div className="drill-sec-title">Caller</div>
+          <div className="drill-sec-title">{t('col.caller', 'Caller')}</div>
           <Addr addr={r.caller}/>
         </div>
       )}
 
       <div className="drill-section">
-        <div className="drill-sec-title">Chain</div>
-        <Field label="Block" mono>{r.block != null ? '#' + Number(r.block).toLocaleString() : '—'}</Field>
+        <div className="drill-sec-title">{t('col.chain', 'Chain')}</div>
+        <Field label={t('gov.scheduler.block', 'Block')} mono>{r.block != null ? '#' + Number(r.block).toLocaleString() : '—'}</Field>
         <Field label="Hash" mono><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span><Copy text={r.hash} short/></Field>
         <TimeLine ts={r.ts || Date.now()}/>
       </div>
@@ -644,6 +653,7 @@ function ExtrinsicDetail({ r }) {
 }
 
 function HolderDetail({ r }) {
+  const t = useT();
   // Pull the real on-chain holdings for this address. /balance/:addr returns
   // an array of { symbol, amount, logo, usdValue } rows; /wallet/info/:addr
   // returns activity metadata.
@@ -689,13 +699,13 @@ function HolderDetail({ r }) {
         <div className="drill-hero-val num" style={{marginTop: 14}}>
           {tokens === null ? '…' : fmt.usd(totalUsd)}
         </div>
-        <div className="drill-hero-sub">Total portfolio value</div>
+        <div className="drill-hero-sub">{t('s.totalPortfolioValue', 'Total portfolio value')}</div>
       </div>
 
       <div className="drill-section">
-        <div className="drill-sec-title">Asset Breakdown</div>
-        {tokens === null && <div className="muted tiny">Cargando tokens…</div>}
-        {tokens && rows.length === 0 && <div className="muted tiny">Sin balances on-chain.</div>}
+        <div className="drill-sec-title">{t('s.assetBreakdown', 'Asset Breakdown')}</div>
+        {tokens === null && <div className="muted tiny">{t('s.loadingTokens', 'Cargando tokens…')}</div>}
+        {tokens && rows.length === 0 && <div className="muted tiny">{t('s.noOnChainBalances', 'Sin balances on-chain.')}</div>}
         {rows.length > 0 && (
           <div style={{display:'flex', gap: 18, alignItems:'flex-start'}}>
             <svg viewBox="0 0 80 80" width="80" height="80" style={{flexShrink:0}}>
@@ -734,14 +744,15 @@ function HolderDetail({ r }) {
       </div>
 
       <div className="drill-section">
-        <Field label="Tokens held"><span className="num">{tokens === null ? '…' : rows.length}</span></Field>
-        <Field label="Last activity">{lastActivity}</Field>
+        <Field label={t('s.tokensHeld', 'Tokens held')}><span className="num">{tokens === null ? '…' : rows.length}</span></Field>
+        <Field label={t('s.lastActivity', 'Last activity')}>{lastActivity}</Field>
       </div>
     </>
   );
 }
 
 function ValidatorDetail({ r }) {
+  const t = useT();
   // Pull real recent blocks produced by this validator via /staking/recent-blocks
   // filtered by validator address; everything else comes from the row data that
   // was already fetched from /staking/validators.
@@ -770,12 +781,12 @@ function ValidatorDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Validator</div>
+        <div className="drill-sec-title">{t('staking.rewards.perValidator.validator', 'Validator')}</div>
         <div style={{display:'flex', alignItems:'center', gap: 12}}>
           <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink: 0}}/>
           <div>
             <div style={{fontWeight: 800, fontSize: 16}}>{r.name || (r.address ? fmt.addr(r.address, 8, 6) : '—')}</div>
-            {r.rank && <div className="muted tiny">Rank #{r.rank}</div>}
+            {r.rank && <div className="muted tiny">{t('s.rank', 'Rank #')}{r.rank}</div>}
           </div>
         </div>
         {r.address && (
@@ -786,10 +797,10 @@ function ValidatorDetail({ r }) {
       </div>
       {total > 0 && (
         <div className="drill-section">
-          <div className="drill-sec-title">Stake</div>
-          <Field label="Total" mono>{fmt.num(total, 0)} XOR</Field>
-          <Field label="Own" mono>{fmt.num(own, 0)} XOR</Field>
-          <Field label="Nominators" mono>{noms} · {fmt.num(other, 0)} XOR</Field>
+          <div className="drill-sec-title">{t('s.stake', 'Stake')}</div>
+          <Field label={t('col.total', 'Total')} mono>{fmt.num(total, 0)} XOR</Field>
+          <Field label={t('staking.col.own', 'Own')} mono>{fmt.num(own, 0)} XOR</Field>
+          <Field label={t('s.nominators', 'Nominators')} mono>{noms} · {fmt.num(other, 0)} XOR</Field>
           {total > 0 && (
             <div className="drill-fill-bar" style={{marginTop: 6}}>
               <div className="drill-fill-fill" style={{width: (own / total * 100) + '%', background:'linear-gradient(90deg,#9B1B30,#7B5B90)'}}/>
@@ -798,23 +809,23 @@ function ValidatorDetail({ r }) {
         </div>
       )}
       <div className="drill-section">
-        <div className="drill-sec-title">Performance</div>
-        {Number.isFinite(commission) && <Field label="Commission" mono>{commission.toFixed(2)}%</Field>}
-        <Field label="Era points" mono>{points.toLocaleString()}</Field>
-        <Field label="Previous era" mono>{(Number(r.prevPoints) || 0).toLocaleString()}</Field>
-        {r.lastPayoutEra != null && <Field label="Last payout era" mono>{r.lastPayoutEra}</Field>}
-        <Field label="Status">
+        <div className="drill-sec-title">{t('s.performance', 'Performance')}</div>
+        {Number.isFinite(commission) && <Field label={t('staking.col.commission', 'Commission')} mono>{commission.toFixed(2)}%</Field>}
+        <Field label={t('s.eraPoints', 'Era points')} mono>{points.toLocaleString()}</Field>
+        <Field label={t('s.previousEra', 'Previous era')} mono>{(Number(r.prevPoints) || 0).toLocaleString()}</Field>
+        {r.lastPayoutEra != null && <Field label={t('s.lastPayoutEra', 'Last payout era')} mono>{r.lastPayoutEra}</Field>}
+        <Field label={t('drill.status', 'Status')}>
           {r.status
             ? <span className={'val-status ' + r.status}>
-                {r.status === 'active' ? '● Active' : r.status === 'waiting' ? '◌ Waiting' : r.status === 'blocked' ? '⛔ Blocked' : r.status === 'idle' ? '○ No blocks (2 eras)' : r.status}
+                {r.status === 'active' ? t('s.active', '● Active') : r.status === 'waiting' ? t('s.waiting', '◌ Waiting') : r.status === 'blocked' ? t('s.blocked', '⛔ Blocked') : r.status === 'idle' ? t('s.noBlocks2Eras', '○ No blocks (2 eras)') : r.status}
               </span>
             : <span className="muted tiny">—</span>}
         </Field>
       </div>
       <div className="drill-section">
-        <div className="drill-sec-title">Recent blocks produced</div>
-        {recent === null && <div className="muted tiny">Cargando…</div>}
-        {recent && recent.length === 0 && <div className="muted tiny">Sin bloques recientes en los últimos 50.</div>}
+        <div className="drill-sec-title">{t('s.recentBlocksProduced', 'Recent blocks produced')}</div>
+        {recent === null && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+        {recent && recent.length === 0 && <div className="muted tiny">{t('s.noRecentBlocksInThe', 'Sin bloques recientes en los últimos 50.')}</div>}
         {recent && recent.length > 0 && (
           <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
             {recent.map(b => (
@@ -830,6 +841,7 @@ function ValidatorDetail({ r }) {
 }
 
 function BridgeDetail({ r }) {
+  const t = useT();
   // sender / recipient come from /history/global/bridges:
   //   direction = "Outgoing" → SORA sender, Ethereum recipient (0x…)
   //   direction = "Incoming" → SORA hot wallet as "sender", SORA recipient; the
@@ -903,7 +915,7 @@ function BridgeDetail({ r }) {
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Bridge Transfer</div>
+        <div className="drill-sec-title">{t('s.bridgeTransfer', 'Bridge Transfer')}</div>
         <div className="chain-route" style={{fontSize: 14}}>
           <span className={'chain-tag c-' + (r.from || '').toLowerCase()}>{r.from}</span>
           <span className="route-arr">→</span>
@@ -914,15 +926,15 @@ function BridgeDetail({ r }) {
       </div>
 
       <div className="drill-section">
-        <div className="drill-sec-title">Wallets</div>
+        <div className="drill-sec-title">{t('s.wallets', 'Wallets')}</div>
         {isOut ? (
           <>
-            <Field label="From · SORA">
+            <Field label={t('s.fromSora', 'From · SORA')}>
               {sender ? (
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{sender}</span>
                   <Copy text={sender} short/>
-                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(sender, window.identityName?.(sender) || null)} title="Abrir wallet SORA">↗</button>
+                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(sender, window.identityName?.(sender) || null)} title={t('s.openSoraWallet', 'Abrir wallet SORA')}>↗</button>
                 </div>
               ) : <span className="muted tiny">—</span>}
             </Field>
@@ -931,41 +943,41 @@ function BridgeDetail({ r }) {
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{recipient}</span>
                   <Copy text={recipient} short/>
-                  <a className="btn" style={{padding:'2px 8px'}} href={explorerBase + recipient} target="_blank" rel="noopener noreferrer" title={'Ver en ' + net + ' explorer'}>↗ {net}</a>
+                  <a className="btn" style={{padding:'2px 8px'}} href={explorerBase + recipient} target="_blank" rel="noopener noreferrer" title={t('s.viewOnExplorer', 'Ver en {net} explorer').replace('{net}', net)}>↗ {net}</a>
                 </div>
               ) : <span className="muted tiny">—</span>}
             </Field>
           </>
         ) : (
           <>
-            <Field label={'From · ' + net}>
-              {ethOrigin.status === 'loading' && <span className="muted tiny">resolviendo desde RPC…</span>}
+            <Field label={t('drill.from', 'From') + ' · ' + net}>
+              {ethOrigin.status === 'loading' && <span className="muted tiny">{t('s.resolvingViaRpc', 'resolviendo desde RPC…')}</span>}
               {ethOrigin.status === 'found' && ethOrigin.from && (
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{ethOrigin.from}</span>
                   <Copy text={ethOrigin.from} short/>
-                  <a className="btn" style={{padding:'2px 8px'}} href={explorerBase + ethOrigin.from} target="_blank" rel="noopener noreferrer" title={'Ver en ' + net + ' explorer'}>↗ {net}</a>
+                  <a className="btn" style={{padding:'2px 8px'}} href={explorerBase + ethOrigin.from} target="_blank" rel="noopener noreferrer" title={t('s.viewOnExplorer', 'Ver en {net} explorer').replace('{net}', net)}>↗ {net}</a>
                 </div>
               )}
               {ethOrigin.status === 'internal' && (
-                <span className="muted tiny" title={ethOrigin.txHash}>Bridge-internal ID · no es un tx {net} directo</span>
+                <span className="muted tiny" title={ethOrigin.txHash}>{t('s.bridgeInternalNet', 'Bridge-internal ID · no es un tx {net} directo').replace('{net}', net)}</span>
               )}
               {(ethOrigin.status === 'no_hash' || ethOrigin.status === 'error') && (
-                <span className="muted tiny">No disponible</span>
+                <span className="muted tiny">{t('s.notAvailable', 'No disponible')}</span>
               )}
             </Field>
-            <Field label="To · SORA">
+            <Field label={t('s.toSora', 'To · SORA')}>
               {recipient ? (
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere'}}>{recipient}</span>
                   <Copy text={recipient} short/>
-                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(recipient, window.identityName?.(recipient) || null)} title="Abrir wallet SORA">↗</button>
+                  <button className="btn" style={{padding:'2px 8px'}} onClick={() => window.openWalletDetails?.(recipient, window.identityName?.(recipient) || null)} title={t('s.openSoraWallet', 'Abrir wallet SORA')}>↗</button>
                 </div>
               ) : <span className="muted tiny">—</span>}
             </Field>
             {/* SORA hot wallet that records the incoming: shown as reference. */}
             {sender && (
-              <Field label="Relayer SORA">
+              <Field label={t('s.soraRelayer', 'Relayer SORA')}>
                 <div style={{display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0}}>
                   <span className="num tiny" style={{overflowWrap:'anywhere', opacity:0.8}}>{sender}</span>
                   <Copy text={sender} short/>
@@ -977,10 +989,10 @@ function BridgeDetail({ r }) {
       </div>
 
       <div className="drill-section">
-        <div className="drill-sec-title">Status</div>
-        <Field label="Current">
+        <div className="drill-sec-title">{t('drill.status', 'Status')}</div>
+        <Field label={t('s.current', 'Current')}>
           <span className={'br-status ' + r.status}>
-            {r.status === 'done' ? '✓ Done' : r.status === 'pending' ? '⏳ Pending' : '✗ Failed'}
+            {r.status === 'done' ? t('s.done', '✓ Done') : r.status === 'pending' ? t('s.pending', '⏳ Pending') : t('s.failed', '✗ Failed')}
           </span>
         </Field>
         <Field label="Tx" mono>
@@ -990,7 +1002,7 @@ function BridgeDetail({ r }) {
         {/* Outgoing: the SORA extrinsic hash is also the tx on the counter-chain
             (bridgeProxy.burn emits an L1 tx whose hash matches). Link it. */}
         {isOut && r.hash && /^0x[0-9a-f]{64}$/i.test(r.hash) && ETH_TX[net] && (
-          <Field label={'Ver en ' + net}>
+          <Field label={t('s.viewOn', 'Ver en {net}').replace('{net}', net)}>
             <a className="btn" style={{padding:'2px 8px'}} href={txExplorerBase + r.hash} target="_blank" rel="noopener noreferrer">↗ {net}scan</a>
           </Field>
         )}
@@ -1011,11 +1023,12 @@ function BridgeDetail({ r }) {
 }
 
 function DefaultDetail({ r }) {
+  const t = useT();
   return (
     <>
       <div className="drill-section">
-        <div className="drill-sec-title">Event</div>
-        <div style={{fontSize: 14, color:'var(--fg-0)', fontWeight:600}}>{r.title || r.label || 'Chain event'}</div>
+        <div className="drill-sec-title">{t('s.event', 'Event')}</div>
+        <div style={{fontSize: 14, color:'var(--fg-0)', fontWeight:600}}>{r.title || r.label || t('s.chainEvent', 'Chain event')}</div>
         {r.body && <div style={{fontSize: 13, color:'var(--fg-2)', marginTop: 8}}>{r.body}</div>}
         {r.ts && <TimeLine ts={r.ts}/>}
       </div>
@@ -1039,6 +1052,7 @@ function fmtTime(s) {
 }
 
 function MusicPlayer() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [trackIdx, setTrackIdx] = useState(0);
@@ -1164,8 +1178,8 @@ function MusicPlayer() {
       <button
         className={'music-btn' + (playing ? ' playing' : '')}
         onClick={() => setOpen(o => !o)}
-        title="Music player"
-        aria-label="Music player"
+        title={t('s.musicPlayer', 'Music player')}
+        aria-label={t('s.musicPlayer', 'Music player')}
       >
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 18V5l12-2v13"/>
@@ -1206,7 +1220,7 @@ function MusicPlayer() {
           </div>
 
           <div className="music-controls">
-            <button className="music-skip" onClick={prev} title="Previous">
+            <button className="music-skip" onClick={prev} title={t('music.prev', 'Previous')}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h2v16H6zM20 4v16L8 12z"/></svg>
             </button>
             <button className="music-play" onClick={() => setPlaying(p => !p)} title={playing ? 'Pause' : 'Play'}>
@@ -1214,7 +1228,7 @@ function MusicPlayer() {
                 ? <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
                 : <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>}
             </button>
-            <button className="music-skip" onClick={next} title="Next">
+            <button className="music-skip" onClick={next} title={t('common.next', 'Next')}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 4h2v16h-2zM4 4l12 8-12 8z"/></svg>
             </button>
           </div>
@@ -1225,7 +1239,7 @@ function MusicPlayer() {
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
             </svg>
             <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(+e.target.value)}/>
-            <button className="music-list-toggle" onClick={() => setListOpen(o => !o)} title="Playlist">
+            <button className="music-list-toggle" onClick={() => setListOpen(o => !o)} title={t('music.playlist', 'Playlist')}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d={listOpen ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'}/></svg>
             </button>
           </div>
