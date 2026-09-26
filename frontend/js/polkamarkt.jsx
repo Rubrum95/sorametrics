@@ -276,10 +276,10 @@ function PolkamarktSection() {
       </PageHeader>
 
       <KpiGrid items={[
-        { label: t('predict.kpi.total', 'Markets'),       value: totals.markets.toLocaleString(),        sub: 'all-time' },
+        { label: t('predict.kpi.total', 'Markets'),       value: totals.markets.toLocaleString(),        sub: t('s.sinceStart', 'all-time') },
         { label: t('predict.kpi.active', 'Active'),       value: totals.active.toLocaleString(),         sub: t('s.currentlyOpen', 'currently open') },
-        { label: t('predict.kpi.volume', 'Trading vol.'), value: fmtNative(totals.volume) + (volSym ? ' ' + volSym : ''), sub: 'cumulative' },
-        { label: t('predict.kpi.resolved', 'Resolved'), value: (totals.resolved || 0).toLocaleString(), sub: 'settled' },
+        { label: t('predict.kpi.volume', 'Trading vol.'), value: fmtNative(totals.volume) + (volSym ? ' ' + volSym : ''), sub: t('s.cumulative', 'cumulative') },
+        { label: t('predict.kpi.resolved', 'Resolved'), value: (totals.resolved || 0).toLocaleString(), sub: t('s.settled', 'settled') },
       ]}/>
 
       <BuybackCard tt={t}/>

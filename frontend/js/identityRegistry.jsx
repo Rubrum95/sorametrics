@@ -248,14 +248,15 @@ function _copyAddr(addr, ev) {
 // source: '★' alias (user-saved), 'on-chain' (pallet Identity), 'sys'
 // (technical account). Returns null for unknown source.
 function SourceTag({ source }) {
+  const t = useT();
   if (!source) return null;
   const map = {
-    alias: { label: '★',        cls: 'ident-tag-alias', title: 'Alias guardado por ti' },
-    chain: { label: 'on-chain', cls: 'ident-tag-chain', title: 'Identidad en cadena' },
-    tech:  { label: 'sys',      cls: 'ident-tag-tech',  title: 'Cuenta técnica' },
+    alias: { label: '★',        cls: 'ident-tag-alias', title: t('s.aliasSavedByYou', 'Alias saved by you') },
+    chain: { label: 'on-chain', cls: 'ident-tag-chain', title: t('s.onChainIdentity', 'On-chain identity') },
+    tech:  { label: 'sys',      cls: 'ident-tag-tech',  title: t('s.technicalAccount', 'Technical account') },
   };
-  const t = map[source]; if (!t) return null;
-  return <span className={'ident-tag ' + t.cls} title={t.title}>{t.label}</span>;
+  const tag = map[source]; if (!tag) return null;
+  return <span className={'ident-tag ' + tag.cls} title={tag.title}>{tag.label}</span>;
 }
 
 // SORA v2 account (SS58, prefix 69). Anything else — `System`, 0x/EVM,

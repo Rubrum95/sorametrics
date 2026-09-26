@@ -328,7 +328,7 @@ function FullExplorerModal({ open, onClose, initialBlock }) {
                   <tr key={b.number + '-' + (b.hash || '')}
                       className="clickable"
                       style={{cursor:'pointer'}}
-                      onClick={() => openDrill({ type:'block', title:'BLOCK #' + b.number, block: Number(b.number), num: Number(b.number), ts })}>
+                      onClick={() => openDrill({ type:'block', title: t('s.block', 'Block #') + b.number, block: Number(b.number), num: Number(b.number), ts })}>
                     <td className="num" style={{fontWeight:700}}>#{Number(b.number).toLocaleString()}</td>
                     <td className="muted tiny">
                       <div>{fmt.ago(ts)}</div>

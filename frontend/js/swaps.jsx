@@ -212,7 +212,7 @@ function SwapsSection({ tweaks }) {
         return (
           <KpiGrid items={[
             { label:t('pulse.kpi.swaps24', 'Swaps · 24h'),     value: stats.count == null ? '—' : stats.count.toLocaleString(), sub:t('s.last24h', 'last 24h') },
-            { label:t('s.volume24h2', 'Volume · 24h'),    value: stats.vol == null ? '—' : fmt.usd(stats.vol), sub:'network-wide' },
+            { label:t('s.volume24h2', 'Volume · 24h'),    value: stats.vol == null ? '—' : fmt.usd(stats.vol), sub: t('s.networkWide', 'network-wide') },
             { label:t('s.uniqueAccounts', 'Unique Accounts'), value: stats.uniqueAccs == null ? '—' : stats.uniqueAccs.toLocaleString(), sub:t('s.signers24h', 'signers · 24h') },
             { label:t('s.topPair', 'Top Pair'),        value: stats.topPair,                    sub:t('s.highestVolume', 'highest volume'), pair: a && b ? { a, b } : null },
           ]}/>

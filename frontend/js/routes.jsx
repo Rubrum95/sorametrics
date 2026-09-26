@@ -648,7 +648,7 @@ function OrderBookSection({ tweaks }) {
       </PageHeader>
 
       <KpiGrid items={[
-        { label:t('s.fillsRecent', 'Fills (recent)'), value: String(fills.length), sub: 'from /history/global/orderbook' },
+        { label:t('s.fillsRecent', 'Fills (recent)'), value: String(fills.length) },
         { label:t('s.spread', 'Spread'),         value: spread != null ? spread.toFixed(1) : '—', unit: spread != null ? 'bps' : '', valStyle:{color:'#F5B041'} },
         { label:t('s.midPrice', 'Mid price'),      value: mid != null ? mid.toFixed(6) : '—', unit: mid != null ? quote : '', sub: t('s.avgLastBuyLastSell', 'avg(last buy, last sell)') },
         { label:t('s.lastFill', 'Last Fill'),      value: fills[0] ? fills[0].side.toUpperCase() : '—', valStyle:{color: fills[0]?.side === 'buy' ? '#10B981' : '#EF4444'}, sub: fills[0] ? fmt.ago(fills[0].ts) : '' },
@@ -1493,8 +1493,8 @@ function TokensSection({ tweaks }) {
       </div>
 
       <KpiGrid items={[
-        { label:t('s.totalTokens', 'Total Tokens'),   value: String(tokens.length), sub:'registered' },
-        { label:t('s.volume24h', 'Volume · 24H'),   value: fmt.usd(vol24h), sub: 'network-wide' },
+        { label:t('s.totalTokens', 'Total Tokens'),   value: String(tokens.length), sub: t('s.registered', 'registered') },
+        { label:t('s.volume24h', 'Volume · 24H'),   value: fmt.usd(vol24h), sub: t('s.networkWide', 'network-wide') },
         { label:t('s.topGainer', 'Top Gainer'),     value: gainer.sym, logoSym: gainer.sym !== '—' ? gainer.sym : null, valStyle:{color: '#6EE7B7'}, sub: '+' + gainer.change.toFixed(1) + '% · ' + tfLabel },
         { label:t('s.topLoser', 'Top Loser'),      value: loser.sym,  logoSym: loser.sym  !== '—' ? loser.sym  : null, valStyle:{color: '#FCA5A5'}, sub: loser.change.toFixed(1) + '% · ' + tfLabel },
       ]}/>
@@ -1833,7 +1833,7 @@ function HoldersSection({ tweaks }) {
         { label: t('s.totalHolders', 'Total Holders'), value: totalHolders ? totalHolders.toLocaleString() : '—', sub: t('s.forAsset', 'for {asset}').replace('{asset}', asset) },
         { label: t('s.top10Share', 'Top 10 Share'),  value: top10Share != null ? top10Share.toFixed(1) : '—', unit: top10Share != null ? '%' : '', sub: t('s.ofPageTotal', 'of page total') },
         { label: t('s.pages', 'Pages'),         value: String(totalPages), sub: t('s.25PerPage', '25 per page') },
-        { label: t('s.currentPage', 'Current Page'),  value: '#' + page + ' of ' + totalPages, sub: 'paginated' },
+        { label: t('s.currentPage', 'Current Page'),  value: '#' + page + ' ' + t('pag.of', 'of') + ' ' + totalPages, sub: t('s.paginated', 'paginated') },
       ]}/>
 
       <div className="card" style={{marginTop: 18}}>
@@ -4391,10 +4391,10 @@ function BalanceSection({ tweaks }) {
       <Tabs tabs={[
         { id:'mis', label:t('wallet.myWallets', 'Mis Wallets'), count: wallets.length },
         { id:'vig', label:t('scope.watched', 'Vigiladas'), count: watched.length },
-        { id:'swaps', label:'Swaps' },
-        { id:'transfers', label:'Transfers' },
-        { id:'bridges', label:'Bridges' },
-        { id:'extrinsics', label:'Extrinsics' },
+        { id:'swaps', label:t('nav.swaps', 'Swaps') },
+        { id:'transfers', label:t('nav.transfers', 'Transfers') },
+        { id:'bridges', label:t('nav.bridges', 'Bridges') },
+        { id:'extrinsics', label:t('nav.extrinsics', 'Extrinsics') },
       ]} current={tab} onChange={setTab}/>
 
       {['swaps','transfers','bridges','extrinsics'].includes(tab) && (

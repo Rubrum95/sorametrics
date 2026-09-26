@@ -66,6 +66,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 - frontend: every `backdrop-filter` also sets `-webkit-backdrop-filter` (drawer and drill backdrops,
   drill header, toasts, Pulse explorer overlay, Studio mini player, network menu): Safari before 18
   only reads the prefixed property.
+- frontend i18n: KPI captions (network-wide, registered, all-time, cumulative, settled, paginated),
+  the identity source tooltips, the block drill title and the Portfolio history tabs were literal
+  English or Spanish; the order book KPI no longer shows an API path as its caption.
 
 ### 2026-09-13
 - deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the
