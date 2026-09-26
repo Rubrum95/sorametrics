@@ -63,6 +63,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
   bridges, order book, pools and preimages use the i18n keys of their table headers.
 - frontend: the referendum detail modal (Governance → Democracy → preimages → Ref #) renders in a
   portal; inside the blurred `.card` it was positioned and clipped relative to the card.
+- frontend: every `backdrop-filter` also sets `-webkit-backdrop-filter` (drawer and drill backdrops,
+  drill header, toasts, Pulse explorer overlay, Studio mini player, network menu): Safari before 18
+  only reads the prefixed property.
 
 ### 2026-09-13
 - deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the

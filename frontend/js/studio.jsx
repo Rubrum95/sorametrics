@@ -603,7 +603,7 @@ function StudioMiniPlayer() {
       borderRadius:14,
       boxShadow:'0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(236,72,153,0.18)',
       color:'#fff',
-      backdropFilter:'blur(8px)',
+      backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
       WebkitBackdropFilter:'blur(8px)',
     }}>
       <div style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>

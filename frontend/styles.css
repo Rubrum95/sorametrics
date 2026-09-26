@@ -378,7 +378,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
     z-index: 40;
   }
 }
@@ -1711,7 +1711,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
 .wallet-list-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(255,255,255,0.02);
   border: 1px solid var(--border); border-radius: 10px; }
 .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-  background: rgba(12,14,20,0.95); backdrop-filter: blur(12px); border: 1px solid var(--border);
+  background: rgba(12,14,20,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border);
   padding: 12px 18px; border-radius: 10px; color: var(--fg-0); font-size: 13px; z-index: 100;
   box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
 
@@ -1760,7 +1760,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
   display: flex; justify-content: flex-end;
   pointer-events: auto;
 }
-.drill-backdrop.visible { background: rgba(0, 0, 0, 0.52); backdrop-filter: blur(2px); }
+.drill-backdrop.visible { background: rgba(0, 0, 0, 0.52); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 .drill-panel {
   width: 528px; max-width: 92vw; height: 100vh;
   background: linear-gradient(180deg, #13131b 0%, #0b0b10 100%);
@@ -1776,7 +1776,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
   padding: 14px 18px;
   display: flex; align-items: center; gap: 10px;
   background: rgba(14, 14, 19, 0.95);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
 .drill-badge {

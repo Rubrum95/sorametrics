@@ -284,7 +284,7 @@ function NetworkSwitcher() {
           position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:200,
           background:'rgba(20,20,28,0.96)', border:'1px solid rgba(255,255,255,0.10)',
           borderRadius:12, padding:8, boxShadow:'0 30px 60px -24px rgba(0,0,0,0.7)',
-          zIndex:50, backdropFilter:'blur(20px)',
+          zIndex:50, backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
         }}>
           <div style={{ ...itemStyle, opacity:0.7, cursor:'default' }} aria-current="page">
             <span style={chipStyle('linear-gradient(135deg,#FF4E3C,#E5243B,#9B1B30)')}>v2</span>
