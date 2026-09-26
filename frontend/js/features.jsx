@@ -1039,20 +1039,43 @@ function WalletHistoryTable({ kind, rows }) {
   );
 }
 
-// Per-wallet history fetch — each sub-tab triggers one GET.
-function useWalletHistory(endpoint, addr, active) {
+const WALLET_HISTORY_PAGE = 30;
+
+// Per-wallet history fetch — each sub-tab triggers one GET per page.
+function useWalletHistory(endpoint, addr, active, page) {
   const [rows, setRows] = useState(null);
+  const [totalPages, setTotalPages] = useState(null);
+  useEffect(() => { setTotalPages(null); }, [endpoint, addr]);
   useEffect(() => {
     if (!active || !addr) return;
     let cancelled = false;
     setRows(null);
-    fetch(endpoint + '/' + encodeURIComponent(addr) + '?limit=30&page=1')
+    fetch(endpoint + '/' + encodeURIComponent(addr) + '?limit=' + WALLET_HISTORY_PAGE + '&page=' + page)
       .then(r => r.ok ? r.json() : null)
-      .then(j => { if (!cancelled) setRows(j?.data || j?.result || (Array.isArray(j) ? j : [])); })
+      .then(j => {
+        if (cancelled) return;
+        setRows(j?.data || j?.result || (Array.isArray(j) ? j : []));
+        const tp = Number(j?.totalPages);
+        setTotalPages(Number.isFinite(tp) && tp > 0 ? tp : null);
+      })
       .catch(() => { if (!cancelled) setRows([]); });
     return () => { cancelled = true; };
-  }, [endpoint, addr, active]);
-  return rows;
+  }, [endpoint, addr, active, page]);
+  return { rows, totalPages };
+}
+
+function WalletHistoryPager({ page, totalPages, onPage }) {
+  const t = useT();
+  if (!totalPages || totalPages <= 1) return null;
+  return (
+    <div className="swaps-pag">
+      <button className="btn" disabled={page <= 1} onClick={() => onPage(1)}>{t('pag.first', '« First')}</button>
+      <button className="btn" disabled={page <= 1} onClick={() => onPage(page - 1)}>{t('pag.prev', '⬅ Prev')}</button>
+      <span className="pag-indicator">{t('pag.pageOf', 'Page')} {page} / {totalPages}</span>
+      <button className="btn" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>{t('pag.next', 'Next ➡')}</button>
+      <button className="btn" disabled={page >= totalPages} onClick={() => onPage(totalPages)}>{t('pag.last', 'Last »')}</button>
+    </div>
+  );
 }
 
 // Width bumped from 540 → 820 so all 8 sub-tabs fit. See WalletDetailsModal <Modal width>.
@@ -1359,10 +1382,13 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   // All hooks must run every render (Rules of Hooks), even when wallet is null.
   // Pass a safe empty addr so the sub-tab hooks don't fetch without a target.
   const addr = wallet?.addr || '';
-  const swaps = useWalletHistory('/history/swaps', addr, subtab === 'swaps' && !!wallet);
-  const transfers = useWalletHistory('/history/transfers', addr, subtab === 'transfers' && !!wallet);
-  const bridges = useWalletHistory('/history/bridges', addr, subtab === 'bridges' && !!wallet);
-  const extrinsics = useWalletHistory('/history/extrinsics', addr, subtab === 'extrinsics' && !!wallet);
+  const [histPages, setHistPages] = useState({});
+  const histPage = (kind) => histPages[addr + ':' + kind] || 1;
+  const setHistPage = (kind, p) => setHistPages(prev => ({ ...prev, [addr + ':' + kind]: p }));
+  const swaps = useWalletHistory('/history/swaps', addr, subtab === 'swaps' && !!wallet, histPage('swaps'));
+  const transfers = useWalletHistory('/history/transfers', addr, subtab === 'transfers' && !!wallet, histPage('transfers'));
+  const bridges = useWalletHistory('/history/bridges', addr, subtab === 'bridges' && !!wallet, histPage('bridges'));
+  const extrinsics = useWalletHistory('/history/extrinsics', addr, subtab === 'extrinsics' && !!wallet, histPage('extrinsics'));
   // Liquidity + staking + info are single-shot GETs without pagination.
   const [liquidity, setLiquidity] = useState(null);
   const [staking, setStaking] = useState(null);
@@ -1640,12 +1666,13 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
         </>)}
 
         {/* History sub-tabs: 4 variants share the same row shape — compact table */}
-        {['swaps','transfers','bridges','extrinsics'].includes(subtab) && (
-          <WalletHistoryTable
-            kind={subtab}
-            rows={subtab==='swaps'?swaps:subtab==='transfers'?transfers:subtab==='bridges'?bridges:extrinsics}
-          />
-        )}
+        {['swaps','transfers','bridges','extrinsics'].includes(subtab) && (() => {
+          const h = subtab==='swaps'?swaps:subtab==='transfers'?transfers:subtab==='bridges'?bridges:extrinsics;
+          return (<>
+            <WalletHistoryTable kind={subtab} rows={h.rows}/>
+            <WalletHistoryPager page={histPage(subtab)} totalPages={h.totalPages} onPage={p => setHistPage(subtab, p)}/>
+          </>);
+        })()}
 
         {subtab === 'liquidity' && <LiquidityPane liquidity={liquidity}/>}
 
