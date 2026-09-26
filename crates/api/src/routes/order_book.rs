@@ -164,7 +164,7 @@ async fn count(state: &AppState, f: &Filters) -> Result<i64, ApiError> {
             WHERE n.nspname = 'sm' AND c.relname = 'order_book_events'
             "#
         )
-        .fetch_optional(&state.db)
+        .fetch_optional(&state.listing_db)
         .await?
         .map(|r| r.estimate)
         .filter(|e| *e >= 0);
@@ -184,7 +184,7 @@ async fn count(state: &AppState, f: &Filters) -> Result<i64, ApiError> {
         f.event_type,
         f.until,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?
     .count)
 }
@@ -214,7 +214,7 @@ async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result
         f.event_type,
         f.until,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
     let registry = state.registry.read().await;
     Ok(Page {

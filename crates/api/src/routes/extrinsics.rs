@@ -21,7 +21,8 @@
 //! as JSON strings and `extrinsic_index` as a STRING (a Node quirk the
 //! frontend tolerates).
 
-use crate::legacy::{fmt_time, page_bounds};
+use super::history::{estimated_rows, estimated_rows_upto, until_bound, Table};
+use crate::legacy::{fmt_time, page_bounds, seek, Seek};
 use crate::{error::ApiError, AppState};
 use axum::{
     extract::{Path, Query, State},
@@ -152,11 +153,11 @@ struct Filters {
 }
 
 impl Filters {
-    fn is_unfiltered(&self) -> bool {
+    /// No filter besides (at most) the date cap.
+    fn no_row_filters(&self) -> bool {
         self.signer.is_none()
             && self.section.is_none()
             && self.method_like.is_none()
-            && self.until.is_none()
             && self.block.is_none()
             && self.success.is_none()
     }
@@ -186,21 +187,35 @@ fn parse_until(raw: Option<&str>) -> Result<Option<DateTime<Utc>>, ApiError> {
     }
 }
 
-async fn count(state: &AppState, f: &Filters) -> Result<i64, ApiError> {
-    if f.is_unfiltered() {
-        let est = sqlx::query!(
-            r#"
-            SELECT c.reltuples::bigint AS "estimate!"
-            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE n.nspname = 'sm' AND c.relname = 'extrinsics'
-            "#
-        )
-        .fetch_optional(&state.db)
-        .await?
-        .map(|r| r.estimate)
-        .filter(|e| *e >= 0);
-        if let Some(e) = est {
-            return Ok(e);
+/// `timestamp.set` rows at or below `upto`: one per block of the
+/// chain-indexed era, which the listing never shows.
+async fn timestamp_rows(state: &AppState, upto: i64) -> Result<i64, ApiError> {
+    let r = sqlx::query!(
+        r#"SELECT MIN(block_height) AS "first", MAX(block_height) AS "last"
+           FROM sm.extrinsics WHERE section = 'timestamp' AND method = 'set'"#
+    )
+    .fetch_one(&state.listing_db)
+    .await?;
+    Ok(match (r.first, r.last) {
+        (Some(first), Some(last)) if upto >= first => upto.min(last) - first + 1,
+        _ => 0,
+    })
+}
+
+/// Listed rows: the planner estimate minus the hidden `timestamp.set` rows
+/// when the only filter is (at most) the date cap, else an exact count.
+async fn count(state: &AppState, f: &Filters, cap: Option<(i64, i32)>) -> Result<i64, ApiError> {
+    if f.no_row_filters() {
+        let estimate = match cap {
+            None => estimated_rows(state, Table::Extrinsics.name())
+                .await?
+                .map(|e| (e, i64::MAX)),
+            Some((block, _)) => estimated_rows_upto(state, Table::Extrinsics, block - 1)
+                .await?
+                .map(|e| (e, block - 1)),
+        };
+        if let Some((rows, upto)) = estimate {
+            return Ok((rows - timestamp_rows(state, upto).await?).max(0));
         }
     }
     Ok(sqlx::query!(
@@ -222,15 +237,45 @@ async fn count(state: &AppState, f: &Filters) -> Result<i64, ApiError> {
         f.block,
         f.success,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?
     .count)
 }
 
 async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result<Page, ApiError> {
-    let total = count(state, f).await?;
+    let cap = match f.until {
+        Some(until) => Some(until_bound(state, Table::Extrinsics, until).await?),
+        None => None,
+    };
+    let total = count(state, f, cap).await?;
     let (total_pages, safe_page) = page_bounds(total, limit, page);
-    let offset = (safe_page - 1) * limit;
+    let (block, index) = cap.unwrap_or((i64::MAX, i32::MAX));
+    let indexed = f.signer.is_some() || f.section.is_some() || f.block.is_some();
+    let tail_ok = indexed || (f.method_like.is_none() && f.success.is_none());
+    let rows = match seek(total, limit, safe_page) {
+        Seek::Tail { offset, take } if tail_ok => {
+            listing_tail(state, f, (block, index), take, offset).await?
+        }
+        _ => listing_head(state, f, (block, index), limit, (safe_page - 1) * limit).await?,
+    };
+    Ok(Page {
+        data: rows
+            .iter()
+            .map(|r| row(r, state.time_zone, false))
+            .collect(),
+        total,
+        page: safe_page,
+        total_pages,
+    })
+}
+
+async fn listing_head(
+    state: &AppState,
+    f: &Filters,
+    (block, index): (i64, i32),
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<ExtRecord>, ApiError> {
     let rows = sqlx::query_as!(
         ExtRecord,
         r#"
@@ -244,6 +289,7 @@ async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result
           AND ($6::timestamptz IS NULL OR block_timestamp <= $6)
           AND ($7::bigint IS NULL OR block_height = $7)
           AND ($8::bool IS NULL OR success = $8)
+          AND (block_height, extrinsic_index) < ($9, $10)
         ORDER BY block_height DESC, extrinsic_index DESC
         LIMIT $1 OFFSET $2
         "#,
@@ -255,18 +301,54 @@ async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result
         f.until,
         f.block,
         f.success,
+        block,
+        index,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
-    Ok(Page {
-        data: rows
-            .iter()
-            .map(|r| row(r, state.time_zone, false))
-            .collect(),
-        total,
-        page: safe_page,
-        total_pages,
-    })
+    Ok(rows)
+}
+
+/// A back-half page, read oldest first and returned newest first.
+async fn listing_tail(
+    state: &AppState,
+    f: &Filters,
+    (block, index): (i64, i32),
+    take: i64,
+    offset: i64,
+) -> Result<Vec<ExtRecord>, ApiError> {
+    let mut rows = sqlx::query_as!(
+        ExtRecord,
+        r#"
+        SELECT block_height, extrinsic_index, block_timestamp, hash, section, method,
+               signer, success, error_msg, NULL::jsonb AS "args", NULL::jsonb AS "events"
+        FROM sm.extrinsics
+        WHERE NOT (section = 'timestamp' AND method = 'set')
+          AND ($3::text IS NULL OR signer = $3)
+          AND ($4::text IS NULL OR section = $4)
+          AND ($5::text IS NULL OR method LIKE $5)
+          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)
+          AND ($7::bigint IS NULL OR block_height = $7)
+          AND ($8::bool IS NULL OR success = $8)
+          AND (block_height, extrinsic_index) < ($9, $10)
+        ORDER BY block_height ASC, extrinsic_index ASC
+        LIMIT $1 OFFSET $2
+        "#,
+        take,
+        offset,
+        f.signer,
+        f.section,
+        f.method_like,
+        f.until,
+        f.block,
+        f.success,
+        block,
+        index,
+    )
+    .fetch_all(&state.listing_db)
+    .await?;
+    rows.reverse();
+    Ok(rows)
 }
 
 async fn global(
@@ -327,7 +409,7 @@ async fn fetch_detail(
         block,
         index,
     )
-    .fetch_optional(&state.db)
+    .fetch_optional(&state.listing_db)
     .await?)
 }
 
@@ -360,7 +442,7 @@ async fn sections(State(state): State<AppState>) -> Result<Json<Vec<String>>, Ap
         r#"SELECT DISTINCT section AS "section!" FROM sm.extrinsics
            WHERE section <> 'timestamp' ORDER BY section ASC"#
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
     let list: Vec<String> = rows.into_iter().map(|r| r.section).collect();
     let v = serde_json::to_value(&list).map_err(|e| ApiError::Internal(e.to_string()))?;
@@ -402,7 +484,7 @@ async fn stats_24h(State(state): State<AppState>) -> Result<Json<Stats24h>, ApiE
         "#,
         since,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?;
     let top = sqlx::query!(
         r#"
@@ -413,7 +495,7 @@ async fn stats_24h(State(state): State<AppState>) -> Result<Json<Stats24h>, ApiE
         "#,
         since,
     )
-    .fetch_optional(&state.db)
+    .fetch_optional(&state.listing_db)
     .await?;
     let total = totals.total;
     let success = totals.success;
@@ -477,7 +559,7 @@ async fn fees_by_blocks(
         "#,
         &blocks,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
     use bigdecimal::ToPrimitive;
     let out = rows
@@ -577,7 +659,7 @@ async fn search(
             "#,
             q.to_lowercase(),
         )
-        .fetch_optional(&state.db)
+        .fetch_optional(&state.listing_db)
         .await?;
         return Ok(Json(match found {
             Some(r) => SearchResponse {

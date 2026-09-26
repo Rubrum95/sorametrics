@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MIN(block_height) AS \"first\", MAX(block_height) AS \"last\"\n           FROM sm.extrinsics WHERE section = 'timestamp' AND method = 'set'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "last",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "40f6d6f630b222468b3fd782adb88482250a165e42ee7604ad4aabc940284b9f"
+}

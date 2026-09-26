@@ -4,6 +4,33 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 
 ## Unreleased
 
+### 2026-09-26
+- API: a swap is worth its cheaper priced leg (`sm.swap_usd`, 0 = unknown). Swap rows (history,
+  Socket.IO, CSV, `/lookup/usd-value`) carry it in both `in.usd` and `out.usd`; network volume,
+  trends, trending tokens, top pair, stablecoin swap volume, accumulation and wallet info sum it.
+  One swap of 0.5 CERES → 5.17 DAI had been valued at 42 869.94 USD and inflated the 24 h volume
+  tenfold.
+- API: `/stats/overview.topPair`, the unordered pair with the most swap USD in the window.
+- API: the back half of the swaps, transfers, bridges, fee-event and extrinsics listings is read
+  from the oldest end when an index gives that order, so the last page costs what the first does
+  (it was a 10.8 M-row OFFSET that timed out). With an estimated total, page numbers near the
+  middle are approximate; the last page always holds the oldest rows.
+- API: `?symbol=` (exact token, canonical asset id) on swaps and transfers, served by new
+  `(asset, block_height, event_id)` indexes; `?network=` (exact) on bridges; `?timestamp=` resolves
+  to a block bound and an estimated total.
+- API: `next_before` carries the extrinsic id as tiebreak (`block-event-extrinsic`); legacy rows of
+  one block share `event_id = 0`. Two-part cursors keep their meaning.
+- API: DB sessions run with `statement_timeout = 30 s`; the listing routes use a second pool with
+  `plan_cache_mode = force_custom_plan` (generic plans ignored the wallet index behind
+  `($n IS NULL OR caller = $n)`; forcing it pool-wide made each price-hypertable lookup re-plan).
+- API: `/stats/overview.network` gains `transferCount` and `bridgeVolume`; the Transfers and Bridges
+  KPI cards read them instead of summing the visible page.
+- API: extrinsics `?timestamp=` resolves to a block bound; the unfiltered estimate leaves out the
+  `timestamp.set` rows the listing hides. MCP `recent_activity` sends `symbol=` for swaps/transfers.
+- API: `/health/freshness` table thresholds sit above the longest quiet gaps seen on mainnet.
+- frontend: date filters send `timestamp`, the swaps token dropdown sends `symbol`, swap KPIs read
+  the real 24 h fields, and the invented `× 0.997` on the output leg is gone.
+
 ### 2026-09-13
 - deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the
   shared host), `env.rubrum.example`, PM2 ecosystem with opposite primary nodes for the ingest

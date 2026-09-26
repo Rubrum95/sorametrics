@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT COALESCE(SUM(usd_value), 0) AS \"volume: BigDecimal\",\n               COUNT(DISTINCT caller)     AS \"users!\",\n               COUNT(*)                   AS \"tx_count!\"\n        FROM sm.swaps\n        WHERE block_timestamp > $1\n        ",
+  "query": "\n        SELECT COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0) AS \"volume: BigDecimal\",\n               COUNT(DISTINCT caller)     AS \"users!\",\n               COUNT(*)                   AS \"tx_count!\"\n        FROM sm.swaps\n        WHERE block_timestamp > $1\n        ",
   "describe": {
     "columns": [
       {
@@ -30,5 +30,5 @@
       null
     ]
   },
-  "hash": "6c7a7deefb783f4ce063a0f00ec37633bfad3fe6bd5eea75a26ee3eb9ed33b4d"
+  "hash": "cc1ed46688f8dfa7a7815ada92a208d14f7ef9fa783edc53012ca96a2a3292a5"
 }

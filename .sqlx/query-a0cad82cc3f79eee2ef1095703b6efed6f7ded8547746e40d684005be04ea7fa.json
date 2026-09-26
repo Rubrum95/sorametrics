@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            direction::text AS \"direction!\",\n            network,\n            caller,\n            counterparty,\n            asset_id,\n            amount    AS \"amount!: BigDecimal\",\n            usd_value AS \"usd_value: BigDecimal\"\n        FROM sm.bridges\n        WHERE (block_height, event_id) < ($1, $2)\n          AND ($5::text IS NULL OR caller = $5 OR counterparty = $5)\n          AND ($6::text IS NULL OR caller ILIKE $6 OR counterparty ILIKE $6\n               OR network ILIKE $6 OR asset_id ILIKE $6)\n          AND ($7::timestamptz IS NULL OR block_timestamp <= $7)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
+  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            direction::text AS \"direction!\",\n            network,\n            caller,\n            counterparty,\n            asset_id,\n            amount    AS \"amount!: BigDecimal\",\n            usd_value AS \"usd_value: BigDecimal\"\n        FROM sm.bridges\n        WHERE (block_height, event_id, extrinsic_id) < ($1, $2, $9)\n          AND ($5::text IS NULL OR caller = $5 OR counterparty = $5)\n          AND ($6::text IS NULL OR caller ILIKE $6 OR counterparty ILIKE $6\n               OR network ILIKE $6 OR asset_id ILIKE $6)\n          AND ($7::timestamptz IS NULL OR block_timestamp <= $7)\n          AND ($8::text IS NULL OR network = $8)\n        ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n        LIMIT $3 OFFSET $4\n        ",
   "describe": {
     "columns": [
       {
@@ -72,7 +72,9 @@
         "Int8",
         "Text",
         "Text",
-        "Timestamptz"
+        "Timestamptz",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
@@ -90,5 +92,5 @@
       true
     ]
   },
-  "hash": "5284fe32ff8bd07fcab7a15e692ddfb925e97f69eca8dfd2eb3df24bd9895a89"
+  "hash": "a0cad82cc3f79eee2ef1095703b6efed6f7ded8547746e40d684005be04ea7fa"
 }

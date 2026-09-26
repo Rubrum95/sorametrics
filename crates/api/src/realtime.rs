@@ -11,7 +11,9 @@
 //! head, never replaying history. Block stats follow the live cursor of
 //! `sm.indexer_state` at 1 s granularity.
 
-use crate::legacy::{decimals_for, fmt_amount, fmt_time, fmt_time_es, logo_for, symbol_for};
+use crate::legacy::{
+    decimals_for, fmt_amount, fmt_time, fmt_time_es, logo_for, swap_usd, symbol_for,
+};
 use crate::state::Registry;
 use crate::AppState;
 use bigdecimal::{BigDecimal, RoundingMode};
@@ -291,7 +293,8 @@ fn ob_value(v: Option<&BigDecimal>) -> String {
         .unwrap_or_default()
 }
 
-/// Live swap row (`index.js` `swapData`): `usd` legs are 2-decimal strings.
+/// Live swap row (`index.js` `swapData`): `usd` legs are 2-decimal
+/// strings, both carrying the swap's USD value (`swap_usd`).
 async fn swaps_since(
     state: &AppState,
     after: i64,
@@ -325,12 +328,13 @@ async fn swaps_since(
     let out = rows
         .iter()
         .map(|r| {
+            let usd = swap_usd(r.usd_value.as_ref(), r.output_usd_value.as_ref());
             json!({
                 "block": r.block_height,
                 "wallet": r.caller,
                 "time": fmt_time(r.block_timestamp, zone),
-                "in": leg(&r.input_asset_id, &r.input_amount, r.usd_value.as_ref()),
-                "out": leg(&r.output_asset_id, &r.output_amount, r.output_usd_value.as_ref()),
+                "in": leg(&r.input_asset_id, &r.input_amount, usd.as_ref()),
+                "out": leg(&r.output_asset_id, &r.output_amount, usd.as_ref()),
                 "hash": r.hash.clone().unwrap_or_default(),
                 "extrinsic_id": crate::legacy::fmt_extrinsic_id(r.block_height, &r.extrinsic_id),
             })

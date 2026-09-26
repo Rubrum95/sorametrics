@@ -151,7 +151,7 @@ function TransfersSection({ tweaks }) {
     const q = new URLSearchParams();
     if (dateFilter) {
       const ts = new Date(dateFilter).getTime();
-      if (Number.isFinite(ts)) q.set('before', String(ts));
+      if (Number.isFinite(ts)) q.set('timestamp', String(ts));
     }
     if (assetFilter) q.set('symbol', assetFilter);
     return '/history/global/transfers' + (q.toString() ? '?' + q.toString() : '');
@@ -206,7 +206,6 @@ function TransfersSection({ tweaks }) {
 
       {(() => {
         // Real KPIs derived from the current dataset + /stats/overview.
-        const volUsd = rows.reduce((s, r) => s + (r.usd || 0), 0);
         const unique = new Set();
         const sendCount = {};
         rows.forEach(r => {
@@ -220,15 +219,13 @@ function TransfersSection({ tweaks }) {
           ? (window.identityName?.(topSenderEntry[0]) || fmt.addr(topSenderEntry[0], 5, 4))
           : '—';
         const topSenderCount = topSenderEntry ? topSenderEntry[1] : 0;
-        const netVol = Number(networkOverview?.network?.transfersVolume) || volUsd;
-        const netCount = Number(networkOverview?.network?.transfersCount) || rows.length;
-        const netUnique = Number(networkOverview?.network?.uniqueAddresses) || unique.size;
+        const net = networkOverview?.network;
         return (
           <KpiGrid items={[
-            { label: t('nav.transfers') + ' · 24h', value: netCount.toLocaleString(), sub: t('s.last24h', 'last 24h') },
-            { label: t('col.volume') + ' · 24h',    value: fmt.usd(netVol), sub: t('s.acrossAllAssets', 'across all assets') },
+            { label: t('nav.transfers') + ' · 24h', value: net ? Number(net.transferCount).toLocaleString() : '—', sub: t('s.last24h', 'last 24h') },
+            { label: t('col.volume') + ' · 24h',    value: net ? fmt.usd(Number(net.transferVolume)) : '—', sub: t('s.acrossAllAssets', 'across all assets') },
             { label: t('s.topSender', 'Top Sender'),      value: topSender, valStyle:{fontSize: 18}, sub: topSenderCount ? (topSenderCount + ' transfers') : '—' },
-            { label: t('s.counterparties', 'Counterparties'),  value: netUnique.toLocaleString(), sub: t('s.uniqueAddresses', 'unique addresses') },
+            { label: t('s.counterparties', 'Counterparties'),  value: unique.size.toLocaleString(), sub: t('s.uniqueAddresses', 'unique addresses') },
           ]}/>
         );
       })()}
@@ -343,7 +340,7 @@ function BridgesSection({ tweaks }) {
     const q = new URLSearchParams();
     if (dateFilter) {
       const ts = new Date(dateFilter).getTime();
-      if (Number.isFinite(ts)) q.set('before', String(ts));
+      if (Number.isFinite(ts)) q.set('timestamp', String(ts));
     }
     if (networkF !== 'all') q.set('network', networkF);
     return '/history/global/bridges' + (q.toString() ? '?' + q.toString() : '');
@@ -407,15 +404,13 @@ function BridgesSection({ tweaks }) {
 
       {(() => {
         // Real KPIs derived from dataset + /stats/overview when exposed.
-        const volUsd = rows.reduce((s, r) => s + (r.usd || 0), 0);
         const uniqueAssets = new Set(rows.map(r => r.sym).filter(Boolean)).size;
         const networks = new Set(rows.map(r => r.from === 'SORA' ? r.to : r.from).filter(n => n && n !== 'SORA'));
-        const netVol = Number(networkOverview?.network?.bridgesVolume) || volUsd;
-        const netAssets = Number(networkOverview?.network?.bridgesAssets) || uniqueAssets;
+        const net = networkOverview?.network;
         return (
           <KpiGrid items={[
-            { label:t('s.bridgeVol24h', 'Bridge Vol · 24h'), value: fmt.usd(netVol), sub: t('s.acrossNNetworks', 'across {n} networks').replace('{n}', networks.size) },
-            { label:t('s.assetsBridged', 'Assets Bridged'),   value: String(netAssets), sub: t('s.uniqueAssets', 'unique assets') },
+            { label:t('s.bridgeVol24h', 'Bridge Vol · 24h'), value: net ? fmt.usd(Number(net.bridgeVolume)) : '—', sub: t('s.acrossNNetworks', 'across {n} networks').replace('{n}', networks.size) },
+            { label:t('s.assetsBridged', 'Assets Bridged'),   value: String(uniqueAssets), sub: t('s.uniqueAssets', 'unique assets') },
             { label:t('s.pendingNow', 'Pending Now'),      value: String(pending), valStyle:{color:'#F5B041'}, sub: t('s.awaitingConfirmations', 'awaiting confirmations') },
             { label:t('s.networks', 'Networks'),         value: networks.size > 0 ? [...networks].slice(0,3).join(', ') : '—', valStyle:{fontSize: 18}, sub: t('s.activeCounterparties', 'active counterparties') },
           ]}/>

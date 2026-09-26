@@ -14,6 +14,8 @@ Everything here is indexed from the chain itself or read from a node at request 
 
 - Prices are marginal quotes: the on-chain quote of 0.000001 token to DAI, with DAI = 1 USD. Many SORA tokens have almost no liquidity, so that price can be meaningless. Every token carries `illiquid`: when `true`, selling 1 USD worth returns under 0.50 USD. Do not compute a market cap or value a holding with an illiquid price. Wallet `usdValue` is already 0 for those tokens.
 - Even for liquid tokens, amount x price overstates what a large holding would sell for.
+- A swap is worth its cheaper priced leg (a marginal quote can overvalue the illiquid side by orders of magnitude). Swap rows carry that value in both `in.usd` and `out.usd`, and swap volume, trends, top pair and accumulation are sums of it. When only one leg has a price, that leg is used as is.
+- Listing totals without a filter (or with only `timestamp`) are planner estimates. The last page always holds the oldest rows; page numbers near the middle of a long listing are approximate. Use `timestamp` to jump to a date.
 - Holder counts are accounts above a threshold (more than 1 XOR, more than 0.1 of other assets), not every account.
 - The supply shown for VAL and PSWAP is the official SORA circulating figure, which differs from on-chain total issuance.
 - Amounts are whole tokens unless a field says raw. Pool reserves are raw integers with 18 decimals.

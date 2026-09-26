@@ -15,12 +15,11 @@
 //! - healthy: lag < 30s · degraded: < 5min · stale: ≥ 5min
 //!
 //! Table thresholds encode the *expected event cadence* of each table,
-//! not the block cadence — a table with no new rows for an hour is fine
-//! if that event type only happens a few times a day:
-//! - `fee_events`: fee events fire on nearly every signed extrinsic
-//!   → healthy < 10min, stale ≥ 1h.
-//! - `transfers`: regular activity → healthy < 30min, stale ≥ 6h.
-//! - `swaps`: moderate activity → healthy < 1h, stale ≥ 12h.
+//! not the block cadence, and sit above the longest gap between rows
+//! seen on mainnet:
+//! - `fee_events` → healthy < 4h, stale ≥ 12h.
+//! - `swaps` → healthy < 6h, stale ≥ 36h.
+//! - `transfers` → healthy < 48h, stale ≥ 8 days.
 //! - `bridges`: intrinsically sparse (days between bridge txs are
 //!   normal) → lag reported for information, `status` is `null`.
 //!
@@ -74,9 +73,9 @@ struct FreshnessResponse {
 /// `None` = report lag but never classify (activity-sparse table).
 fn table_thresholds(table: &str) -> Option<(TimeDelta, TimeDelta)> {
     match table {
-        "fee_events" => Some((TimeDelta::minutes(10), TimeDelta::hours(1))),
-        "transfers" => Some((TimeDelta::minutes(30), TimeDelta::hours(6))),
-        "swaps" => Some((TimeDelta::hours(1), TimeDelta::hours(12))),
+        "fee_events" => Some((TimeDelta::hours(4), TimeDelta::hours(12))),
+        "transfers" => Some((TimeDelta::hours(48), TimeDelta::days(8))),
+        "swaps" => Some((TimeDelta::hours(6), TimeDelta::hours(36))),
         _ => None,
     }
 }
@@ -228,6 +227,38 @@ mod tests {
     fn bridges_and_unknown_tables_have_no_thresholds() {
         assert!(table_thresholds("bridges").is_none());
         assert!(table_thresholds("something_else").is_none());
+    }
+
+    #[test]
+    fn observed_quiet_gaps_are_not_stale() {
+        let status = |table: &str, lag: TimeDelta| {
+            let (healthy, degraded) = table_thresholds(table).unwrap();
+            FreshnessStatus::classify(lag, healthy, degraded)
+        };
+        assert_eq!(
+            status("transfers", TimeDelta::hours(28)),
+            FreshnessStatus::Healthy
+        );
+        assert_eq!(
+            status("transfers", TimeDelta::hours(179)),
+            FreshnessStatus::Degraded
+        );
+        assert_eq!(
+            status("transfers", TimeDelta::days(9)),
+            FreshnessStatus::Stale
+        );
+        assert_eq!(
+            status("fee_events", TimeDelta::minutes(470)),
+            FreshnessStatus::Degraded
+        );
+        assert_eq!(
+            status("swaps", TimeDelta::hours(28)),
+            FreshnessStatus::Degraded
+        );
+        assert_eq!(
+            status("swaps", TimeDelta::hours(40)),
+            FreshnessStatus::Stale
+        );
     }
 
     #[test]

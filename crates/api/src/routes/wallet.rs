@@ -524,7 +524,8 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------
-// /wallet/info/:address  (db_pg.js::getWalletInfo + the whale score)
+// /wallet/info/:address  (db_pg.js::getWalletInfo + the whale score;
+// swap USD per `sm.swap_usd`)
 // ---------------------------------------------------------------------
 
 const WALLET_INFO_TTL: std::time::Duration = std::time::Duration::from_secs(15 * 60);
@@ -680,8 +681,10 @@ async fn wallet_info(
     .fetch_one(&state.db)
     .await?;
     let swaps = sqlx::query!(
-        r#"SELECT COUNT(*)::bigint AS "swap_count!", COALESCE(AVG(usd_value), 0) AS "avg_usd: BigDecimal",
-                  COALESCE(MAX(usd_value), 0) AS "max_usd: BigDecimal", COALESCE(SUM(usd_value), 0) AS "total_vol: BigDecimal"
+        r#"SELECT COUNT(*)::bigint AS "swap_count!",
+                  COALESCE(AVG(sm.swap_usd(usd_value, output_usd_value)), 0) AS "avg_usd: BigDecimal",
+                  COALESCE(MAX(sm.swap_usd(usd_value, output_usd_value)), 0) AS "max_usd: BigDecimal",
+                  COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0) AS "total_vol: BigDecimal"
            FROM sm.swaps WHERE caller = $1"#,
         address
     )
@@ -689,8 +692,8 @@ async fn wallet_info(
     .await?;
     let token_rows = sqlx::query!(
         r#"SELECT asset_id AS "asset_id!", SUM(usd) AS "total_usd: BigDecimal", COUNT(*)::bigint AS "trades!" FROM (
-               SELECT input_asset_id AS asset_id, usd_value AS usd FROM sm.swaps WHERE caller = $1
-               UNION ALL SELECT output_asset_id, output_usd_value FROM sm.swaps WHERE caller = $1
+               SELECT input_asset_id AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS usd FROM sm.swaps WHERE caller = $1
+               UNION ALL SELECT output_asset_id, sm.swap_usd(usd_value, output_usd_value) FROM sm.swaps WHERE caller = $1
            ) u GROUP BY asset_id ORDER BY SUM(usd) DESC NULLS LAST LIMIT 10"#,
         address
     )

@@ -17,10 +17,12 @@
 //! when unknown or zero, dates in UTC (`YYYY-MM-DD HH:MM:SS`; CoinTracker
 //! `MM/DD/YYYY HH:MM:SS`). Legacy-era rows in prod carried the MV's
 //! 18-decimal text instead; v33 stores planck and prints them the same
-//! way as live rows.
+//! way as live rows. Swap `In_USD`/`Out_USD` (and Koinly's net worth)
+//! both carry the swap's USD value (`swap_usd`), not each leg's quote.
 
 use crate::legacy::{
-    bridge_direction_label, bridge_parties, decimals_for, fmt_amount, fmt_extrinsic_id, symbol_for,
+    bridge_direction_label, bridge_parties, decimals_for, fmt_amount, fmt_extrinsic_id, swap_usd,
+    symbol_for,
 };
 use crate::state::Registry;
 use crate::{error::ApiError, AppState};
@@ -1023,18 +1025,22 @@ async fn load_swaps(
     .await?;
     Ok(rows
         .into_iter()
-        .map(|r| SwapRow {
-            timestamp: r.block_timestamp,
-            block: r.block_height,
-            wallet: r.caller,
-            in_symbol: symbol_for(reg, &r.input_asset_id),
-            in_amount: fmt_amount(&r.input_amount, decimals_for(reg, &r.input_asset_id)),
-            in_usd: fmt_usd_cell(r.usd_value.as_ref()),
-            out_symbol: symbol_for(reg, &r.output_asset_id),
-            out_amount: fmt_amount(&r.output_amount, decimals_for(reg, &r.output_asset_id)),
-            out_usd: fmt_usd_cell(r.output_usd_value.as_ref()),
-            hash: r.hash.unwrap_or_default(),
-            extrinsic_id: fmt_extrinsic_id(r.block_height, &r.extrinsic_id),
+        .map(|r| {
+            let usd =
+                fmt_usd_cell(swap_usd(r.usd_value.as_ref(), r.output_usd_value.as_ref()).as_ref());
+            SwapRow {
+                timestamp: r.block_timestamp,
+                block: r.block_height,
+                wallet: r.caller,
+                in_symbol: symbol_for(reg, &r.input_asset_id),
+                in_amount: fmt_amount(&r.input_amount, decimals_for(reg, &r.input_asset_id)),
+                in_usd: usd.clone(),
+                out_symbol: symbol_for(reg, &r.output_asset_id),
+                out_amount: fmt_amount(&r.output_amount, decimals_for(reg, &r.output_asset_id)),
+                out_usd: usd,
+                hash: r.hash.unwrap_or_default(),
+                extrinsic_id: fmt_extrinsic_id(r.block_height, &r.extrinsic_id),
+            }
         })
         .collect())
 }

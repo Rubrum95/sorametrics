@@ -2,11 +2,12 @@
 //! the USD value of an extrinsic `"block-index"`, searched in transfers,
 //! swaps, bridges and liquidity in that order. A stored value renders
 //! at 1 dp; a missing one falls back to `amount × current price` of the
-//! asset. Legacy rows are matched by their own id forms: the bare
+//! asset; a swap is worth its cheaper priced leg (`swap_usd`), stored
+//! or fallback. Legacy rows are matched by their own id forms: the bare
 //! index, `block-index`, or the extrinsic hash (the subsquid `he.id`).
 //! Nothing found → `{ usd_value: null }`; bad id → 400.
 
-use crate::legacy::{decimals_for, fmt_usd};
+use crate::legacy::{decimals_for, fmt_usd, swap_usd};
 use crate::{error::ApiError, AppState};
 use axum::{
     extract::{Path, State},
@@ -124,14 +125,16 @@ async fn usd_value(
     .fetch_optional(&state.db)
     .await?
     {
-        let usd = stored(s.in_usd.as_ref().filter(|v| v.to_f64().unwrap_or(0.0) != 0.0).or(s.out_usd.as_ref()));
+        let usd = stored(swap_usd(s.in_usd.as_ref(), s.out_usd.as_ref()).as_ref());
         if usd > 0.0 {
             return Ok(Json(Lookup { usd_value: Some(usd), source: Some("swap") }));
         }
-        let mut fb = fallback_usd(&state, &s.input_asset_id, &s.in_amount).await?;
-        if fb <= 0.0 {
-            fb = fallback_usd(&state, &s.output_asset_id, &s.out_amount).await?;
-        }
+        let fb_in = fallback_usd(&state, &s.input_asset_id, &s.in_amount).await?;
+        let fb_out = fallback_usd(&state, &s.output_asset_id, &s.out_amount).await?;
+        let fb = [fb_in, fb_out]
+            .into_iter()
+            .filter(|v| *v > 0.0)
+            .fold(0.0_f64, |acc, v| if acc == 0.0 { v } else { acc.min(v) });
         if fb > 0.0 {
             return Ok(Json(Lookup { usd_value: Some(fmt_usd(BigDecimal::try_from(fb).ok().as_ref())), source: Some("swap") }));
         }

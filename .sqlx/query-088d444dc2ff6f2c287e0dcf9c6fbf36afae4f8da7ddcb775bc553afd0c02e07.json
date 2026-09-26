@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            block_height,\n            extrinsic_id,\n            event_id,\n            hash,\n            block_timestamp,\n            kind::text AS \"kind!\",\n            payer,\n            referrer,\n            amount AS \"amount!: BigDecimal\"\n        FROM sm.fee_events\n        WHERE (block_height, event_id) < ($1, $2)\n          AND ($5::text IS NULL OR payer = $5)\n          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)\n        ORDER BY block_height DESC, event_id DESC\n        LIMIT $3 OFFSET $4\n        ",
+  "query": "\n                SELECT\n                    block_height,\n                    extrinsic_id,\n                    event_id,\n                    hash,\n                    block_timestamp,\n                    from_address,\n                    to_address,\n                    asset_id,\n                    amount    AS \"amount!: BigDecimal\",\n                    usd_value AS \"usd_value: BigDecimal\"\n                FROM sm.transfers\n                WHERE asset_id = $1 AND (block_height, event_id) < ($2, $3)\n                ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC\n                LIMIT $4 OFFSET $5\n                ",
   "describe": {
     "columns": [
       {
@@ -30,33 +30,37 @@
       },
       {
         "ordinal": 5,
-        "name": "kind!",
+        "name": "from_address",
         "type_info": "Text"
       },
       {
         "ordinal": 6,
-        "name": "payer",
+        "name": "to_address",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "referrer",
+        "name": "asset_id",
         "type_info": "Text"
       },
       {
         "ordinal": 8,
         "name": "amount!: BigDecimal",
         "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
       }
     ],
     "parameters": {
       "Left": [
+        "Text",
         "Int8",
         "Int4",
         "Int8",
-        "Int8",
-        "Text",
-        "Timestamptz"
+        "Int8"
       ]
     },
     "nullable": [
@@ -65,11 +69,12 @@
       false,
       true,
       false,
-      null,
       false,
-      true,
-      false
+      false,
+      false,
+      false,
+      true
     ]
   },
-  "hash": "a61669d215eaee786b0354cd2b00a77b6c16668fbccc82916ab98cf5f19d2d07"
+  "hash": "088d444dc2ff6f2c287e0dcf9c6fbf36afae4f8da7ddcb775bc553afd0c02e07"
 }

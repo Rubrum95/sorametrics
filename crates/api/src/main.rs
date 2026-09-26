@@ -30,12 +30,22 @@ async fn main() -> Result<()> {
         .context("API_BIND must be a valid socket address")?;
 
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is required")?;
+    let timeout = Some(std::time::Duration::from_secs(30));
     let db = db_connect(&DbConfig {
-        url: db_url,
+        url: db_url.clone(),
+        statement_timeout: timeout,
         ..DbConfig::default()
     })
     .await
     .context("connecting to PostgreSQL")?;
+    let listing_db = db_connect(&DbConfig {
+        url: db_url,
+        statement_timeout: timeout,
+        custom_plans: true,
+        ..DbConfig::default()
+    })
+    .await
+    .context("connecting to PostgreSQL (listing pool)")?;
     info!("DB ready");
 
     let time_zone = time_zone_from_env().map_err(anyhow::Error::msg)?;
@@ -52,6 +62,7 @@ async fn main() -> Result<()> {
     let state = AppState::with_registry(db, time_zone)
         .await
         .context("loading asset registry")?
+        .with_listing_db(listing_db)
         .with_chain(chain)
         .with_archive(Some(archive))
         .with_torii(Some(torii));

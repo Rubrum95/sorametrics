@@ -123,7 +123,7 @@ ROUTES = [
     dict(path="/export/csv?wallets=" + ADDR + "&types=swaps&format=sorametrics", mode="structure", raw=True),
     # --- stats ---
     dict(path="/stats/network", mode="structure"),
-    dict(path="/stats/overview", mode="structure"),
+    dict(path="/stats/overview", mode="structure", ignore=["topPair", "transferCount", "bridgeVolume"]),
     dict(path="/stats/header", mode="structure"),
     dict(path="/stats/fees?timeframe=1d", mode="structure"),
     dict(path="/stats/fees/trend?timeframe=7d", mode="structure"),

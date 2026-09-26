@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    block_height,\n                    extrinsic_id,\n                    event_id,\n                    hash,\n                    block_timestamp,\n                    from_address,\n                    to_address,\n                    asset_id,\n                    amount    AS \"amount!: BigDecimal\",\n                    usd_value AS \"usd_value: BigDecimal\"\n                FROM sm.transfers\n                WHERE asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $6)\n                ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                LIMIT $4 OFFSET $5\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "from_address",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "to_address",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "baff13e99e939f733d557e20debc4470509b9363befc527888ed4287a69cef6d"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT asset_id AS \"asset_id!\", COALESCE(SUM(vol), 0) AS \"volume: BigDecimal\"\n        FROM (\n            SELECT input_asset_id  AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol\n            FROM sm.swaps WHERE block_timestamp > $1\n            UNION ALL\n            SELECT output_asset_id AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol\n            FROM sm.swaps WHERE block_timestamp > $1\n        ) AS legs\n        GROUP BY asset_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "volume: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "1fff7b23e66f05875654329d95c13da1b8c3f9c4026c4de81873fa1e86515a47"
+}

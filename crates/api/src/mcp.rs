@@ -50,7 +50,8 @@ const INSTRUCTIONS: &str = "SoraMetrics: read-only analytics of the SORA v2 bloc
 (Substrate) indexed from the chain itself. Amounts are in whole tokens unless a field says raw. \
 PRICES ARE MARGINAL QUOTES: a token carrying `illiquid: true` sells for under 0.50 USD per 1 USD \
 quoted, so never compute a market cap or a holding's value from its price; wallet `usdValue` is \
-already 0 for such tokens. Holder counts are accounts above a threshold (>1 XOR, >0.1 others), \
+already 0 for such tokens. A swap is worth its cheaper priced leg: swap `in.usd`/`out.usd`, volume, \
+trends, top pair and accumulation all use that value. Holder counts are accounts above a threshold (>1 XOR, >0.1 others), \
 not every account. Token supply is the official SORA circulating figure, not on-chain total \
 issuance. Get asset ids from `list_tokens` before calling tools that take `asset_id`.";
 
@@ -934,14 +935,14 @@ fn tools() -> &'static [ToolSpec] {
         ToolSpec {
             name: "recent_activity",
             title: "Recent network activity",
-            description: "Latest network-wide swaps, transfers, bridge operations, extrinsics, liquidity or order-book events, newest first. `token` filters by symbol where the list supports it.",
+            description: "Latest network-wide swaps, transfers, bridge operations, extrinsics, liquidity or order-book events, newest first. `token` is an exact token symbol for swaps and transfers, a substring filter for bridges.",
             input_schema: || {
                 schema(
                     merge(
                         paging_props(),
                         json!({
                             "kind": { "type": "string", "enum": ACTIVITY_KINDS },
-                            "token": { "type": "string", "description": "Symbol filter, e.g. XOR" }
+                            "token": { "type": "string", "description": "Exact token symbol, e.g. XOR (swaps, transfers); substring of address, network or asset id (bridges)" }
                         }),
                     ),
                     &["kind"],
@@ -951,7 +952,8 @@ fn tools() -> &'static [ToolSpec] {
                 let kind = enum_arg(a, "kind", ACTIVITY_KINDS)?;
                 let mut q = format!("/history/global/{kind}?{}", paging_query(a)?);
                 if let Some(t) = a.get("token").and_then(Value::as_str).filter(|s| !s.trim().is_empty()) {
-                    q.push_str(&format!("&token={}", encode(t.trim())));
+                    let param = if matches!(kind, "swaps" | "transfers") { "symbol" } else { "token" };
+                    q.push_str(&format!("&{param}={}", encode(t.trim())));
                 }
                 Ok(RestCall::get(q))
             },
@@ -1212,7 +1214,7 @@ fn tools() -> &'static [ToolSpec] {
         ToolSpec {
             name: "network_overview",
             title: "Market overview",
-            description: "24 h swap volume, active users and transactions, stablecoin pegs (KUSD, XSTUSD, TBCD) and the most traded tokens.",
+            description: "24 h swap volume (each swap valued at its cheaper leg), active users and transactions, stablecoin pegs (KUSD, XSTUSD, TBCD), the most traded tokens and the top pair.",
             input_schema: || schema(json!({}), &[]),
             build: |_| Ok(RestCall::get("/stats/overview".into())),
             notes: &[NOTE_PRICES],
@@ -1423,8 +1425,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             q.path,
-            "/history/global/swaps?page=1&limit=100&token=X+O%26R"
+            "/history/global/swaps?page=1&limit=100&symbol=X+O%26R"
         );
+        let q = (act.build)(&args(json!({ "kind": "bridges", "token": "TON" }))).unwrap();
+        assert_eq!(q.path, "/history/global/bridges?page=1&limit=25&token=TON");
     }
 
     #[test]

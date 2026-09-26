@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT COUNT(*) AS \"count!\" FROM (\n                       SELECT 1 FROM sm.transfers\n                       WHERE asset_id = $1 AND (block_height, event_id) < ($2, $3)\n                       LIMIT $4) capped",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bdeab678d396d7ddce8a9256da420b7bf2a983a102bbd8966953b851eb29803e"
+}

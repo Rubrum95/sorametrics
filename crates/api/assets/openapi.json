@@ -4,7 +4,7 @@
   "title": "SoraMetrics API",
   "version": "33.0.0",
   "summary": "Read-only analytics of the SORA v2 blockchain.",
-  "description": "Public, read-only, no authentication. Data is indexed from the SORA v2 chain (Substrate) and, for balances, holders, pools, staking and governance, read from a node at request time.\n\nPrices are marginal on-chain quotes (`liquidityProxy.quote` of 0.000001 token to DAI, DAI = 1 USD). `illiquid: true` means selling 1 USD worth of the token returns under 0.50 USD: never derive a market cap or a holding value from that price.\n\nToken supply shown by the site is the official SORA circulating figure, not on-chain total issuance.\n\nRate limits are per IP and per route (10–300 requests per minute); a 429 means wait for the next minute. Agents should prefer the MCP endpoint at `/mcp`, which wraps these routes as typed tools.",
+  "description": "Public, read-only, no authentication. Data is indexed from the SORA v2 chain (Substrate) and, for balances, holders, pools, staking and governance, read from a node at request time.\n\nPrices are marginal on-chain quotes (`liquidityProxy.quote` of 0.000001 token to DAI, DAI = 1 USD). `illiquid: true` means selling 1 USD worth of the token returns under 0.50 USD: never derive a market cap or a holding value from that price.\n\nA swap is worth its cheaper priced leg (a marginal quote can overvalue the illiquid side by orders of magnitude). Swap rows carry that value in both `in.usd` and `out.usd`; swap volume, trends, top pair and accumulation are sums of it.\n\nToken supply shown by the site is the official SORA circulating figure, not on-chain total issuance.\n\nRate limits are per IP and per route (10–300 requests per minute); a 429 means wait for the next minute. Agents should prefer the MCP endpoint at `/mcp`, which wraps these routes as typed tools.",
   "license": {
    "name": "MIT",
    "identifier": "MIT"
@@ -605,7 +605,7 @@
    "get": {
     "operationId": "getWalletSwaps",
     "summary": "Swaps of a wallet",
-    "description": "Newest first. `time` is dd/mm/yyyy HH:MM:SS in Europe/Madrid.",
+    "description": "Newest first. `time` is dd/mm/yyyy HH:MM:SS in Europe/Madrid. `in.usd` and `out.usd` both carry the swap USD value (its cheaper priced leg, 1 decimal, 0 = unknown).",
     "tags": [
      "history"
     ],
@@ -1025,7 +1025,7 @@
    "get": {
     "operationId": "listSwaps",
     "summary": "Latest swaps",
-    "description": "Network-wide, newest first.",
+    "description": "Network-wide, newest first. `in.usd` and `out.usd` both carry the swap USD value (its cheaper priced leg, 1 decimal, 0 = unknown).",
     "tags": [
      "history"
     ],
@@ -1112,6 +1112,14 @@
       "name": "token",
       "in": "query",
       "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "symbol",
+      "in": "query",
+      "description": "Exact token symbol (e.g. XOR); matches its canonical asset id only.",
       "schema": {
        "type": "string"
       }
@@ -1223,6 +1231,14 @@
       }
      },
      {
+      "name": "symbol",
+      "in": "query",
+      "description": "Exact token symbol (e.g. XOR); matches its canonical asset id only.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
       "name": "timestamp",
       "in": "query",
       "description": "Upper bound, unix milliseconds: only rows at or before it.",
@@ -1324,6 +1340,14 @@
       "name": "token",
       "in": "query",
       "description": "Case-insensitive substring of a token symbol, address or asset id.",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "network",
+      "in": "query",
+      "description": "Exact bridge network label (e.g. Ethereum, Substrate: Liberland).",
       "schema": {
        "type": "string"
       }
@@ -2001,7 +2025,7 @@
    "get": {
     "operationId": "getOverview",
     "summary": "Network overview",
-    "description": "Stablecoin pegs, 24 h network figures (volume, users, transactions) and trending tokens.",
+    "description": "Stablecoin pegs, 24 h network figures (volume, users, transactions), trending tokens and `topPair`. Swap USD is each swap's cheaper priced leg.",
     "tags": [
      "markets"
     ],

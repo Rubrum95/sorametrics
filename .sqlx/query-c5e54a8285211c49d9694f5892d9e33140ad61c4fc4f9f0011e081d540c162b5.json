@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT m.freq AS \"freq!\"\n        FROM pg_stats s,\n             unnest(s.most_common_vals::text::text[], s.most_common_freqs) AS m(val, freq)\n        WHERE s.schemaname = 'sm' AND s.tablename = $1 AND s.attname = $2 AND m.val = $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "freq!",
+        "type_info": "Float4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Name",
+        "Name",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c5e54a8285211c49d9694f5892d9e33140ad61c4fc4f9f0011e081d540c162b5"
+}

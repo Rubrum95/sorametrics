@@ -152,9 +152,9 @@ function SwapsSection({ tweaks }) {
     const q = new URLSearchParams();
     if (dateFilter) {
       const ts = new Date(dateFilter).getTime();
-      if (Number.isFinite(ts)) q.set('before', String(ts));
+      if (Number.isFinite(ts)) q.set('timestamp', String(ts));
     }
-    if (filter) q.set('token', filter);
+    if (filter) q.set('symbol', filter);
     return '/history/global/swaps' + (q.toString() ? '?' + q.toString() : '');
   }, [dateFilter, filter]);
 
@@ -200,29 +200,16 @@ function SwapsSection({ tweaks }) {
     : Math.max(1, Math.ceil(items.length / pageSize));
   const curPage = Math.min(page, totalPages);
 
-  // Live stats — derived from real items + network overview when available.
   const stats = useMemo(() => {
-    const vol = items.reduce((s, x) => s + x.usd, 0);
-    // Top pair (real): aggregate by inTok/outTok pair, pick highest USD volume.
-    const byPair = {};
-    items.forEach(x => {
-      const key = (x.inTok || '?') + '/' + (x.outTok || '?');
-      byPair[key] = (byPair[key] || 0) + x.usd;
-    });
-    const topPair = Object.entries(byPair).sort((a, b) => b[1] - a[1])[0];
-    // Real unique signers from current dataset.
-    const uniqueAccs = new Set(items.map(x => x.acc).filter(Boolean)).size;
-    // Prefer network-wide volume from /stats/overview when present.
-    const realVol24h = Number(networkOverview?.network?.volume) || vol;
-    const realCount24h = Number(networkOverview?.network?.swapsCount) || items.length;
-    const realUniqueAccs = Number(networkOverview?.network?.uniqueAccounts) || uniqueAccs;
+    const net = networkOverview?.network;
+    const pair = networkOverview?.topPair;
     return {
-      vol: realVol24h,
-      count: realCount24h,
-      uniqueAccs: realUniqueAccs,
-      topPair: topPair ? topPair[0] : '—',
+      vol: net ? Number(net.volume) : null,
+      count: net ? Number(net.txCount) : null,
+      uniqueAccs: net ? Number(net.users) : null,
+      topPair: pair ? pair.a + '/' + pair.b : '—',
     };
-  }, [items, networkOverview]);
+  }, [networkOverview]);
 
   return (
     <div>
@@ -247,9 +234,9 @@ function SwapsSection({ tweaks }) {
         const [a, b] = (stats.topPair || '').split('/');
         return (
           <KpiGrid items={[
-            { label:t('pulse.kpi.swaps24', 'Swaps · 24h'),     value: stats.count.toLocaleString(),    sub:t('s.last24h', 'last 24h') },
-            { label:t('s.volume24h2', 'Volume · 24h'),    value: fmt.usd(stats.vol),              sub:'network-wide' },
-            { label:t('s.uniqueAccounts', 'Unique Accounts'), value: stats.uniqueAccs.toLocaleString(), sub:t('s.signers24h', 'signers · 24h') },
+            { label:t('pulse.kpi.swaps24', 'Swaps · 24h'),     value: stats.count == null ? '—' : stats.count.toLocaleString(), sub:t('s.last24h', 'last 24h') },
+            { label:t('s.volume24h2', 'Volume · 24h'),    value: stats.vol == null ? '—' : fmt.usd(stats.vol), sub:'network-wide' },
+            { label:t('s.uniqueAccounts', 'Unique Accounts'), value: stats.uniqueAccs == null ? '—' : stats.uniqueAccs.toLocaleString(), sub:t('s.signers24h', 'signers · 24h') },
             { label:t('s.topPair', 'Top Pair'),        value: stats.topPair,                    sub:t('s.highestVolume', 'highest volume'), pair: a && b ? { a, b } : null },
           ]}/>
         );
@@ -357,7 +344,7 @@ function SwapsSection({ tweaks }) {
                       <div className="swap-tok-vals">
                         <div className="swap-tok-sym">{s.outTok}</div>
                         <div className="swap-tok-amt num">{fmt.num(s.outAmt, 2)}</div>
-                        <div className="swap-tok-usd">${fmt.num(s.usd * 0.997, 2)}</div>
+                        <div className="swap-tok-usd">${fmt.num(s.usd, 2)}</div>
                       </div>
                     </div>
                   </td>
@@ -384,7 +371,7 @@ function SwapsSection({ tweaks }) {
               ))}
               {visible.length === 0 && (
                 <tr><td colSpan="7" style={{padding:40, textAlign:'center', color:'var(--fg-2)'}}>
-                  {t('s.noSwapsFound', 'No swaps found')}{filter ? ` for ${filter}` : ''}.
+                  {loading ? t('common.loading', 'Loading…') : <>{t('s.noSwapsFound', 'No swaps found')}{filter ? ` for ${filter}` : ''}.</>}
                 </td></tr>
               )}
             </tbody>

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT c.reltuples::bigint AS \"estimate!\",\n               (SELECT s.histogram_bounds::text::bigint[] FROM pg_stats s\n                WHERE s.schemaname = 'sm' AND s.tablename = $1\n                  AND s.attname = 'block_height') AS bounds\n        FROM pg_class c\n        JOIN pg_namespace n ON n.oid = c.relnamespace\n        WHERE n.nspname = 'sm' AND c.relname = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "estimate!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "bounds",
+        "type_info": "Int8Array"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Name"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f8e79e02e49d94bb5af0949aaee2054e4ec9c7427ca5523131b6e3df08bdd1cb"
+}

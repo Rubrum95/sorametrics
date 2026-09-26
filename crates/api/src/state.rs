@@ -119,6 +119,10 @@ impl Registry {
 pub struct AppState {
     /// PostgreSQL connection pool.
     pub db: PgPool,
+    /// Pool for listings with optional filters (`$n IS NULL OR col = $n`):
+    /// its sessions plan every execution with the actual parameters, which
+    /// a cached generic plan cannot do. Same database as `db`.
+    pub listing_db: PgPool,
     /// Asset registry snapshot, refreshed by [`AppState::spawn_registry_refresh`].
     pub registry: Arc<RwLock<Registry>>,
     /// Zone for legacy `time` strings.
@@ -190,6 +194,7 @@ impl AppState {
     /// callers that will load it themselves).
     pub fn new(db: PgPool) -> Self {
         Self {
+            listing_db: db.clone(),
             db,
             registry: Arc::new(RwLock::new(Registry::default())),
             time_zone: DEFAULT_TIME_ZONE,
@@ -202,6 +207,12 @@ impl AppState {
             analytics: Arc::new(crate::routes::analytics::Analytics::from_env()),
             hot_holders: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Use a separate pool for filtered listings (see `listing_db`).
+    pub fn with_listing_db(mut self, pool: PgPool) -> Self {
+        self.listing_db = pool;
+        self
     }
 
     /// Attach a chain client.
@@ -228,6 +239,7 @@ impl AppState {
         let rows = load_asset_registry(&db).await?;
         info!(assets = rows.len(), zone = %time_zone, "asset registry loaded");
         Ok(Self {
+            listing_db: db.clone(),
             db,
             registry: Arc::new(RwLock::new(Registry::from_rows(rows))),
             time_zone,

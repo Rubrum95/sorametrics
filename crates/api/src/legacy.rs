@@ -55,6 +55,17 @@ pub fn fmt_usd(usd: Option<&BigDecimal>) -> f64 {
     }
 }
 
+/// USD value of a swap: its cheaper priced leg, `0` meaning unknown
+/// (Rust twin of the SQL function `sm.swap_usd`).
+pub fn swap_usd(input: Option<&BigDecimal>, output: Option<&BigDecimal>) -> Option<BigDecimal> {
+    [input, output]
+        .into_iter()
+        .flatten()
+        .filter(|v| **v > BigDecimal::zero())
+        .min()
+        .cloned()
+}
+
 /// `Date.toLocaleString('es-ES')` in the API zone: `d/M/yyyy, HH:mm:ss`
 /// (the Node's `formatted_time` of live rows).
 pub fn fmt_time_es(ts: DateTime<Utc>, zone: Tz) -> String {
@@ -163,6 +174,37 @@ pub fn page_bounds(total: i64, limit: i64, page: i64) -> (i64, i64) {
     (total_pages, safe_page)
 }
 
+/// How the rows of page `page` (already clamped) are read, newest first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Seek {
+    /// `LIMIT limit OFFSET offset` from the newest row.
+    Head {
+        /// Rows skipped from the newest end.
+        offset: i64,
+    },
+    /// Back half of the listing: read oldest first and reverse.
+    Tail {
+        /// Rows skipped from the oldest end.
+        offset: i64,
+        /// Rows on this page (the last page may be short).
+        take: i64,
+    },
+}
+
+/// The cheaper end to count from for `page`.
+pub fn seek(total: i64, limit: i64, page: i64) -> Seek {
+    let offset = (page - 1) * limit;
+    let below = total - offset - limit;
+    if offset > 0 && below < offset {
+        Seek::Tail {
+            offset: below.max(0),
+            take: limit + below.min(0),
+        }
+    } else {
+        Seek::Head { offset }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +232,18 @@ mod tests {
             "1.0000"
         );
         assert_eq!(fmt_amount(&BigDecimal::from(1_500_000_u64), 6), "1.5000");
+    }
+
+    #[test]
+    fn swap_usd_is_the_cheaper_priced_leg() {
+        let d = |s: &str| BigDecimal::from_str(s).unwrap();
+        let (hi, lo, zero) = (d("42869.936426"), d("5.165292"), d("0"));
+        assert_eq!(swap_usd(Some(&hi), Some(&lo)), Some(lo.clone()));
+        assert_eq!(swap_usd(Some(&lo), Some(&hi)), Some(lo.clone()));
+        assert_eq!(swap_usd(Some(&zero), Some(&lo)), Some(lo.clone()));
+        assert_eq!(swap_usd(None, Some(&hi)), Some(hi.clone()));
+        assert_eq!(swap_usd(Some(&zero), Some(&zero)), None);
+        assert_eq!(swap_usd(None, None), None);
     }
 
     #[test]
@@ -249,5 +303,37 @@ mod tests {
         assert_eq!(page_bounds(4238, 25, 1), (170, 1));
         assert_eq!(page_bounds(4238, 25, 999), (170, 170));
         assert_eq!(page_bounds(0, 25, 3), (0, 1));
+    }
+
+    #[test]
+    fn seek_counts_from_the_nearer_end() {
+        assert_eq!(seek(0, 25, 1), Seek::Head { offset: 0 });
+        assert_eq!(seek(100, 10, 1), Seek::Head { offset: 0 });
+        assert_eq!(seek(100, 10, 5), Seek::Head { offset: 40 });
+        assert_eq!(
+            seek(100, 10, 6),
+            Seek::Tail {
+                offset: 40,
+                take: 10
+            }
+        );
+        assert_eq!(
+            seek(100, 10, 10),
+            Seek::Tail {
+                offset: 0,
+                take: 10
+            }
+        );
+        assert_eq!(seek(105, 10, 11), Seek::Tail { offset: 0, take: 5 });
+        assert_eq!(seek(10, 10, 1), Seek::Head { offset: 0 });
+        let (pages, last) = page_bounds(10_846_415, 12, 903_868);
+        assert_eq!(last, pages);
+        assert_eq!(
+            seek(10_846_415, 12, last),
+            Seek::Tail {
+                offset: 0,
+                take: 11
+            }
+        );
     }
 }

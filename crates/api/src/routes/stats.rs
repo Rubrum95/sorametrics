@@ -4,13 +4,14 @@
 //! getTransferVolume/getFilteredStats`).
 //!
 //! - `/stats/network`: `{ stats24h, stats7d, tps }` where a stats block
-//!   is `{ volume, users, txCount }` over swaps (USD of the input leg,
+//!   is `{ volume, users, txCount }` over swaps (USD per `sm.swap_usd`,
 //!   distinct callers, count) and `tps` is `txCount24h / 86400` as a
 //!   2-decimal string.
 //! - `/stats/overview?timeframe=`: `{ pegs: {KUSD, XSTUSD, TBCD},
 //!   network: {…stats, lpVolume, transferVolume}, trends: [{symbol,
 //!   volume}] }` — pegs are the latest quotes, trends the top 5 symbols
-//!   by swap USD volume (both legs) in the window.
+//!   by swap USD volume in the window (each swap credited to both of its
+//!   assets), `topPair` the unordered pair with the most swap USD.
 //! - `/stats/header?timeframe=`: `{ block, swaps, transfers, bridges }`
 //!   — the last indexed block and row counts since the window start
 //!   (`all` → since genesis).
@@ -26,6 +27,9 @@
 //!   accounts}` bucketed series (`val` = USD / distinct wallets).
 //! - `/stats/stablecoins?timeframe=`: KUSD/XSTUSD/TBCD price, swap and
 //!   transfer USD volume, sparkline.
+//!
+//! Swap USD is always `sm.swap_usd(usd_value, output_usd_value)`: the
+//! cheaper priced leg (v33 deviation from the Node, which summed one leg).
 //! - `/stats/trending-tokens?timeframe=`: top 5 `{symbol, volume, logo}`.
 //! - `/stats/accumulation?symbol=&timeframe=`: top 10 buyers of a symbol
 //!   (`total_bought_usd`, `total_bought_amount`, `swap_count` as text,
@@ -96,7 +100,7 @@ pub struct NetworkStats {
 async fn network_stats(state: &AppState, since: DateTime<Utc>) -> Result<NetworkStats, ApiError> {
     let row = sqlx::query!(
         r#"
-        SELECT COALESCE(SUM(usd_value), 0) AS "volume: BigDecimal",
+        SELECT COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0) AS "volume: BigDecimal",
                COUNT(DISTINCT caller)     AS "users!",
                COUNT(*)                   AS "tx_count!"
         FROM sm.swaps
@@ -162,6 +166,12 @@ struct OverviewNetwork {
     lp_volume: f64,
     #[serde(rename = "transferVolume")]
     transfer_volume: f64,
+    /// Transfers in the window (v33 addition).
+    #[serde(rename = "transferCount")]
+    transfer_count: i64,
+    /// Bridge USD in the window, both directions (v33 addition).
+    #[serde(rename = "bridgeVolume")]
+    bridge_volume: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -170,14 +180,25 @@ struct Trend {
     volume: f64,
 }
 
+/// Swap pair with the most swap USD in the window, both directions
+/// merged (v33 addition).
+#[derive(Serialize)]
+struct TopPair {
+    a: String,
+    b: String,
+    volume: f64,
+}
+
 #[derive(Serialize)]
 struct OverviewResponse {
     pegs: Pegs,
     network: OverviewNetwork,
     trends: Vec<Trend>,
+    #[serde(rename = "topPair")]
+    top_pair: Option<TopPair>,
 }
 
-/// Per-asset swap USD volume (both legs) → top 5 symbols. Symbols are
+/// Per-asset swap USD volume → top 5 symbols. Symbols are
 /// resolved here so duplicate registry ids for one symbol merge, as the
 /// Node's `GROUP BY symbol` did.
 fn top_trends(per_asset: Vec<(String, f64)>, symbol_of: impl Fn(&str) -> String) -> Vec<Trend> {
@@ -223,10 +244,21 @@ async fn overview(
     .await?
     .total;
 
-    let transfer_volume = sqlx::query!(
+    let transfers = sqlx::query!(
+        r#"
+        SELECT COALESCE(SUM(usd_value), 0) AS "total: BigDecimal", COUNT(*) AS "count!"
+        FROM sm.transfers
+        WHERE block_timestamp >= $1
+        "#,
+        since,
+    )
+    .fetch_one(&state.db)
+    .await?;
+
+    let bridge_volume = sqlx::query!(
         r#"
         SELECT COALESCE(SUM(usd_value), 0) AS "total: BigDecimal"
-        FROM sm.transfers
+        FROM sm.bridges
         WHERE block_timestamp >= $1
         "#,
         since,
@@ -239,10 +271,10 @@ async fn overview(
         r#"
         SELECT asset_id AS "asset_id!", COALESCE(SUM(vol), 0) AS "volume: BigDecimal"
         FROM (
-            SELECT input_asset_id  AS asset_id, usd_value        AS vol
+            SELECT input_asset_id  AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol
             FROM sm.swaps WHERE block_timestamp > $1
             UNION ALL
-            SELECT output_asset_id AS asset_id, output_usd_value AS vol
+            SELECT output_asset_id AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol
             FROM sm.swaps WHERE block_timestamp > $1
         ) AS legs
         GROUP BY asset_id
@@ -252,7 +284,28 @@ async fn overview(
     .fetch_all(&state.db)
     .await?;
 
+    let pair = sqlx::query!(
+        r#"
+        SELECT LEAST(input_asset_id, output_asset_id)    AS "a!",
+               GREATEST(input_asset_id, output_asset_id) AS "b!",
+               COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0) AS "volume!: BigDecimal"
+        FROM sm.swaps
+        WHERE block_timestamp > $1
+        GROUP BY 1, 2
+        ORDER BY 3 DESC, 1, 2
+        LIMIT 1
+        "#,
+        since,
+    )
+    .fetch_optional(&state.db)
+    .await?;
+
     let registry = state.registry.read().await;
+    let top_pair = pair.map(|p| TopPair {
+        a: crate::legacy::symbol_for(&registry, &p.a),
+        b: crate::legacy::symbol_for(&registry, &p.b),
+        volume: to_f64(Some(p.volume)),
+    });
     let per_asset: Vec<(String, f64)> = legs
         .into_iter()
         .map(|r| (r.asset_id, to_f64(r.volume)))
@@ -293,9 +346,12 @@ async fn overview(
             users: net.users,
             tx_count: net.tx_count,
             lp_volume: to_f64(lp_volume),
-            transfer_volume: to_f64(transfer_volume),
+            transfer_volume: to_f64(transfers.total),
+            transfer_count: transfers.count,
+            bridge_volume: to_f64(bridge_volume),
         },
         trends,
+        top_pair,
     }))
 }
 
@@ -508,7 +564,7 @@ async fn network_trend(
     let swaps = sqlx::query!(
         r#"
         SELECT TO_CHAR(block_timestamp AT TIME ZONE $2, $3) AS "bucket!",
-               SUM(usd_value) AS "val: BigDecimal"
+               SUM(sm.swap_usd(usd_value, output_usd_value)) AS "val: BigDecimal"
         FROM sm.swaps WHERE block_timestamp >= $1
         GROUP BY 1 ORDER BY 1
         "#,
@@ -666,9 +722,7 @@ async fn stablecoins(
                 let vols = sqlx::query!(
                     r#"
                     SELECT
-                        (SELECT COALESCE(SUM(
-                            CASE WHEN input_asset_id  = $1 THEN usd_value        ELSE 0 END
-                          + CASE WHEN output_asset_id = $1 THEN output_usd_value ELSE 0 END), 0)
+                        (SELECT COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0)
                          FROM sm.swaps
                          WHERE (input_asset_id = $1 OR output_asset_id = $1) AND block_timestamp >= $2) AS "swap_vol: BigDecimal",
                         (SELECT COALESCE(SUM(usd_value), 0)
@@ -729,10 +783,10 @@ async fn trending_tokens(
         r#"
         SELECT asset_id AS "asset_id!", COALESCE(SUM(vol), 0) AS "volume: BigDecimal"
         FROM (
-            SELECT input_asset_id  AS asset_id, usd_value        AS vol
+            SELECT input_asset_id  AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol
             FROM sm.swaps WHERE block_timestamp >= $1
             UNION ALL
-            SELECT output_asset_id AS asset_id, output_usd_value AS vol
+            SELECT output_asset_id AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS vol
             FROM sm.swaps WHERE block_timestamp >= $1
         ) AS legs
         GROUP BY asset_id
@@ -821,14 +875,14 @@ async fn accumulation(
         let rows = sqlx::query!(
             r#"
             SELECT caller,
-                   SUM(output_usd_value) AS "total_usd: BigDecimal",
+                   SUM(sm.swap_usd(usd_value, output_usd_value)) AS "total_usd: BigDecimal",
                    SUM(output_amount)    AS "total_amount!: BigDecimal",
                    COUNT(*)              AS "swap_count!",
                    MAX(block_timestamp)  AS "last_buy!"
             FROM sm.swaps
             WHERE output_asset_id = $1 AND block_timestamp > $2
             GROUP BY caller
-            ORDER BY SUM(output_usd_value) DESC NULLS LAST
+            ORDER BY SUM(sm.swap_usd(usd_value, output_usd_value)) DESC NULLS LAST
             LIMIT 10
             "#,
             id,

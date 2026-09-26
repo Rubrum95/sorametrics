@@ -133,7 +133,7 @@ async fn global(
                 WHERE n.nspname = 'sm' AND c.relname = 'liquidity_events'
                 "#
             )
-            .fetch_optional(&state.db)
+            .fetch_optional(&state.listing_db)
             .await?
             .map(|r| r.estimate)
             .filter(|e| *e >= 0);
@@ -165,7 +165,7 @@ async fn global(
         offset,
         until,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
 
     let registry = state.registry.read().await;
@@ -190,7 +190,7 @@ async fn exact_count(state: &AppState, until: Option<DateTime<Utc>>) -> Result<i
         "#,
         until,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?
     .count)
 }
@@ -240,7 +240,7 @@ async fn activity(
         target_id,
         limit,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
     let registry = state.registry.read().await;
     Ok(Json(

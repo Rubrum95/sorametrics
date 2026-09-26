@@ -17,7 +17,7 @@
 //! - row shapes: see [`crate::legacy`].
 //!
 //! v33 addition (additive, ignored by the legacy frontend):
-//! `?before=<block_height>-<event_id>` keyset cursor + `next_before` in
+//! `?before=<block_height>-<event_id>[-<extrinsic_id>]` keyset cursor + `next_before` in
 //! the response. O(1) at any depth where `page` degrades linearly.
 //!
 //! `/history/global/fee_events` and `/history/fee_events/:address`
@@ -25,7 +25,7 @@
 
 use crate::legacy::{
     bridge_direction_label, bridge_parties, decimals_for, fmt_amount, fmt_extrinsic_id, fmt_millis,
-    fmt_time, fmt_usd, logo_for, page_bounds, symbol_for,
+    fmt_time, fmt_usd, logo_for, page_bounds, seek, swap_usd, symbol_for, Seek,
 };
 use crate::state::Registry;
 use crate::{error::ApiError, util::validate_address, AppState};
@@ -65,6 +65,10 @@ struct Pagination {
     token: Option<String>,
     /// Legacy "rows at or before" bound, unix milliseconds.
     timestamp: Option<String>,
+    /// Exact token symbol, resolved to its canonical asset id (v33 addition).
+    symbol: Option<String>,
+    /// Exact bridge network label (v33 addition).
+    network: Option<String>,
 }
 
 /// Validated pagination driving one uniform SQL form: keyset sentinel
@@ -78,24 +82,34 @@ struct PageSpec {
     keyset: bool,
     before_block: i64,
     before_event: i32,
+    /// Extrinsic id of the cursor row (`""` for a two-part cursor), the
+    /// tiebreak between legacy rows of one block that share `event_id = 0`.
+    before_ext: String,
     /// Upper bound on `block_timestamp`, if `?timestamp=` was given.
     until: Option<DateTime<Utc>>,
     /// Trimmed substring filter, if any.
     needle: Option<String>,
+    /// Trimmed `?symbol=`, if any.
+    symbol: Option<String>,
+    /// Trimmed `?network=`, if any.
+    network: Option<String>,
 }
 
 impl PageSpec {
     /// Node: `page` is clamped to `[1, totalPages]` BEFORE the offset is
     /// taken, so an out-of-range page returns the last page, not an
-    /// empty one. Keyset requests ignore page/offset.
-    fn resolve(&self, total: i64) -> (i64, i64, i64) {
+    /// empty one. Keyset requests ignore page/offset. `tail_ok` = some
+    /// index yields the active filter oldest-first.
+    fn resolve(&self, total: i64, tail_ok: bool) -> (i64, i64, Seek) {
         let (total_pages, page) = page_bounds(total, self.limit, self.page);
-        let offset = if self.keyset {
-            0
-        } else {
-            (page - 1) * self.limit
+        let seek = match seek(total, self.limit, page) {
+            _ if self.keyset => Seek::Head { offset: 0 },
+            Seek::Tail { .. } if !tail_ok => Seek::Head {
+                offset: (page - 1) * self.limit,
+            },
+            other => other,
         };
-        (total_pages, page, offset)
+        (total_pages, page, seek)
     }
 
     /// `%needle%` for ILIKE, if a filter was given.
@@ -103,10 +117,18 @@ impl PageSpec {
         self.needle.as_ref().map(|n| format!("%{n}%"))
     }
 
-    /// `true` when the request carries no row filter (so the planner
-    /// estimate stands in for the total, as in the Node).
-    fn is_unfiltered(&self) -> bool {
-        self.needle.is_none() && self.until.is_none()
+    /// Keyset sentinel for a newest-first page, lowered to `cap`.
+    fn before(&self, cap: Option<(i64, i32)>) -> (i64, i32) {
+        let own = (self.before_block, self.before_event);
+        cap.map_or(own, |c| own.min(c))
+    }
+
+    /// `before` plus the extrinsic-id tiebreak, for
+    /// `(block_height, event_id, extrinsic_id) < (…)`.
+    fn head_bound(&self, cap: Option<(i64, i32)>) -> (i64, i32, &str) {
+        let (block, event) = self.before(cap);
+        let own = (block, event) == (self.before_block, self.before_event);
+        (block, event, if own { &self.before_ext } else { "" })
     }
 }
 
@@ -128,19 +150,22 @@ impl Pagination {
             }
         };
 
-        let needle = self
-            .token
-            .as_deref()
-            .or(self.filter.as_deref())
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
+        let trimmed = |v: Option<&str>| {
+            v.map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        };
+        let needle = trimmed(self.token.as_deref().or(self.filter.as_deref()));
 
-        let (keyset, before_block, before_event) = match &self.before {
+        let (keyset, before_block, before_event, before_ext) = match &self.before {
             Some(cursor) => {
-                let (b, e) = cursor.split_once('-').ok_or_else(|| {
-                    ApiError::BadRequest("before must be '<block_height>-<event_id>'".into())
-                })?;
+                let mut parts = cursor.splitn(3, '-');
+                let (Some(b), Some(e)) = (parts.next(), parts.next()) else {
+                    return Err(ApiError::BadRequest(
+                        "before must be '<block_height>-<event_id>[-<extrinsic_id>]'".into(),
+                    ));
+                };
+                let ext = parts.next().unwrap_or_default().to_string();
                 let before_block: i64 = b.parse().map_err(|_| {
                     ApiError::BadRequest("before: block_height is not a number".into())
                 })?;
@@ -152,9 +177,9 @@ impl Pagination {
                         "before: components must be ≥ 0".into(),
                     ));
                 }
-                (true, before_block, before_event)
+                (true, before_block, before_event, ext)
             }
-            None => (false, i64::MAX, i32::MAX),
+            None => (false, i64::MAX, i32::MAX, String::new()),
         };
 
         Ok(PageSpec {
@@ -163,8 +188,11 @@ impl Pagination {
             keyset,
             before_block,
             before_event,
+            before_ext,
             until,
             needle,
+            symbol: trimmed(self.symbol.as_deref()),
+            network: trimmed(self.network.as_deref()),
         })
     }
 }
@@ -187,7 +215,7 @@ impl<T> Page<T> {
         total: i64,
         (total_pages, page): (i64, i64),
         limit: i64,
-        last: Option<(i64, i32)>,
+        last: Option<(i64, i32, String)>,
     ) -> Self {
         let next_before = next_cursor(data.len(), limit, last);
         Self {
@@ -200,19 +228,47 @@ impl<T> Page<T> {
     }
 }
 
+/// Keyset position of a row.
+trait Keyed {
+    fn key(&self) -> (i64, i32, String);
+}
+
+fn page_json<R: Keyed, T>(
+    rows: Vec<R>,
+    spec: &PageSpec,
+    total: i64,
+    pages: (i64, i64),
+    to_row: impl Fn(&R) -> T,
+) -> Json<Page<T>> {
+    let last = rows.last().map(Keyed::key);
+    let data = rows.iter().map(to_row).collect();
+    Json(Page::build(data, total, pages, spec.limit, last))
+}
+
+macro_rules! keyed {
+    ($($t:ty),*) => {$(
+        impl Keyed for $t {
+            fn key(&self) -> (i64, i32, String) {
+                (self.block_height, self.event_id, self.extrinsic_id.clone())
+            }
+        }
+    )*};
+}
+keyed!(SwapRecord, TransferRecord, BridgeRecord, FeeBurnItem);
+
 /// Cursor for the page after this one: position of the last row, only
 /// when the page came back full (a short page IS the last page).
-fn next_cursor(len: usize, limit: i64, last: Option<(i64, i32)>) -> Option<String> {
+fn next_cursor(len: usize, limit: i64, last: Option<(i64, i32, String)>) -> Option<String> {
     if len < limit as usize {
         return None;
     }
-    last.map(|(b, e)| format!("{b}-{e}"))
+    last.map(|(b, e, x)| format!("{b}-{e}-{x}"))
 }
 
 /// Planner row estimate for an `sm.*` table (`pg_class.reltuples`, the
 /// Node's unfiltered `total`). `None` when the table was never analysed
 /// (PG14 reports `-1`) so the caller falls back to an exact count.
-async fn estimated_rows(state: &AppState, table: &str) -> Result<Option<i64>, ApiError> {
+pub(super) async fn estimated_rows(state: &AppState, table: &str) -> Result<Option<i64>, ApiError> {
     let row = sqlx::query!(
         r#"
         SELECT c.reltuples::bigint AS "estimate!"
@@ -222,9 +278,289 @@ async fn estimated_rows(state: &AppState, table: &str) -> Result<Option<i64>, Ap
         "#,
         table,
     )
-    .fetch_optional(&state.db)
+    .fetch_optional(&state.listing_db)
     .await?;
     Ok(row.map(|r| r.estimate).filter(|e| *e >= 0))
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(super) enum Table {
+    Swaps,
+    Transfers,
+    Bridges,
+    FeeEvents,
+    Extrinsics,
+}
+
+impl Table {
+    pub(super) fn name(self) -> &'static str {
+        match self {
+            Table::Swaps => "swaps",
+            Table::Transfers => "transfers",
+            Table::Bridges => "bridges",
+            Table::FeeEvents => "fee_events",
+            Table::Extrinsics => "extrinsics",
+        }
+    }
+}
+
+/// Keyset bound for `?timestamp=`: rows at or before the instant are the
+/// rows below `(last block at or before it + 1, 0)`; `(0, 0)` if none.
+pub(super) async fn until_bound(
+    state: &AppState,
+    table: Table,
+    until: DateTime<Utc>,
+) -> Result<(i64, i32), ApiError> {
+    let block = match table {
+        Table::Swaps => {
+            sqlx::query_scalar!(
+                "SELECT block_height FROM sm.swaps WHERE block_timestamp <= $1
+                 ORDER BY block_timestamp DESC LIMIT 1",
+                until
+            )
+            .fetch_optional(&state.listing_db)
+            .await?
+        }
+        Table::Transfers => {
+            sqlx::query_scalar!(
+                "SELECT block_height FROM sm.transfers WHERE block_timestamp <= $1
+                 ORDER BY block_timestamp DESC LIMIT 1",
+                until
+            )
+            .fetch_optional(&state.listing_db)
+            .await?
+        }
+        Table::Bridges => {
+            sqlx::query_scalar!(
+                "SELECT block_height FROM sm.bridges WHERE block_timestamp <= $1
+                 ORDER BY block_timestamp DESC LIMIT 1",
+                until
+            )
+            .fetch_optional(&state.listing_db)
+            .await?
+        }
+        Table::FeeEvents => {
+            sqlx::query_scalar!(
+                "SELECT block_height FROM sm.fee_events WHERE block_timestamp <= $1
+                 ORDER BY block_timestamp DESC LIMIT 1",
+                until
+            )
+            .fetch_optional(&state.listing_db)
+            .await?
+        }
+        Table::Extrinsics => {
+            sqlx::query_scalar!(
+                "SELECT block_height FROM sm.extrinsics WHERE block_timestamp <= $1
+                 ORDER BY block_timestamp DESC LIMIT 1",
+                until
+            )
+            .fetch_optional(&state.listing_db)
+            .await?
+        }
+    };
+    Ok(block.map_or((0, 0), |b| (b + 1, 0)))
+}
+
+/// Planner arithmetic for `block_height <= upto`: the table estimate times
+/// the share of the `block_height` histogram at or below `upto`.
+pub(super) async fn estimated_rows_upto(
+    state: &AppState,
+    table: Table,
+    upto: i64,
+) -> Result<Option<i64>, ApiError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT c.reltuples::bigint AS "estimate!",
+               (SELECT s.histogram_bounds::text::bigint[] FROM pg_stats s
+                WHERE s.schemaname = 'sm' AND s.tablename = $1
+                  AND s.attname = 'block_height') AS bounds
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'sm' AND c.relname = $1
+        "#,
+        table.name(),
+    )
+    .fetch_optional(&state.listing_db)
+    .await?;
+    Ok(row.and_then(|r| {
+        let share = histogram_share(r.bounds.as_deref()?, upto)?;
+        (r.estimate >= 0).then(|| (r.estimate as f64 * share).round() as i64)
+    }))
+}
+
+/// Fraction of an equi-depth histogram at or below `x`.
+fn histogram_share(bounds: &[i64], x: i64) -> Option<f64> {
+    if bounds.len() < 2 {
+        return None;
+    }
+    let (first, last) = (bounds[0], bounds[bounds.len() - 1]);
+    if x < first {
+        return Some(0.0);
+    }
+    if x >= last {
+        return Some(1.0);
+    }
+    let i = bounds.partition_point(|b| *b <= x) - 1;
+    let (lo, hi) = (bounds[i], bounds[i + 1]);
+    let within = (x - lo) as f64 / (hi - lo) as f64;
+    Some((i as f64 + within) / (bounds.len() - 1) as f64)
+}
+
+/// Keyset cap for `?timestamp=`, if given.
+async fn until_cap(
+    state: &AppState,
+    spec: &PageSpec,
+    table: Table,
+) -> Result<Option<(i64, i32)>, ApiError> {
+    match spec.until {
+        Some(until) => Ok(Some(until_bound(state, table, until).await?)),
+        None => Ok(None),
+    }
+}
+
+/// `total` and the keyset cap for a listing: the planner estimate when
+/// `estimable` (no row filter besides `?timestamp=`), else `exact`.
+async fn page_total<F, Fut>(
+    state: &AppState,
+    spec: &PageSpec,
+    table: Table,
+    estimable: bool,
+    exact: F,
+) -> Result<(i64, Option<(i64, i32)>), ApiError>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<i64, ApiError>>,
+{
+    let cap = until_cap(state, spec, table).await?;
+    let estimate = match (estimable, cap) {
+        (true, None) => estimated_rows(state, table.name()).await?,
+        (true, Some((block, _))) => estimated_rows_upto(state, table, block - 1).await?,
+        (false, _) => None,
+    };
+    let total = match estimate {
+        Some(e) => e,
+        None => exact().await?,
+    };
+    Ok((total, cap))
+}
+
+/// Asset columns indexed for `?symbol=`.
+#[derive(Debug, Clone, Copy)]
+enum AssetColumn {
+    SwapInput,
+    SwapOutput,
+    Transfer,
+}
+
+impl AssetColumn {
+    fn table(self) -> Table {
+        match self {
+            AssetColumn::SwapInput | AssetColumn::SwapOutput => Table::Swaps,
+            AssetColumn::Transfer => Table::Transfers,
+        }
+    }
+
+    fn column(self) -> &'static str {
+        match self {
+            AssetColumn::SwapInput => "input_asset_id",
+            AssetColumn::SwapOutput => "output_asset_id",
+            AssetColumn::Transfer => "asset_id",
+        }
+    }
+}
+
+/// Exact counts stop here; above it the planner arithmetic takes over.
+const EXACT_COUNT_CAP: i64 = 200_000;
+
+/// Rows holding `asset` in `col` below `cap`. Without a cap a frequent
+/// asset uses its most-common-value frequency times the table estimate.
+/// Otherwise an index-only count up to `EXACT_COUNT_CAP`, and past it
+/// that frequency times the rows below the cap (never less than counted).
+async fn asset_rows(
+    state: &AppState,
+    col: AssetColumn,
+    asset: &str,
+    cap: Option<(i64, i32)>,
+) -> Result<i64, ApiError> {
+    let freq = sqlx::query_scalar!(
+        r#"
+        SELECT m.freq AS "freq!"
+        FROM pg_stats s,
+             unnest(s.most_common_vals::text::text[], s.most_common_freqs) AS m(val, freq)
+        WHERE s.schemaname = 'sm' AND s.tablename = $1 AND s.attname = $2 AND m.val = $3
+        "#,
+        col.table().name(),
+        col.column(),
+        asset,
+    )
+    .fetch_optional(&state.listing_db)
+    .await?;
+    let estimate = |rows: Option<i64>| {
+        freq.zip(rows)
+            .map(|(f, r)| (r as f64 * f64::from(f)).round() as i64)
+    };
+    if cap.is_none() {
+        if let Some(e) = estimate(estimated_rows(state, col.table().name()).await?) {
+            return Ok(e);
+        }
+    }
+    let (block, event) = cap.unwrap_or((i64::MAX, i32::MAX));
+    let counted = match col {
+        AssetColumn::SwapInput => {
+            sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM (
+                       SELECT 1 FROM sm.swaps
+                       WHERE input_asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                       LIMIT $4) capped"#,
+                asset,
+                block,
+                event,
+                EXACT_COUNT_CAP,
+            )
+            .fetch_one(&state.listing_db)
+            .await?
+        }
+        AssetColumn::SwapOutput => {
+            sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM (
+                       SELECT 1 FROM sm.swaps
+                       WHERE output_asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                       LIMIT $4) capped"#,
+                asset,
+                block,
+                event,
+                EXACT_COUNT_CAP,
+            )
+            .fetch_one(&state.listing_db)
+            .await?
+        }
+        AssetColumn::Transfer => {
+            sqlx::query_scalar!(
+                r#"SELECT COUNT(*) AS "count!" FROM (
+                       SELECT 1 FROM sm.transfers
+                       WHERE asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                       LIMIT $4) capped"#,
+                asset,
+                block,
+                event,
+                EXACT_COUNT_CAP,
+            )
+            .fetch_one(&state.listing_db)
+            .await?
+        }
+    };
+    if counted < EXACT_COUNT_CAP {
+        return Ok(counted);
+    }
+    let below = match cap {
+        Some((block, _)) => estimated_rows_upto(state, col.table(), block - 1).await?,
+        None => estimated_rows(state, col.table().name()).await?,
+    };
+    Ok(estimate(below).map_or(counted, |e| e.max(counted)))
+}
+
+fn empty_page<T>(spec: &PageSpec) -> Json<Page<T>> {
+    Json(Page::build(Vec::new(), 0, (0, 1), spec.limit, None))
 }
 
 // =============================================================
@@ -268,12 +604,14 @@ struct SwapRecord {
     output_usd_value: Option<BigDecimal>,
 }
 
+/// Both legs carry the swap's USD value (`swap_usd`), not their own quote.
 fn swap_row(r: &SwapRecord, registry: &Registry, zone: chrono_tz::Tz) -> SwapRow {
-    let leg = |asset: &str, amount: &BigDecimal, usd: Option<&BigDecimal>| SwapLeg {
+    let usd = fmt_usd(swap_usd(r.usd_value.as_ref(), r.output_usd_value.as_ref()).as_ref());
+    let leg = |asset: &str, amount: &BigDecimal| SwapLeg {
         symbol: symbol_for(registry, asset),
         amount: fmt_amount(amount, decimals_for(registry, asset)),
         logo: logo_for(registry, asset),
-        usd: fmt_usd(usd),
+        usd,
     };
     SwapRow {
         time: fmt_time(r.block_timestamp, zone),
@@ -281,12 +619,8 @@ fn swap_row(r: &SwapRecord, registry: &Registry, zone: chrono_tz::Tz) -> SwapRow
         hash: r.hash.clone().unwrap_or_default(),
         extrinsic_id: fmt_extrinsic_id(r.block_height, &r.extrinsic_id),
         wallet: r.caller.clone(),
-        input: leg(&r.input_asset_id, &r.input_amount, r.usd_value.as_ref()),
-        out: leg(
-            &r.output_asset_id,
-            &r.output_amount,
-            r.output_usd_value.as_ref(),
-        ),
+        input: leg(&r.input_asset_id, &r.input_amount),
+        out: leg(&r.output_asset_id, &r.output_amount),
     }
 }
 
@@ -296,22 +630,43 @@ async fn swaps_page(
     wallet: Option<&str>,
 ) -> Result<Json<Page<SwapRow>>, ApiError> {
     let registry = state.registry.read().await;
+    let asset = spec
+        .symbol
+        .as_deref()
+        .map(|sym| registry.asset_id_for_symbol(sym).map(str::to_string));
+    if let (None, Some(asset)) = (wallet, &asset) {
+        let Some(asset) = asset else {
+            return Ok(empty_page(spec));
+        };
+        return swaps_by_asset(state, spec, &registry, asset).await;
+    }
     // Symbol filter resolved to asset ids up front; a needle that
     // matches no symbol must match no row (empty array, not NULL).
-    let asset_ids: Option<Vec<String>> = spec
-        .needle
-        .as_deref()
-        .map(|n| registry.asset_ids_matching(n));
-
-    let total = match (wallet, spec.is_unfiltered()) {
-        (None, true) => match estimated_rows(state, "swaps").await? {
-            Some(e) => e,
-            None => exact_swaps_count(state, spec, wallet, asset_ids.as_deref()).await?,
-        },
-        _ => exact_swaps_count(state, spec, wallet, asset_ids.as_deref()).await?,
+    let asset_ids: Option<Vec<String>> = match asset {
+        Some(id) => Some(id.into_iter().collect()),
+        None => spec
+            .needle
+            .as_deref()
+            .map(|n| registry.asset_ids_matching(n)),
     };
 
-    let (total_pages, page, offset) = spec.resolve(total);
+    let estimable = wallet.is_none() && asset_ids.is_none();
+    let (total, cap) = page_total(state, spec, Table::Swaps, estimable, || {
+        exact_swaps_count(state, spec, wallet, asset_ids.as_deref())
+    })
+    .await?;
+
+    let (total_pages, page, seek) = spec.resolve(total, wallet.is_some() || asset_ids.is_none());
+    let offset = match seek {
+        Seek::Head { offset } => offset,
+        Seek::Tail { offset, take } => {
+            let rows = swaps_tail(state, spec, wallet, asset_ids.as_deref(), offset, take).await?;
+            return Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+                swap_row(r, &registry, state.time_zone)
+            }));
+        }
+    };
+    let before = spec.head_bound(cap);
 
     let rows = sqlx::query_as!(
         SwapRecord,
@@ -330,36 +685,189 @@ async fn swaps_page(
             usd_value        AS "usd_value: BigDecimal",
             output_usd_value AS "output_usd_value: BigDecimal"
         FROM sm.swaps
-        WHERE (block_height, event_id) < ($1, $2)
+        WHERE (block_height, event_id, extrinsic_id) < ($1, $2, $8)
           AND ($5::text IS NULL OR caller = $5)
           AND ($6::text[] IS NULL OR input_asset_id = ANY($6) OR output_asset_id = ANY($6))
           AND ($7::timestamptz IS NULL OR block_timestamp <= $7)
-        ORDER BY block_height DESC, event_id DESC
+        ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
         LIMIT $3 OFFSET $4
         "#,
-        spec.before_block,
-        spec.before_event,
+        before.0,
+        before.1,
         spec.limit,
         offset,
         wallet,
         asset_ids.as_deref(),
         spec.until,
+        before.2,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
 
-    let last = rows.last().map(|r| (r.block_height, r.event_id));
-    let data = rows
-        .iter()
-        .map(|r| swap_row(r, &registry, state.time_zone))
-        .collect();
-    Ok(Json(Page::build(
-        data,
-        total,
-        (total_pages, page),
-        spec.limit,
-        last,
-    )))
+    Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+        swap_row(r, &registry, state.time_zone)
+    }))
+}
+
+/// A back-half page, read oldest first and returned newest first.
+async fn swaps_tail(
+    state: &AppState,
+    spec: &PageSpec,
+    wallet: Option<&str>,
+    asset_ids: Option<&[String]>,
+    offset: i64,
+    take: i64,
+) -> Result<Vec<SwapRecord>, ApiError> {
+    let mut rows = sqlx::query_as!(
+        SwapRecord,
+        r#"
+        SELECT
+            block_height,
+            extrinsic_id,
+            event_id,
+            hash,
+            block_timestamp,
+            caller,
+            input_asset_id,
+            input_amount     AS "input_amount!: BigDecimal",
+            output_asset_id,
+            output_amount    AS "output_amount!: BigDecimal",
+            usd_value        AS "usd_value: BigDecimal",
+            output_usd_value AS "output_usd_value: BigDecimal"
+        FROM sm.swaps
+        WHERE ($3::text IS NULL OR caller = $3)
+          AND ($4::text[] IS NULL OR input_asset_id = ANY($4) OR output_asset_id = ANY($4))
+          AND ($5::timestamptz IS NULL OR block_timestamp <= $5)
+        ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+        LIMIT $1 OFFSET $2
+        "#,
+        take,
+        offset,
+        wallet,
+        asset_ids,
+        spec.until,
+    )
+    .fetch_all(&state.listing_db)
+    .await?;
+    rows.reverse();
+    Ok(rows)
+}
+
+/// Global swaps of one asset (`?symbol=`): each leg walks its own
+/// `(asset, block_height, event_id)` index and the two runs are merged.
+async fn swaps_by_asset(
+    state: &AppState,
+    spec: &PageSpec,
+    registry: &Registry,
+    asset: &str,
+) -> Result<Json<Page<SwapRow>>, ApiError> {
+    let cap = until_cap(state, spec, Table::Swaps).await?;
+    let total = asset_rows(state, AssetColumn::SwapInput, asset, cap).await?
+        + asset_rows(state, AssetColumn::SwapOutput, asset, cap).await?;
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let (block, event, ext) = spec.head_bound(cap);
+    let rows = match seek {
+        Seek::Head { offset } => {
+            sqlx::query_as!(
+                SwapRecord,
+                r#"
+                SELECT
+                    block_height     AS "block_height!",
+                    extrinsic_id     AS "extrinsic_id!",
+                    event_id         AS "event_id!",
+                    hash,
+                    block_timestamp  AS "block_timestamp!",
+                    caller           AS "caller!",
+                    input_asset_id   AS "input_asset_id!",
+                    input_amount     AS "input_amount!: BigDecimal",
+                    output_asset_id  AS "output_asset_id!",
+                    output_amount    AS "output_amount!: BigDecimal",
+                    usd_value        AS "usd_value: BigDecimal",
+                    output_usd_value AS "output_usd_value: BigDecimal"
+                FROM (
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                            input_asset_id, input_amount, output_asset_id, output_amount,
+                            usd_value, output_usd_value
+                     FROM sm.swaps
+                     WHERE input_asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $7)
+                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                     LIMIT $4)
+                    UNION
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                            input_asset_id, input_amount, output_asset_id, output_amount,
+                            usd_value, output_usd_value
+                     FROM sm.swaps
+                     WHERE output_asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $7)
+                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                     LIMIT $4)
+                ) legs
+                ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                LIMIT $5 OFFSET $6
+                "#,
+                asset,
+                block,
+                event,
+                offset + spec.limit,
+                spec.limit,
+                offset,
+                ext,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let mut rows = sqlx::query_as!(
+                SwapRecord,
+                r#"
+                SELECT
+                    block_height     AS "block_height!",
+                    extrinsic_id     AS "extrinsic_id!",
+                    event_id         AS "event_id!",
+                    hash,
+                    block_timestamp  AS "block_timestamp!",
+                    caller           AS "caller!",
+                    input_asset_id   AS "input_asset_id!",
+                    input_amount     AS "input_amount!: BigDecimal",
+                    output_asset_id  AS "output_asset_id!",
+                    output_amount    AS "output_amount!: BigDecimal",
+                    usd_value        AS "usd_value: BigDecimal",
+                    output_usd_value AS "output_usd_value: BigDecimal"
+                FROM (
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                            input_asset_id, input_amount, output_asset_id, output_amount,
+                            usd_value, output_usd_value
+                     FROM sm.swaps
+                     WHERE input_asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                     ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                     LIMIT $4)
+                    UNION
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                            input_asset_id, input_amount, output_asset_id, output_amount,
+                            usd_value, output_usd_value
+                     FROM sm.swaps
+                     WHERE output_asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                     ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                     LIMIT $4)
+                ) legs
+                ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                LIMIT $5 OFFSET $6
+                "#,
+                asset,
+                block,
+                event,
+                offset + take,
+                take,
+                offset,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+        swap_row(r, registry, state.time_zone)
+    }))
 }
 
 async fn exact_swaps_count(
@@ -380,7 +888,7 @@ async fn exact_swaps_count(
         asset_ids,
         spec.until,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?;
     Ok(row.count)
 }
@@ -460,21 +968,54 @@ async fn transfers_page(
     wallet: Option<&str>,
 ) -> Result<Json<Page<TransferRow>>, ApiError> {
     let registry = state.registry.read().await;
-    let asset_ids: Option<Vec<String>> = spec
-        .needle
+    let asset = spec
+        .symbol
         .as_deref()
-        .map(|n| registry.asset_ids_matching(n));
+        .map(|sym| registry.asset_id_for_symbol(sym).map(str::to_string));
+    if let (None, Some(asset)) = (wallet, &asset) {
+        let Some(asset) = asset else {
+            return Ok(empty_page(spec));
+        };
+        return transfers_by_asset(state, spec, &registry, asset).await;
+    }
+    let asset_ids: Option<Vec<String>> = match asset {
+        Some(id) => Some(id.into_iter().collect()),
+        None => spec
+            .needle
+            .as_deref()
+            .map(|n| registry.asset_ids_matching(n)),
+    };
     let pattern = spec.like_pattern();
 
-    let total = match (wallet, spec.is_unfiltered()) {
-        (None, true) => match estimated_rows(state, "transfers").await? {
-            Some(e) => e,
-            None => exact_transfers_count(state, spec, wallet, asset_ids.as_deref()).await?,
-        },
-        _ => exact_transfers_count(state, spec, wallet, asset_ids.as_deref()).await?,
-    };
+    let estimable = wallet.is_none() && asset_ids.is_none();
+    let (total, cap) = page_total(state, spec, Table::Transfers, estimable, || {
+        exact_transfers_count(state, spec, wallet, asset_ids.as_deref())
+    })
+    .await?;
 
-    let (total_pages, page, offset) = spec.resolve(total);
+    let (total_pages, page, seek) = spec.resolve(
+        total,
+        wallet.is_some() || (asset_ids.is_none() && pattern.is_none()),
+    );
+    let offset = match seek {
+        Seek::Head { offset } => offset,
+        Seek::Tail { offset, take } => {
+            let rows = transfers_tail(
+                state,
+                spec,
+                wallet,
+                asset_ids.as_deref(),
+                pattern.as_deref(),
+                offset,
+                take,
+            )
+            .await?;
+            return Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+                transfer_row(r, &registry, state.time_zone)
+            }));
+        }
+    };
+    let before = spec.head_bound(cap);
 
     let rows = sqlx::query_as!(
         TransferRecord,
@@ -491,38 +1032,155 @@ async fn transfers_page(
             amount    AS "amount!: BigDecimal",
             usd_value AS "usd_value: BigDecimal"
         FROM sm.transfers
-        WHERE (block_height, event_id) < ($1, $2)
+        WHERE (block_height, event_id, extrinsic_id) < ($1, $2, $9)
           AND ($5::text IS NULL OR from_address = $5 OR to_address = $5)
           AND ($6::text[] IS NULL OR asset_id = ANY($6)
                OR from_address ILIKE $7 OR to_address ILIKE $7)
           AND ($8::timestamptz IS NULL OR block_timestamp <= $8)
-        ORDER BY block_height DESC, event_id DESC
+        ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
         LIMIT $3 OFFSET $4
         "#,
-        spec.before_block,
-        spec.before_event,
+        before.0,
+        before.1,
         spec.limit,
         offset,
         wallet,
         asset_ids.as_deref(),
         pattern,
         spec.until,
+        before.2,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
 
-    let last = rows.last().map(|r| (r.block_height, r.event_id));
-    let data = rows
-        .iter()
-        .map(|r| transfer_row(r, &registry, state.time_zone))
-        .collect();
-    Ok(Json(Page::build(
-        data,
-        total,
-        (total_pages, page),
-        spec.limit,
-        last,
-    )))
+    Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+        transfer_row(r, &registry, state.time_zone)
+    }))
+}
+
+/// A back-half page, read oldest first and returned newest first.
+async fn transfers_tail(
+    state: &AppState,
+    spec: &PageSpec,
+    wallet: Option<&str>,
+    asset_ids: Option<&[String]>,
+    pattern: Option<&str>,
+    offset: i64,
+    take: i64,
+) -> Result<Vec<TransferRecord>, ApiError> {
+    let mut rows = sqlx::query_as!(
+        TransferRecord,
+        r#"
+        SELECT
+            block_height,
+            extrinsic_id,
+            event_id,
+            hash,
+            block_timestamp,
+            from_address,
+            to_address,
+            asset_id,
+            amount    AS "amount!: BigDecimal",
+            usd_value AS "usd_value: BigDecimal"
+        FROM sm.transfers
+        WHERE ($3::text IS NULL OR from_address = $3 OR to_address = $3)
+          AND ($4::text[] IS NULL OR asset_id = ANY($4)
+               OR from_address ILIKE $5 OR to_address ILIKE $5)
+          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)
+        ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+        LIMIT $1 OFFSET $2
+        "#,
+        take,
+        offset,
+        wallet,
+        asset_ids,
+        pattern,
+        spec.until,
+    )
+    .fetch_all(&state.listing_db)
+    .await?;
+    rows.reverse();
+    Ok(rows)
+}
+
+/// Global transfers of one asset (`?symbol=`), on its
+/// `(asset_id, block_height, event_id)` index.
+async fn transfers_by_asset(
+    state: &AppState,
+    spec: &PageSpec,
+    registry: &Registry,
+    asset: &str,
+) -> Result<Json<Page<TransferRow>>, ApiError> {
+    let cap = until_cap(state, spec, Table::Transfers).await?;
+    let total = asset_rows(state, AssetColumn::Transfer, asset, cap).await?;
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let (block, event, ext) = spec.head_bound(cap);
+    let rows = match seek {
+        Seek::Head { offset } => {
+            sqlx::query_as!(
+                TransferRecord,
+                r#"
+                SELECT
+                    block_height,
+                    extrinsic_id,
+                    event_id,
+                    hash,
+                    block_timestamp,
+                    from_address,
+                    to_address,
+                    asset_id,
+                    amount    AS "amount!: BigDecimal",
+                    usd_value AS "usd_value: BigDecimal"
+                FROM sm.transfers
+                WHERE asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $6)
+                ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                LIMIT $4 OFFSET $5
+                "#,
+                asset,
+                block,
+                event,
+                spec.limit,
+                offset,
+                ext,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let mut rows = sqlx::query_as!(
+                TransferRecord,
+                r#"
+                SELECT
+                    block_height,
+                    extrinsic_id,
+                    event_id,
+                    hash,
+                    block_timestamp,
+                    from_address,
+                    to_address,
+                    asset_id,
+                    amount    AS "amount!: BigDecimal",
+                    usd_value AS "usd_value: BigDecimal"
+                FROM sm.transfers
+                WHERE asset_id = $1 AND (block_height, event_id) < ($2, $3)
+                ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                LIMIT $4 OFFSET $5
+                "#,
+                asset,
+                block,
+                event,
+                take,
+                offset,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+        transfer_row(r, registry, state.time_zone)
+    }))
 }
 
 async fn exact_transfers_count(
@@ -546,7 +1204,7 @@ async fn exact_transfers_count(
         pattern,
         spec.until,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?;
     Ok(row.count)
 }
@@ -635,15 +1293,23 @@ async fn bridges_page(
     let registry = state.registry.read().await;
     let pattern = spec.like_pattern();
 
-    let total = match (wallet, spec.is_unfiltered()) {
-        (None, true) => match estimated_rows(state, "bridges").await? {
-            Some(e) => e,
-            None => exact_bridges_count(state, spec, wallet).await?,
-        },
-        _ => exact_bridges_count(state, spec, wallet).await?,
-    };
+    let estimable = wallet.is_none() && spec.needle.is_none() && spec.network.is_none();
+    let (total, cap) = page_total(state, spec, Table::Bridges, estimable, || {
+        exact_bridges_count(state, spec, wallet)
+    })
+    .await?;
 
-    let (total_pages, page, offset) = spec.resolve(total);
+    let (total_pages, page, seek) = spec.resolve(total, wallet.is_some() || pattern.is_none());
+    let offset = match seek {
+        Seek::Head { offset } => offset,
+        Seek::Tail { offset, take } => {
+            let rows = bridges_tail(state, spec, wallet, pattern.as_deref(), offset, take).await?;
+            return Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+                bridge_row(r, &registry, state.time_zone)
+            }));
+        }
+    };
+    let before = spec.head_bound(cap);
 
     // `direction` is a Postgres ENUM; cast to TEXT for transport.
     let rows = sqlx::query_as!(
@@ -663,37 +1329,78 @@ async fn bridges_page(
             amount    AS "amount!: BigDecimal",
             usd_value AS "usd_value: BigDecimal"
         FROM sm.bridges
-        WHERE (block_height, event_id) < ($1, $2)
+        WHERE (block_height, event_id, extrinsic_id) < ($1, $2, $9)
           AND ($5::text IS NULL OR caller = $5 OR counterparty = $5)
           AND ($6::text IS NULL OR caller ILIKE $6 OR counterparty ILIKE $6
                OR network ILIKE $6 OR asset_id ILIKE $6)
           AND ($7::timestamptz IS NULL OR block_timestamp <= $7)
-        ORDER BY block_height DESC, event_id DESC
+          AND ($8::text IS NULL OR network = $8)
+        ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
         LIMIT $3 OFFSET $4
         "#,
-        spec.before_block,
-        spec.before_event,
+        before.0,
+        before.1,
         spec.limit,
         offset,
         wallet,
         pattern,
         spec.until,
+        spec.network,
+        before.2,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
 
-    let last = rows.last().map(|r| (r.block_height, r.event_id));
-    let data = rows
-        .iter()
-        .map(|r| bridge_row(r, &registry, state.time_zone))
-        .collect();
-    Ok(Json(Page::build(
-        data,
-        total,
-        (total_pages, page),
-        spec.limit,
-        last,
-    )))
+    Ok(page_json(rows, spec, total, (total_pages, page), |r| {
+        bridge_row(r, &registry, state.time_zone)
+    }))
+}
+
+/// A back-half page, read oldest first and returned newest first.
+async fn bridges_tail(
+    state: &AppState,
+    spec: &PageSpec,
+    wallet: Option<&str>,
+    pattern: Option<&str>,
+    offset: i64,
+    take: i64,
+) -> Result<Vec<BridgeRecord>, ApiError> {
+    let mut rows = sqlx::query_as!(
+        BridgeRecord,
+        r#"
+        SELECT
+            block_height,
+            extrinsic_id,
+            event_id,
+            hash,
+            block_timestamp,
+            direction::text AS "direction!",
+            network,
+            caller,
+            counterparty,
+            asset_id,
+            amount    AS "amount!: BigDecimal",
+            usd_value AS "usd_value: BigDecimal"
+        FROM sm.bridges
+        WHERE ($3::text IS NULL OR caller = $3 OR counterparty = $3)
+          AND ($4::text IS NULL OR caller ILIKE $4 OR counterparty ILIKE $4
+               OR network ILIKE $4 OR asset_id ILIKE $4)
+          AND ($5::timestamptz IS NULL OR block_timestamp <= $5)
+          AND ($6::text IS NULL OR network = $6)
+        ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+        LIMIT $1 OFFSET $2
+        "#,
+        take,
+        offset,
+        wallet,
+        pattern,
+        spec.until,
+        spec.network,
+    )
+    .fetch_all(&state.listing_db)
+    .await?;
+    rows.reverse();
+    Ok(rows)
 }
 
 async fn exact_bridges_count(
@@ -710,12 +1417,14 @@ async fn exact_bridges_count(
           AND ($2::text IS NULL OR caller ILIKE $2 OR counterparty ILIKE $2
                OR network ILIKE $2 OR asset_id ILIKE $2)
           AND ($3::timestamptz IS NULL OR block_timestamp <= $3)
+          AND ($4::text IS NULL OR network = $4)
         "#,
         wallet,
         pattern,
         spec.until,
+        spec.network,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&state.listing_db)
     .await?;
     Ok(row.count)
 }
@@ -760,26 +1469,40 @@ async fn fee_burns_page(
     spec: &PageSpec,
     payer: Option<&str>,
 ) -> Result<Json<Page<FeeBurnItem>>, ApiError> {
-    let total = match (payer, spec.is_unfiltered()) {
-        (None, true) => estimated_rows(state, "fee_events").await?.unwrap_or(0),
-        _ => {
-            sqlx::query!(
-                r#"
-                SELECT COUNT(*) AS "count!"
-                FROM sm.fee_events
-                WHERE ($1::text IS NULL OR payer = $1)
-                  AND ($2::timestamptz IS NULL OR block_timestamp <= $2)
-                "#,
-                payer,
-                spec.until,
-            )
-            .fetch_one(&state.db)
-            .await?
-            .count
+    let estimable = payer.is_none() && spec.needle.is_none();
+    let (total, cap) = page_total(state, spec, Table::FeeEvents, estimable, || async {
+        Ok(sqlx::query!(
+            r#"
+            SELECT COUNT(*) AS "count!"
+            FROM sm.fee_events
+            WHERE ($1::text IS NULL OR payer = $1)
+              AND ($2::timestamptz IS NULL OR block_timestamp <= $2)
+            "#,
+            payer,
+            spec.until,
+        )
+        .fetch_one(&state.listing_db)
+        .await?
+        .count)
+    })
+    .await?;
+
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let offset = match seek {
+        Seek::Head { offset } => offset,
+        Seek::Tail { offset, take } => {
+            let items = fee_burns_tail(state, spec, payer, offset, take).await?;
+            let last = items.last().map(Keyed::key);
+            return Ok(Json(Page::build(
+                items,
+                total,
+                (total_pages, page),
+                spec.limit,
+                last,
+            )));
         }
     };
-
-    let (total_pages, page, offset) = spec.resolve(total);
+    let before = spec.head_bound(cap);
 
     // "This address paid the fee" maps to `payer = $5`; the referrer
     // share of someone else's fee is not this wallet's own activity.
@@ -797,23 +1520,24 @@ async fn fee_burns_page(
             referrer,
             amount AS "amount!: BigDecimal"
         FROM sm.fee_events
-        WHERE (block_height, event_id) < ($1, $2)
+        WHERE (block_height, event_id, extrinsic_id) < ($1, $2, $7)
           AND ($5::text IS NULL OR payer = $5)
           AND ($6::timestamptz IS NULL OR block_timestamp <= $6)
-        ORDER BY block_height DESC, event_id DESC
+        ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
         LIMIT $3 OFFSET $4
         "#,
-        spec.before_block,
-        spec.before_event,
+        before.0,
+        before.1,
         spec.limit,
         offset,
         payer,
         spec.until,
+        before.2,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.listing_db)
     .await?;
 
-    let last = items.last().map(|i| (i.block_height, i.event_id));
+    let last = items.last().map(Keyed::key);
     Ok(Json(Page::build(
         items,
         total,
@@ -821,6 +1545,44 @@ async fn fee_burns_page(
         spec.limit,
         last,
     )))
+}
+
+/// A back-half page, read oldest first and returned newest first.
+async fn fee_burns_tail(
+    state: &AppState,
+    spec: &PageSpec,
+    payer: Option<&str>,
+    offset: i64,
+    take: i64,
+) -> Result<Vec<FeeBurnItem>, ApiError> {
+    let mut items = sqlx::query_as!(
+        FeeBurnItem,
+        r#"
+        SELECT
+            block_height,
+            extrinsic_id,
+            event_id,
+            hash,
+            block_timestamp,
+            kind::text AS "kind!",
+            payer,
+            referrer,
+            amount AS "amount!: BigDecimal"
+        FROM sm.fee_events
+        WHERE ($3::text IS NULL OR payer = $3)
+          AND ($4::timestamptz IS NULL OR block_timestamp <= $4)
+        ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+        LIMIT $1 OFFSET $2
+        "#,
+        take,
+        offset,
+        payer,
+        spec.until,
+    )
+    .fetch_all(&state.listing_db)
+    .await?;
+    items.reverse();
+    Ok(items)
 }
 
 async fn fee_burns(
@@ -858,21 +1620,25 @@ mod tests {
     fn defaults_are_page_one_and_endpoint_limit() {
         let s = pag(None, None, None).validate(20).unwrap();
         assert_eq!((s.page, s.limit, s.keyset), (1, 20, false));
-        assert_eq!(s.resolve(100), (5, 1, 0));
+        assert_eq!(s.resolve(100, true), (5, 1, Seek::Head { offset: 0 }));
         assert_eq!((s.before_block, s.before_event), (i64::MAX, i32::MAX));
-        assert!(s.is_unfiltered());
+        assert!(s.needle.is_none() && s.until.is_none());
     }
 
     #[test]
     fn page_is_one_based_offset_and_clamped_like_the_node() {
         let s = pag(Some(3), Some(25), None).validate(25).unwrap();
-        assert_eq!(s.resolve(1000), (40, 3, 50));
-        // Out of range → last page, with its own offset (not an empty page).
-        assert_eq!(s.resolve(60), (3, 3, 50));
+        assert_eq!(s.resolve(1000, true), (40, 3, Seek::Head { offset: 50 }));
+        // Out of range → last page (not an empty page), read from the oldest end.
+        let last = Seek::Tail {
+            offset: 0,
+            take: 10,
+        };
+        assert_eq!(s.resolve(60, true), (3, 3, last));
         let s = pag(Some(999), Some(25), None).validate(25).unwrap();
-        assert_eq!(s.resolve(60), (3, 3, 50));
-        // Empty table → page 1, offset 0.
-        assert_eq!(s.resolve(0), (0, 1, 0));
+        assert_eq!(s.resolve(60, true), (3, 3, last));
+        assert_eq!(s.resolve(0, true), (0, 1, Seek::Head { offset: 0 }));
+        assert_eq!(s.resolve(60, false), (3, 3, Seek::Head { offset: 50 }));
     }
 
     #[test]
@@ -884,7 +1650,20 @@ mod tests {
             (s.before_block, s.before_event, s.keyset),
             (27_000_000, 5, true)
         );
-        assert_eq!(s.resolve(1000).2, 0);
+        assert_eq!(s.resolve(1000, true).2, Seek::Head { offset: 0 });
+        assert_eq!(s.head_bound(None), (27_000_000, 5, ""));
+    }
+
+    #[test]
+    fn cursor_carries_the_extrinsic_tiebreak() {
+        let s = pag(None, None, Some("2929-0-0xabc")).validate(25).unwrap();
+        assert_eq!(s.head_bound(None), (2929, 0, "0xabc"));
+        let s = pag(None, None, Some("27538740-3-27538740-1"))
+            .validate(25)
+            .unwrap();
+        assert_eq!(s.head_bound(None), (27_538_740, 3, "27538740-1"));
+        assert_eq!(s.head_bound(Some((100, 0))), (100, 0, ""));
+        assert_eq!(s.head_bound(Some((30_000_000, 0))).2, "27538740-1");
     }
 
     #[test]
@@ -912,7 +1691,44 @@ mod tests {
         let s = p.validate(25).unwrap();
         assert_eq!(s.needle.as_deref(), Some("xor"));
         assert_eq!(s.like_pattern().as_deref(), Some("%xor%"));
-        assert!(!s.is_unfiltered());
+    }
+
+    #[test]
+    fn histogram_share_interpolates_within_the_bucket() {
+        let b = [0, 100, 200, 400, 1000];
+        assert_eq!(histogram_share(&b, -1), Some(0.0));
+        assert_eq!(histogram_share(&b, 0), Some(0.0));
+        assert_eq!(histogram_share(&b, 50), Some(0.125));
+        assert_eq!(histogram_share(&b, 300), Some(0.625));
+        assert_eq!(histogram_share(&b, 1000), Some(1.0));
+        assert_eq!(histogram_share(&[5], 5), None);
+    }
+
+    #[test]
+    fn date_cap_lowers_the_keyset_sentinel() {
+        let s = pag(None, None, None).validate(25).unwrap();
+        assert_eq!(s.before(None), (i64::MAX, i32::MAX));
+        assert_eq!(s.before(Some((1_000, 0))), (1_000, 0));
+        let s = pag(None, None, Some("500-3")).validate(25).unwrap();
+        assert_eq!(s.before(Some((1_000, 0))), (500, 3));
+    }
+
+    #[test]
+    fn symbol_and_network_are_trimmed_exact_filters() {
+        let p = Pagination {
+            symbol: Some(" XOR ".into()),
+            network: Some("Substrate: Liberland".into()),
+            ..Pagination::default()
+        };
+        let s = p.validate(25).unwrap();
+        assert_eq!(s.symbol.as_deref(), Some("XOR"));
+        assert_eq!(s.network.as_deref(), Some("Substrate: Liberland"));
+        assert!(s.needle.is_none());
+        let p = Pagination {
+            symbol: Some("  ".into()),
+            ..Pagination::default()
+        };
+        assert!(p.validate(25).unwrap().symbol.is_none());
     }
 
     #[test]
@@ -932,8 +1748,9 @@ mod tests {
 
     #[test]
     fn next_cursor_only_on_full_pages() {
-        assert_eq!(next_cursor(10, 10, Some((5, 1))), Some("5-1".into()));
-        assert_eq!(next_cursor(9, 10, Some((5, 1))), None);
+        let last = || Some((5, 1, "0xab".to_string()));
+        assert_eq!(next_cursor(10, 10, last()), Some("5-1-0xab".into()));
+        assert_eq!(next_cursor(9, 10, last()), None);
         assert_eq!(next_cursor(0, 10, None), None);
     }
 }

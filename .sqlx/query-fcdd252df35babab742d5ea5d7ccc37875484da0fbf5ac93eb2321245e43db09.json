@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"count!\"\n        FROM sm.bridges\n        WHERE ($1::text IS NULL OR caller = $1 OR counterparty = $1)\n          AND ($2::text IS NULL OR caller ILIKE $2 OR counterparty ILIKE $2\n               OR network ILIKE $2 OR asset_id ILIKE $2)\n          AND ($3::timestamptz IS NULL OR block_timestamp <= $3)\n          AND ($4::text IS NULL OR network = $4)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "fcdd252df35babab742d5ea5d7ccc37875484da0fbf5ac93eb2321245e43db09"
+}

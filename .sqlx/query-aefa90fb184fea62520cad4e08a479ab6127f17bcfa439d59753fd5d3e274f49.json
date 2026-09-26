@@ -1,0 +1,94 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    block_height     AS \"block_height!\",\n                    extrinsic_id     AS \"extrinsic_id!\",\n                    event_id         AS \"event_id!\",\n                    hash,\n                    block_timestamp  AS \"block_timestamp!\",\n                    caller           AS \"caller!\",\n                    input_asset_id   AS \"input_asset_id!\",\n                    input_amount     AS \"input_amount!: BigDecimal\",\n                    output_asset_id  AS \"output_asset_id!\",\n                    output_amount    AS \"output_amount!: BigDecimal\",\n                    usd_value        AS \"usd_value: BigDecimal\",\n                    output_usd_value AS \"output_usd_value: BigDecimal\"\n                FROM (\n                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,\n                            input_asset_id, input_amount, output_asset_id, output_amount,\n                            usd_value, output_usd_value\n                     FROM sm.swaps\n                     WHERE input_asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $7)\n                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                     LIMIT $4)\n                    UNION\n                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,\n                            input_asset_id, input_amount, output_asset_id, output_amount,\n                            usd_value, output_usd_value\n                     FROM sm.swaps\n                     WHERE output_asset_id = $1 AND (block_height, event_id, extrinsic_id) < ($2, $3, $7)\n                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                     LIMIT $4)\n                ) legs\n                ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                LIMIT $5 OFFSET $6\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "caller!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "input_asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "input_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "output_asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "output_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "output_usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int4",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "aefa90fb184fea62520cad4e08a479ab6127f17bcfa439d59753fd5d3e274f49"
+}
