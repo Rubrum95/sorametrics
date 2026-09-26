@@ -3435,7 +3435,7 @@ function ReferendumDetailModal({ refId, onClose }) {
   const nays = Number(tally.nays) || 0;
   const total = ayes + nays || 1;
 
-  return (
+  return ReactDOM.createPortal((
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:880, width:'100%', maxHeight:'92vh', overflow:'auto', padding:22, border:'1px solid var(--border-color)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, gap:10, flexWrap:'wrap'}}>
@@ -3548,7 +3548,7 @@ function ReferendumDetailModal({ refId, onClose }) {
         )}
       </div>
     </div>
-  );
+  ), document.body);
 }
 
 // Known SORA asset IDs → symbol + decimals. Keeps the decode modal self-contained
