@@ -268,7 +268,7 @@ function TransfersSection({ tweaks }) {
                 <th>{t('gov.scheduler.block', 'Block')}</th>
                 <th>{t('col.asset', 'Asset')}</th>
                 <th>{t('drill.from', 'From')}</th>
-                <th>To</th>
+                <th>{t('col.to', 'To')}</th>
                 <th style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
                 <th style={{textAlign:'right'}}>{t('drill.fee', 'Fee')}</th>
                 <th style={{paddingRight: 20}}>{t('col.memo', 'Memo')}</th>
@@ -283,22 +283,22 @@ function TransfersSection({ tweaks }) {
                   // Real hash from prod history — keep, don't fabricate.
                   hash: r.hash,
                 })}>
-                  <td data-label="Time" style={{paddingLeft: 20}} title={fmt.fullDate(r.ts)}>
+                  <td data-label={t('col.time', 'Time')} style={{paddingLeft: 20}} title={fmt.fullDate(r.ts)}>
                     <div style={{fontSize:12, fontWeight:700}}>{fmt.ago(r.ts)}</div>
                     <div className="muted tiny">{fmt.fullDate(r.ts)}</div>
                   </td>
-                  <td data-label="Block"><a className="block-link num" href="#" onClick={(e) => e.stopPropagation()}>#{r.block.toLocaleString()}</a></td>
-                  <td data-label="Asset"><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
-                  <td data-label="From"><AddrStack addr={r.from}/></td>
-                  <td data-label="To"><AddrStack addr={r.to}/></td>
-                  <td data-label="Amount" style={{textAlign:'right'}}>
+                  <td data-label={t('gov.scheduler.block', 'Block')}><a className="block-link num" href="#" onClick={(e) => e.stopPropagation()}>#{r.block.toLocaleString()}</a></td>
+                  <td data-label={t('col.asset', 'Asset')}><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
+                  <td data-label={t('drill.from', 'From')}><AddrStack addr={r.from}/></td>
+                  <td data-label={t('col.to', 'To')}><AddrStack addr={r.to}/></td>
+                  <td data-label={t('drill.amount', 'Amount')} style={{textAlign:'right'}}>
                     <div className="num" style={{fontWeight:700}}>{fmt.num(r.amt, 3)} {r.sym}</div>
                     <div className="muted tiny num">${fmt.num(r.usd, 2)}</div>
                   </td>
-                  <td data-label="Fee" style={{textAlign:'right'}}>
+                  <td data-label={t('drill.fee', 'Fee')} style={{textAlign:'right'}}>
                     <div className="num tiny">{r.fee.toFixed(4)} XOR</div>
                   </td>
-                  <td data-label="Memo" style={{paddingRight: 20}}>
+                  <td data-label={t('col.memo', 'Memo')} style={{paddingRight: 20}}>
                     <span className="memo-chip">{r.memo}</span>
                   </td>
                 </tr>
@@ -487,7 +487,7 @@ function BridgesSection({ tweaks }) {
                 <th>{t('s.dir', 'Dir')}</th>
                 <th>{t('col.asset', 'Asset')}</th>
                 <th>{t('s.route', 'Route')}</th>
-                <th>By</th>
+                <th>{t('s.byAccount', 'By')}</th>
                 <th style={{textAlign:'right'}}>{t('drill.amount', 'Amount')}</th>
                 <th style={{textAlign:'center'}}>{t('drill.status', 'Status')}</th>
                 <th style={{paddingRight:20}}>Tx</th>
@@ -496,24 +496,24 @@ function BridgesSection({ tweaks }) {
             <tbody>
               {visible.map(r => (
                 <tr key={r.id} className="swap-row clickable" onClick={() => open({...r, type:'bridge', title:`${r.from} → ${r.to}`})}>
-                  <td data-label="Time" style={{paddingLeft: 20}} title={fmt.fullDate(r.ts)}>
+                  <td data-label={t('col.time', 'Time')} style={{paddingLeft: 20}} title={fmt.fullDate(r.ts)}>
                     <div style={{fontSize:12, fontWeight:700}}>{fmt.ago(r.ts)}</div>
                     <div className="muted tiny">{fmt.fullDate(r.ts)}</div>
                   </td>
-                  <td data-label="Dir">
+                  <td data-label={t('s.dir', 'Dir')}>
                     <span className={'bridge-dir ' + r.dir}>
                       {r.dir === 'in' ? '↓ IN' : '↑ OUT'}
                     </span>
                   </td>
-                  <td data-label="Asset"><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
-                  <td data-label="Route">
+                  <td data-label={t('col.asset', 'Asset')}><div style={{display:'flex', alignItems:'center', gap:8}}><TokenBadge sym={r.sym} logo={r.logo}/><span style={{fontWeight:700}}>{r.sym}</span></div></td>
+                  <td data-label={t('s.route', 'Route')}>
                     <div className="chain-route">
                       <span className={'chain-tag c-' + r.from.toLowerCase()}>{r.from}</span>
                       <span className="route-arr">→</span>
                       <span className={'chain-tag c-' + r.to.toLowerCase()}>{r.to}</span>
                     </div>
                   </td>
-                  <td data-label="By">
+                  <td data-label={t('s.byAccount', 'By')}>
                     {/* SORA-side wallet of the bridger. IN: the SORA recipient
                         (who is receiving the bridged tokens on SORA).
                         OUT: the SORA sender (who is pushing tokens out).
@@ -536,10 +536,10 @@ function BridgesSection({ tweaks }) {
                       );
                     })()}
                   </td>
-                  <td data-label="Amount" style={{textAlign:'right'}}>
+                  <td data-label={t('drill.amount', 'Amount')} style={{textAlign:'right'}}>
                     <div className="num" style={{fontWeight:700}}>{fmt.num(r.amt, 2)} {r.sym}</div>
                   </td>
-                  <td data-label="Status" style={{textAlign:'center'}}>
+                  <td data-label={t('drill.status', 'Status')} style={{textAlign:'center'}}>
                     <span className={'br-status ' + r.status}>
                       {r.status === 'done' ? t('s.done', '✓ Done') : r.status === 'pending' ? t('s.pending', '⏳ Pending') : t('s.failed', '✗ Failed')}
                     </span>
@@ -684,11 +684,11 @@ function OrderBookSection({ tweaks }) {
             <tbody>
               {fills.map((f, i) => (
                 <tr key={i} className="clickable" onClick={() => open({type:'order', title:`${f.side.toUpperCase()} · ${pair}`, side:f.side, pair, size:f.amount, price:f.price, ts:f.ts, hash:f.hash, wallet:f.wallet, caller:f.wallet, event:f.eventType})}>
-                  <td data-label="Time" style={{paddingLeft:20}}><span className="muted tiny" title={fmt.fullDate(f.ts)}>{fmt.ago(f.ts)}</span></td>
-                  <td data-label="Side"><span className={'fill-side ' + f.side}>{f.side === 'buy' ? t('s.buy', '▲ BUY') : t('s.sell', '▼ SELL')}</span></td>
-                  <td data-label="Price" style={{textAlign:'right'}} className="num">{f.price.toFixed(4)}</td>
-                  <td data-label="Amount" style={{textAlign:'right'}} className="num">{f.amount.toFixed(2)}</td>
-                  <td data-label="Total" style={{textAlign:'right', paddingRight:20}} className="num">{(f.price * f.amount).toFixed(2)}</td>
+                  <td data-label={t('col.time', 'Time')} style={{paddingLeft:20}}><span className="muted tiny" title={fmt.fullDate(f.ts)}>{fmt.ago(f.ts)}</span></td>
+                  <td data-label={t('s.side', 'Side')}><span className={'fill-side ' + f.side}>{f.side === 'buy' ? t('s.buy', '▲ BUY') : t('s.sell', '▼ SELL')}</span></td>
+                  <td data-label={t('col.price', 'Price')} style={{textAlign:'right'}} className="num">{f.price.toFixed(4)}</td>
+                  <td data-label={t('drill.amount', 'Amount')} style={{textAlign:'right'}} className="num">{f.amount.toFixed(2)}</td>
+                  <td data-label={t('col.total', 'Total')} style={{textAlign:'right', paddingRight:20}} className="num">{(f.price * f.amount).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -915,24 +915,24 @@ function PoolsSection({ tweaks }) {
             <tbody>
               {pools.map(p => (
                 <tr key={p.id} className="ext-row">
-                  <td data-label="Par" style={{paddingLeft: 20}}>
+                  <td data-label={t('col.pair', 'Par')} style={{paddingLeft: 20}}>
                     <TokenPair a={p.base?.symbol} b={p.target?.symbol}
                                logoA={p.base?.logo || TOKEN_LOGOS[p.base?.symbol]}
                                logoB={p.target?.logo || TOKEN_LOGOS[p.target?.symbol]}/>
                   </td>
-                  <td data-label="Reservas" style={{textAlign:'right'}} className="num">
+                  <td data-label={t('s.reserves', 'Reservas')} style={{textAlign:'right'}} className="num">
                     <div style={{lineHeight:1.3}}>
                       <div>{fmt.num(p.baseReserve, 2)} <b>{p.base?.symbol}</b></div>
                       <div>{fmt.num(p.targetReserve, 2)} <b>{p.target?.symbol}</b></div>
                     </div>
                   </td>
-                  <td data-label="Total" style={{textAlign:'right', fontWeight: 700, color: '#6EE7B7'}} className="num">
+                  <td data-label={t('col.total', 'Total')} style={{textAlign:'right', fontWeight: 700, color: '#6EE7B7'}} className="num">
                     {fmt.usd(p.totalUsd)}
                   </td>
-                  <td data-label="Providers" style={{textAlign:'center'}}>
+                  <td data-label={t('s.providers', 'Providers')} style={{textAlign:'center'}}>
                     <button className="btn" onClick={() => setProvidersModal({ base: p.base, target: p.target })}>{t('s.providers', 'Providers')}</button>
                   </td>
-                  <td data-label="Activity" style={{textAlign:'center', paddingRight: 20}}>
+                  <td data-label={t('nav.balance', 'Activity')} style={{textAlign:'center', paddingRight: 20}}>
                     <button className="btn" onClick={() => setActivityModal({ base: p.base, target: p.target })}>{t('nav.balance', 'Activity')}</button>
                   </td>
                 </tr>
@@ -3324,16 +3324,16 @@ function PreimagesPanel() {
                   <td data-label="Hash" style={{paddingLeft:20, fontFamily:'monospace'}} title={p.hash}>
                     <span style={{cursor:'pointer'}} onClick={() => navigator.clipboard?.writeText(p.hash)}>{short}</span>
                   </td>
-                  <td data-label="Action">
+                  <td data-label={t('predict.drill.action', 'Action')}>
                     {decoded === undefined && <span className="muted tiny">…</span>}
                     {decoded === null && <span className="muted tiny">—</span>}
                     {decoded && <span style={{fontWeight:600}}>{decoded.section}.<span style={{color:'var(--accent)'}}>{decoded.method}</span></span>}
                   </td>
-                  <td data-label="Status"><span style={{color: statusColor, fontWeight:600}}>{p.status}</span></td>
-                  <td data-label="Tamaño" style={{textAlign:'right'}} className="num">{p.len ?? '—'}</td>
-                  <td data-label="Author" title={p.depositor || ''}>{p.depositor ? <WalletLink addr={p.depositor} name={data.identities?.[p.depositor]}>{depLabel}</WalletLink> : depLabel}</td>
-                  <td data-label="Depósito" style={{textAlign:'right'}} className="num">{fmtDeposit(p.deposit)}</td>
-                  <td data-label="Publicada">
+                  <td data-label={t('drill.status', 'Status')}><span style={{color: statusColor, fontWeight:600}}>{p.status}</span></td>
+                  <td data-label={t('gov.preimages.size', 'Tamaño')} style={{textAlign:'right'}} className="num">{p.len ?? '—'}</td>
+                  <td data-label={t('s.author', 'Author')} title={p.depositor || ''}>{p.depositor ? <WalletLink addr={p.depositor} name={data.identities?.[p.depositor]}>{depLabel}</WalletLink> : depLabel}</td>
+                  <td data-label={t('gov.preimages.deposit', 'Depósito')} style={{textAlign:'right'}} className="num">{fmtDeposit(p.deposit)}</td>
+                  <td data-label={t('gov.preimages.published', 'Publicada')}>
                     {first === undefined && <span className="muted tiny">…</span>}
                     {first === null && <span className="muted tiny">—</span>}
                     {first && (

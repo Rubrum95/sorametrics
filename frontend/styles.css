@@ -304,31 +304,20 @@ body {
   background: rgba(255,255,255,0.03);
 }
 
-/* Mobile topbar: shrink the search to a compact pill so a long placeholder
-   doesn't wrap into two lines and push the layout. The user can still tap
-   it to open the palette; the full placeholder appears inside the opened
-   search input. */
 @media (max-width: 768px) {
   .topbar { gap: 10px; margin-bottom: 14px; }
   .topbar .search {
-    flex: 1;
-    padding: 10px 12px;
-    font-size: 0; /* hide long placeholder text — only icon + short label show */
-    justify-content: flex-start;
+    flex: 0 0 40px;
+    width: 40px; height: 40px;
+    margin-right: auto;
+    padding: 0;
+    justify-content: center;
     gap: 0;
-    white-space: nowrap;
+    font-size: 0;
+    border-radius: 10px;
     overflow: hidden;
   }
   .topbar .search > svg { flex-shrink: 0; width: 18px !important; height: 18px !important; }
-  /* Short literal label in place of the long placeholder so the user still
-     understands this is the search affordance. Positioned right of the icon. */
-  .topbar .search::after {
-    content: 'Buscar';
-    font-size: 13px;
-    color: var(--fg-2);
-    margin-left: 10px;
-    font-weight: 500;
-  }
   .topbar .search kbd { display: none; }
 }
 
@@ -1204,6 +1193,7 @@ body.drawer-open .mobile-hamburger span:nth-child(3) {
   .swaps-stats-grid { grid-template-columns: 1fr 1fr; }
   .swaps-table thead { display: none; }
   .swaps-table, .swaps-table tbody, .swaps-table tr, .swaps-table td { display: block; width: 100%; }
+  .swaps-table tr { width: auto; }
   .swap-row {
     padding: 12px 14px !important;
     border: 1px solid var(--border);

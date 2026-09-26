@@ -221,6 +221,7 @@ function Topbar({ block }) {
         <span/><span/><span/>
       </button>
       <div className="search" onClick={() => search.open()} role="button" tabIndex={0}
+           aria-label={t('common.search')}
            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') search.open(); }}>
         <I.search style={{width:14,height:14}}/>
         {t('common.search')}

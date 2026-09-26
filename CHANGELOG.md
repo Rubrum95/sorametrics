@@ -57,6 +57,10 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 - frontend: wallet drawer histories page (30 per page); Polkamarkt positions show shares and net
   paid in collateral units with the asset symbol (they were raw 1e18 values printed as USD).
 - frontend: toasts sit above every modal; Liberland-side accounts inside JSON stay plain text.
+- frontend (mobile): the topbar search is an icon button (the fixed "Buscar" label was cut to one
+  letter and never translated); table rows no longer overflow their card by 20 px (`width: 100%`
+  plus margins on swaps, transfers, bridges and preimages); the stacked-card labels of transfers,
+  bridges, order book, pools and preimages use the i18n keys of their table headers.
 
 ### 2026-09-13
 - deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the

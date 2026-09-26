@@ -471,7 +471,7 @@ function ExtrinsicsSection({ tweaks }) {
                         <button className="copy-btn" onClick={() => copyTx(e.hash)} title={t('s.copyHash', 'Copy hash')}>⎘</button>
                       </div>
                     </td>
-                    <td data-label="Pallet :: Method">
+                    <td data-label={t('s.palletMethod', 'Pallet :: Method')}>
                       <div className="pallet-method-cell">
                         <span className="pallet-badge" style={{['--pc']: PALLET_COLORS[e.pallet]}}>{e.pallet}</span>
                         <span className="pallet-sep">::</span>
