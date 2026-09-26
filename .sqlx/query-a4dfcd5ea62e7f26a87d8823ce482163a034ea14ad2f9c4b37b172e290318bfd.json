@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH b AS (\n                   SELECT block_height FROM sm.transfers WHERE block_height < $1\n                   ORDER BY block_height ASC OFFSET $2 LIMIT 1)\n               SELECT b.block_height AS \"block!\",\n                      (SELECT COUNT(*) FROM sm.transfers s\n                       WHERE s.block_height < b.block_height) AS \"before!\"\n               FROM b",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "before!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "a4dfcd5ea62e7f26a87d8823ce482163a034ea14ad2f9c4b37b172e290318bfd"
+}

@@ -11,6 +11,7 @@ use axum::Router;
 pub mod analytics;
 pub mod burns;
 pub mod chain_state;
+mod deep;
 pub mod explorer;
 pub mod export;
 pub mod extrinsics;

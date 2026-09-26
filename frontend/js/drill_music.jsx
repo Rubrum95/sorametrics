@@ -72,12 +72,19 @@ function Field({ label, children, mono }) {
 }
 
 function Addr({ addr }) {
+  const t = useT();
+  const name = useIdentity(addr);
+  const open = walletOpener(addr, name);
   return (
     <div className="drill-addr">
       <div style={{width:24, height:24, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink:0}}/>
-      <div style={{flex:1, minWidth:0}}>
-        {window.identityName?.(addr) && <div style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{window.identityName(addr)}</div>}
-        <code className="mono tiny" style={{color:'var(--fg-2)'}}>{fmt.addr(addr, 10, 8)}</code>
+      <div
+        className={open ? 'clickable' : undefined}
+        style={{flex:1, minWidth:0, cursor: open ? 'pointer' : undefined}}
+        title={open ? t('s.openWallet', 'Open wallet') + ' · ' + addr : addr}
+        onClick={open}>
+        {name && <div style={{fontSize:12, fontWeight:700, color:'var(--fg-0)'}}>{name}</div>}
+        <code className="mono tiny" style={{color:'var(--fg-2)', textDecoration: open ? 'underline dotted' : undefined, textUnderlineOffset:2}}>{fmt.addr(addr, 10, 8)}</code>
       </div>
       <Copy text={addr} short/>
     </div>
@@ -108,7 +115,9 @@ function DrillPanel({ row, onClose }) {
              onClick={(e) => e.stopPropagation()}>
         <div className="drill-head">
           <span className="drill-badge" style={{['--bc']: meta.color}}>{meta.badge}</span>
-          <div className="drill-head-title">{row.title || t('s.detail', 'Detail')}</div>
+          <div className="drill-head-title">{row.type === 'validator' && row.address
+            ? <WalletLink addr={row.address} name={row.name}>{row.title || row.name || fmt.addr(row.address, 8, 6)}</WalletLink>
+            : (row.title || t('s.detail', 'Detail'))}</div>
           {row.hash && <Copy text={row.hash} short/>}
           <button className="drill-close" onClick={onClose}>×</button>
         </div>
@@ -308,7 +317,7 @@ function BlockDetail({ r }) {
                         <span style={{color:'var(--fg-3)'}}>::</span>
                         <span>{e.method}</span>
                       </td>
-                      <td className="muted tiny">{e.signer ? fmt.addr(e.signer, 5, 4) : '—'}</td>
+                      <td className="muted tiny">{e.signer ? <WalletLink addr={e.signer}>{fmt.addr(e.signer, 5, 4)}</WalletLink> : '—'}</td>
                       <td className="num tiny" style={{textAlign:'right'}}>{evs.length}</td>
                       <td style={{textAlign:'center'}}>{e.success ? '✓' : '✗'}</td>
                     </tr>
@@ -318,7 +327,7 @@ function BlockDetail({ r }) {
                           {Array.isArray(e.args) && e.args.length > 0 && (
                             <>
                               <div className="muted tiny" style={{margin:'4px 0 2px', fontWeight:700}}>Args</div>
-                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:180, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(e.args, null, 2)}</pre>
+                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:180, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={e.args}/></pre>
                             </>
                           )}
                           <div className="muted tiny" style={{margin:'8px 0 2px', fontWeight:700}}>{t('s.events', 'Events (')}{evs.length})</div>
@@ -364,7 +373,7 @@ function BlockDetail({ r }) {
                                 error decoding (the red badge above) is
                                 surfaced as a clarification.
                               */}
-                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(evs, null, 2)}</pre>
+                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={evs}/></pre>
                             </>
                           )}
                         </td>
@@ -385,7 +394,7 @@ function BlockDetail({ r }) {
       {inherent.length > 0 && (
         <div className="drill-section">
           <div className="drill-sec-title">{t('s.inherentEvents', 'Inherent events (')}{inherent.length})</div>
-          <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:240, fontSize:11, fontFamily:'JetBrains Mono'}}>{JSON.stringify(inherent, null, 2)}</pre>
+          <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:240, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={inherent}/></pre>
         </div>
       )}
       {data && exts.length === 0 && inherent.length === 0 && (
@@ -594,7 +603,7 @@ function ExtrinsicDetail({ r }) {
           )}
         </div>
         {argsOpen && (
-          <pre className="ext-args" style={{marginTop: 8, maxHeight: 320, overflow:'auto'}}>{prettyArgs}</pre>
+          <pre className="ext-args" style={{marginTop: 8, maxHeight: 320, overflow:'auto'}}><JsonWithAddrs value={prettyArgs}/></pre>
         )}
       </div>
 
@@ -622,7 +631,7 @@ function ExtrinsicDetail({ r }) {
           </div>
         )}
         {eventsOpen && showRawEvents && decodedEvents && (
-          <pre className="ext-args" style={{marginTop: 8, maxHeight: 380, overflow:'auto'}}>{JSON.stringify(decodedEvents, null, 2)}</pre>
+          <pre className="ext-args" style={{marginTop: 8, maxHeight: 380, overflow:'auto'}}><JsonWithAddrs value={decodedEvents}/></pre>
         )}
       </div>
 
@@ -785,7 +794,7 @@ function ValidatorDetail({ r }) {
         <div style={{display:'flex', alignItems:'center', gap: 12}}>
           <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink: 0}}/>
           <div>
-            <div style={{fontWeight: 800, fontSize: 16}}>{r.name || (r.address ? fmt.addr(r.address, 8, 6) : '—')}</div>
+            <div style={{fontWeight: 800, fontSize: 16}}><WalletLink addr={r.address} name={r.name}>{r.name || (r.address ? fmt.addr(r.address, 8, 6) : '—')}</WalletLink></div>
             {r.rank && <div className="muted tiny">{t('s.rank', 'Rank #')}{r.rank}</div>}
           </div>
         </div>

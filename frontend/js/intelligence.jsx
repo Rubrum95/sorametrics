@@ -1079,8 +1079,8 @@ function ValidatorHealth() {
           {snapshot.silent.map(v => (
             <div key={v.addr} style={{display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12}}>
               <Severity level="warn"/>
-              <span style={{fontWeight:700}}>{v.name}</span>
-              <span className="muted tiny num">{fmt.addr(v.addr, 5, 4)}</span>
+              <WalletLink addr={v.addr} style={{fontWeight:700}}>{v.name}</WalletLink>
+              <span className="muted tiny num"><WalletLink addr={v.addr}>{fmt.addr(v.addr, 5, 4)}</WalletLink></span>
             </div>
           ))}
         </>

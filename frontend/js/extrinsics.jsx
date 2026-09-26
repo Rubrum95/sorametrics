@@ -14,71 +14,53 @@ const PALLET_COLORS = {
   utility: '#64748B', assets: '#06B6D4', vestedRewards: '#14B8A6',
 };
 
-function argsFor(e) {
-  const compact = (x) => JSON.stringify(x, null, 2);
-  const samples = {
-    'liquidityProxy.swap': {
-      dex_id: 0,
-      input_asset_id: '0x0200000000000000000000000000000000000000000000000000000000000000',
-      output_asset_id: '0x0200080000000000000000000000000000000000000000000000000000000000',
-      swap_amount: { WithDesiredInput: { desired_amount_in: '12400000000000000000', min_amount_out: '1200000000000000000' }},
-      selected_source_types: ['XYKPool', 'MulticollateralBondingCurvePool'],
-      filter_mode: 'Disabled',
-    },
-    'currencies.transfer': {
-      dest: e.caller,
-      currency_id: '0x0200000000000000000000000000000000000000000000000000000000000000',
-      amount: '24800000000000000000',
-    },
-    'staking.bond': {
-      controller: e.caller,
-      value: '100000000000000000000',
-      payee: 'Stash',
-    },
-    'orderBook.placeLimitOrder': {
-      order_book_id: { dex_id: 0, base: 'XOR', quote: 'VAL' },
-      price: '420000000000000000',
-      amount: '15000000000000000000',
-      side: 'Buy',
-      lifespan: null,
-    },
-    'referrals.reserve': {
-      balance: '10000000000000000000',
-    },
-    'utility.batchAll': {
-      calls: '[2 nested calls: currencies.transfer, liquidityProxy.swap]',
-    },
-    'bridgeProxy.transferIn': {
-      network_id: { EvmLegacy: 'Ethereum' },
-      asset_id: '0x0200050000000000000000000000000000000000000000000000000000000000',
-      recipient: e.caller,
-      amount: '50000000000000000000',
-    },
-    'vestedRewards.claimRewards': {
-      reward_reason: 'PresalePSwap',
-    },
+// Real args and events of one extrinsic, loaded when its row is expanded.
+function ExtRealDetail({ e }) {
+  const t = useT();
+  const [detail, setDetail] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(null);
+    fetch('/history/extrinsic/' + e.block + '/' + e.idx)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(j => { if (!cancelled) setDetail(j); })
+      .catch(() => { if (!cancelled) setDetail(false); });
+    return () => { cancelled = true; };
+  }, [e.block, e.idx]);
+  const parse = (v) => {
+    if (v == null || v === '') return null;
+    try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return null; }
   };
-  const key = e.pallet + '.' + e.method;
-  return compact(samples[key] || { /* decoded args */ caller: e.caller, nonce: e.idx });
-}
-
-function eventsFor(e) {
-  if (!e.ok) return [{ pallet: 'system', name: 'ExtrinsicFailed', color: '#EF4444' }];
-  const base = [
-    { pallet: 'system', name: 'NewAccount', color: '#64748B' },
-    { pallet: e.pallet, name: capFirst(e.method), color: PALLET_COLORS[e.pallet] },
-    { pallet: 'transactionPayment', name: 'TransactionFeePaid', color: '#10B981' },
-    { pallet: 'system', name: 'ExtrinsicSuccess', color: '#10B981' },
-  ];
-  if (e.pallet === 'liquidityProxy') {
-    base.splice(2, 0,
-      { pallet: 'poolXYK', name: 'Exchange', color: '#EC4899' },
-      { pallet: 'xorFee', name: 'FeeWithdrawn', color: '#F59E0B' });
-  }
-  if (e.pallet === 'staking') {
-    base.splice(2, 0, { pallet: 'balances', name: 'Reserved', color: '#E5243B' });
-  }
-  return base;
+  if (detail === null) return <div className="muted tiny">{t('common.loading', 'Loading…')}</div>;
+  if (detail === false) return <div className="muted tiny">{t('s.loadError', 'Could not load data.')}</div>;
+  const args = parse(detail.args_json);
+  const events = parse(detail.events_json);
+  const list = Array.isArray(events) ? events : [];
+  return (
+    <div className="ext-detail-grid">
+      <div>
+        <div className="ext-detail-label">{t('drill.decodedArgs', 'Decoded Args')}</div>
+        <pre className="ext-args"><JsonWithAddrs value={args ?? {}}/></pre>
+      </div>
+      <div>
+        <div className="ext-detail-label">{t('s.eventsEmitted', 'Events Emitted ·')} {list.length}</div>
+        <div className="ext-events">
+          {list.length === 0 && <span className="muted tiny">{t('s.noEvents', 'No events.')}</span>}
+          {list.map((ev, i) => {
+            const pallet = ev.s || ev.section;
+            return (
+              <div key={i} className="ext-event-chip" style={{['--ec']: PALLET_COLORS[pallet] || '#64748B'}}>
+                <span className="ec-dot"/>
+                <span className="ec-pallet">{pallet}</span>
+                <span className="ec-sep">·</span>
+                <span className="ec-name">{ev.m || ev.method}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function capFirst(s) { return s[0].toUpperCase() + s.slice(1); }
@@ -525,7 +507,7 @@ function ExtrinsicsSection({ tweaks }) {
                         : <span className="status-pill err" title={t('status.failed', 'Failed')}>✗</span>}
                     </td>
                     <td style={{paddingRight: 20, textAlign:'center'}}>
-                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson, args: argsFor(e), events: eventsFor(e)}); }} title={t('s.moreInfo', 'Más Info')}>↗</button>
+                      <button className="row-action-btn" onClick={(ev) => { ev.stopPropagation(); open({type:'extrinsic', title:`${e.pallet}::${e.method}`, pallet:e.pallet, method:e.method, caller:e.caller, block:e.block, idx:e.idx, extrinsic_id:(e.block + '-' + e.idx), ts:e.ts, hash:e.hash, ok:e.ok, failReason:e.failReason, argsJson: e.argsJson, eventsJson: e.eventsJson}); }} title={t('s.moreInfo', 'Más Info')}>↗</button>
                       <span className={'ext-caret' + (expanded === e.id ? ' open' : '')} style={{marginLeft: 6}}>▾</span>
                     </td>
                   </tr>
@@ -539,27 +521,9 @@ function ExtrinsicsSection({ tweaks }) {
                               <span style={{color:'#FCA5A5', marginLeft: 8}}>{e.failReason}</span>
                             </div>
                           )}
-                          <div className="ext-detail-grid">
-                            <div>
-                              <div className="ext-detail-label">{t('drill.decodedArgs', 'Decoded Args')}</div>
-                              <pre className="ext-args">{argsFor(e)}</pre>
-                            </div>
-                            <div>
-                              <div className="ext-detail-label">{t('s.eventsEmitted', 'Events Emitted ·')} {eventsFor(e).length}</div>
-                              <div className="ext-events">
-                                {eventsFor(e).map((ev, i) => (
-                                  <div key={i} className="ext-event-chip" style={{['--ec']: ev.color}}>
-                                    <span className="ec-dot"/>
-                                    <span className="ec-pallet">{ev.pallet}</span>
-                                    <span className="ec-sep">·</span>
-                                    <span className="ec-name">{ev.name}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="ext-detail-label" style={{marginTop: 16}}>{t('ext.txFee', 'Fee de la transacción')}</div>
-                              <ExtFee bf={blockFees === undefined ? undefined : blockFees[e.block]} signed={e.signed}/>
-                            </div>
-                          </div>
+                          <ExtRealDetail e={e}/>
+                          <div className="ext-detail-label" style={{marginTop: 16}}>{t('ext.txFee', 'Fee de la transacción')}</div>
+                          <ExtFee bf={blockFees === undefined ? undefined : blockFees[e.block]} signed={e.signed}/>
                         </div>
                       </td>
                     </tr>

@@ -1,0 +1,80 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    x.block_height    AS \"block_height!\",\n                    x.extrinsic_id    AS \"extrinsic_id!\",\n                    x.event_id        AS \"event_id!\",\n                    x.hash,\n                    x.block_timestamp AS \"block_timestamp!\",\n                    x.from_address    AS \"from_address!\",\n                    x.to_address      AS \"to_address!\",\n                    x.asset_id        AS \"asset_id!\",\n                    x.amount          AS \"amount!: BigDecimal\",\n                    x.usd_value       AS \"usd_value: BigDecimal\"\n                FROM unnest($1::text[]) AS w(addr)\n                CROSS JOIN LATERAL (\n                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,\n                            from_address, to_address, asset_id, amount, usd_value\n                     FROM sm.transfers\n                     WHERE from_address = w.addr AND block_height <= $5\n                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                     LIMIT $2)\n                    UNION ALL\n                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,\n                            from_address, to_address, asset_id, amount, usd_value\n                     FROM sm.transfers\n                     WHERE to_address = w.addr AND NOT (from_address = ANY($1))\n                       AND block_height <= $5\n                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC\n                     LIMIT $2)\n                ) x\n                ORDER BY x.block_height DESC, x.event_id DESC, x.extrinsic_id DESC\n                LIMIT $3 OFFSET $4\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "from_address!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "to_address!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 9,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d1f69c013f96741604489d402a2ee7e218fd296c81f9a5f0169955dcfa644044"
+}

@@ -258,98 +258,137 @@ function SourceTag({ source }) {
   return <span className={'ident-tag ' + t.cls} title={t.title}>{t.label}</span>;
 }
 
-// Component: renders display name if known, else short address. Always shows a
-// tooltip with the full address so the user can verify on hover.
-// Two-zone click pattern when both name and address are visible:
-//   · Click on the NAME → copy address to clipboard.
-//   · Click on the TRUNCATED ADDRESS → opens wallet drill (via onClick).
-// When only the address is shown (no name resolved), click falls back to the
-// drill — copying without a label would be surprising.
-function AddrOrName({ addr, prefix = 5, suffix = 4, bold = false, short = true, onClick, className, style }) {
+// SORA v2 account (SS58, prefix 69). Anything else — `System`, 0x/EVM,
+// TON, `xcm:…` — is shown but never opens the wallet drawer.
+const SORA_ADDR_RE = /^cn[1-9A-HJ-NP-Za-km-z]{45,49}$/;
+function isSoraAddress(addr) {
+  return typeof addr === 'string' && SORA_ADDR_RE.test(addr);
+}
+
+// Click handler that opens `addr`'s wallet drawer, or undefined when `addr`
+// is not a SORA account. Stops propagation so row-level clicks don't fire.
+function walletOpener(addr, name) {
+  if (!isSoraAddress(addr)) return undefined;
+  return (ev) => {
+    if (ev) ev.stopPropagation();
+    window.openWalletDetails?.(addr, name || window.identityName?.(addr) || null);
+  };
+}
+
+function CopyAddr({ addr }) {
+  const t = useT();
+  return (
+    <span className="copy-mini" title={t('s.copyAddress', 'Copy address')} onClick={(ev) => _copyAddr(addr, ev)}>⧉</span>
+  );
+}
+
+// Makes any content open the wallet drawer of `addr` (plain when `addr` is
+// not a SORA account).
+function WalletLink({ addr, name, children, className, style }) {
+  const t = useT();
+  const open = walletOpener(addr, name);
+  if (!open) return <span className={className} style={style}>{children}</span>;
+  return (
+    <span
+      className={(className || '') + ' clickable wallet-link'}
+      style={{cursor:'pointer', textDecoration:'underline dotted', textUnderlineOffset:2, ...style}}
+      title={t('s.openWallet', 'Open wallet') + ' · ' + addr}
+      onClick={open}>
+      {children}
+    </span>
+  );
+}
+
+// Pretty JSON whose SORA addresses open their wallet (for <pre> dumps).
+function JsonWithAddrs({ value }) {
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const parts = String(text ?? '').split(/(cn[1-9A-HJ-NP-Za-km-z]{45,49})/g);
+  const foreign = /"Liberland"\s*:\s*"$/;
+  return <>{parts.map((p, i) => (i % 2 === 1 && isSoraAddress(p) && !foreign.test(parts[i - 1])
+    ? <WalletLink key={i} addr={p}>{p}</WalletLink>
+    : p))}</>;
+}
+
+// Display name when known (identity / alias / technical account), else the
+// short address; the full address is in the tooltip. Clicking the name or the
+// address opens the wallet drawer (or runs `onClick`; `plain` = no click, for
+// foreign-chain accounts); ⧉ copies the address.
+function AddrOrName({ addr, prefix = 5, suffix = 4, bold = false, onClick, plain = false, className, style }) {
+  const t = useT();
   const name = useIdentity(addr);
   const source = useIdentitySource(addr);
   if (!addr) return <span className="muted tiny">—</span>;
+  const open = plain ? undefined : (onClick || walletOpener(addr, name));
   const baseStyle = { fontWeight: bold ? 700 : undefined, ...style };
+  const linkStyle = open ? { cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 2 } : {};
+  const title = open ? t('s.openWallet', 'Open wallet') + ' · ' + addr : addr;
   if (!name) {
     return (
-      <span
-        className={className || ''}
-        style={{ cursor: onClick ? 'pointer' : undefined, ...baseStyle }}
-        title={addr}
-        onClick={onClick}>
+      <span className={className || ''} style={{ ...linkStyle, ...baseStyle }} title={title} onClick={open}>
         {fmt.addr(addr, prefix, suffix)}
       </span>
     );
   }
   return (
     <span className={(className || '') + ' ident-hit'} style={{display:'inline-flex', alignItems:'center', gap:6, ...baseStyle}}>
-      <span
-        style={{cursor:'pointer'}}
-        title={'Copiar dirección · ' + addr}
-        onClick={(ev) => _copyAddr(addr, ev)}>
-        {name}
-      </span>
+      <span style={linkStyle} title={title} onClick={open}>{name}</span>
       <SourceTag source={source}/>
-      <span
-        className="muted tiny num"
-        style={{cursor: onClick ? 'pointer' : undefined, textDecoration:'underline dotted', textUnderlineOffset: 2}}
-        title={onClick ? 'Abrir wallet · ' + addr : addr}
-        onClick={onClick}>
+      <span className="muted tiny num" style={linkStyle} title={title} onClick={open}>
         {fmt.addr(addr, prefix, suffix)}
       </span>
+      <CopyAddr addr={addr}/>
     </span>
   );
 }
 
-// Component: two-line stack for table cells — identity name on top (when set)
-// above the short address. Two-zone click:
-//   · Name line → copies the full SS58 address to the clipboard.
-//   · Address line → opens the wallet drill (or invokes a custom `onClick`).
-// Used for from/to columns in Transfers/Bridges/OrderBook where the row style
-// has no avatar dot.
-function AddrStack({ addr, onClick, prefix = 5, suffix = 4, title = 'Abrir wallet' }) {
+// Two-line stack for table cells: identity name on top (when set) above the
+// short address. Both lines open the wallet drawer (or run `onClick`).
+function AddrStack({ addr, onClick, plain = false, prefix = 5, suffix = 4, title }) {
+  const t = useT();
   const name = useIdentity(addr);
   const source = useIdentitySource(addr);
   if (!addr) return <span className="muted tiny">—</span>;
-  const openWallet = onClick || ((ev) => { ev.stopPropagation(); window.openWalletDetails?.(addr, name || null); });
+  const open = plain ? undefined : (onClick || walletOpener(addr, name));
+  const tip = open ? (title || t('s.openWallet', 'Open wallet')) + ' · ' + addr : addr;
   return (
     <div style={{minWidth: 0}}>
       {name && (
         <div style={{display:'flex', alignItems:'center', gap:4}}>
           <span
-            style={{fontSize:11, fontWeight:700, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth: 180, cursor:'pointer'}}
-            title={'Copiar dirección · ' + addr}
-            onClick={(ev) => _copyAddr(addr, ev)}>
+            style={{fontSize:11, fontWeight:700, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth: 180, cursor: open ? 'pointer' : undefined}}
+            title={tip}
+            onClick={open}>
             {name}
           </span>
           <SourceTag source={source}/>
+          <CopyAddr addr={addr}/>
         </div>
       )}
       <div
-        className="muted tiny num clickable"
-        style={{textDecoration:'underline dotted', textUnderlineOffset: 2, whiteSpace:'nowrap', cursor:'pointer'}}
-        title={title + ' · ' + addr}
-        onClick={openWallet}>
+        className={'muted tiny num' + (open ? ' clickable' : '')}
+        style={{textDecoration: open ? 'underline dotted' : undefined, textUnderlineOffset: 2, whiteSpace:'nowrap', cursor: open ? 'pointer' : undefined}}
+        title={tip}
+        onClick={open}>
         {fmt.addr(addr, prefix, suffix)}
       </div>
     </div>
   );
 }
 
-// Component: renders display name if known, else em-dash. Intended for dedicated
-// "Identity" columns next to an existing address column — we don't want to
-// duplicate the truncated address here.
+// Display name if known, else em-dash, for dedicated "Identity" columns next
+// to an address column. Opens the wallet drawer.
 function IdentityCell({ addr, className, style }) {
+  const t = useT();
   const name = useIdentity(addr);
   const source = identitySource(addr);
   if (!addr || !name) return <span className="muted tiny">—</span>;
-  // The tag says where the name comes from: the user's own alias, the
-  // Identity pallet, or the chain's technical-account registry.
+  const open = walletOpener(addr, name);
   return (
     <span
-      className={(className || '') + ' ident-hit'}
-      style={style}
-      title={addr + ' · ' + name}>
+      className={(className || '') + ' ident-hit' + (open ? ' clickable' : '')}
+      style={{cursor: open ? 'pointer' : undefined, ...style}}
+      title={(open ? t('s.openWallet', 'Open wallet') + ' · ' : '') + addr + ' · ' + name}
+      onClick={open}>
       {name} <SourceTag source={source}/>
     </span>
   );
@@ -358,4 +397,5 @@ function IdentityCell({ addr, className, style }) {
 Object.assign(window, {
   identityName, identitySource, requestIdentity, subscribeIdentity, useIdentity,
   useIdentitySource, refreshAliasMap, AddrOrName, IdentityCell, AddrStack, SourceTag,
+  isSoraAddress, walletOpener, WalletLink, JsonWithAddrs, CopyAddr,
 });

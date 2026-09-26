@@ -127,7 +127,7 @@ const { useState, useEffect, useMemo } = React;
                   </td>
                   <td style={td()}>
                     {r.v2_signer
-                      ? <a href={'?tab=balance&address=' + encodeURIComponent(r.v2_signer)} className="num" title={r.v2_signer} style={linkPrimary()}>{shortAddr(r.v2_signer)}</a>
+                      ? <a href={'?tab=balance&address=' + encodeURIComponent(r.v2_signer)} onClick={(ev) => { if (!window.openWalletDetails || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); window.openWalletDetails(r.v2_signer); }} className="num" title={r.v2_signer} style={linkPrimary()}>{shortAddr(r.v2_signer)}</a>
                       : <span style={{ color: 'var(--fg-3)' }}>—</span>}
                   </td>
                   {/* Minamoto side (other network) — links open the Minamoto SPA */}

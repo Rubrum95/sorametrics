@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (SELECT COUNT(*) FROM sm.transfers WHERE from_address = ANY($1))\n                + (SELECT COUNT(*) FROM sm.transfers\n                   WHERE to_address = ANY($1) AND NOT (from_address = ANY($1))) AS \"count!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3b022d96f03f7b5e7dc545faa7247e4521aae2704a54cf916ee6650923763532"
+}

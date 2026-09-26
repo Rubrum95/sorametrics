@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH b AS (\n                   SELECT block_height FROM sm.extrinsics\n                   WHERE signer = ANY($1) AND block_height < $2\n                   ORDER BY block_height ASC OFFSET $3 LIMIT 1)\n               SELECT b.block_height AS \"block!\",\n                      (SELECT COUNT(*) FROM sm.extrinsics s\n                       WHERE s.signer = ANY($1) AND s.block_height < b.block_height) AS \"before!\"\n               FROM b",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "before!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "9459c3da03797ddd48c1af3de6f899075a60d4e12c7de23faf284989c927c5a5"
+}

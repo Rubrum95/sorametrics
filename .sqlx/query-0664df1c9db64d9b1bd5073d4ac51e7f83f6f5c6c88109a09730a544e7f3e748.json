@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.market_id, m.question, m.status, m.resolution, m.collateral_asset,\n               SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) AS \"yes_shares: BigDecimal\",\n               SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares ELSE 0 END) AS \"no_shares: BigDecimal\",\n               SUM(CASE WHEN t.side = 'Buy' THEN t.collateral ELSE -t.collateral END) AS \"net_collateral: BigDecimal\"\n        FROM sm.polkamarkt_trades t\n        JOIN sm.polkamarkt_markets m ON m.market_id = t.market_id\n        WHERE t.trader = $1\n        GROUP BY t.market_id, m.question, m.status, m.resolution, m.collateral_asset\n        HAVING SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) > 0\n            OR SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)\n             - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'No'  THEN t.shares ELSE 0 END) > 0\n        ORDER BY t.market_id DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "market_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "question",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "status",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "resolution",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "collateral_asset",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "yes_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 6,
+        "name": "no_shares: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 7,
+        "name": "net_collateral: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "0664df1c9db64d9b1bd5073d4ac51e7f83f6f5c6c88109a09730a544e7f3e748"
+}

@@ -418,10 +418,10 @@ function BurnSection({ tweaks }) {
               {holders.map((h) => (
                 <div className="holder-row" key={h.addr}>
                   <div className="holder-rank">{h.rank}</div>
-                  <div className="holder-addr">{h.name
+                  <div className="holder-addr"><WalletLink addr={h.addr} name={h.name}>{h.name
                     ? <><span className="ident">{h.name}</span> · {fmt.addr(h.addr, 4, 3)}</>
                     : fmt.addr(h.addr, 6, 4)
-                  }</div>
+                  }</WalletLink></div>
                   <div className="holder-bar"><div className="fill" style={{width: Math.min(100, h.pct * 4) + '%'}}/></div>
                   <div className="holder-pct">{h.pct}%</div>
                 </div>

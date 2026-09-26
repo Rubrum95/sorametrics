@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    x.block_height     AS \"block_height!\",\n                    x.extrinsic_id     AS \"extrinsic_id!\",\n                    x.event_id         AS \"event_id!\",\n                    x.hash,\n                    x.block_timestamp  AS \"block_timestamp!\",\n                    x.caller           AS \"caller!\",\n                    x.input_asset_id   AS \"input_asset_id!\",\n                    x.input_amount     AS \"input_amount!: BigDecimal\",\n                    x.output_asset_id  AS \"output_asset_id!\",\n                    x.output_amount    AS \"output_amount!: BigDecimal\",\n                    x.usd_value        AS \"usd_value: BigDecimal\",\n                    x.output_usd_value AS \"output_usd_value: BigDecimal\"\n                FROM unnest($1::text[]) AS w(addr)\n                CROSS JOIN LATERAL (\n                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,\n                           input_asset_id, input_amount, output_asset_id, output_amount,\n                           usd_value, output_usd_value\n                    FROM sm.swaps WHERE caller = w.addr AND block_height >= $5\n                    ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC\n                    LIMIT $2\n                ) x\n                ORDER BY x.block_height ASC, x.event_id ASC, x.extrinsic_id ASC\n                LIMIT $3 OFFSET $4\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "caller!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "input_asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "input_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 8,
+        "name": "output_asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "output_amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 10,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "output_usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0c4c6228297316e8de2ace58bcf2c14a24e2af76254cfc00d663a43b9e069735"
+}

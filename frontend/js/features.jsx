@@ -464,7 +464,7 @@ function WalletProvider({ children }) {
 /* =========================================================================
    MODAL shell
    ========================================================================= */
-function Modal({ open, onClose, children, width = 520, label }) {
+function Modal({ open, onClose, children, width = 520, label, z }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -473,7 +473,7 @@ function Modal({ open, onClose, children, width = 520, label }) {
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="sm-modal-backdrop" onClick={onClose} role="dialog" aria-label={label || ''}>
+    <div className="sm-modal-backdrop" style={z ? { zIndex: z } : undefined} onClick={onClose} role="dialog" aria-label={label || ''}>
       <div className="sm-modal" style={{ width }} onClick={e => e.stopPropagation()}>
         {children}
       </div>
@@ -756,7 +756,9 @@ function CommandPalette({ open, onClose }) {
             <div className="palette-group">
               <div className="palette-grouptitle">{lang === 'es' ? t('s.recent', 'Recientes') : t('s.recent2', 'Recent')}</div>
               {recents.map((r, i) => (
-                <div key={i} className="palette-row palette-recent" onClick={() => setQ(r.q)}>
+                <div key={i} className="palette-row palette-recent" onClick={() => {
+                  if (isSoraAddress(r.q)) { onClose(); window.openWalletDetails?.(r.q); } else setQ(r.q);
+                }}>
                   <I.search style={{width:14,height:14, opacity:0.5}}/>
                   <span className="palette-primary">{r.q}</span>
                   <span className="palette-secondary muted">{fmt.ago(r.ts)} ago</span>
@@ -993,7 +995,7 @@ function WalletHistoryTable({ kind, rows }) {
                 <TinyTokLogo sym={r.symbol} logo={r.logo}/>
                 <span className="num">{fmt.num(Number(r.amount || 0), 2)}</span>
                 <span style={{fontWeight: 700}}>{r.symbol}</span>
-                <span className="muted tiny">{fmt.addr(r.from, 6, 4)} → {fmt.addr(r.to, 6, 4)}</span>
+                <span className="muted tiny"><AddrOrName addr={r.from} prefix={6} suffix={4}/> → <AddrOrName addr={r.to} prefix={6} suffix={4}/></span>
                 {r.usdValue && <span className="muted tiny" style={{marginLeft:'auto'}}>${Number(r.usdValue).toFixed(2)}</span>}
               </div>
             );
@@ -1064,7 +1066,7 @@ function useWalletHistory(endpoint, addr, active, page) {
   return { rows, totalPages };
 }
 
-function WalletHistoryPager({ page, totalPages, onPage }) {
+function HistoryPager({ page, totalPages, onPage }) {
   const t = useT();
   if (!totalPages || totalPages <= 1) return null;
   return (
@@ -1166,15 +1168,13 @@ function StakingPane({ staking }) {
               <thead><tr><th>{t('staking.col.validator', 'Validador')}</th><th style={{textAlign:'right'}}>{t('s.stake', 'Stake')}</th><th style={{textAlign:'right'}}>{t('drill.status', 'Estado')}</th></tr></thead>
               <tbody>
                 {validators.slice(0, 50).map((v, i) => {
-                  const vAddr = v.address || v.stash || v.validator || '';
+                  const vAddr = typeof v === 'string' ? v : (v.address || v.stash || v.validator || '');
                   const vStake = Number(v.stake ?? v.bonded ?? v.amount ?? 0);
                   const vStatus = v.status || (v.active ? 'Activo' : v.waiting ? 'Esperando' : '—');
                   return (
                     <tr key={i}>
                       <td>
-                        {vAddr
-                          ? <a className="link-mono" onClick={(e) => { e.preventDefault(); window.openWalletDetails && window.openWalletDetails(vAddr); }}>{fmt.addr(vAddr)}</a>
-                          : '—'}
+                        {vAddr ? <AddrOrName addr={vAddr}/> : '—'}
                       </td>
                       <td style={{textAlign:'right'}} className="num">{vStake > 0 ? fmt.num(vStake, 2) : '—'}</td>
                       <td style={{textAlign:'right'}} className="tiny muted">{vStatus}</td>
@@ -1537,7 +1537,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} width={WALLET_MODAL_WIDTH} label={wallet.alias}>
+    <Modal open={open} onClose={onClose} width={WALLET_MODAL_WIDTH} label={wallet.alias} z={12000}>
       <div className="sm-modal-head">
         <div style={{display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0}}>
           <div className="sm-avatar" style={{background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}>{wallet.alias[0]}</div>
@@ -1670,7 +1670,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
           const h = subtab==='swaps'?swaps:subtab==='transfers'?transfers:subtab==='bridges'?bridges:extrinsics;
           return (<>
             <WalletHistoryTable kind={subtab} rows={h.rows}/>
-            <WalletHistoryPager page={histPage(subtab)} totalPages={h.totalPages} onPage={p => setHistPage(subtab, p)}/>
+            <HistoryPager page={histPage(subtab)} totalPages={h.totalPages} onPage={p => setHistPage(subtab, p)}/>
           </>);
         })()}
 
@@ -2002,6 +2002,7 @@ Object.assign(window, {
   // Global wallet-details opener — any section (swaps/transfers/holders/drill)
   // calls window.openWalletDetails(addr, alias?) to pop the modal.
   openWalletDetails,
+  HistoryPager,
   ExportCsvButton, exportCsv,
   BackupRestore,
   // Exposed so Portfolio can render dedicated backup/restore buttons without

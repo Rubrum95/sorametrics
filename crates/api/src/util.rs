@@ -49,6 +49,52 @@ pub fn validate_asset_id(raw: &str) -> Result<String, ApiError> {
     }
 }
 
+/// Most wallets a `?wallets=` listing accepts (the CSV export's bound).
+pub const MAX_WALLETS: usize = 50;
+
+/// `?wallets=a,b,c`, split into SORA accounts and everything else.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WalletSet {
+    /// `(as given, canonical SS58)`, canonical addresses unique.
+    pub resolved: Vec<(String, String)>,
+    /// Entries that are not SORA accounts.
+    pub invalid: Vec<String>,
+}
+
+impl WalletSet {
+    /// Canonical addresses, in request order.
+    pub fn addresses(&self) -> Vec<String> {
+        self.resolved.iter().map(|(_, a)| a.clone()).collect()
+    }
+}
+
+/// Order kept, duplicates dropped; no entry at all or more than
+/// [`MAX_WALLETS`] → 400.
+pub fn parse_wallets(raw: &str) -> Result<WalletSet, ApiError> {
+    let mut set = WalletSet {
+        resolved: Vec::new(),
+        invalid: Vec::new(),
+    };
+    for part in raw.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        match validate_address(part) {
+            Ok(addr) if set.resolved.iter().any(|(_, a)| *a == addr) => {}
+            Ok(addr) => set.resolved.push((part.to_string(), addr)),
+            Err(_) if set.invalid.iter().any(|i| i == part) => {}
+            Err(_) => set.invalid.push(part.to_string()),
+        }
+    }
+    let n = set.resolved.len() + set.invalid.len();
+    if n == 0 {
+        return Err(ApiError::BadRequest("wallets: no address given".into()));
+    }
+    if n > MAX_WALLETS {
+        return Err(ApiError::BadRequest(format!(
+            "wallets: at most {MAX_WALLETS} addresses"
+        )));
+    }
+    Ok(set)
+}
+
 /// The Node's `Math.min(parseInt(limit) || default, max)`: a missing, zero or
 /// negative limit falls back to the default, a larger one is capped. The
 /// Node never rejects a limit, and the frontend relies on it
@@ -92,6 +138,31 @@ mod tests {
     // Same triple-sourced ground-truth pair as core::chain tests.
     const REAL_HEX: &str = "b6952251ddff222bb7e97bc725439bd1ca33105e02114680be1a3712cde62a0f";
     const REAL_SS58: &str = "cnVcgVYJqhyuQohhYrZraVs85dujMDCBsBhMj5z8QPHq91C84";
+
+    #[test]
+    fn wallets_are_validated_deduplicated_and_bounded() {
+        let bot = "cnVcgVYJqhyuQohhYrZraVs85dujMDCBsBhMj5z8QPHq91C84";
+        let got = parse_wallets(&format!(" {bot} ,{bot},")).unwrap();
+        assert_eq!(got.addresses(), vec![bot.to_string()]);
+        assert!(got.invalid.is_empty());
+        assert!(parse_wallets(" , ").is_err());
+        let typo = &bot[..bot.len() - 1];
+        let mixed = parse_wallets(&format!("notanaddress,{bot},{typo},notanaddress")).unwrap();
+        assert_eq!(mixed.addresses(), vec![bot.to_string()]);
+        assert_eq!(
+            mixed.invalid,
+            vec!["notanaddress".to_string(), typo.to_string()]
+        );
+        let many = std::iter::repeat_n(bot, MAX_WALLETS + 1)
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_eq!(parse_wallets(&many).unwrap().resolved.len(), 1);
+        let too_many = (0..=MAX_WALLETS)
+            .map(|i| format!("x{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert!(parse_wallets(&too_many).is_err());
+    }
 
     #[test]
     fn accepts_ss58_passthrough() {

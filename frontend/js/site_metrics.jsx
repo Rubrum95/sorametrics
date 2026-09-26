@@ -161,7 +161,7 @@ function SiteInteractionsCard() {
       <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
         <div>
           <div className="muted tiny" style={SM_PANEL_TITLE}>{t('site.topSearches', 'Top searches')}</div>
-          <SmBarList rows={data.searches} labelKey="q" valueKey="count" />
+          <SmBarList rows={data.searches} labelKey="q" valueKey="count" fmt={(q) => window.isSoraAddress?.(q) ? <window.WalletLink addr={q}>{q}</window.WalletLink> : (q || '—')} />
         </div>
         <div>
           <div className="muted tiny" style={SM_PANEL_TITLE}>{t('site.topInteractions', 'Top interactions')}</div>

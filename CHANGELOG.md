@@ -30,6 +30,33 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 - API: `/health/freshness` table thresholds sit above the longest quiet gaps seen on mainnet.
 - frontend: date filters send `timestamp`, the swaps token dropdown sends `symbol`, swap KPIs read
   the real 24 h fields, and the invented `× 0.997` on the output leg is gone.
+- API: deep pages without deep OFFSETs (`routes/deep.rs`). From offset 5 000, the block holding
+  the page and the rows before it are found in one index-only statement (one snapshot, so a block
+  committed meanwhile cannot make the skip negative), and the page query starts at that block:
+  global swaps/transfers, one wallet's swaps/transfers/extrinsics, and wallet sets. A bot wallet's
+  page 9 000 of 14 034 answers in ~1.5 s (it timed out).
+- API: `?wallets=a,b,…` (≤ 50, deduplicated) on `/history/global/{swaps,transfers,bridges,
+  extrinsics}` merges several wallets server-side (per-wallet index scans from the page's start
+  block, exact total); it cannot be combined with other filters (400). Entries that are not SORA
+  accounts are left out and listed in `invalid_wallets`; `resolved_wallets` maps each entry to
+  the canonical address. No keyset cursor in this mode. The Portfolio history tabs page through it.
+- API: a wallet's transfers = sent by it, or received from outside the queried set (disjoint, one
+  row each), counted index-only on a new `(to_address, block_height) INCLUDE (from_address)` index
+  (migration 0030): the 1.1 M-transfer wallet's count went from 9.8 s to 0.1 s and its middle
+  pages no longer time out.
+- API: a wallet's extrinsics count uses the signer index alone (`timestamp.set` is never signed by
+  a wallet): the bot wallet's page 1 went from a 504 to ~0.3 s.
+- DB: migration 0029 vacuums `sm.extrinsics`, `sm.swaps` and `sm.transfers` every 10 000 inserts,
+  so wallet counts stay index-only (the default 20 % left 154 K pages off the visibility map).
+- API: `/polkamarkt/positions/:addr` rows carry `collateral_asset`.
+- frontend: any SORA account shown anywhere opens its wallet drawer — names and addresses in
+  tables, drills, the live feed, governance, staking, holders, Polkamarkt, LP providers, and every
+  `cn…` inside JSON args/events. Copying moved to a ⧉ icon. Foreign-chain accounts stay plain.
+- frontend: the expanded extrinsic row shows the real args and events from
+  `/history/extrinsic/:block/:index`; it showed hard-coded sample data.
+- frontend: wallet drawer histories page (30 per page); Polkamarkt positions show shares and net
+  paid in collateral units with the asset symbol (they were raw 1e18 values printed as USD).
+- frontend: toasts sit above every modal; Liberland-side accounts inside JSON stay plain text.
 
 ### 2026-09-13
 - deploy kit for Rubrum-01: `docker-compose.prod.yml` (TimescaleDB pg14, loopback, sized for the

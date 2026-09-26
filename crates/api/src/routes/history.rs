@@ -23,12 +23,17 @@
 //! `/history/global/fee_events` and `/history/fee_events/:address`
 //! have no Node counterpart; they use the same envelope with flat rows.
 
+use super::deep::{deep_start, DeepStart, Stream};
 use crate::legacy::{
     bridge_direction_label, bridge_parties, decimals_for, fmt_amount, fmt_extrinsic_id, fmt_millis,
     fmt_time, fmt_usd, logo_for, page_bounds, seek, swap_usd, symbol_for, Seek,
 };
 use crate::state::Registry;
-use crate::{error::ApiError, util::validate_address, AppState};
+use crate::{
+    error::ApiError,
+    util::{validate_address, WalletSet},
+    AppState,
+};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -69,6 +74,8 @@ struct Pagination {
     symbol: Option<String>,
     /// Exact bridge network label (v33 addition).
     network: Option<String>,
+    /// Comma-separated wallets merged into one listing (v33 addition).
+    wallets: Option<String>,
 }
 
 /// Validated pagination driving one uniform SQL form: keyset sentinel
@@ -93,6 +100,8 @@ struct PageSpec {
     symbol: Option<String>,
     /// Trimmed `?network=`, if any.
     network: Option<String>,
+    /// Validated `?wallets=`, if any.
+    wallets: Option<WalletSet>,
 }
 
 impl PageSpec {
@@ -115,6 +124,24 @@ impl PageSpec {
     /// `%needle%` for ILIKE, if a filter was given.
     fn like_pattern(&self) -> Option<String> {
         self.needle.as_ref().map(|n| format!("%{n}%"))
+    }
+
+    /// `?wallets=` stands alone: the merged listing supports paging only.
+    fn wallets_alone(&self) -> Result<Option<&WalletSet>, ApiError> {
+        let Some(wallets) = self.wallets.as_ref() else {
+            return Ok(None);
+        };
+        let other = self.keyset
+            || self.until.is_some()
+            || self.needle.is_some()
+            || self.symbol.is_some()
+            || self.network.is_some();
+        if other {
+            return Err(ApiError::BadRequest(
+                "wallets cannot be combined with other filters".into(),
+            ));
+        }
+        Ok(Some(wallets))
     }
 
     /// Keyset sentinel for a newest-first page, lowered to `cap`.
@@ -193,6 +220,11 @@ impl Pagination {
             needle,
             symbol: trimmed(self.symbol.as_deref()),
             network: trimmed(self.network.as_deref()),
+            wallets: self
+                .wallets
+                .as_deref()
+                .map(crate::util::parse_wallets)
+                .transpose()?,
         })
     }
 }
@@ -207,6 +239,28 @@ struct Page<T> {
     total_pages: i64,
     /// v33 keyset cursor for the next page (`null` on the last page).
     next_before: Option<String>,
+    /// `?wallets=` entries that are not SORA accounts (left out).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    invalid_wallets: Option<Vec<String>>,
+    /// `?wallets=` entries and the canonical address each was read as.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_wallets: Option<Vec<ResolvedWallet>>,
+}
+
+#[derive(Serialize)]
+pub(super) struct ResolvedWallet {
+    input: String,
+    address: String,
+}
+
+pub(super) fn resolved_wallets(set: &WalletSet) -> Vec<ResolvedWallet> {
+    set.resolved
+        .iter()
+        .map(|(input, address)| ResolvedWallet {
+            input: input.clone(),
+            address: address.clone(),
+        })
+        .collect()
 }
 
 impl<T> Page<T> {
@@ -224,6 +278,8 @@ impl<T> Page<T> {
             page,
             total_pages,
             next_before,
+            invalid_wallets: None,
+            resolved_wallets: None,
         }
     }
 }
@@ -243,6 +299,25 @@ fn page_json<R: Keyed, T>(
     let last = rows.last().map(Keyed::key);
     let data = rows.iter().map(to_row).collect();
     Json(Page::build(data, total, pages, spec.limit, last))
+}
+
+/// A `?wallets=` page: no keyset cursor (the merged listing pages by
+/// number only) and the per-entry resolution.
+fn wallets_json<T>(
+    data: Vec<T>,
+    set: &WalletSet,
+    total: i64,
+    (total_pages, page): (i64, i64),
+) -> Json<Page<T>> {
+    Json(Page {
+        data,
+        total,
+        page,
+        total_pages,
+        next_before: None,
+        invalid_wallets: Some(set.invalid.clone()),
+        resolved_wallets: Some(resolved_wallets(set)),
+    })
 }
 
 macro_rules! keyed {
@@ -657,16 +732,25 @@ async fn swaps_page(
     .await?;
 
     let (total_pages, page, seek) = spec.resolve(total, wallet.is_some() || asset_ids.is_none());
-    let offset = match seek {
-        Seek::Head { offset } => offset,
+    let stream = asset_ids.is_none().then_some(Stream::Swaps { wallet });
+    let (offset, before) = match seek {
+        Seek::Head { offset } => match deep_start(state, stream, cap, offset, true).await? {
+            DeepStart::Plain => (offset, spec.head_bound(cap)),
+            DeepStart::At(d) => (d.skip, (d.block + 1, 0, "")),
+            DeepStart::PastEnd => (offset, (0, 0, "")),
+        },
         Seek::Tail { offset, take } => {
-            let rows = swaps_tail(state, spec, wallet, asset_ids.as_deref(), offset, take).await?;
+            let (lo, offset) = match deep_start(state, stream, cap, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
+            let rows =
+                swaps_tail(state, spec, wallet, asset_ids.as_deref(), lo, offset, take).await?;
             return Ok(page_json(rows, spec, total, (total_pages, page), |r| {
                 swap_row(r, &registry, state.time_zone)
             }));
         }
     };
-    let before = spec.head_bound(cap);
 
     let rows = sqlx::query_as!(
         SwapRecord,
@@ -715,6 +799,7 @@ async fn swaps_tail(
     spec: &PageSpec,
     wallet: Option<&str>,
     asset_ids: Option<&[String]>,
+    lo: i64,
     offset: i64,
     take: i64,
 ) -> Result<Vec<SwapRecord>, ApiError> {
@@ -738,6 +823,7 @@ async fn swaps_tail(
         WHERE ($3::text IS NULL OR caller = $3)
           AND ($4::text[] IS NULL OR input_asset_id = ANY($4) OR output_asset_id = ANY($4))
           AND ($5::timestamptz IS NULL OR block_timestamp <= $5)
+          AND block_height >= $6
         ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
         LIMIT $1 OFFSET $2
         "#,
@@ -746,6 +832,7 @@ async fn swaps_tail(
         wallet,
         asset_ids,
         spec.until,
+        lo,
     )
     .fetch_all(&state.listing_db)
     .await?;
@@ -898,6 +985,9 @@ async fn swaps(
     Query(p): Query<Pagination>,
 ) -> Result<Json<Page<SwapRow>>, ApiError> {
     let spec = p.validate(25)?;
+    if let Some(wallets) = spec.wallets_alone()? {
+        return swaps_of_wallets(&state, &spec, wallets).await;
+    }
     swaps_page(&state, &spec, None).await
 }
 
@@ -909,6 +999,120 @@ async fn wallet_swaps(
     let address = validate_address(&address)?;
     let spec = p.validate(25)?;
     swaps_page(&state, &spec, Some(&address)).await
+}
+
+/// Swaps of several wallets merged newest first (`?wallets=`): each
+/// wallet walks its caller index from the page's start block and
+/// contributes at most the rows the page can need.
+async fn swaps_of_wallets(
+    state: &AppState,
+    spec: &PageSpec,
+    set: &WalletSet,
+) -> Result<Json<Page<SwapRow>>, ApiError> {
+    let wallets = set.addresses();
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM sm.swaps WHERE caller = ANY($1)"#,
+        &wallets
+    )
+    .fetch_one(&state.listing_db)
+    .await?;
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let stream = Some(Stream::SwapsOf { wallets: &wallets });
+    let rows = match seek {
+        Seek::Head { offset } => {
+            let (skip, top) = match deep_start(state, stream, None, offset, true).await? {
+                DeepStart::Plain => (offset, i64::MAX),
+                DeepStart::At(d) => (d.skip, d.block),
+                DeepStart::PastEnd => (offset, -1),
+            };
+            sqlx::query_as!(
+                SwapRecord,
+                r#"
+                SELECT
+                    x.block_height     AS "block_height!",
+                    x.extrinsic_id     AS "extrinsic_id!",
+                    x.event_id         AS "event_id!",
+                    x.hash,
+                    x.block_timestamp  AS "block_timestamp!",
+                    x.caller           AS "caller!",
+                    x.input_asset_id   AS "input_asset_id!",
+                    x.input_amount     AS "input_amount!: BigDecimal",
+                    x.output_asset_id  AS "output_asset_id!",
+                    x.output_amount    AS "output_amount!: BigDecimal",
+                    x.usd_value        AS "usd_value: BigDecimal",
+                    x.output_usd_value AS "output_usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                           input_asset_id, input_amount, output_asset_id, output_amount,
+                           usd_value, output_usd_value
+                    FROM sm.swaps WHERE caller = w.addr AND block_height <= $5
+                    ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height DESC, x.event_id DESC, x.extrinsic_id DESC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                skip + spec.limit,
+                spec.limit,
+                skip,
+                top,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let (lo, skip) = match deep_start(state, stream, None, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
+            let mut rows = sqlx::query_as!(
+                SwapRecord,
+                r#"
+                SELECT
+                    x.block_height     AS "block_height!",
+                    x.extrinsic_id     AS "extrinsic_id!",
+                    x.event_id         AS "event_id!",
+                    x.hash,
+                    x.block_timestamp  AS "block_timestamp!",
+                    x.caller           AS "caller!",
+                    x.input_asset_id   AS "input_asset_id!",
+                    x.input_amount     AS "input_amount!: BigDecimal",
+                    x.output_asset_id  AS "output_asset_id!",
+                    x.output_amount    AS "output_amount!: BigDecimal",
+                    x.usd_value        AS "usd_value: BigDecimal",
+                    x.output_usd_value AS "output_usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, caller,
+                           input_asset_id, input_amount, output_asset_id, output_amount,
+                           usd_value, output_usd_value
+                    FROM sm.swaps WHERE caller = w.addr AND block_height >= $5
+                    ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height ASC, x.event_id ASC, x.extrinsic_id ASC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                skip + take,
+                take,
+                skip,
+                lo,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    let registry = state.registry.read().await;
+    let data = rows
+        .iter()
+        .map(|r| swap_row(r, &registry, state.time_zone))
+        .collect();
+    Ok(wallets_json(data, set, total, (total_pages, page)))
 }
 
 // =============================================================
@@ -986,6 +1190,14 @@ async fn transfers_page(
             .map(|n| registry.asset_ids_matching(n)),
     };
     let pattern = spec.like_pattern();
+    if let Some(w) = wallet.filter(|_| {
+        asset_ids.is_none() && pattern.is_none() && spec.until.is_none() && !spec.keyset
+    }) {
+        let (rows, total, pages) = transfers_of(state, spec, &[w.to_string()]).await?;
+        return Ok(page_json(rows, spec, total, pages, |r| {
+            transfer_row(r, &registry, state.time_zone)
+        }));
+    }
 
     let estimable = wallet.is_none() && asset_ids.is_none();
     let (total, cap) = page_total(state, spec, Table::Transfers, estimable, || {
@@ -997,16 +1209,26 @@ async fn transfers_page(
         total,
         wallet.is_some() || (asset_ids.is_none() && pattern.is_none()),
     );
-    let offset = match seek {
-        Seek::Head { offset } => offset,
+    let stream =
+        (wallet.is_none() && asset_ids.is_none() && pattern.is_none()).then_some(Stream::Transfers);
+    let (offset, before) = match seek {
+        Seek::Head { offset } => match deep_start(state, stream, cap, offset, true).await? {
+            DeepStart::Plain => (offset, spec.head_bound(cap)),
+            DeepStart::At(d) => (d.skip, (d.block + 1, 0, "")),
+            DeepStart::PastEnd => (offset, (0, 0, "")),
+        },
         Seek::Tail { offset, take } => {
+            let (lo, offset) = match deep_start(state, stream, cap, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
             let rows = transfers_tail(
                 state,
                 spec,
                 wallet,
                 asset_ids.as_deref(),
                 pattern.as_deref(),
-                offset,
+                (lo, offset),
                 take,
             )
             .await?;
@@ -1015,7 +1237,6 @@ async fn transfers_page(
             }));
         }
     };
-    let before = spec.head_bound(cap);
 
     let rows = sqlx::query_as!(
         TransferRecord,
@@ -1065,7 +1286,7 @@ async fn transfers_tail(
     wallet: Option<&str>,
     asset_ids: Option<&[String]>,
     pattern: Option<&str>,
-    offset: i64,
+    (lo, offset): (i64, i64),
     take: i64,
 ) -> Result<Vec<TransferRecord>, ApiError> {
     let mut rows = sqlx::query_as!(
@@ -1087,6 +1308,7 @@ async fn transfers_tail(
           AND ($4::text[] IS NULL OR asset_id = ANY($4)
                OR from_address ILIKE $5 OR to_address ILIKE $5)
           AND ($6::timestamptz IS NULL OR block_timestamp <= $6)
+          AND block_height >= $7
         ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
         LIMIT $1 OFFSET $2
         "#,
@@ -1096,6 +1318,7 @@ async fn transfers_tail(
         asset_ids,
         pattern,
         spec.until,
+        lo,
     )
     .fetch_all(&state.listing_db)
     .await?;
@@ -1214,6 +1437,9 @@ async fn transfers(
     Query(p): Query<Pagination>,
 ) -> Result<Json<Page<TransferRow>>, ApiError> {
     let spec = p.validate(25)?;
+    if let Some(wallets) = spec.wallets_alone()? {
+        return transfers_of_wallets(&state, &spec, wallets).await;
+    }
     transfers_page(&state, &spec, None).await
 }
 
@@ -1225,6 +1451,144 @@ async fn wallet_transfers(
     let address = validate_address(&address)?;
     let spec = p.validate(20)?;
     transfers_page(&state, &spec, Some(&address)).await
+}
+
+/// Transfers of several wallets merged newest first (`?wallets=`).
+async fn transfers_of_wallets(
+    state: &AppState,
+    spec: &PageSpec,
+    set: &WalletSet,
+) -> Result<Json<Page<TransferRow>>, ApiError> {
+    let (rows, total, pages) = transfers_of(state, spec, &set.addresses()).await?;
+    let registry = state.registry.read().await;
+    let data = rows
+        .iter()
+        .map(|r| transfer_row(r, &registry, state.time_zone))
+        .collect();
+    Ok(wallets_json(data, set, total, pages))
+}
+
+/// Transfers touching any of `wallets`: sent by one of them, or received
+/// by one of them from outside the set (disjoint, so a transfer between
+/// two of them appears once). Each wallet walks its from/to indexes from
+/// the page's start block.
+async fn transfers_of(
+    state: &AppState,
+    spec: &PageSpec,
+    wallets: &[String],
+) -> Result<(Vec<TransferRecord>, i64, (i64, i64)), ApiError> {
+    let total = sqlx::query_scalar!(
+        r#"SELECT (SELECT COUNT(*) FROM sm.transfers WHERE from_address = ANY($1))
+                + (SELECT COUNT(*) FROM sm.transfers
+                   WHERE to_address = ANY($1) AND NOT (from_address = ANY($1))) AS "count!""#,
+        wallets
+    )
+    .fetch_one(&state.listing_db)
+    .await?;
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let stream = Some(Stream::TransfersOf { wallets });
+    let rows = match seek {
+        Seek::Head { offset } => {
+            let (skip, top) = match deep_start(state, stream, None, offset, true).await? {
+                DeepStart::Plain => (offset, i64::MAX),
+                DeepStart::At(d) => (d.skip, d.block),
+                DeepStart::PastEnd => (offset, -1),
+            };
+            sqlx::query_as!(
+                TransferRecord,
+                r#"
+                SELECT
+                    x.block_height    AS "block_height!",
+                    x.extrinsic_id    AS "extrinsic_id!",
+                    x.event_id        AS "event_id!",
+                    x.hash,
+                    x.block_timestamp AS "block_timestamp!",
+                    x.from_address    AS "from_address!",
+                    x.to_address      AS "to_address!",
+                    x.asset_id        AS "asset_id!",
+                    x.amount          AS "amount!: BigDecimal",
+                    x.usd_value       AS "usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,
+                            from_address, to_address, asset_id, amount, usd_value
+                     FROM sm.transfers
+                     WHERE from_address = w.addr AND block_height <= $5
+                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                     LIMIT $2)
+                    UNION ALL
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,
+                            from_address, to_address, asset_id, amount, usd_value
+                     FROM sm.transfers
+                     WHERE to_address = w.addr AND NOT (from_address = ANY($1))
+                       AND block_height <= $5
+                     ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                     LIMIT $2)
+                ) x
+                ORDER BY x.block_height DESC, x.event_id DESC, x.extrinsic_id DESC
+                LIMIT $3 OFFSET $4
+                "#,
+                wallets,
+                skip + spec.limit,
+                spec.limit,
+                skip,
+                top,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let (lo, skip) = match deep_start(state, stream, None, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
+            let mut rows = sqlx::query_as!(
+                TransferRecord,
+                r#"
+                SELECT
+                    x.block_height    AS "block_height!",
+                    x.extrinsic_id    AS "extrinsic_id!",
+                    x.event_id        AS "event_id!",
+                    x.hash,
+                    x.block_timestamp AS "block_timestamp!",
+                    x.from_address    AS "from_address!",
+                    x.to_address      AS "to_address!",
+                    x.asset_id        AS "asset_id!",
+                    x.amount          AS "amount!: BigDecimal",
+                    x.usd_value       AS "usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,
+                            from_address, to_address, asset_id, amount, usd_value
+                     FROM sm.transfers
+                     WHERE from_address = w.addr AND block_height >= $5
+                     ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                     LIMIT $2)
+                    UNION ALL
+                    (SELECT block_height, extrinsic_id, event_id, hash, block_timestamp,
+                            from_address, to_address, asset_id, amount, usd_value
+                     FROM sm.transfers
+                     WHERE to_address = w.addr AND NOT (from_address = ANY($1))
+                       AND block_height >= $5
+                     ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                     LIMIT $2)
+                ) x
+                ORDER BY x.block_height ASC, x.event_id ASC, x.extrinsic_id ASC
+                LIMIT $3 OFFSET $4
+                "#,
+                wallets,
+                skip + take,
+                take,
+                skip,
+                lo,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    Ok((rows, total, (total_pages, page)))
 }
 
 // =============================================================
@@ -1434,6 +1798,9 @@ async fn bridges(
     Query(p): Query<Pagination>,
 ) -> Result<Json<Page<BridgeRow>>, ApiError> {
     let spec = p.validate(20)?;
+    if let Some(wallets) = spec.wallets_alone()? {
+        return bridges_of_wallets(&state, &spec, wallets).await;
+    }
     bridges_page(&state, &spec, None).await
 }
 
@@ -1445,6 +1812,106 @@ async fn wallet_bridges(
     let address = validate_address(&address)?;
     let spec = p.validate(20)?;
     bridges_page(&state, &spec, Some(&address)).await
+}
+
+/// Bridge operations of several wallets merged newest first
+/// (`?wallets=`); one between two of them appears once.
+async fn bridges_of_wallets(
+    state: &AppState,
+    spec: &PageSpec,
+    set: &WalletSet,
+) -> Result<Json<Page<BridgeRow>>, ApiError> {
+    let wallets = set.addresses();
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM sm.bridges
+           WHERE caller = ANY($1) OR counterparty = ANY($1)"#,
+        &wallets
+    )
+    .fetch_one(&state.listing_db)
+    .await?;
+    let (total_pages, page, seek) = spec.resolve(total, true);
+    let rows = match seek {
+        Seek::Head { offset } => {
+            sqlx::query_as!(
+                BridgeRecord,
+                r#"
+                SELECT DISTINCT ON (x.block_height, x.event_id, x.extrinsic_id)
+                    x.block_height    AS "block_height!",
+                    x.extrinsic_id    AS "extrinsic_id!",
+                    x.event_id        AS "event_id!",
+                    x.hash,
+                    x.block_timestamp AS "block_timestamp!",
+                    x.direction::text AS "direction!",
+                    x.network         AS "network!",
+                    x.caller          AS "caller!",
+                    x.counterparty,
+                    x.asset_id        AS "asset_id!",
+                    x.amount          AS "amount!: BigDecimal",
+                    x.usd_value       AS "usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, direction,
+                           network, caller, counterparty, asset_id, amount, usd_value
+                    FROM sm.bridges WHERE caller = w.addr OR counterparty = w.addr
+                    ORDER BY block_height DESC, event_id DESC, extrinsic_id DESC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height DESC, x.event_id DESC, x.extrinsic_id DESC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                offset + spec.limit,
+                spec.limit,
+                offset,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let mut rows = sqlx::query_as!(
+                BridgeRecord,
+                r#"
+                SELECT DISTINCT ON (x.block_height, x.event_id, x.extrinsic_id)
+                    x.block_height    AS "block_height!",
+                    x.extrinsic_id    AS "extrinsic_id!",
+                    x.event_id        AS "event_id!",
+                    x.hash,
+                    x.block_timestamp AS "block_timestamp!",
+                    x.direction::text AS "direction!",
+                    x.network         AS "network!",
+                    x.caller          AS "caller!",
+                    x.counterparty,
+                    x.asset_id        AS "asset_id!",
+                    x.amount          AS "amount!: BigDecimal",
+                    x.usd_value       AS "usd_value: BigDecimal"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, direction,
+                           network, caller, counterparty, asset_id, amount, usd_value
+                    FROM sm.bridges WHERE caller = w.addr OR counterparty = w.addr
+                    ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height ASC, x.event_id ASC, x.extrinsic_id ASC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                offset + take,
+                take,
+                offset,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    let registry = state.registry.read().await;
+    let data = rows
+        .iter()
+        .map(|r| bridge_row(r, &registry, state.time_zone))
+        .collect();
+    Ok(wallets_json(data, set, total, (total_pages, page)))
 }
 
 // =============================================================
@@ -1729,6 +2196,31 @@ mod tests {
             ..Pagination::default()
         };
         assert!(p.validate(25).unwrap().symbol.is_none());
+    }
+
+    #[test]
+    fn wallets_stand_alone() {
+        let bot = "cnVcgVYJqhyuQohhYrZraVs85dujMDCBsBhMj5z8QPHq91C84";
+        let p = Pagination {
+            wallets: Some(bot.into()),
+            ..Pagination::default()
+        };
+        let s = p.validate(25).unwrap();
+        let set = s.wallets_alone().unwrap().unwrap();
+        assert_eq!(set.addresses(), vec![bot.to_string()]);
+        assert!(set.invalid.is_empty());
+        let p = Pagination {
+            wallets: Some(bot.into()),
+            symbol: Some("XOR".into()),
+            ..Pagination::default()
+        };
+        assert!(p.validate(25).unwrap().wallets_alone().is_err());
+        assert!(pag(None, None, None)
+            .validate(25)
+            .unwrap()
+            .wallets_alone()
+            .unwrap()
+            .is_none());
     }
 
     #[test]

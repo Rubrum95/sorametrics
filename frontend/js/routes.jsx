@@ -224,7 +224,7 @@ function TransfersSection({ tweaks }) {
           <KpiGrid items={[
             { label: t('nav.transfers') + ' · 24h', value: net ? Number(net.transferCount).toLocaleString() : '—', sub: t('s.last24h', 'last 24h') },
             { label: t('col.volume') + ' · 24h',    value: net ? fmt.usd(Number(net.transferVolume)) : '—', sub: t('s.acrossAllAssets', 'across all assets') },
-            { label: t('s.topSender', 'Top Sender'),      value: topSender, valStyle:{fontSize: 18}, sub: topSenderCount ? (topSenderCount + ' transfers') : '—' },
+            { label: t('s.topSender', 'Top Sender'),      value: topSenderEntry ? <WalletLink addr={topSenderEntry[0]}>{topSender}</WalletLink> : '—', valStyle:{fontSize: 18}, sub: topSenderCount ? (topSenderCount + ' transfers') : '—' },
             { label: t('s.counterparties', 'Counterparties'),  value: unique.size.toLocaleString(), sub: t('s.uniqueAddresses', 'unique addresses') },
           ]}/>
         );
@@ -1153,7 +1153,7 @@ function PoolProvidersModal({ base, target, onClose }) {
                   return (
                   <tr key={(p.address || '') + i}>
                     <td className="num">{i + 1}</td>
-                    <td><span className="num tiny">{fmt.addr(p.address || p.wallet, 8, 6)}</span></td>
+                    <td><span className="num tiny"><AddrOrName addr={p.address || p.wallet} prefix={8} suffix={6}/></span></td>
                     <td style={{textAlign:'right'}} className="num">{fmt.num(bal, 4)}</td>
                     <td style={{textAlign:'right', color:'#FBB040', fontWeight: 700}} className="num">{share.toFixed(2)}%</td>
                   </tr>
@@ -2129,7 +2129,7 @@ function StakingSection({ tweaks }) {
                       <td>
                         <div style={{display:'flex', alignItems:'center', gap: 10}}>
                           <div style={{width:26, height:26, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}/>
-                          <span style={{fontWeight:700, color:'var(--fg-0)'}}>{v.name}</span>
+                          <WalletLink addr={v.address} style={{fontWeight:700, color:'var(--fg-0)'}}>{v.name}</WalletLink>
                         </div>
                       </td>
                       <td style={{textAlign:'right'}} className="num"><strong>{fmt.num(v.total, 0)} XOR</strong></td>
@@ -2218,7 +2218,7 @@ function StakingSection({ tweaks }) {
                       <tr key={String(bn) + (hash || '')}>
                         <td style={{paddingLeft:20}}><a className="block-link num" href="#" onClick={e => e.preventDefault()}>#{Number(bn || 0).toLocaleString()}</a></td>
                         <td><span className="num tiny muted">{hash ? (hash.slice(0, 10) + '…' + hash.slice(-6)) : '—'}</span></td>
-                        <td>{validator ? (window.identityName?.(validator) || fmt.addr(validator, 5, 4)) : '—'}</td>
+                        <td>{validator ? <AddrOrName addr={validator}/> : '—'}</td>
                         <td><span className="muted tiny" title={ts ? fmt.fullDate(Number(ts)) : ''}>{ts ? fmt.ago(Number(ts)) : '—'}</span></td>
                         <td style={{paddingRight:20, textAlign:'right'}} className="num">{txs}</td>
                       </tr>
@@ -2586,7 +2586,7 @@ function StakingSection({ tweaks }) {
                             <div style={{display:'flex', alignItems:'center', gap:10}}>
                               <div style={{width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
                               <div style={{minWidth:0}}>
-                                <div style={{fontWeight:700, color:'var(--fg-0)', fontSize:13, whiteSpace:'nowrap'}}>{displayName}</div>
+                                <div style={{fontWeight:700, color:'var(--fg-0)', fontSize:13, whiteSpace:'nowrap'}}><WalletLink addr={v.address}>{displayName}</WalletLink></div>
                               </div>
                             </div>
                           </td>
@@ -2679,7 +2679,7 @@ function StakingSection({ tweaks }) {
                             <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 200px'}}>
                               <span className={'rank-chip ' + (i < 3 ? 'top3' : '')} style={{fontSize:10, flexShrink:0}}>{i + 1}</span>
                               <div style={{width:22, height:22, borderRadius:5, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
-                              <span style={{fontSize:12, fontWeight:600, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0}}>{displayName}</span>
+                              <WalletLink addr={v.address} style={{fontSize:12, fontWeight:600, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0}}>{displayName}</WalletLink>
                             </div>
                             {/* Metrics — wrap to next line on mobile */}
                             <div style={{display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', justifyContent:'flex-end', flex:'0 0 auto'}}>
@@ -2834,6 +2834,7 @@ function GovSection({ tweaks }) {
       })),
       runnersUp: (Array.isArray(src.runnersUp) ? src.runnersUp : []).map(e => ({
         name: e.identity || (e.address ? e.address.slice(0, 8) + '…' + e.address.slice(-6) : 'Unknown'),
+        addr: e.address,
         votes: Math.round(Number(e.stake || e.votes) || 0),
       })),
     };
@@ -2985,8 +2986,8 @@ function GovSection({ tweaks }) {
                     <div style={{display:'flex', alignItems:'center', gap:10}}>
                       <div style={{width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
                       <div style={{minWidth:0}}>
-                        <div style={{fontWeight:700, whiteSpace:'nowrap'}}>{c.name}</div>
-                        <div className="muted tiny num" style={{whiteSpace:'nowrap'}}>{fmt.addr(c.addr, 6, 4)}</div>
+                        <div style={{fontWeight:700, whiteSpace:'nowrap'}}><WalletLink addr={c.addr}>{c.name}</WalletLink></div>
+                        <div className="muted tiny num" style={{whiteSpace:'nowrap'}}><WalletLink addr={c.addr}>{fmt.addr(c.addr, 6, 4)}</WalletLink></div>
                       </div>
                     </div>
                   </td>
@@ -3008,7 +3009,7 @@ function GovSection({ tweaks }) {
                 <div key={i} className="elec-row">
                   <div style={{width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}/>
                   <div style={{flex:1, minWidth:0}}>
-                    <div style={{fontWeight:700, fontSize:13}}>{c.name}</div>
+                    <div style={{fontWeight:700, fontSize:13}}><WalletLink addr={c.addr}>{c.name}</WalletLink></div>
                     <div className="muted tiny">{t('gov.elections.bond', 'Fianza')} · {c.bond} XOR</div>
                   </div>
                   <div className="elec-bar"><div className="elec-bar-fill" style={{width: (c.votes / 48200 * 100) + '%'}}/></div>
@@ -3023,7 +3024,7 @@ function GovSection({ tweaks }) {
               {elections.runnersUp.map((r, i) => (
                 <div key={i} className="elec-row">
                   <div style={{width: 24, height: 24, borderRadius: 6, background:'linear-gradient(135deg,#7B5B90,#4A3566)'}}/>
-                  <div style={{flex:1, fontWeight:700, fontSize: 13}}>{r.name}</div>
+                  <div style={{flex:1, fontWeight:700, fontSize: 13}}><WalletLink addr={r.addr}>{r.name}</WalletLink></div>
                   <div className="num muted">{fmt.num(r.votes, 1)}</div>
                 </div>
               ))}
@@ -3135,8 +3136,8 @@ function GovSection({ tweaks }) {
                       <div style={{display:'flex', alignItems:'center', gap:10, padding:'4px 0'}}>
                         <div style={{width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)'}}/>
                         <div>
-                          <div style={{fontWeight:700}}>{m.name}</div>
-                          <div className="muted tiny num">{fmt.addr(m.addr, 6, 4)}</div>
+                          <div style={{fontWeight:700}}><WalletLink addr={m.addr}>{m.name}</WalletLink></div>
+                          <div className="muted tiny num"><WalletLink addr={m.addr}>{fmt.addr(m.addr, 6, 4)}</WalletLink></div>
                         </div>
                       </div>
                     </td>
@@ -3330,7 +3331,7 @@ function PreimagesPanel() {
                   </td>
                   <td data-label="Status"><span style={{color: statusColor, fontWeight:600}}>{p.status}</span></td>
                   <td data-label="Tamaño" style={{textAlign:'right'}} className="num">{p.len ?? '—'}</td>
-                  <td data-label="Author" title={p.depositor || ''}>{depLabel}</td>
+                  <td data-label="Author" title={p.depositor || ''}>{p.depositor ? <WalletLink addr={p.depositor} name={data.identities?.[p.depositor]}>{depLabel}</WalletLink> : depLabel}</td>
                   <td data-label="Depósito" style={{textAlign:'right'}} className="num">{fmtDeposit(p.deposit)}</td>
                   <td data-label="Publicada">
                     {first === undefined && <span className="muted tiny">…</span>}
@@ -3535,7 +3536,7 @@ function ReferendumDetailModal({ refId, onClose }) {
                 {preimage.decoded?.args && (
                   <>
                     <div className="muted tiny" style={{marginBottom:6}}>{t('s.parameters', 'Parameters')}</div>
-                    <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'50vh', fontSize:12}}>{JSON.stringify(preimage.decoded.args, null, 2)}</pre>
+                    <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'50vh', fontSize:12}}><JsonWithAddrs value={preimage.decoded.args}/></pre>
                   </>
                 )}
                 {!preimage.decoded && (
@@ -3787,11 +3788,11 @@ function GenericArgsView({ decoded }) {
     if (looksLikeSoraAddress(v)) {
       const display = identities[v];
       return (
-        <span title={v}>
+        <WalletLink addr={v} name={display}>
           {display
             ? <strong style={{color:'var(--accent)'}}>{display}</strong>
             : <span className="num tiny">{fmt.addr(v, 6, 4)}</span>}
-        </span>
+        </WalletLink>
       );
     }
     // Long hex blob → collapsed.
@@ -3822,7 +3823,7 @@ function GenericArgsView({ decoded }) {
     // still readable without falling off the cliff of JSON.stringify on the
     // whole args tree.
     if (v && typeof v === 'object') {
-      return <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.25)', borderRadius:6, fontSize:12, maxHeight:240, overflow:'auto'}}>{JSON.stringify(v, null, 2)}</pre>;
+      return <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.25)', borderRadius:6, fontSize:12, maxHeight:240, overflow:'auto'}}><JsonWithAddrs value={v}/></pre>;
     }
     return <span style={{wordBreak:'break-all'}}>{String(v)}</span>;
   };
@@ -3989,7 +3990,7 @@ function PreimageDecodeModal({ hash, len, onClose }) {
             {pretty ? (
               <HumanDecodeView decoded={data.decoded} pretty={prettyData} />
             ) : (
-              <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'60vh', fontSize:12, lineHeight:1.5}}>{JSON.stringify(truncatedArgs, null, 2)}</pre>
+              <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'60vh', fontSize:12, lineHeight:1.5}}><JsonWithAddrs value={truncatedArgs}/></pre>
             )}
           </div>
         )}
@@ -4563,7 +4564,8 @@ function AggregatedHistory({ kind, wallets, watched }) {
   const t = useT();
   const [scope, setScope] = useState('all');                 // 'all' | 'mis' | 'vig'
   const [walletFilter, setWalletFilter] = useState('all');   // 'all' | <addr>
-  const [rows, setRows] = useState(null);                    // null = loading
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState(null);                // null = loading
 
   const activeSet = useMemo(() => {
     if (scope === 'mis') return wallets || [];
@@ -4573,39 +4575,52 @@ function AggregatedHistory({ kind, wallets, watched }) {
 
   useEffect(() => { setWalletFilter('all'); }, [scope]);
 
+  const queried = useMemo(() => {
+    const set = walletFilter === 'all' ? activeSet : activeSet.filter(w => w.addr === walletFilter);
+    const seen = new Set();
+    return set.filter(w => w.addr && !seen.has(w.addr) && seen.add(w.addr)).slice(0, 50);
+  }, [activeSet, walletFilter]);
+  const queriedKey = queried.map(w => w.addr).join(',');
+  const byAlias = (addr) => {
+    const w = queried.find(x => x.addr === addr);
+    return w?.alias ? w.alias + ' (' + addr + ')' : addr;
+  };
+  const truncated = walletFilter === 'all' && new Set(activeSet.map(w => w.addr)).size > queried.length;
+
+  useEffect(() => { setPage(1); }, [kind, queriedKey]);
+
   useEffect(() => {
-    if (activeSet.length === 0) { setRows([]); return; }
+    if (queried.length === 0) { setResult({ rows: [], total: 0, totalPages: 0 }); return; }
     let cancelled = false;
-    setRows(null);
-    (async () => {
-      const all = await Promise.all(
-        activeSet.map(w =>
-          fetch('/history/' + kind + '/' + encodeURIComponent(w.addr))
-            .then(r => r.ok ? r.json() : null)
-            .then(j => {
-              const arr = Array.isArray(j) ? j : (j?.data || j?.items || []);
-              return arr.map(row => ({
-                ...row,
-                __walletAlias: w.alias,
-                __walletAddr: w.addr,
-                __walletKind: (wallets || []).some(x => x.addr === w.addr) ? 'mis' : 'vig',
-              }));
-            })
-            .catch(() => [])
-        )
-      );
-      if (cancelled) return;
-      const parseTs = (r) => {
-        if (r.timestamp) { const n = Number(r.timestamp); return n < 1e12 ? n * 1000 : n; }
-        if (r.time) return parseHistTime(r.time);
-        return 0;
-      };
-      const flat = all.flat().sort((a, b) => parseTs(b) - parseTs(a));
-      setRows(flat.slice(0, 200));
-    })();
+    setResult(null);
+    const url = '/history/global/' + kind + '?wallets=' + encodeURIComponent(queriedKey) + '&limit=30&page=' + page;
+    fetch(url)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(j => {
+        if (cancelled) return;
+        const byAddr = new Map(queried.map(w => [w.addr, w]));
+        const inputOf = new Map((j?.resolved_wallets || []).map(r => [r.address, r.input]));
+        const mine = new Set((wallets || []).map(w => w.addr));
+        const ownerOf = (row) => {
+          const cands = kind === 'swaps' ? [row.wallet]
+            : kind === 'transfers' ? [row.from, row.to]
+            : kind === 'bridges' ? [row.sender, row.recipient]
+            : [row.signer];
+          return cands.map(a => inputOf.get(a) || a).find(a => byAddr.has(a));
+        };
+        const rows = (j?.data || []).map(row => {
+          const addr = ownerOf(row);
+          const w = byAddr.get(addr);
+          return { ...row, __walletAddr: addr, __walletAlias: w?.alias || '', __walletKind: mine.has(addr) ? 'mis' : 'vig' };
+        });
+        setResult({ rows, total: Number(j?.total) || 0, totalPages: Number(j?.totalPages) || 0, invalid: j?.invalid_wallets || [] });
+      })
+      .catch(() => { if (!cancelled) setResult({ rows: [], total: 0, totalPages: 0, error: true }); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, activeSet.map(w => w.addr).join(',')]);
+  }, [kind, queriedKey, page]);
+
+  const rows = result ? result.rows : null;
 
   if (!wallets.length && !watched.length) {
     return (
@@ -4615,9 +4630,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
     );
   }
 
-  const filteredRows = walletFilter === 'all'
-    ? (rows || [])
-    : (rows || []).filter(r => r.__walletAddr === walletFilter);
+  const filteredRows = rows || [];
 
   // Extract the row's USD value so we can render it in a dedicated column with
   // a fixed width — otherwise USD drifts far-right with flex auto and leaves
@@ -4664,12 +4677,10 @@ function AggregatedHistory({ kind, wallets, watched }) {
       );
     }
     if (kind === 'bridges') {
-      const openWallet = (addr) => (ev) => {
-        ev.stopPropagation();
-        // Only open SORA-side drill for SS58 addresses. EVM addresses (0x…) get
-        // no drill because /balance/:addr requires SS58.
-        if (addr && !/^0x/.test(addr)) window.openWalletDetails?.(addr, window.identityName?.(addr) || null);
-      };
+      // Only the SORA side (sender of an outgoing bridge, recipient of an
+      // incoming one) is a SORA account; the other side is a foreign chain's.
+      const soraSide = r.direction === 'Incoming' ? r.recipient : r.sender;
+      const openWallet = (addr) => (addr === soraSide ? walletOpener(addr) : undefined);
       return (
         <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:6, flexWrap:'wrap'}}>
           <TinyTokLogo sym={r.symbol} logo={r.logo}/>
@@ -4679,9 +4690,9 @@ function AggregatedHistory({ kind, wallets, watched }) {
           <span className="muted tiny">via {r.network || '—'}</span>
           {(r.sender || r.recipient) && (
             <span className="muted tiny" style={{display:'inline-flex', alignItems:'center', gap:4}}>
-              {r.sender && <AddrOrName addr={r.sender} prefix={6} suffix={4} onClick={openWallet(r.sender)} style={{textDecoration:'underline dotted'}}/>}
+              {r.sender && <AddrOrName addr={r.sender} prefix={6} suffix={4} onClick={openWallet(r.sender)} plain={r.sender !== soraSide}/>}
               {r.sender && r.recipient && ' → '}
-              {r.recipient && <AddrOrName addr={r.recipient} prefix={6} suffix={4} onClick={openWallet(r.recipient)} style={{textDecoration:'underline dotted'}}/>}
+              {r.recipient && <AddrOrName addr={r.recipient} prefix={6} suffix={4} onClick={openWallet(r.recipient)} plain={r.recipient !== soraSide}/>}
             </span>
           )}
         </div>
@@ -4727,7 +4738,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
             <option value="all">{t('s.allWallets', 'Todas las wallets')}</option>
             {activeSet.map(w => <option key={w.addr} value={w.addr}>{w.alias}</option>)}
           </select>
-          <span className="tag">{rows === null ? '…' : filteredRows.length + ' rows'}</span>
+          <span className="tag">{result === null ? '…' : result.total.toLocaleString() + ' rows'}</span>
         </div>
       </div>
       {/* Full-width table with evenly-distributed columns (percentage widths +
@@ -4754,7 +4765,9 @@ function AggregatedHistory({ kind, wallets, watched }) {
               <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>{t('s.loadingActivity', 'Cargando actividad…')}</td></tr>
             )}
             {rows && filteredRows.length === 0 && (
-              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>{t('s.noRecentKindFilter', 'Sin {kind} recientes para este filtro.').replace('{kind}', kind)}</td></tr>
+              <tr><td colSpan={4} style={{padding:28, textAlign:'center', color:'var(--fg-2)'}}>
+                {result?.error ? t('s.loadError', 'Could not load data.') : t('s.noRecentKindFilter', 'Sin {kind} recientes para este filtro.').replace('{kind}', kind)}
+              </td></tr>
             )}
             {filteredRows.map((r, i) => {
               const block = r.block || (r.extrinsic_id ? String(r.extrinsic_id).split('-')[0] : '');
@@ -4792,6 +4805,15 @@ function AggregatedHistory({ kind, wallets, watched }) {
           </tbody>
         </table>
       </div>
+      {truncated && (
+        <div className="muted tiny" style={{padding:'8px 20px'}}>{t('s.first50Wallets', 'Only the first 50 wallets are included.')}</div>
+      )}
+      {result?.invalid?.length > 0 && (
+        <div className="muted tiny" style={{padding:'8px 20px', overflowWrap:'anywhere'}}>
+          {t('s.invalidWalletsLeftOut', 'Not SORA addresses, left out: {list}').replace('{list}', result.invalid.map(a => byAlias(a)).join(', '))}
+        </div>
+      )}
+      {window.HistoryPager && <window.HistoryPager page={page} totalPages={result?.totalPages} onPage={setPage}/>}
     </div>
   );
 }

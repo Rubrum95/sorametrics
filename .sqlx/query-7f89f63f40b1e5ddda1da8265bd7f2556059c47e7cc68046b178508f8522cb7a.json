@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH b AS (\n                   SELECT block_height FROM sm.swaps\n                   WHERE ($1::text IS NULL OR caller = $1) AND block_height < $2\n                   ORDER BY block_height ASC OFFSET $3 LIMIT 1)\n               SELECT b.block_height AS \"block!\",\n                      (SELECT COUNT(*) FROM sm.swaps s\n                       WHERE ($1::text IS NULL OR s.caller = $1)\n                         AND s.block_height < b.block_height) AS \"before!\"\n               FROM b",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "before!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "7f89f63f40b1e5ddda1da8265bd7f2556059c47e7cc68046b178508f8522cb7a"
+}

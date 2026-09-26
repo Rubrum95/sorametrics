@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH s AS (\n                   SELECT block_height FROM sm.transfers\n                   WHERE from_address = ANY($1) AND block_height < $2\n                   UNION ALL\n                   SELECT block_height FROM sm.transfers\n                   WHERE to_address = ANY($1) AND NOT (from_address = ANY($1))\n                     AND block_height < $2),\n               b AS (SELECT block_height FROM s ORDER BY block_height DESC OFFSET $3 LIMIT 1)\n               SELECT b.block_height AS \"block!\",\n                      (SELECT COUNT(*) FROM s WHERE s.block_height > b.block_height) AS \"before!\"\n               FROM b",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "before!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "43196efc4af1ee0d0734236fadf215f5e5bbacea218784fb37355f8fee2e20c3"
+}

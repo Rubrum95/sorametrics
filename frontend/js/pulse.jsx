@@ -57,7 +57,7 @@ function makeFeedItemFromSwap(s, idx) {
       ' → ',
       React.createElement('b', null, fmt.num(amtOut, 2) + ' ' + (s.out.symbol || '?')),
     ),
-    line2: fmt.addr(s.wallet || '') + ' · fee 0.3% · ' + (usd ? fmt.usd(usd) : ''),
+    line2: <><WalletLink addr={s.wallet}>{fmt.addr(s.wallet || '')}</WalletLink>{' · fee 0.3% · ' + (usd ? fmt.usd(usd) : '')}</>,
   };
 }
 function makeFeedItemFromTransfer(t, idx) {
@@ -73,7 +73,7 @@ function makeFeedItemFromTransfer(t, idx) {
       'Transfer ',
       React.createElement('b', null, fmt.num(amt, 2) + ' ' + (t.symbol || '?')),
     ),
-    line2: fmt.addr(t.from || '') + ' → ' + fmt.addr(t.to || ''),
+    line2: <><WalletLink addr={t.from}>{fmt.addr(t.from || '')}</WalletLink>{' → '}<WalletLink addr={t.to}>{fmt.addr(t.to || '')}</WalletLink></>,
   };
 }
 function makeFeedItemFromExtrinsic(x, idx) {
@@ -93,7 +93,7 @@ function makeFeedItemFromExtrinsic(x, idx) {
       ' ',
       x.success === false ? React.createElement('span', { className: 'tag err' }, 'failed') : null,
     ),
-    line2: fmt.addr(x.signer || '') + ' · block ' + x.block,
+    line2: <><WalletLink addr={x.signer}>{fmt.addr(x.signer || '')}</WalletLink>{' · block ' + x.block}</>,
   };
 }
 function makeFeedItemFromOrder(o, idx) {
@@ -112,7 +112,7 @@ function makeFeedItemFromOrder(o, idx) {
       ' @ $',
       Number(o.price || 0).toFixed(4),
     ),
-    line2: (o.base_asset || '') + '/' + (o.quote_asset || '') + ' · ' + fmt.addr(o.wallet || ''),
+    line2: <>{(o.base_asset || '') + '/' + (o.quote_asset || '') + ' · '}<WalletLink addr={o.wallet}>{fmt.addr(o.wallet || '')}</WalletLink></>,
   };
 }
 // Prod emits new-block-stats for EVERY new head. `finalized` is the most
@@ -334,7 +334,7 @@ function FullExplorerModal({ open, onClose, initialBlock }) {
                       <div>{fmt.ago(ts)}</div>
                       <div style={{opacity:0.7}}>{new Date(ts).toLocaleString()}</div>
                     </td>
-                    <td className="tiny">{b.validatorName || (b.validator ? fmt.addr(b.validator, 5, 4) : '—')}</td>
+                    <td className="tiny">{b.validator ? <WalletLink addr={b.validator} name={b.validatorName}>{b.validatorName || fmt.addr(b.validator, 5, 4)}</WalletLink> : (b.validatorName || '—')}</td>
                     <td className="num tiny" style={{textAlign:'right'}}>{b.extrinsics ?? '—'}</td>
                     <td className="num tiny" style={{opacity:0.8}}>{b.hash ? b.hash.slice(0,10) + '…' + b.hash.slice(-6) : '—'}</td>
                   </tr>

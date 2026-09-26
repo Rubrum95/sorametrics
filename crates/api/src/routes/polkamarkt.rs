@@ -748,6 +748,7 @@ struct UserPosition {
     yes_shares: String,
     no_shares: String,
     net_collateral: String,
+    collateral_asset: String,
 }
 
 #[derive(Serialize)]
@@ -781,7 +782,7 @@ async fn positions(
     }
     let rows = sqlx::query!(
         r#"
-        SELECT t.market_id, m.question, m.status, m.resolution,
+        SELECT t.market_id, m.question, m.status, m.resolution, m.collateral_asset,
                SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)
              - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) AS "yes_shares: BigDecimal",
                SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)
@@ -790,7 +791,7 @@ async fn positions(
         FROM sm.polkamarkt_trades t
         JOIN sm.polkamarkt_markets m ON m.market_id = t.market_id
         WHERE t.trader = $1
-        GROUP BY t.market_id, m.question, m.status, m.resolution
+        GROUP BY t.market_id, m.question, m.status, m.resolution, m.collateral_asset
         HAVING SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'Yes' THEN t.shares ELSE 0 END)
              - SUM(CASE WHEN t.side = 'Sell' AND t.outcome = 'Yes' THEN t.shares ELSE 0 END) > 0
             OR SUM(CASE WHEN t.side = 'Buy'  AND t.outcome = 'No'  THEN t.shares ELSE 0 END)
@@ -814,6 +815,7 @@ async fn positions(
                 yes_shares: opt_big(r.yes_shares),
                 no_shares: opt_big(r.no_shares),
                 net_collateral: opt_big(r.net_collateral),
+                collateral_asset: r.collateral_asset,
             })
             .collect(),
     }))

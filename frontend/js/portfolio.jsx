@@ -182,6 +182,7 @@ function PortfolioSection({ tweaks }) {
             if (usd > 0) {
               positions.push({
                 wallet: w.alias,
+                addr: w.addr,
                 pair: (p.base?.symbol || p.baseSymbol || '?') + '/' + (p.target?.symbol || p.targetSymbol || '?'),
                 base: p.base?.symbol || p.baseSymbol,
                 target: p.target?.symbol || p.targetSymbol,
@@ -592,7 +593,7 @@ function PortfolioSection({ tweaks }) {
                 <tbody>
                   {lpSummary.positions.map((p, i) => (
                     <tr key={i}>
-                      <td style={{paddingLeft:20}} className="muted tiny">{p.wallet}</td>
+                      <td style={{paddingLeft:20}} className="muted tiny"><WalletLink addr={p.addr} name={p.wallet}>{p.wallet}</WalletLink></td>
                       <td>
                         <div style={{display:'flex', alignItems:'center', gap:6}}>
                           <TokenLogo sym={p.base} size={18}/>
@@ -627,7 +628,7 @@ function PortfolioSection({ tweaks }) {
                 <tbody>
                   {Object.entries(lpSummary.stakingByWallet).map(([addr, s]) => (
                     <tr key={addr}>
-                      <td style={{paddingLeft:20}}>{s.wallet}</td>
+                      <td style={{paddingLeft:20}}><WalletLink addr={addr} name={s.wallet}>{s.wallet}</WalletLink></td>
                       <td className="num" style={{textAlign:'right'}}>{s.validators}</td>
                       <td className="num" style={{textAlign:'right'}}>{s.rewards > 0 ? fmt.num(s.rewards, 4) + ' XOR' : '—'}</td>
                       <td className="num" style={{textAlign:'right', paddingRight:20, fontWeight:700}}>{fmtCur(s.usd)}</td>
@@ -646,7 +647,7 @@ function PortfolioSection({ tweaks }) {
           block is invisible until Polkamarkt goes live. */}
       {wallets.length > 0 && wallets.map(w => (
         window.PolkamarktPositions
-          ? <window.PolkamarktPositions key={'pm-' + w.addr} addr={w.addr} title={'Polkamarkt · ' + (w.alias || fmt.addr(w.addr, 6, 4))}/>
+          ? <window.PolkamarktPositions key={'pm-' + w.addr} addr={w.addr} title={<>Polkamarkt · <WalletLink addr={w.addr} name={w.alias}>{w.alias || fmt.addr(w.addr, 6, 4)}</WalletLink></>}/>
           : null
       ))}
 

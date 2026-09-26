@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT DISTINCT ON (x.block_height, x.event_id, x.extrinsic_id)\n                    x.block_height    AS \"block_height!\",\n                    x.extrinsic_id    AS \"extrinsic_id!\",\n                    x.event_id        AS \"event_id!\",\n                    x.hash,\n                    x.block_timestamp AS \"block_timestamp!\",\n                    x.direction::text AS \"direction!\",\n                    x.network         AS \"network!\",\n                    x.caller          AS \"caller!\",\n                    x.counterparty,\n                    x.asset_id        AS \"asset_id!\",\n                    x.amount          AS \"amount!: BigDecimal\",\n                    x.usd_value       AS \"usd_value: BigDecimal\"\n                FROM unnest($1::text[]) AS w(addr)\n                CROSS JOIN LATERAL (\n                    SELECT block_height, extrinsic_id, event_id, hash, block_timestamp, direction,\n                           network, caller, counterparty, asset_id, amount, usd_value\n                    FROM sm.bridges WHERE caller = w.addr OR counterparty = w.addr\n                    ORDER BY block_height ASC, event_id ASC, extrinsic_id ASC\n                    LIMIT $2\n                ) x\n                ORDER BY x.block_height ASC, x.event_id ASC, x.extrinsic_id ASC\n                LIMIT $3 OFFSET $4\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "direction!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "network!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "caller!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "counterparty",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "615e60905ab8cd9525e40cf34d25edb58b1be26fd72b6a8b5f63b8ca10b68e28"
+}

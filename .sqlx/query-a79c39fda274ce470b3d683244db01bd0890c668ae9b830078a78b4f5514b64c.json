@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT x.block_height AS \"block_height!\", x.extrinsic_index AS \"extrinsic_index!\",\n                       x.block_timestamp AS \"block_timestamp!\", x.hash AS \"hash!\",\n                       x.section AS \"section!\", x.method AS \"method!\", x.signer AS \"signer!\",\n                       x.success AS \"success!\", x.error_msg AS \"error_msg!\",\n                       NULL::jsonb AS \"args\", NULL::jsonb AS \"events\"\n                FROM unnest($1::text[]) AS w(addr)\n                CROSS JOIN LATERAL (\n                    SELECT block_height, extrinsic_index, block_timestamp, hash, section,\n                           method, signer, success, error_msg\n                    FROM sm.extrinsics WHERE signer = w.addr AND block_height >= $5\n                    ORDER BY block_height ASC, extrinsic_index ASC\n                    LIMIT $2\n                ) x\n                ORDER BY x.block_height ASC, x.extrinsic_index ASC\n                LIMIT $3 OFFSET $4\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_index!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "block_timestamp!",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "section!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "method!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "signer!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "success!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "error_msg!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "args",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 10,
+        "name": "events",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "a79c39fda274ce470b3d683244db01bd0890c668ae9b830078a78b4f5514b64c"
+}

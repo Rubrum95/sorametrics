@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT block_height, extrinsic_index, block_timestamp, hash, section, method,\n               signer, success, error_msg, NULL::jsonb AS \"args\", NULL::jsonb AS \"events\"\n        FROM sm.extrinsics\n        WHERE NOT (section = 'timestamp' AND method = 'set')\n          AND ($3::text IS NULL OR signer = $3)\n          AND ($4::text IS NULL OR section = $4)\n          AND ($5::text IS NULL OR method LIKE $5)\n          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)\n          AND ($7::bigint IS NULL OR block_height = $7)\n          AND ($8::bool IS NULL OR success = $8)\n          AND (block_height, extrinsic_index) < ($9, $10)\n        ORDER BY block_height ASC, extrinsic_index ASC\n        LIMIT $1 OFFSET $2\n        ",
+  "query": "\n        SELECT block_height, extrinsic_index, block_timestamp, hash, section, method,\n               signer, success, error_msg, NULL::jsonb AS \"args\", NULL::jsonb AS \"events\"\n        FROM sm.extrinsics\n        WHERE NOT (section = 'timestamp' AND method = 'set')\n          AND ($3::text IS NULL OR signer = $3)\n          AND ($4::text IS NULL OR section = $4)\n          AND ($5::text IS NULL OR method LIKE $5)\n          AND ($6::timestamptz IS NULL OR block_timestamp <= $6)\n          AND ($7::bigint IS NULL OR block_height = $7)\n          AND ($8::bool IS NULL OR success = $8)\n          AND (block_height, extrinsic_index) < ($9, $10)\n          AND block_height >= $11\n        ORDER BY block_height ASC, extrinsic_index ASC\n        LIMIT $1 OFFSET $2\n        ",
   "describe": {
     "columns": [
       {
@@ -70,7 +70,8 @@
         "Int8",
         "Bool",
         "Int8",
-        "Int4"
+        "Int4",
+        "Int8"
       ]
     },
     "nullable": [
@@ -87,5 +88,5 @@
       null
     ]
   },
-  "hash": "ec79a9921095e71f2a3419ca16a773ee697e5709a7712cd56575d61617ba3bf3"
+  "hash": "dae86f321ce94dd6778097e4ac26791dd3d8c50b736c0dfb9ec290ef259f6bb8"
 }

@@ -335,7 +335,7 @@ function PolkamarktSection() {
                   <td><StatusChip status={m.status} resolution={m.resolution}/><MechBadge mechanism={m.mechanism}/></td>
                   <td className="num tiny muted">#{m.close_block != null ? m.close_block.toLocaleString() : '—'}</td>
                   <td>
-                    <span className="num tiny muted">{m.creator ? fmt.addr(m.creator, 5, 4) : '—'}</span>
+                    <span className="num tiny muted">{m.creator ? <WalletLink addr={m.creator}>{fmt.addr(m.creator, 5, 4)}</WalletLink> : '—'}</span>
                   </td>
                   <td style={{paddingRight: 16}}>↗</td>
                 </tr>
@@ -397,9 +397,9 @@ function PolkamarktPositions({ addr, title }) {
                   <span style={{color:'var(--accent)', fontWeight:700}}>#{p.market_id}</span>{' '}
                   <span className="muted tiny">{p.question || t('s.untitled', '(untitled)')}</span>
                 </td>
-                <td style={{textAlign:'right'}} className="num">{fmt.num(Number(p.yes_shares) || 0, 2)}</td>
-                <td style={{textAlign:'right'}} className="num">{fmt.num(Number(p.no_shares) || 0, 2)}</td>
-                <td style={{textAlign:'right'}} className="num">{fmt.usd(Number(p.net_collateral) || 0)}</td>
+                <td style={{textAlign:'right'}} className="num">{fmtNative(p.yes_shares, 2)}</td>
+                <td style={{textAlign:'right'}} className="num">{fmtNative(p.no_shares, 2)}</td>
+                <td style={{textAlign:'right'}} className="num">{String(p.net_collateral || '').startsWith('-') ? '-' + fmtNative(String(p.net_collateral).slice(1)) : fmtNative(p.net_collateral)} <span className="muted tiny">{p.collateral_asset ? pmAssetSym(p.collateral_asset) : ''}</span></td>
                 <td style={{paddingRight: 16}}><StatusChip status={p.status} resolution={p.resolution}/></td>
               </tr>
             ))}
@@ -494,7 +494,7 @@ function PolkamarktDrill({ market }) {
         <KV k={t('predict.drill.collateral', 'Collateral')}>{pmAssetSym(m.collateral_asset)}</KV>
         {m.mechanism && <KV k={t('predict.drill.mechanism', 'Mechanism')}>{m.mechanism === 'DynamicPariMutuel' ? t('s.dynamicPariMutuel', 'Dynamic Pari-Mutuel') : t('s.migratedLegacy', 'Migrated legacy')}</KV>}
         <KV k={t('predict.drill.seed', 'Seed liquidity')}>{fmtNative(m.seed_liquidity)} {pmAssetSym(m.collateral_asset)}</KV>
-        <KV k={t('predict.drill.creator', 'Creator')}>{m.creator ? fmt.addr(m.creator, 8, 6) : '—'}</KV>
+        <KV k={t('predict.drill.creator', 'Creator')}>{m.creator ? <AddrOrName addr={m.creator} prefix={8} suffix={6}/> : '—'}</KV>
         <KV k={t('predict.drill.oracle', 'Oracle')}>{m.oracle || '—'}</KV>
         <KV k={t('predict.drill.source', 'Resolution source')}>{m.resolution_source || '—'}</KV>
         <KV k={t('predict.drill.close', 'Close block')}>{m.close_block != null ? '#' + Number(m.close_block).toLocaleString() : '—'}</KV>
@@ -506,7 +506,7 @@ function PolkamarktDrill({ market }) {
       {creator && (
         <div className="drill-section">
           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6}}>{t('predict.drill.creatorTitle', 'Creator')}</div>
-          <KV k={t('predict.drill.creatorAddr', 'Address')}>{creator.address ? fmt.addr(creator.address, 8, 6) : '—'}</KV>
+          <KV k={t('predict.drill.creatorAddr', 'Address')}>{creator.address ? <AddrOrName addr={creator.address} prefix={8} suffix={6}/> : '—'}</KV>
           <KV k={t('predict.drill.creatorFees', 'Commission earned')}>{fmtNative(creator.feesRaw)} {pmAssetSym(m.collateral_asset)}</KV>
           <KV k={t('predict.drill.feeRate', 'Trade fee')}>{(Number(creator.feeBps || 0) / 100).toFixed(2)}%</KV>
         </div>
@@ -529,7 +529,7 @@ function PolkamarktDrill({ market }) {
                   <tbody>
                     {liquidity.providers.map((lp, i) => (
                       <tr key={i}>
-                        <td style={{paddingLeft:8}} className="tiny num muted">{fmt.addr(lp.account, 6, 4)}</td>
+                        <td style={{paddingLeft:8}} className="tiny num muted"><AddrOrName addr={lp.account} prefix={6} suffix={4}/></td>
                         <td style={{textAlign:'right', paddingRight:8}} className="num">{fmtNative(lp.contributed)} {pmAssetSym(m.collateral_asset)}</td>
                       </tr>
                     ))}
@@ -602,7 +602,7 @@ function PolkamarktDrill({ market }) {
                   const isCreator = creator && creator.address && p.trader === creator.address;
                   return (
                   <tr key={i}>
-                    <td style={{paddingLeft: 8}} className="tiny num muted">{fmt.addr(p.trader, 6, 4)}{isCreator ? <span className="tag" style={{fontSize:9, marginLeft:6}}>creator</span> : null}</td>
+                    <td style={{paddingLeft: 8}} className="tiny num muted"><AddrOrName addr={p.trader} prefix={6} suffix={4}/>{isCreator ? <span className="tag" style={{fontSize:9, marginLeft:6}}>creator</span> : null}</td>
                     <td style={{textAlign:'right'}} className="num">{fmtNative(p.yes_shares)}</td>
                     <td style={{textAlign:'right'}} className="num">{fmtNative(p.no_shares)}</td>
                     <td style={{textAlign:'right'}} className="num">{fmtNative(p.paid)}</td>

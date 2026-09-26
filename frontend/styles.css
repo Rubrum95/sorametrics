@@ -2153,7 +2153,7 @@ body.rtl [class*="num"] { direction: ltr; unicode-bidi: embed; }
 
 /* Toast stack (replaces inline .toast positioning, still back-compat) */
 .toast-stack {
-  position: fixed; top: 24px; right: 24px; z-index: 2000;
+  position: fixed; top: 24px; right: 24px; z-index: 13000;
   display: flex; flex-direction: column; gap: 8px; pointer-events: none;
 }
 .toast-stack .toast {
@@ -2170,6 +2170,8 @@ body.rtl .toast-stack { right: auto; left: 24px; }
 body.rtl .toast-stack .toast { border-left: 0; border-right: 3px solid #6EE7B7; }
 
 /* Shared modal chrome */
+.copy-mini { cursor: pointer; opacity: 0.5; font-size: 11px; padding: 0 2px; user-select: none; }
+.copy-mini:hover { opacity: 1; }
 .sm-modal-backdrop {
   position: fixed; inset: 0; z-index: 1500;
   background: rgba(6, 6, 10, 0.72);

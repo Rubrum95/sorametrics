@@ -21,9 +21,12 @@
 //! as JSON strings and `extrinsic_index` as a STRING (a Node quirk the
 //! frontend tolerates).
 
-use super::history::{estimated_rows, estimated_rows_upto, until_bound, Table};
+use super::deep::{deep_start, DeepStart, Stream};
+use super::history::{
+    estimated_rows, estimated_rows_upto, resolved_wallets, until_bound, ResolvedWallet, Table,
+};
 use crate::legacy::{fmt_time, page_bounds, seek, Seek};
-use crate::{error::ApiError, AppState};
+use crate::{error::ApiError, util::WalletSet, AppState};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -127,6 +130,12 @@ struct Page {
     page: i64,
     #[serde(rename = "totalPages")]
     total_pages: i64,
+    /// `?wallets=` entries that are not SORA accounts (left out).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    invalid_wallets: Option<Vec<String>>,
+    /// `?wallets=` entries and the canonical address each was read as.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resolved_wallets: Option<Vec<ResolvedWallet>>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -140,6 +149,8 @@ struct GlobalQuery {
     timestamp: Option<String>,
     block: Option<i64>,
     success: Option<i32>,
+    /// Comma-separated signers merged into one listing (v33 addition).
+    wallets: Option<String>,
 }
 
 /// Validated filters shared by the global and per-address listings.
@@ -153,13 +164,22 @@ struct Filters {
 }
 
 impl Filters {
-    /// No filter besides (at most) the date cap.
-    fn no_row_filters(&self) -> bool {
-        self.signer.is_none()
-            && self.section.is_none()
+    /// No section / method / block / success filter.
+    fn no_content_filters(&self) -> bool {
+        self.section.is_none()
             && self.method_like.is_none()
             && self.block.is_none()
             && self.success.is_none()
+    }
+
+    /// No filter besides (at most) the date cap.
+    fn no_row_filters(&self) -> bool {
+        self.signer.is_none() && self.no_content_filters()
+    }
+
+    /// Only `signer` is set.
+    fn only_signer(&self) -> bool {
+        self.signer.is_some() && self.until.is_none() && self.no_content_filters()
     }
 }
 
@@ -218,6 +238,15 @@ async fn count(state: &AppState, f: &Filters, cap: Option<(i64, i32)>) -> Result
             return Ok((rows - timestamp_rows(state, upto).await?).max(0));
         }
     }
+    // `timestamp.set` is signed by `System`, never by a wallet.
+    if let (Some(signer), true) = (&f.signer, f.only_signer()) {
+        return Ok(sqlx::query_scalar!(
+            r#"SELECT COUNT(*) AS "count!" FROM sm.extrinsics WHERE signer = $1"#,
+            signer
+        )
+        .fetch_one(&state.listing_db)
+        .await?);
+    }
     Ok(sqlx::query!(
         r#"
         SELECT COUNT(*) AS "count!"
@@ -252,11 +281,26 @@ async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result
     let (block, index) = cap.unwrap_or((i64::MAX, i32::MAX));
     let indexed = f.signer.is_some() || f.section.is_some() || f.block.is_some();
     let tail_ok = indexed || (f.method_like.is_none() && f.success.is_none());
+    let stream = match (&f.signer, f.no_content_filters()) {
+        (Some(signer), true) => Some(Stream::Extrinsics { signer }),
+        _ => None,
+    };
     let rows = match seek(total, limit, safe_page) {
         Seek::Tail { offset, take } if tail_ok => {
-            listing_tail(state, f, (block, index), take, offset).await?
+            let (lo, offset) = match deep_start(state, stream, cap, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
+            listing_tail(state, f, (block, index), lo, take, offset).await?
         }
-        _ => listing_head(state, f, (block, index), limit, (safe_page - 1) * limit).await?,
+        _ => {
+            let offset = (safe_page - 1) * limit;
+            match deep_start(state, stream, cap, offset, true).await? {
+                DeepStart::Plain => listing_head(state, f, (block, index), limit, offset).await?,
+                DeepStart::At(d) => listing_head(state, f, (d.block + 1, 0), limit, d.skip).await?,
+                DeepStart::PastEnd => Vec::new(),
+            }
+        }
     };
     Ok(Page {
         data: rows
@@ -266,6 +310,8 @@ async fn listing(state: &AppState, f: &Filters, page: i64, limit: i64) -> Result
         total,
         page: safe_page,
         total_pages,
+        invalid_wallets: None,
+        resolved_wallets: None,
     })
 }
 
@@ -314,6 +360,7 @@ async fn listing_tail(
     state: &AppState,
     f: &Filters,
     (block, index): (i64, i32),
+    lo: i64,
     take: i64,
     offset: i64,
 ) -> Result<Vec<ExtRecord>, ApiError> {
@@ -331,6 +378,7 @@ async fn listing_tail(
           AND ($7::bigint IS NULL OR block_height = $7)
           AND ($8::bool IS NULL OR success = $8)
           AND (block_height, extrinsic_index) < ($9, $10)
+          AND block_height >= $11
         ORDER BY block_height ASC, extrinsic_index ASC
         LIMIT $1 OFFSET $2
         "#,
@@ -344,6 +392,7 @@ async fn listing_tail(
         f.success,
         block,
         index,
+        lo,
     )
     .fetch_all(&state.listing_db)
     .await?;
@@ -364,7 +413,118 @@ async fn global(
         block: q.block,
         success: q.success.map(|s| s != 0),
     };
+    if let Some(raw) = q.wallets.as_deref() {
+        if f.until.is_some() || !f.no_content_filters() {
+            return Err(ApiError::BadRequest(
+                "wallets cannot be combined with other filters".into(),
+            ));
+        }
+        let wallets = crate::util::parse_wallets(raw)?;
+        return Ok(Json(of_wallets(&state, &wallets, page, limit).await?));
+    }
     Ok(Json(listing(&state, &f, page, limit).await?))
+}
+
+/// Extrinsics signed by several wallets, merged newest first: each walks
+/// its signer index from the page's start block (`timestamp.set` is
+/// signed by `System`, never listed).
+async fn of_wallets(
+    state: &AppState,
+    set: &WalletSet,
+    page: i64,
+    limit: i64,
+) -> Result<Page, ApiError> {
+    let wallets = set.addresses();
+    let total = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "count!" FROM sm.extrinsics WHERE signer = ANY($1)"#,
+        &wallets
+    )
+    .fetch_one(&state.listing_db)
+    .await?;
+    let (total_pages, safe_page) = page_bounds(total, limit, page);
+    let stream = Some(Stream::ExtrinsicsOf { signers: &wallets });
+    let rows = match seek(total, limit, safe_page) {
+        Seek::Head { offset } => {
+            let (skip, top) = match deep_start(state, stream, None, offset, true).await? {
+                DeepStart::Plain => (offset, i64::MAX),
+                DeepStart::At(d) => (d.skip, d.block),
+                DeepStart::PastEnd => (offset, -1),
+            };
+            sqlx::query_as!(
+                ExtRecord,
+                r#"
+                SELECT x.block_height AS "block_height!", x.extrinsic_index AS "extrinsic_index!",
+                       x.block_timestamp AS "block_timestamp!", x.hash AS "hash!",
+                       x.section AS "section!", x.method AS "method!", x.signer AS "signer!",
+                       x.success AS "success!", x.error_msg AS "error_msg!",
+                       NULL::jsonb AS "args", NULL::jsonb AS "events"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_index, block_timestamp, hash, section,
+                           method, signer, success, error_msg
+                    FROM sm.extrinsics WHERE signer = w.addr AND block_height <= $5
+                    ORDER BY block_height DESC, extrinsic_index DESC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height DESC, x.extrinsic_index DESC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                skip + limit,
+                limit,
+                skip,
+                top,
+            )
+            .fetch_all(&state.listing_db)
+            .await?
+        }
+        Seek::Tail { offset, take } => {
+            let (lo, skip) = match deep_start(state, stream, None, offset, false).await? {
+                DeepStart::At(d) => (d.block, d.skip),
+                DeepStart::Plain | DeepStart::PastEnd => (0, offset),
+            };
+            let mut rows = sqlx::query_as!(
+                ExtRecord,
+                r#"
+                SELECT x.block_height AS "block_height!", x.extrinsic_index AS "extrinsic_index!",
+                       x.block_timestamp AS "block_timestamp!", x.hash AS "hash!",
+                       x.section AS "section!", x.method AS "method!", x.signer AS "signer!",
+                       x.success AS "success!", x.error_msg AS "error_msg!",
+                       NULL::jsonb AS "args", NULL::jsonb AS "events"
+                FROM unnest($1::text[]) AS w(addr)
+                CROSS JOIN LATERAL (
+                    SELECT block_height, extrinsic_index, block_timestamp, hash, section,
+                           method, signer, success, error_msg
+                    FROM sm.extrinsics WHERE signer = w.addr AND block_height >= $5
+                    ORDER BY block_height ASC, extrinsic_index ASC
+                    LIMIT $2
+                ) x
+                ORDER BY x.block_height ASC, x.extrinsic_index ASC
+                LIMIT $3 OFFSET $4
+                "#,
+                &wallets,
+                skip + take,
+                take,
+                skip,
+                lo,
+            )
+            .fetch_all(&state.listing_db)
+            .await?;
+            rows.reverse();
+            rows
+        }
+    };
+    Ok(Page {
+        data: rows
+            .iter()
+            .map(|r| row(r, state.time_zone, false))
+            .collect(),
+        total,
+        page: safe_page,
+        total_pages,
+        invalid_wallets: Some(set.invalid.clone()),
+        resolved_wallets: Some(resolved_wallets(set)),
+    })
 }
 
 #[derive(Debug, Default, Deserialize)]
