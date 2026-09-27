@@ -66,6 +66,13 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 - frontend: every `backdrop-filter` also sets `-webkit-backdrop-filter` (drawer and drill backdrops,
   drill header, toasts, Pulse explorer overlay, Studio mini player, network menu): Safari before 18
   only reads the prefixed property.
+- frontend: Liquid Glass at maximum (iOS 27 / macOS 27 "Golden Gate" style), one appended block in
+  `styles.css`. Cards, KPI tiles, sidebar and a new floating sticky toolbar are clear tinted glass over
+  a lit brand-colour background; darkened edges with directional specular rims; lensed controls and an
+  ember-glass primary button; the modal floats on frosted content. One variable, `--glass` (0 tinted …
+  1 clear), drives transparency, blur and saturation, like the iOS 27 slider; it is 1. Reduced
+  transparency / no backdrop-filter → opaque surfaces; prefers-contrast → 0.3. No layout change
+  (checked at 1024/1440/1920), language and network menus stay on top, `--fg-3` lifted for contrast.
 - frontend i18n: KPI captions (network-wide, registered, all-time, cumulative, settled, paginated),
   the identity source tooltips, the block drill title and the Portfolio history tabs were literal
   English or Spanish; the order book KPI no longer shows an API path as its caption.
