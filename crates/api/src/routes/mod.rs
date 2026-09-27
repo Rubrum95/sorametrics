@@ -75,5 +75,6 @@ pub fn build_scans(state: AppState) -> Router {
         .merge(pool_providers::router())
         .merge(burns::scan_router())
         .merge(governance::scan_router())
+        .merge(wallet::scan_router())
         .with_state(state)
 }

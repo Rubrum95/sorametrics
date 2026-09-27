@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH s AS MATERIALIZED (\n               SELECT input_asset_id AS i, output_asset_id AS o, sm.swap_usd(usd_value, output_usd_value) AS usd\n               FROM sm.swaps WHERE caller = $1\n           ), a AS (\n               SELECT asset, SUM(usd) AS total, COUNT(*)::bigint AS trades\n               FROM (SELECT i AS asset, usd FROM s UNION ALL SELECT o, usd FROM s) u GROUP BY asset\n           )\n           SELECT (SELECT COUNT(*) FROM s)::bigint AS \"swap_count!\",\n                  (SELECT COALESCE(AVG(usd), 0) FROM s) AS \"avg_usd: BigDecimal\",\n                  (SELECT COALESCE(MAX(usd), 0) FROM s) AS \"max_usd: BigDecimal\",\n                  (SELECT COALESCE(SUM(usd), 0) FROM s) AS \"total_vol: BigDecimal\",\n                  (SELECT COUNT(*) FROM a)::bigint AS \"unique_tokens!\",\n                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(asset, total, trades)\n                                             ORDER BY total DESC NULLS LAST, asset), '[]'::jsonb)\n                     FROM (SELECT * FROM a ORDER BY total DESC NULLS LAST, asset LIMIT 10) t) AS \"top!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "swap_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "avg_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "max_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_vol: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "unique_tokens!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "top!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d5c8acc6ca44ebf89baa91fa908a162c664d6df35952df21c159de4fac19bb16"
+}

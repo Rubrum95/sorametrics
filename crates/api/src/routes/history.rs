@@ -49,6 +49,7 @@ pub fn router() -> Router<AppState> {
         .route("/history/global/swaps", get(swaps))
         .route("/history/global/transfers", get(transfers))
         .route("/history/global/bridges", get(bridges))
+        .route("/stats/bridge-flow", get(bridge_flow))
         .route("/history/global/fee_events", get(fee_burns))
         .route("/history/swaps/:address", get(wallet_swaps))
         .route("/history/transfers/:address", get(wallet_transfers))
@@ -1791,6 +1792,171 @@ async fn exact_bridges_count(
     .fetch_one(&state.listing_db)
     .await?;
     Ok(row.count)
+}
+
+const BRIDGE_FLOW_TTL: std::time::Duration = std::time::Duration::from_secs(60);
+/// A stored bridge value counts only up to this multiple of the asset's
+/// current price: thin-pool quotes once valued 2 000 GRT at $13.6 M.
+const BRIDGE_MAX_PRICE_RATIO: f64 = 100.0;
+const BRIDGE_MOVES_LIMIT: i64 = 100;
+
+#[derive(Deserialize)]
+struct BridgeFlowQuery {
+    window: Option<String>,
+    min_usd: Option<f64>,
+}
+
+#[derive(Serialize)]
+struct SymbolUsd {
+    symbol: String,
+    usd: f64,
+}
+
+#[derive(Serialize)]
+struct FlowSide {
+    count: i64,
+    priced: i64,
+    usd: f64,
+    top: Option<SymbolUsd>,
+}
+
+#[derive(Serialize)]
+struct BridgeFlow {
+    window: &'static str,
+    since: Option<String>,
+    incoming: FlowSide,
+    outgoing: FlowSide,
+    net: f64,
+    #[serde(rename = "minUsd")]
+    min_usd: f64,
+    moves: Vec<BridgeRow>,
+}
+
+/// Window label and length; `None` length = all history.
+fn bridge_window(raw: Option<&str>) -> Result<(&'static str, Option<chrono::Duration>), ApiError> {
+    Ok(match raw.unwrap_or("24h") {
+        "4h" => ("4h", Some(chrono::Duration::hours(4))),
+        "24h" | "1d" => ("24h", Some(chrono::Duration::hours(24))),
+        "7d" => ("7d", Some(chrono::Duration::days(7))),
+        "30d" | "1m" => ("30d", Some(chrono::Duration::days(30))),
+        "1y" => ("1y", Some(chrono::Duration::days(365))),
+        "all" => ("all", None),
+        other => return Err(ApiError::BadRequest(format!("invalid window: {other}"))),
+    })
+}
+
+/// Bridge in / out totals and the largest moves of a window, over every
+/// bridge in it. USD counts only reliable values: after the XOR
+/// redenomination (earlier quotes are not USD), for assets whose depth
+/// check passes, and no more than `BRIDGE_MAX_PRICE_RATIO` times the
+/// asset's current price; the rest is counted as unpriced.
+async fn bridge_flow(
+    State(state): State<AppState>,
+    Query(q): Query<BridgeFlowQuery>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let (label, span) = bridge_window(q.window.as_deref())?;
+    let min_usd = q.min_usd.unwrap_or(3000.0).max(0.0);
+    let key = format!("bridge-flow:{label}:{min_usd}");
+    if let Some(v) = state.cached_scan(&key, BRIDGE_FLOW_TTL).await {
+        return Ok(Json(v));
+    }
+    let since = span.map(|d| Utc::now() - d);
+    let min_height = sorametrics_substrate::HISTORICAL_QUOTE_MIN_HEIGHT as i64;
+    let sides = sqlx::query!(
+        r#"
+        SELECT b.direction::text AS "direction!", b.asset_id AS "asset_id!",
+               COUNT(*)::bigint AS "count!",
+               COUNT(*) FILTER (WHERE b.usd_value > 0 AND b.block_height >= $2 AND l.liquid IS TRUE
+                   AND p.price_usd > 0
+                   AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric
+                                      * p.price_usd::numeric * $3::float8::numeric)::bigint AS "priced!",
+               COALESCE(SUM(b.usd_value) FILTER (WHERE b.usd_value > 0 AND b.block_height >= $2 AND l.liquid IS TRUE
+                   AND p.price_usd > 0
+                   AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric
+                                      * p.price_usd::numeric * $3::float8::numeric), 0) AS "usd!: BigDecimal"
+        FROM sm.bridges b
+        LEFT JOIN sm.asset_liquidity l ON l.asset_id = b.asset_id
+        LEFT JOIN ts.price_latest p ON p.asset_id = b.asset_id
+        LEFT JOIN sm.asset_registry r ON r.asset_id = b.asset_id
+        WHERE ($1::timestamptz IS NULL OR b.block_timestamp >= $1)
+        GROUP BY b.direction, b.asset_id
+        "#,
+        since,
+        min_height,
+        BRIDGE_MAX_PRICE_RATIO,
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let moves = sqlx::query_as!(
+        BridgeRecord,
+        r#"
+        SELECT b.block_height, b.extrinsic_id, b.event_id, b.hash, b.block_timestamp,
+               b.direction::text AS "direction!", b.network, b.caller, b.counterparty, b.asset_id,
+               b.amount AS "amount!: BigDecimal", b.usd_value AS "usd_value: BigDecimal"
+        FROM sm.bridges b
+        JOIN sm.asset_liquidity l ON l.asset_id = b.asset_id AND l.liquid
+        JOIN ts.price_latest p ON p.asset_id = b.asset_id AND p.price_usd > 0
+        LEFT JOIN sm.asset_registry r ON r.asset_id = b.asset_id
+        WHERE ($1::timestamptz IS NULL OR b.block_timestamp >= $1)
+          AND b.block_height >= $2
+          AND b.usd_value >= $4::float8::numeric
+          AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric
+                             * p.price_usd::numeric * $3::float8::numeric
+        ORDER BY b.usd_value DESC, b.block_height DESC
+        LIMIT $5
+        "#,
+        since,
+        min_height,
+        BRIDGE_MAX_PRICE_RATIO,
+        min_usd,
+        BRIDGE_MOVES_LIMIT,
+    )
+    .fetch_all(&state.db)
+    .await?;
+
+    let registry = state.registry.read().await;
+    let side = |dir: &str| {
+        let mut by_symbol: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        let (mut count, mut priced, mut usd) = (0i64, 0i64, 0f64);
+        for r in sides.iter().filter(|r| r.direction == dir) {
+            let v = bigdecimal::ToPrimitive::to_f64(&r.usd).unwrap_or(0.0);
+            count += r.count;
+            priced += r.priced;
+            usd += v;
+            if v > 0.0 {
+                *by_symbol
+                    .entry(symbol_for(&registry, &r.asset_id))
+                    .or_default() += v;
+            }
+        }
+        let top = by_symbol
+            .into_iter()
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|(symbol, usd)| SymbolUsd { symbol, usd });
+        FlowSide {
+            count,
+            priced,
+            usd,
+            top,
+        }
+    };
+    let (incoming, outgoing) = (side("in"), side("out"));
+    let flow = BridgeFlow {
+        window: label,
+        since: since.map(|t| t.to_rfc3339()),
+        net: incoming.usd - outgoing.usd,
+        incoming,
+        outgoing,
+        min_usd,
+        moves: moves
+            .iter()
+            .map(|r| bridge_row(r, &registry, state.time_zone))
+            .collect(),
+    };
+    let json = serde_json::to_value(&flow).map_err(|e| ApiError::Internal(e.to_string()))?;
+    state.store_scan(&key, json.clone()).await;
+    Ok(Json(json))
 }
 
 async fn bridges(

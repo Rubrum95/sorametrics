@@ -5,6 +5,25 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-27
+- API: `/wallet/info` is computed in the background on the long-timeout router (as `/holders`): one
+  pass per table instead of ten, in one transaction with a 300 s statement timeout and no parallel
+  workers (parallel aggregates failed on the database container's 64 MB `/dev/shm`). New covering
+  index `extrinsics_signer_cover_idx (signer, block_height DESC) INCLUDE (block_timestamp, success,
+  section)` replaces `extrinsics_signer_idx` (migrations 0031/0032). A wallet with 516 411
+  extrinsics and 421 049 swaps went from a 504 after 30 s to 25 s cold and 0.1 s cached; the Info
+  tab shows "calculating" and retries instead of spinning forever.
+- API: `GET /stats/bridge-flow?window=4h|24h|7d|30d|1y|all&min_usd=` — bridge in / out totals, top
+  tokens and the largest moves of a window over every bridge in it, in one request. USD counts only
+  reliable values (after the XOR redenomination, assets whose depth check passes, at most 100× the
+  asset's current price); the rest is counted as unpriced.
+- frontend (Intelligence): the bridge widgets use it — "1y" and "All" no longer stop at 2 000 rows,
+  no longer spend the per-IP limit, and a failed request shows an error instead of "no flow"; the
+  widgets say how many bridges have a reliable USD value. Validator Health reads `/network/health`
+  (it could never flag a silent validator); New Listings reads on-chain `assets.register` (it always
+  showed 0); Cross-Pair Arbitrage compares each token's implied price per pool from reserves (the
+  global price it compared was the same in every pool) and no longer sits on "…"; "Tx/day" is
+  "Swaps/day". Cards no longer overflow a 390 px screen, the burn table fits, and pills are taller
+  on touch screens. The outgoing bridge drill no longer links the SORA extrinsic hash on Etherscan.
 - API: `GET /network/health` — best and finalized block, time since the last block (from its BABE
   slot), mean block time over 1 h and 24 h, era and session progress in slots, and per validator the
   blocks authored this era, last era and this session (`erasRewardPoints ÷ 20`,

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH e AS MATERIALIZED (\n               SELECT section, success, block_timestamp FROM sm.extrinsics WHERE signer = $1\n           ), s AS (SELECT section, COUNT(*)::bigint AS n FROM e GROUP BY section)\n           SELECT (SELECT MIN(block_timestamp) FROM e) AS \"first\",\n                  (SELECT MAX(block_timestamp) FROM e) AS \"last\",\n                  (SELECT COUNT(*) FROM e)::bigint AS \"tx_count!\",\n                  (SELECT COUNT(*) FILTER (WHERE success) FROM e)::bigint AS \"success_count!\",\n                  (SELECT COUNT(DISTINCT FLOOR(EXTRACT(EPOCH FROM block_timestamp) / 86400)) FROM e)::bigint\n                      AS \"days_active!\",\n                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(section, n) ORDER BY n DESC, section), '[]'::jsonb)\n                     FROM s) AS \"sections!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "first",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "last",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 2,
+        "name": "tx_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "success_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "days_active!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "sections!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "8c2ef1c7dd290a5f2149189a6efab9d758ccbc306802d87a479ec56964376683"
+}

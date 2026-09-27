@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT set_config('statement_timeout', '300s', true) AS \"a!\",\n                  set_config('max_parallel_workers_per_gather', '0', true) AS \"b!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "a!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "b!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "d354c2ffd9318370470e3c740b91abc93b335ace6b61760ed9059902d7794d03"
+}

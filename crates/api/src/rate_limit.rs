@@ -70,6 +70,7 @@ const LIMITS: &[(&str, u32)] = &[
     ("/history/global/transfers", 30),
     ("/history/global/swaps", 30),
     ("/history/global/bridges", 30),
+    ("/stats/bridge-flow", 60),
     ("/history/global/liquidity", 30),
     ("/history/global/orderbook", 30),
     ("/history/global/extrinsics", 60),

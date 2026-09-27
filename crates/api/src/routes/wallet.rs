@@ -37,7 +37,13 @@ pub fn router() -> Router<AppState> {
         .route("/balances", post(balances))
         .route("/balance/:address", get(balance))
         .route("/wallet/realizable/:address", get(realizable))
-        .route("/wallet/info/:address", get(wallet_info))
+}
+
+/// `/wallet/info`, on the long-timeout router: a wallet with half a
+/// million rows is computed in the background and may outlive the
+/// 30 s budget of the fast routes.
+pub fn scan_router() -> Router<AppState> {
+    Router::new().route("/wallet/info/:address", get(wallet_info))
 }
 
 const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
@@ -652,81 +658,115 @@ async fn wallet_info(
 ) -> Result<Json<WalletInfo>, ApiError> {
     let address = crate::util::validate_address(&address)?;
     let key = format!("wallet-info:{address}");
-    if let Some(v) = state.cached_scan(&key, WALLET_INFO_TTL).await {
-        return serde_json::from_value(v)
-            .map(Json)
-            .map_err(|e| ApiError::Internal(e.to_string()));
-    }
+    super::chain_state::cached_or_scan(&state, &key, WALLET_INFO_TTL, move |st| {
+        compute_wallet_info(st, address)
+    })
+    .await
+    .map(Json)
+}
+
+#[derive(Deserialize)]
+struct SectionCount(String, i64);
+
+#[derive(Deserialize)]
+struct AssetVolume(String, Option<f64>, i64);
+
+#[derive(Deserialize)]
+struct CounterpartyVolume(String, i64, Option<f64>);
+
+/// One pass per table over the wallet's rows, in one transaction with a
+/// long statement timeout (a wallet with half a million extrinsics needs
+/// minutes cold) and no parallel workers (the container's small
+/// `/dev/shm` makes parallel aggregates fail).
+async fn compute_wallet_info(state: AppState, address: String) -> Result<WalletInfo, ApiError> {
+    let mut tx = state.db.begin().await?;
+    sqlx::query!(
+        r#"SELECT set_config('statement_timeout', '300s', true) AS "a!",
+                  set_config('max_parallel_workers_per_gather', '0', true) AS "b!""#
+    )
+    .fetch_one(&mut *tx)
+    .await?;
     let ext = sqlx::query!(
-        r#"SELECT MIN(block_timestamp) AS "first", MAX(block_timestamp) AS "last", COUNT(*)::bigint AS "tx_count!",
-                  COUNT(*) FILTER (WHERE success)::bigint AS "success_count!",
-                  COUNT(DISTINCT FLOOR(EXTRACT(EPOCH FROM block_timestamp) / 86400))::bigint AS "days_active!"
-           FROM sm.extrinsics WHERE signer = $1"#,
+        r#"WITH e AS MATERIALIZED (
+               SELECT section, success, block_timestamp FROM sm.extrinsics WHERE signer = $1
+           ), s AS (SELECT section, COUNT(*)::bigint AS n FROM e GROUP BY section)
+           SELECT (SELECT MIN(block_timestamp) FROM e) AS "first",
+                  (SELECT MAX(block_timestamp) FROM e) AS "last",
+                  (SELECT COUNT(*) FROM e)::bigint AS "tx_count!",
+                  (SELECT COUNT(*) FILTER (WHERE success) FROM e)::bigint AS "success_count!",
+                  (SELECT COUNT(DISTINCT FLOOR(EXTRACT(EPOCH FROM block_timestamp) / 86400)) FROM e)::bigint
+                      AS "days_active!",
+                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(section, n) ORDER BY n DESC, section), '[]'::jsonb)
+                     FROM s) AS "sections!""#,
         address
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
-    let modules = sqlx::query!(
-        r#"SELECT section, COUNT(*)::bigint AS "count!" FROM sm.extrinsics WHERE signer = $1
-           GROUP BY section ORDER BY COUNT(*) DESC LIMIT 10"#,
-        address
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let governance = sqlx::query_scalar!(
-        r#"SELECT COUNT(*)::bigint AS "c!" FROM sm.extrinsics WHERE signer = $1
-           AND section IN ('democracy', 'council', 'electionsPhragmen', 'technicalCommittee')"#,
-        address
-    )
-    .fetch_one(&state.db)
-    .await?;
+    let sections: Vec<SectionCount> =
+        serde_json::from_value(ext.sections).map_err(|e| ApiError::Internal(e.to_string()))?;
+    let governance: i64 = sections
+        .iter()
+        .filter(|s| {
+            matches!(
+                s.0.as_str(),
+                "democracy" | "council" | "electionsPhragmen" | "technicalCommittee"
+            )
+        })
+        .map(|s| s.1)
+        .sum();
+    let modules: Vec<SectionCount> = sections.into_iter().take(10).collect();
     let swaps = sqlx::query!(
-        r#"SELECT COUNT(*)::bigint AS "swap_count!",
-                  COALESCE(AVG(sm.swap_usd(usd_value, output_usd_value)), 0) AS "avg_usd: BigDecimal",
-                  COALESCE(MAX(sm.swap_usd(usd_value, output_usd_value)), 0) AS "max_usd: BigDecimal",
-                  COALESCE(SUM(sm.swap_usd(usd_value, output_usd_value)), 0) AS "total_vol: BigDecimal"
-           FROM sm.swaps WHERE caller = $1"#,
+        r#"WITH s AS MATERIALIZED (
+               SELECT input_asset_id AS i, output_asset_id AS o, sm.swap_usd(usd_value, output_usd_value) AS usd
+               FROM sm.swaps WHERE caller = $1
+           ), a AS (
+               SELECT asset, SUM(usd) AS total, COUNT(*)::bigint AS trades
+               FROM (SELECT i AS asset, usd FROM s UNION ALL SELECT o, usd FROM s) u GROUP BY asset
+           )
+           SELECT (SELECT COUNT(*) FROM s)::bigint AS "swap_count!",
+                  (SELECT COALESCE(AVG(usd), 0) FROM s) AS "avg_usd: BigDecimal",
+                  (SELECT COALESCE(MAX(usd), 0) FROM s) AS "max_usd: BigDecimal",
+                  (SELECT COALESCE(SUM(usd), 0) FROM s) AS "total_vol: BigDecimal",
+                  (SELECT COUNT(*) FROM a)::bigint AS "unique_tokens!",
+                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(asset, total, trades)
+                                             ORDER BY total DESC NULLS LAST, asset), '[]'::jsonb)
+                     FROM (SELECT * FROM a ORDER BY total DESC NULLS LAST, asset LIMIT 10) t) AS "top!""#,
         address
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
-    let token_rows = sqlx::query!(
-        r#"SELECT asset_id AS "asset_id!", SUM(usd) AS "total_usd: BigDecimal", COUNT(*)::bigint AS "trades!" FROM (
-               SELECT input_asset_id AS asset_id, sm.swap_usd(usd_value, output_usd_value) AS usd FROM sm.swaps WHERE caller = $1
-               UNION ALL SELECT output_asset_id, sm.swap_usd(usd_value, output_usd_value) FROM sm.swaps WHERE caller = $1
-           ) u GROUP BY asset_id ORDER BY SUM(usd) DESC NULLS LAST LIMIT 10"#,
-        address
-    )
-    .fetch_all(&state.db)
-    .await?;
-    let unique_tokens = sqlx::query_scalar!(
-        r#"SELECT COUNT(DISTINCT a)::bigint AS "c!" FROM (
-               SELECT input_asset_id AS a FROM sm.swaps WHERE caller = $1
-               UNION SELECT output_asset_id FROM sm.swaps WHERE caller = $1) u"#,
-        address
-    )
-    .fetch_one(&state.db)
-    .await?;
-    let contacts = sqlx::query!(
-        r#"SELECT counterparty AS "counterparty!", COUNT(*)::bigint AS "tx_count!", SUM(usd_value) AS "total_usd: BigDecimal" FROM (
-               SELECT to_address AS counterparty, usd_value FROM sm.transfers WHERE from_address = $1
-               UNION ALL SELECT from_address, usd_value FROM sm.transfers WHERE to_address = $1
-           ) u GROUP BY counterparty ORDER BY SUM(usd_value) DESC NULLS LAST LIMIT 10"#,
-        address
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let token_rows: Vec<AssetVolume> =
+        serde_json::from_value(swaps.top).map_err(|e| ApiError::Internal(e.to_string()))?;
+    let unique_tokens = swaps.unique_tokens;
     let tr = sqlx::query!(
-        r#"SELECT COUNT(*) FILTER (WHERE from_address = $1)::bigint AS "out_count!",
-                  COALESCE(SUM(usd_value) FILTER (WHERE from_address = $1), 0) AS "out_usd: BigDecimal",
-                  COUNT(*) FILTER (WHERE to_address = $1)::bigint AS "in_count!",
-                  COALESCE(SUM(usd_value) FILTER (WHERE to_address = $1), 0) AS "in_usd: BigDecimal",
-                  MIN(block_timestamp) AS "first", MAX(block_timestamp) AS "last"
-           FROM sm.transfers WHERE from_address = $1 OR to_address = $1"#,
+        r#"WITH t AS MATERIALIZED (
+               SELECT from_address, to_address, usd_value, block_timestamp FROM sm.transfers WHERE from_address = $1
+               UNION ALL
+               SELECT from_address, to_address, usd_value, block_timestamp FROM sm.transfers
+               WHERE to_address = $1 AND from_address <> $1
+           ), c AS (
+               SELECT counterparty, COUNT(*)::bigint AS n, SUM(usd_value) AS usd FROM (
+                   SELECT to_address AS counterparty, usd_value FROM t WHERE from_address = $1
+                   UNION ALL SELECT from_address, usd_value FROM t WHERE to_address = $1
+               ) u GROUP BY counterparty
+           )
+           SELECT (SELECT COUNT(*) FILTER (WHERE from_address = $1) FROM t)::bigint AS "out_count!",
+                  (SELECT COALESCE(SUM(usd_value) FILTER (WHERE from_address = $1), 0) FROM t)
+                      AS "out_usd: BigDecimal",
+                  (SELECT COUNT(*) FILTER (WHERE to_address = $1) FROM t)::bigint AS "in_count!",
+                  (SELECT COALESCE(SUM(usd_value) FILTER (WHERE to_address = $1), 0) FROM t)
+                      AS "in_usd: BigDecimal",
+                  (SELECT MIN(block_timestamp) FROM t) AS "first",
+                  (SELECT MAX(block_timestamp) FROM t) AS "last",
+                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(counterparty, n, usd)
+                                             ORDER BY usd DESC NULLS LAST, counterparty), '[]'::jsonb)
+                     FROM (SELECT * FROM c ORDER BY usd DESC NULLS LAST, counterparty LIMIT 10) x) AS "contacts!""#,
         address
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
+    let contacts: Vec<CounterpartyVolume> =
+        serde_json::from_value(tr.contacts).map_err(|e| ApiError::Internal(e.to_string()))?;
     let lp = sqlx::query!(
         r#"SELECT COUNT(*) FILTER (WHERE kind = 'deposit')::bigint AS "deposits!",
                   COUNT(*) FILTER (WHERE kind = 'withdraw')::bigint AS "withdrawals!",
@@ -736,7 +776,7 @@ async fn wallet_info(
            FROM sm.liquidity_events WHERE caller = $1"#,
         address
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
     let br = sqlx::query!(
         r#"SELECT COUNT(*) FILTER (WHERE direction = 'in')::bigint AS "incoming_count!",
@@ -747,16 +787,17 @@ async fn wallet_info(
            FROM sm.bridges WHERE caller = $1 OR counterparty = $1"#,
         address
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
+    tx.commit().await?;
     let ms = |t: Option<chrono::DateTime<chrono::Utc>>| t.map(|t| t.timestamp_millis().to_string());
     let registry = state.registry.read().await;
     let top_tokens = token_rows
         .into_iter()
-        .map(|r| TopToken {
-            symbol: symbol_for(&registry, &r.asset_id),
-            total_usd: f(r.total_usd),
-            trades: r.trades.to_string(),
+        .map(|AssetVolume(asset_id, total_usd, trades)| TopToken {
+            symbol: symbol_for(&registry, &asset_id),
+            total_usd: total_usd.unwrap_or(0.0),
+            trades: trades.to_string(),
         })
         .collect();
     let swap_total = f(swaps.total_vol);
@@ -770,9 +811,9 @@ async fn wallet_info(
         days_active: ext.days_active,
         modules: modules
             .into_iter()
-            .map(|m| ModuleCount {
-                section: m.section,
-                count: m.count.to_string(),
+            .map(|SectionCount(section, count)| ModuleCount {
+                section,
+                count: count.to_string(),
             })
             .collect(),
         governance_tx: governance,
@@ -784,11 +825,13 @@ async fn wallet_info(
         unique_tokens,
         top_contacts: contacts
             .into_iter()
-            .map(|c| Contact {
-                counterparty: c.counterparty,
-                tx_count: c.tx_count.to_string(),
-                total_usd: f(c.total_usd),
-            })
+            .map(
+                |CounterpartyVolume(counterparty, tx_count, total_usd)| Contact {
+                    counterparty,
+                    tx_count: tx_count.to_string(),
+                    total_usd: total_usd.unwrap_or(0.0),
+                },
+            )
             .collect(),
         transfers_out: CountUsd {
             count: tr.out_count,
@@ -820,10 +863,7 @@ async fn wallet_info(
             diversity: d,
         },
     };
-    if let Ok(v) = serde_json::to_value(&info) {
-        state.store_scan(&key, v).await;
-    }
-    Ok(Json(info))
+    Ok(info)
 }
 
 #[cfg(test)]

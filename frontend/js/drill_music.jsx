@@ -1008,13 +1008,6 @@ function BridgeDetail({ r }) {
           <span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis'}}>{r.hash}</span>
           {r.hash && <Copy text={r.hash} short/>}
         </Field>
-        {/* Outgoing: the SORA extrinsic hash is also the tx on the counter-chain
-            (bridgeProxy.burn emits an L1 tx whose hash matches). Link it. */}
-        {isOut && r.hash && /^0x[0-9a-f]{64}$/i.test(r.hash) && ETH_TX[net] && (
-          <Field label={t('s.viewOn', 'Ver en {net}').replace('{net}', net)}>
-            <a className="btn" style={{padding:'2px 8px'}} href={txExplorerBase + r.hash} target="_blank" rel="noopener noreferrer">↗ {net}scan</a>
-          </Field>
-        )}
         {/* Incoming: expose the ETH request hash pulled from ethBridge.RequestRegistered. */}
         {!isOut && ethOrigin.txHash && (
           <Field label={net + ' tx'} mono>

@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT b.block_height, b.extrinsic_id, b.event_id, b.hash, b.block_timestamp,\n               b.direction::text AS \"direction!\", b.network, b.caller, b.counterparty, b.asset_id,\n               b.amount AS \"amount!: BigDecimal\", b.usd_value AS \"usd_value: BigDecimal\"\n        FROM sm.bridges b\n        JOIN sm.asset_liquidity l ON l.asset_id = b.asset_id AND l.liquid\n        JOIN ts.price_latest p ON p.asset_id = b.asset_id AND p.price_usd > 0\n        LEFT JOIN sm.asset_registry r ON r.asset_id = b.asset_id\n        WHERE ($1::timestamptz IS NULL OR b.block_timestamp >= $1)\n          AND b.block_height >= $2\n          AND b.usd_value >= $4::float8::numeric\n          AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric\n                             * p.price_usd::numeric * $3::float8::numeric\n        ORDER BY b.usd_value DESC, b.block_height DESC\n        LIMIT $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "extrinsic_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "event_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "block_timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "direction!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "network",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "caller",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "counterparty",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "asset_id",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "amount!: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 11,
+        "name": "usd_value: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "bf4ee0bbd120c48eb064281ce8bb816b9f181992133b5f61e754289a3b0a9319"
+}

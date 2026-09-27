@@ -3608,3 +3608,8 @@ body.rtl .sidebar {
 }
 
 /* ===== end glass level ===== */
+
+@media (pointer: coarse) {
+  .status-opt { min-height: 32px; }
+  .burn-pill { min-height: 30px; }
+}

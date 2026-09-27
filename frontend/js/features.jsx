@@ -1190,9 +1190,10 @@ function StakingPane({ staking }) {
   );
 }
 
-function InfoPane({ info }) {
+function InfoPane({ info, onRetry }) {
   const t = useT();
-  if (!info) return <div className="sm-field"><label>{t('s.onChainInformation', 'Información on-chain')}</label><div className="muted">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div></div>;
+  if (!info || info.pending) return <div className="sm-field"><label>{t('s.onChainInformation', 'Información on-chain')}</label><div className="muted">{info?.pending ? t('wallet.info.pending', 'Calculating… this wallet has a very long history, it can take a couple of minutes.') : t('staking.rewards.perValidator.loading', 'Cargando…')}</div></div>;
+  if (info.error) return <div className="sm-field"><label>{t('s.onChainInformation', 'Información on-chain')}</label><div className="muted" style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>{t('wallet.info.error', 'Could not load the information ({code}).').replace('{code}', info.error)}<button className="btn" onClick={onRetry}>{t('common.retry', 'Retry')}</button></div></div>;
   const txCount = Number(info.txCount) || 0;
   const tInCount  = Number(info.transfersIn?.count)  || 0;
   const tOutCount = Number(info.transfersOut?.count) || 0;
@@ -1393,6 +1394,27 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   const [liquidity, setLiquidity] = useState(null);
   const [staking, setStaking] = useState(null);
   const [info, setInfo] = useState(null);
+  const [infoTry, setInfoTry] = useState(0);
+  const infoDone = React.useRef(null);
+  useEffect(() => {
+    if (subtab !== 'info' || !addr || infoDone.current === addr) return;
+    let c = false, timer = null;
+    const pull = () => fetch('/wallet/info/' + encodeURIComponent(addr)).then(async r => {
+      if (c) return;
+      if (r.status === 503) {
+        setInfo({ pending: true });
+        timer = setTimeout(pull, (Number(r.headers.get('retry-after')) || 15) * 1000);
+        return;
+      }
+      if (!r.ok) { setInfo({ error: r.status }); return; }
+      const j = await r.json();
+      if (c) return;
+      infoDone.current = addr;
+      setInfo(j);
+    }).catch(() => { if (!c) setInfo({ error: 'network' }); });
+    pull();
+    return () => { c = true; clearTimeout(timer); };
+  }, [subtab, addr, infoTry]);
   useEffect(() => {
     if (!addr) return;
     let c = false;
@@ -1402,13 +1424,10 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
     if (subtab === 'staking' && !staking) {
       fetch('/wallet/staking/' + encodeURIComponent(addr)).then(r => r.json()).then(j => { if (!c) setStaking(j); }).catch(() => {});
     }
-    if (subtab === 'info' && !info) {
-      fetch('/wallet/info/' + encodeURIComponent(addr)).then(r => r.json()).then(j => { if (!c) setInfo(j); }).catch(() => {});
-    }
     return () => { c = true; };
-  }, [subtab, addr, liquidity, staking, info]);
+  }, [subtab, addr, liquidity, staking]);
   // Reset the single-shot caches when opening a different wallet.
-  useEffect(() => { setLiquidity(null); setStaking(null); setInfo(null); }, [addr]);
+  useEffect(() => { setLiquidity(null); setStaking(null); setInfo(null); infoDone.current = null; }, [addr]);
 
   // Keep the address bar in sync with the open wallet + active sub-tab so the
   // URL is always a ready-to-share deep-link (?address=<SS58>&wtab=<subtab>).
@@ -1686,7 +1705,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
             : <div className="muted tiny" style={{padding: 20, textAlign: 'center'}}>{t('s.predictionMarketsModuleNotLoaded', 'Prediction Markets module not loaded.')}</div>
         )}
 
-        {subtab === 'info' && <InfoPane info={info}/>}
+        {subtab === 'info' && <InfoPane info={info} onRetry={() => { setInfo(null); setInfoTry(n => n + 1); }}/>}
       </div>
 
       <div className="sm-modal-foot">

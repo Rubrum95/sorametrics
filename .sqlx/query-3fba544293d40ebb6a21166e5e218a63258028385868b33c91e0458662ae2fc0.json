@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH t AS MATERIALIZED (\n               SELECT from_address, to_address, usd_value, block_timestamp FROM sm.transfers WHERE from_address = $1\n               UNION ALL\n               SELECT from_address, to_address, usd_value, block_timestamp FROM sm.transfers\n               WHERE to_address = $1 AND from_address <> $1\n           ), c AS (\n               SELECT counterparty, COUNT(*)::bigint AS n, SUM(usd_value) AS usd FROM (\n                   SELECT to_address AS counterparty, usd_value FROM t WHERE from_address = $1\n                   UNION ALL SELECT from_address, usd_value FROM t WHERE to_address = $1\n               ) u GROUP BY counterparty\n           )\n           SELECT (SELECT COUNT(*) FILTER (WHERE from_address = $1) FROM t)::bigint AS \"out_count!\",\n                  (SELECT COALESCE(SUM(usd_value) FILTER (WHERE from_address = $1), 0) FROM t)\n                      AS \"out_usd: BigDecimal\",\n                  (SELECT COUNT(*) FILTER (WHERE to_address = $1) FROM t)::bigint AS \"in_count!\",\n                  (SELECT COALESCE(SUM(usd_value) FILTER (WHERE to_address = $1), 0) FROM t)\n                      AS \"in_usd: BigDecimal\",\n                  (SELECT MIN(block_timestamp) FROM t) AS \"first\",\n                  (SELECT MAX(block_timestamp) FROM t) AS \"last\",\n                  (SELECT COALESCE(jsonb_agg(jsonb_build_array(counterparty, n, usd)\n                                             ORDER BY usd DESC NULLS LAST, counterparty), '[]'::jsonb)\n                     FROM (SELECT * FROM c ORDER BY usd DESC NULLS LAST, counterparty LIMIT 10) x) AS \"contacts!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "out_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "out_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 2,
+        "name": "in_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "in_usd: BigDecimal",
+        "type_info": "Numeric"
+      },
+      {
+        "ordinal": 4,
+        "name": "first",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "last",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "contacts!",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3fba544293d40ebb6a21166e5e218a63258028385868b33c91e0458662ae2fc0"
+}

@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT b.direction::text AS \"direction!\", b.asset_id AS \"asset_id!\",\n               COUNT(*)::bigint AS \"count!\",\n               COUNT(*) FILTER (WHERE b.usd_value > 0 AND b.block_height >= $2 AND l.liquid IS TRUE\n                   AND p.price_usd > 0\n                   AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric\n                                      * p.price_usd::numeric * $3::float8::numeric)::bigint AS \"priced!\",\n               COALESCE(SUM(b.usd_value) FILTER (WHERE b.usd_value > 0 AND b.block_height >= $2 AND l.liquid IS TRUE\n                   AND p.price_usd > 0\n                   AND b.usd_value <= b.amount / ('1' || repeat('0', COALESCE(r.decimals, 18)::int))::numeric\n                                      * p.price_usd::numeric * $3::float8::numeric), 0) AS \"usd!: BigDecimal\"\n        FROM sm.bridges b\n        LEFT JOIN sm.asset_liquidity l ON l.asset_id = b.asset_id\n        LEFT JOIN ts.price_latest p ON p.asset_id = b.asset_id\n        LEFT JOIN sm.asset_registry r ON r.asset_id = b.asset_id\n        WHERE ($1::timestamptz IS NULL OR b.block_timestamp >= $1)\n        GROUP BY b.direction, b.asset_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "direction!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "asset_id!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "priced!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "usd!: BigDecimal",
+        "type_info": "Numeric"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "b4f4f96db7adee408254e0750ebb4da0cd718edc49b09bcd3bf82a9974896015"
+}

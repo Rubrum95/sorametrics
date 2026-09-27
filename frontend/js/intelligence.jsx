@@ -199,67 +199,29 @@ function WhaleActivity() {
   const [agg, setAgg] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const WINDOWS = {
-    '4h':  4 * 3_600_000,
-    '1d':  86_400_000,
-    '7d':  604_800_000,
-    '1m':  2_592_000_000,
-    '1y':  31_536_000_000,
-    'all': Number.POSITIVE_INFINITY,
-  };
-  const MAX_PAGES = 20; // hard cap on /history/global/bridges walk
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    (async () => {
-      const windowMs = WINDOWS[tf];
-      const cutoff = windowMs === Number.POSITIVE_INFINITY ? 0 : Date.now() - windowMs;
-      let inUsd = 0, outUsd = 0;
-      const perSymIn = {};   // sym → total USD inflow
-      const perSymOut = {};  // sym → total USD outflow
-      let totalTxs = 0;
-
-      for (let page = 1; page <= MAX_PAGES; page++) {
-        const j = await fetch('/history/global/bridges?limit=100&page=' + page)
-          .then(r => r.ok ? r.json() : null).catch(() => null);
+    setError(null);
+    fetch('/stats/bridge-flow?window=' + tf + '&min_usd=1000000000000')
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(j => {
         if (cancelled) return;
-        const list = Array.isArray(j) ? j : (j?.data || []);
-        if (list.length === 0) break;
-        let reachedCutoff = false;
-        for (const b of list) {
-          const ts = Number(b.timestamp);
-          if (!Number.isFinite(ts)) continue;
-          if (ts < cutoff) { reachedCutoff = true; break; }
-          const usd = Number(b.usd_value) || 0;
-          if (usd <= 0) continue;
-          const sym = b.symbol || '?';
-          const isIn = String(b.direction || '').trim().toLowerCase() === 'incoming';
-          if (isIn) {
-            inUsd += usd;
-            perSymIn[sym] = (perSymIn[sym] || 0) + usd;
-          } else {
-            outUsd += usd;
-            perSymOut[sym] = (perSymOut[sym] || 0) + usd;
-          }
-          totalTxs++;
-        }
-        if (reachedCutoff) break;
-        if (list.length < 100) break;
-      }
-      if (cancelled) return;
-
-      const topIn  = Object.entries(perSymIn).sort((a, b) => b[1] - a[1])[0] || null;
-      const topOut = Object.entries(perSymOut).sort((a, b) => b[1] - a[1])[0] || null;
-      setAgg({
-        inUsd, outUsd,
-        net: inUsd - outUsd,
-        totalTxs,
-        topIn:  topIn  ? { sym: topIn[0],  usd: topIn[1] }  : null,
-        topOut: topOut ? { sym: topOut[0], usd: topOut[1] } : null,
-      });
-      setLoading(false);
-    })();
+        const top = side => side?.top ? { sym: side.top.symbol, usd: side.top.usd } : null;
+        setAgg({
+          inUsd: j.incoming.usd,
+          outUsd: j.outgoing.usd,
+          net: j.net,
+          totalTxs: j.incoming.count + j.outgoing.count,
+          priced: j.incoming.priced + j.outgoing.priced,
+          topIn: top(j.incoming),
+          topOut: top(j.outgoing),
+        });
+        setLoading(false);
+      })
+      .catch(e => { if (!cancelled) { setAgg(null); setError(e); setLoading(false); } });
     return () => { cancelled = true; };
   }, [tf]);
 
@@ -295,11 +257,12 @@ function WhaleActivity() {
         ))}
       </div>
 
-      {(loading || !agg) && <div className="muted tiny">{tt('common.loading', 'Loading…')}</div>}
-      {agg && !loading && total === 0 && (
+      {(loading || (!agg && !error)) && <div className="muted tiny">{tt('common.loading', 'Loading…')}</div>}
+      {!loading && error != null && <div className="muted tiny" style={{color:'var(--warn)'}}>{tt('intel.loadError', 'Could not load the data ({code}).').replace('{code}', error)}</div>}
+      {agg && !loading && agg.totalTxs === 0 && (
         <div className="muted tiny">{tt('intel.bflow.noFlow', 'No bridge flow in this window.')}</div>
       )}
-      {agg && !loading && total > 0 && (
+      {agg && !loading && agg.totalTxs > 0 && (
         <>
           {/* Horizontal red-green bar with marker. Same visual language as
               PegMonitor: left half red (outflow), right half green (inflow),
@@ -353,6 +316,7 @@ function WhaleActivity() {
           </div>
           <div className="muted tiny" style={{textAlign:'center', marginTop:8, fontSize:10}}>
             {agg.totalTxs} {tt('intel.bflow.txs', 'bridge tx')}
+            {agg.priced < agg.totalTxs && <> · {tt('intel.bflow.priced', 'USD only for {p} of {n} bridges with a reliable price').replace('{p}', agg.priced).replace('{n}', agg.totalTxs)}</>}
           </div>
         </>
       )}
@@ -365,9 +329,6 @@ function WhaleActivity() {
 // Replaces the net-flow-per-network widget, which hid the interesting
 // signal (who bridged what) behind aggregates.
 //
-// Backend caps /history/global/bridges at 100 rows per page but exposes
-// `total` + `totalPages`, so we walk pages DESC until we cross the cutoff
-// timestamp or hit a safety cap. In practice 24h / 7d are one page; 30d
 // and 1y will paginate a few times on high-activity windows.
 function BridgeNetFlow() {
   const tt = useT();
@@ -377,61 +338,40 @@ function BridgeNetFlow() {
   const [loading, setLoading] = useState(false);
 
   const MIN_USD = 3000;
-  const WINDOWS = { '24h': 86_400_000, '7d': 604_800_000, '30d': 2_592_000_000, '1y': 31_536_000_000 };
-  const MAX_PAGES = 20; // hard cap: 20 pages × 100 rows = 2000 bridges max per view
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    (async () => {
-      const windowMs = WINDOWS[tf] || WINDOWS['24h'];
-      const cutoff = Date.now() - windowMs;
-      const out = [];
-      for (let page = 1; page <= MAX_PAGES; page++) {
-        const j = await fetch('/history/global/bridges?limit=100&page=' + page)
-          .then(r => r.ok ? r.json() : null).catch(() => null);
+    setError(null);
+    fetch('/stats/bridge-flow?window=' + tf + '&min_usd=' + MIN_USD)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(j => {
         if (cancelled) return;
-        const arr = Array.isArray(j) ? j : (j?.data || []);
-        if (arr.length === 0) break;
-        let reachedCutoff = false;
-        for (const b of arr) {
-          const ts = Number(b.timestamp);
-          if (!Number.isFinite(ts)) continue;
-          if (ts < cutoff) { reachedCutoff = true; break; }
-          const usd = Number(b.usd_value) || 0;
-          if (usd >= MIN_USD) {
-            const isIn = String(b.direction || '').trim().toLowerCase() === 'incoming';
-            // Shape matches BridgesSection in routes.jsx so the drill shows
-            // the same detail view (counterparty resolution, Etherscan link,
-            // copy buttons) as the main Bridges table.
-            out.push({
-              id: 'bwidget-' + (b.hash || (b.block + ':' + i)),
-              ts, usd,
-              sym: b.symbol || '',
-              logo: b.logo,
-              amt: Number(b.amount) || 0,
-              dir: isIn ? 'in' : 'out',
-              from: isIn ? (b.network || 'Ethereum') : 'SORA',
-              to:   isIn ? 'SORA' : (b.network || 'Ethereum'),
-              network: b.network || 'Unknown',
-              status: b.status || 'done',
-              hash: b.hash,
-              block: b.block,          // drill uses this to resolve ETH origin
-              sender: b.sender,
-              recipient: b.recipient,
-              settle: 0,
-            });
-          }
-        }
-        if (reachedCutoff) break;
-        // stop if we got fewer rows than limit (last page)
-        if (arr.length < 100) break;
-      }
-      if (cancelled) return;
-      out.sort((a, b) => b.usd - a.usd); // biggest first
-      setRows(out);
-      setLoading(false);
-    })();
+        setRows((j.moves || []).map((b, i) => {
+          const isIn = String(b.direction || '').trim().toLowerCase() === 'incoming';
+          return {
+            id: 'bwidget-' + b.extrinsic_id + '-' + i,
+            ts: Number(b.timestamp),
+            usd: Number(b.usd_value) || 0,
+            sym: b.symbol || '',
+            logo: b.logo,
+            amt: Number(b.amount) || 0,
+            dir: isIn ? 'in' : 'out',
+            from: isIn ? (b.network || 'Ethereum') : 'SORA',
+            to:   isIn ? 'SORA' : (b.network || 'Ethereum'),
+            network: b.network || 'Unknown',
+            status: 'done',
+            hash: b.hash,
+            block: b.block,
+            sender: b.sender,
+            recipient: b.recipient,
+            settle: 0,
+          };
+        }));
+        setLoading(false);
+      })
+      .catch(e => { if (!cancelled) { setRows(null); setError(e); setLoading(false); } });
     return () => { cancelled = true; };
   }, [tf]);
 
@@ -449,7 +389,7 @@ function BridgeNetFlow() {
     <WidgetCard
       title={tt('intel.bridges.title', 'Bridge moves · ≥$3K')}
       severity={severity}
-      tag={rows ? (rows.length + ' · $' + (totalUsd / 1000).toFixed(0) + 'K') : '…'}
+      tag={rows ? (rows.length + ' · ' + fmt.usd(totalUsd)) : '…'}
     >
       {/* Timeframe selector. Active tab styled to match the rest of the app. */}
       <div style={{display:'flex', gap:4, marginBottom:10}}>
@@ -464,7 +404,8 @@ function BridgeNetFlow() {
         ))}
       </div>
 
-      {(loading || !rows) && <div className="muted tiny">{tt('common.loading', 'Loading…')}</div>}
+      {(loading || (!rows && !error)) && <div className="muted tiny">{tt('common.loading', 'Loading…')}</div>}
+      {!loading && error != null && <div className="muted tiny" style={{color:'var(--warn)'}}>{tt('intel.loadError', 'Could not load the data ({code}).').replace('{code}', error)}</div>}
       {rows && !loading && rows.length === 0 && (
         <div className="muted tiny">
           {tt('intel.bridges.none', 'No bridge moves ≥ $3K in the selected window.')}
@@ -523,6 +464,7 @@ function BridgeNetFlow() {
               {tt('intel.bridges.more', '+') + (rows.length - 40) + ' ' + tt('intel.bridges.moreSfx', 'more')}
             </div>
           )}
+          <div className="muted tiny" style={{textAlign:'center', marginTop:4, fontSize:10}}>{tt('intel.bridges.reliable', 'Only bridges with a reliable USD price.')}</div>
         </div>
       )}
     </WidgetCard>
@@ -578,7 +520,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
   return (
     <>
       {rows.map(row => (
-        <div key={row.sym} style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'4px 0'}}>
+        <div key={row.sym} style={{display:'grid', gridTemplateColumns:'minmax(18px, 24px) minmax(40px, 60px) minmax(0, 1fr) minmax(56px, 75px) minmax(72px, 110px)', gap:8, alignItems:'center', padding:'4px 0'}}>
           <TinyTokLogo sym={row.sym}/>
           <span style={{fontWeight:700, fontSize:12}}>{row.sym}</span>
           <div style={{position:'relative', height:5, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:3, overflow:'hidden'}}>
@@ -599,7 +541,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
       ))}
       {/* Referrer row — split into paid + redirected when we have real data */}
       <div style={{padding:'6px 0 0 0', marginTop:4, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
-        <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0'}}>
+        <div style={{display:'grid', gridTemplateColumns:'minmax(18px, 24px) minmax(40px, 60px) minmax(0, 1fr) minmax(56px, 75px) minmax(72px, 110px)', gap:8, alignItems:'center', padding:'2px 0'}}>
           <span style={{fontSize:14, textAlign:'center'}}>👥</span>
           <span style={{fontWeight:700, fontSize:12}}>{t('s.referrer', 'Referrer')}</span>
           <div className="muted tiny" style={{fontStyle:'italic'}}>
@@ -616,7 +558,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
         </div>
         {/* Detailed split — only when we have real (non-live) data */}
         {!refRow.isLive && (
-          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
+          <div style={{display:'grid', gridTemplateColumns:'minmax(18px, 24px) minmax(40px, 60px) minmax(0, 1fr) minmax(56px, 75px) minmax(72px, 110px)', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
             <span></span>
             <span></span>
             <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refPaid', 'paid to referrer')} <span style={{fontStyle:'italic'}}>· {tt('intel.fees.notBurned', 'not burned')}</span></span>
@@ -625,7 +567,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
           </div>
         )}
         {!refRow.isLive && (
-          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
+          <div style={{display:'grid', gridTemplateColumns:'minmax(18px, 24px) minmax(40px, 60px) minmax(0, 1fr) minmax(56px, 75px) minmax(72px, 110px)', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
             <span></span>
             <span></span>
             <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refRedirected', 'redirected to KUSD bucket')} <span style={{fontStyle:'italic'}}>· {tt('intel.fees.willBurn', 'will be burned')}</span></span>
@@ -848,6 +790,7 @@ function FeeWeekly() {
                   ['7d',   '7d'],
                 ].map(([k, label]) => (
                   <button key={k}
+                    className="burn-pill"
                     onClick={() => setBurnTf(k)}
                     style={{
                       padding: '3px 8px',
@@ -867,7 +810,7 @@ function FeeWeekly() {
             </div>
 
             {/* Header */}
-            <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:9, color:'var(--fg-2)', textTransform:'uppercase', letterSpacing:'0.05em'}}>
+            <div style={{display:'grid', gridTemplateColumns:'minmax(18px, 24px) minmax(40px, 60px) minmax(0, 1fr) minmax(56px, 75px) minmax(72px, 110px)', gap:8, alignItems:'center', padding:'2px 0', fontSize:9, color:'var(--fg-2)', textTransform:'uppercase', letterSpacing:'0.05em'}}>
               <span></span>
               <span></span>
               <span></span>
@@ -1000,7 +943,7 @@ function FeeTpsAnomalies() {
       {!net && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
       {net && (
         <>
-          {row('Tx/day', tx24.toLocaleString(), Math.round(tx7 / 7).toLocaleString(), tpsRatio, '')}
+          {row(t('intel.fee.swapsDay', 'Swaps/day'), tx24.toLocaleString(), Math.round(tx7 / 7).toLocaleString(), tpsRatio, '')}
           {row('Volume/day', '$' + vol24.toFixed(0), '$' + Math.round(vol7 / 7).toLocaleString(), volRatio, '')}
           {fees && fees.length > 0 && (
             <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
@@ -1034,49 +977,39 @@ function FeeTpsAnomalies() {
 function ValidatorHealth() {
   const t = useT();
   const [snapshot, setSnapshot] = useState(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetch('/staking/recent-blocks?limit=200').then(r => r.ok ? r.json() : null).then(j => {
+    fetch('/network/health').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(j => {
       if (cancelled) return;
-      const arr = Array.isArray(j) ? j : (j?.blocks || []);
-      const now = Date.now();
-      const HOUR = 60 * 60 * 1000;
-      const recentActive = new Set();  // validators in last 1h
-      const olderActive = new Set();   // validators in 1h-6h ago
-      arr.forEach(b => {
-        const ts = Number(b.timestamp) || 0;
-        const age = now - ts;
-        if (age <= HOUR) recentActive.add(b.validator);
-        else if (age <= 6 * HOUR) olderActive.add(b.validator);
-      });
-      const silent = [...olderActive].filter(v => !recentActive.has(v));
-      const nameOf = (addr) => {
-        const blk = arr.find(b => b.validator === addr);
-        return blk?.validatorName || fmt.addr(addr, 6, 4);
-      };
-      setSnapshot({
-        activeRecent: recentActive.size,
-        activeOlder: olderActive.size,
-        silent: silent.map(v => ({ addr: v, name: nameOf(v) })),
-      });
-    }).catch(() => setSnapshot({ activeRecent: 0, activeOlder: 0, silent: [] }));
+      const vs = j.validators || [];
+      const silent = vs.filter(v => v.silent).map(v => ({
+        addr: v.address,
+        name: v.name || null,
+        session: v.blocksSession,
+        era: v.blocksEra,
+      }));
+      setSnapshot({ activeRecent: vs.length - silent.length, total: vs.length, silent });
+    }).catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, []);
 
-  const severity = !snapshot ? 'none' : snapshot.silent.length > 2 ? 'warn' : 'ok';
+  const severity = !snapshot ? 'none' : !snapshot.silent.length ? 'ok' : snapshot.silent.length * 3 >= snapshot.total ? 'alert' : 'warn';
 
   return (
     <WidgetCard title={t('s.validatorHealth', 'Validator Health')} severity={severity} tag={snapshot ? t('s.activeSilent', '{a} active · {s} silent').replace('{a}', snapshot.activeRecent).replace('{s}', snapshot.silent.length) : '…'}>
-      {!snapshot && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!snapshot && !failed && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {failed && <div className="muted tiny">—</div>}
       {snapshot && snapshot.silent.length === 0 && <div className="muted tiny">{t('s.allActiveValidatorsAreProducing', 'Todos los validadores activos producen bloques.')}</div>}
       {snapshot && snapshot.silent.length > 0 && (
         <>
-          <div className="muted tiny" style={{marginBottom:6}}>{t('s.producedBlocks16H', 'Produjeron bloques 1-6h atrás pero no en la última hora:')}</div>
+          <div className="muted tiny" style={{marginBottom:6}}>{t('intel.vh.silent', 'Not producing blocks (blocks this session · this era):')}</div>
           {snapshot.silent.map(v => (
             <div key={v.addr} style={{display:'flex', alignItems:'center', gap:8, padding:'4px 0', fontSize:12}}>
               <Severity level="warn"/>
-              <WalletLink addr={v.addr} style={{fontWeight:700}}>{v.name}</WalletLink>
-              <span className="muted tiny num"><WalletLink addr={v.addr}>{fmt.addr(v.addr, 5, 4)}</WalletLink></span>
+              <WalletLink addr={v.addr} style={{fontWeight:700}}>{v.name || fmt.addr(v.addr, 6, 4)}</WalletLink>
+              {v.name && <span className="muted tiny num"><WalletLink addr={v.addr}>{fmt.addr(v.addr, 5, 4)}</WalletLink></span>}
+              <span className="muted tiny num" style={{marginLeft:'auto'}}>{v.session} · {v.era}</span>
             </div>
           ))}
         </>
@@ -1144,29 +1077,40 @@ function GovernancePulse() {
 
 // New Listings — tokens that weren't in the previous /tokens snapshot we saw
 // (stored in localStorage as a symbol set, rolled over every 24h).
+function apiTimeMs(text) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(text || ''));
+  if (!m) return NaN;
+  const guess = Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Madrid', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(guess).map(x => [x.type, x.value]));
+  const wall = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+  return guess - (wall - guess);
+}
+
 function NewListings() {
   const t = useT();
-  const STORAGE_KEY = 'sm.intel.knownTokens';
   const [result, setResult] = useState(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetch('/tokens?limit=500').then(r => r.ok ? r.json() : null).then(j => {
+    try { localStorage.removeItem('sm.intel.knownTokens'); } catch (_) {}
+    (async () => {
+      const r = await fetch('/history/global/extrinsics?section=assets&method=register&limit=25');
+      if (!r.ok) throw r.status;
+      const j = await r.json();
+      const cutoff = Date.now() - 86_400_000;
+      const recent = (j.data || []).filter(x => Number(x.success) === 1 && apiTimeMs(x.time) >= cutoff);
+      const details = await Promise.all(recent.map(x =>
+        fetch('/history/extrinsic/' + x.block + '/' + x.extrinsic_index).then(d => d.ok ? d.json() : null).catch(() => null)));
       if (cancelled) return;
-      const arr = Array.isArray(j) ? j : (j?.tokens || []);
-      const now = Date.now();
-      let prev = null;
-      try { prev = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch {}
-      const current = arr.map(t => t.symbol).filter(Boolean);
-      // Reset the baseline every 24h; new tokens between snapshots = listings.
-      let listings = [];
-      if (prev && (now - prev.ts) < 24 * 60 * 60 * 1000 && Array.isArray(prev.tokens)) {
-        const prevSet = new Set(prev.tokens);
-        listings = current.filter(s => !prevSet.has(s));
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ts: prev?.ts || now, tokens: prev?.tokens || current }));
-      // Details for listings from the full token map.
-      setResult(listings.map(s => arr.find(t => t.symbol === s)).filter(Boolean));
-    });
+      setResult(recent.map((x, i) => {
+        let a = {};
+        try { a = JSON.parse(details[i]?.args_json || '{}'); } catch (_) {}
+        return { key: x.extrinsic_id, symbol: a.symbol || null, name: a.name || null, assetId: a.assetId || null, signer: x.signer, ts: apiTimeMs(x.time) };
+      }));
+    })().catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -1174,61 +1118,56 @@ function NewListings() {
 
   return (
     <WidgetCard title={t('s.newListings24h', 'New Listings · 24h')} severity={severity} tag={result ? result.length + ' new' : '…'}>
-      {!result && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!result && !failed && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {failed && <div className="muted tiny">—</div>}
       {result && result.length === 0 && <div className="muted tiny">{t('s.noNewTokensInThe', 'Sin nuevos tokens en la última ventana de 24h.')}</div>}
       {result && result.length > 0 && result.slice(0, 8).map(tk => (
-        <div key={tk.symbol} style={{display:'flex', alignItems:'center', gap:10, padding:'6px 0', fontSize:13}}>
-          <TokenLogo sym={tk.symbol} logo={tk.logo} size={24}/>
+        <div key={tk.key} style={{display:'flex', alignItems:'center', gap:10, padding:'6px 0', fontSize:13}}>
+          <TokenLogo sym={tk.symbol || '?'} size={24}/>
           <div style={{flex:1, minWidth:0}}>
-            <div style={{fontWeight:700}}>{tk.symbol}</div>
-            <div className="muted tiny">{tk.name}</div>
+            <div style={{fontWeight:700}}>{tk.symbol || fmt.addr(tk.assetId || '', 6, 4)}</div>
+            <div className="muted tiny">{tk.name || ''}</div>
           </div>
-          <div className="num tiny">${Number(tk.price) > 0 ? Number(tk.price).toFixed(4) : '—'}</div>
+          <div className="muted tiny">{fmt.ago(tk.ts)} · <WalletLink addr={tk.signer}>{fmt.addr(tk.signer, 5, 4)}</WalletLink></div>
         </div>
       ))}
     </WidgetCard>
   );
 }
 
-// Cross-Pair Arbitrage — same base token priced across different quote pairs.
-// /pools does NOT expose a dex_id field (only base/basePrice/reserves/target/
-// targetPrice), so the previous "Cross-DEX" claim was unverifiable — every
-// pool was tagged 'DEX undefined'. The real arbitrage signal we CAN compute
-// from this data is: the same base token (e.g. XOR) trades at multiple
-// implied USD prices across its pairs (XOR/DAI, XOR/KUSD, XOR/ETH) → a route
-// exists that closes the gap. We surface the best pair-pair divergence per
-// base token, and label the rows with the pair (not a fake DEX).
 function CrossDexArb() {
   const t = useT();
   const [spread, setSpread] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const MIN_SIDE_USD = 500;
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const pages = await Promise.all([1, 2, 3].map(p =>
-        fetch('/pools?page=' + p + '&limit=25').then(r => r.ok ? r.json() : null).catch(() => null)
-      ));
+      const get = page => fetch('/pools?page=' + page + '&limit=100').then(r => r.ok ? r.json() : Promise.reject(r.status));
+      const first = await get(1);
+      const rest = await Promise.all(Array.from({ length: Math.max(0, (first.totalPages || 1) - 1) }, (_, i) => get(i + 2)));
       if (cancelled) return;
-      const all = pages.flatMap(p => p?.data || []);
-      const bySym = {};
-      all.forEach(p => {
-        const sym = p.base?.symbol;
-        const price = Number(p.basePrice);
-        if (!sym || !Number.isFinite(price) || price <= 0) return;
-        if (!bySym[sym]) bySym[sym] = [];
-        bySym[sym].push({ target: p.target?.symbol || '?', price });
+      const num = v => Number(String(v ?? '').replace(/,/g, ''));
+      const byToken = {};
+      [first, ...rest].flatMap(p => p?.data || []).forEach(p => {
+        const rb = num(p.reserves?.base) / 10 ** (p.base?.decimals ?? 18);
+        const rt = num(p.reserves?.target) / 10 ** (p.target?.decimals ?? 18);
+        const bp = Number(p.basePrice);
+        const sym = p.target?.symbol;
+        if (!sym || !(rb > 0) || !(rt > 0) || !(bp > 0) || rb * bp < MIN_SIDE_USD) return;
+        (byToken[sym] = byToken[sym] || []).push({ target: p.base?.symbol || '?', price: rb / rt * bp });
       });
       const out = [];
-      Object.entries(bySym).forEach(([sym, rows]) => {
+      Object.entries(byToken).forEach(([sym, rows]) => {
         if (rows.length < 2) return;
         const max = rows.reduce((m, r) => r.price > m.price ? r : m);
         const min = rows.reduce((m, r) => r.price < m.price ? r : m);
-        if (min.target === max.target) return; // same pair — nothing to arb
         const spreadPct = ((max.price - min.price) / min.price) * 100;
         if (spreadPct > 0.5) out.push({ sym, spreadPct, low: min, high: max });
       });
       out.sort((a, b) => b.spreadPct - a.spreadPct);
       setSpread(out.slice(0, 6));
-    })();
+    })().catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -1236,8 +1175,9 @@ function CrossDexArb() {
   const severity = !spread ? 'none' : best?.spreadPct > 2 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title={t('s.crossPairArbitrage', 'Cross-Pair Arbitrage')} severity={severity} tag={best ? best.sym + ' spread ' + best.spreadPct.toFixed(2) + '%' : '…'}>
-      {!spread && <div className="muted tiny">{t('s.analysingPools', 'Analizando pools…')}</div>}
+    <WidgetCard title={t('s.crossPairArbitrage', 'Cross-Pair Arbitrage')} severity={severity} tag={best ? best.sym + ' spread ' + best.spreadPct.toFixed(2) + '%' : spread ? '0' : failed ? '—' : '…'}>
+      {!spread && !failed && <div className="muted tiny">{t('s.analysingPools', 'Analizando pools…')}</div>}
+      {failed && <div className="muted tiny">—</div>}
       {spread && spread.length === 0 && <div className="muted tiny">{t('s.noSpreads05Between', 'Sin spreads > 0.5% entre pares.')}</div>}
       {spread && spread.map(s => (
         <div key={s.sym} style={{display:'grid', gridTemplateColumns:'60px 1fr 1fr 80px', gap:10, alignItems:'center', padding:'6px 0', fontSize:12}}>
@@ -1247,6 +1187,7 @@ function CrossDexArb() {
           <span className="num" style={{textAlign:'right', fontWeight:700, color: s.spreadPct > 2 ? 'var(--warn)' : 'var(--fg-0)'}}>+{s.spreadPct.toFixed(2)}%</span>
         </div>
       ))}
+      {spread && <div className="muted tiny" style={{marginTop:6, fontSize:10}}>{t('intel.arb.note', 'Implied price per pool from its reserves · pools with ≥ $1K liquidity')}</div>}
     </WidgetCard>
   );
 }
@@ -1262,7 +1203,7 @@ function IntelligenceSection() {
 
       <div style={{marginBottom:12}}>
         <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier1Alerts', 'Tier 1 · Alerts')}</h3>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap:14}}>
           <PegMonitor/>
           <WhaleActivity/>
           <BridgeNetFlow/>
@@ -1271,7 +1212,7 @@ function IntelligenceSection() {
 
       <div style={{marginBottom:12, marginTop:22}}>
         <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier2AlgorithmicSignals', 'Tier 2 · Algorithmic Signals')}</h3>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap:14}}>
           <FeeWeekly/>
           <FeeTpsAnomalies/>
           <ValidatorHealth/>
@@ -1280,7 +1221,7 @@ function IntelligenceSection() {
 
       <div style={{marginTop:22}}>
         <h3 style={{margin:'8px 0', fontSize:13, color:'var(--fg-2)', letterSpacing:'0.12em', textTransform:'uppercase'}}>{t('s.tier3Extras', 'Tier 3 · Extras')}</h3>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14}}>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(380px, 100%), 1fr))', gap:14}}>
           <GovernancePulse/>
           <NewListings/>
           <CrossDexArb/>
