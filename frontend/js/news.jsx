@@ -223,7 +223,7 @@ function NewsSection() {
     <div>
       <PageHeader title={t('nav.news')} sub={t('news.subtitle')}>
         <span className="tag" style={{display:'flex', alignItems:'center', gap:6}}>
-          <span className="live-dot" style={{width:6, height:6, background: playing ? '#10B981' : '#6B7280'}}/>
+          <span className="live-dot" style={{width:6, height:6, background: playing ? 'var(--ok)' : 'var(--fg-3)'}}/>
           {playing ? t('news.nowPlaying') : '—'} · {episodes.length} ep
         </span>
       </PageHeader>
@@ -232,28 +232,29 @@ function NewsSection() {
 
       <div style={{
         position:'relative', borderRadius: 18, overflow:'hidden',
-        border: '1px solid rgba(236,72,153,0.25)',
-        boxShadow: `0 0 ${40 + energy * 80}px rgba(236,72,153,${0.18 + energy * 0.4}), 0 0 ${20 + energy * 40}px rgba(96,165,250,${0.12 + energy * 0.25}) inset`,
+        border: '1px solid rgb(var(--pink-rgb) / 0.25)',
+        boxShadow: `0 0 ${40 + energy * 80}px rgb(var(--pink-rgb) / ${0.18 + energy * 0.4}), 0 0 ${20 + energy * 40}px rgb(var(--info-rgb) / ${0.12 + energy * 0.25}) inset`,
         transition: 'box-shadow 80ms linear',
-        background: '#0a0a14',
+        background: 'var(--bg-1)',
         maxWidth: 960, width: '100%', margin: '0 auto',
       }}>
-        <div style={{position:'relative', width:'100%', aspectRatio:'3/2', background: '#000'}}>
+        <div style={{position:'relative', width:'100%', aspectRatio:'3/2', background: 'var(--bg-0)'}}>
           {ep?.cover_path && (
             <img src={bust(ep.cover_path)} alt={title}
                  style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', filter: playing ? 'brightness(0.78)' : 'brightness(0.92)', transition:'filter 200ms ease'}}/>
           )}
+          <div className="hero-veil"/>
           {/* Visualizer overlay: bottom strip, only visible while audio is alive */}
           <div style={{position:'absolute', left:0, right:0, bottom:0, height:'38%', pointerEvents:'none', opacity: playing || elapsed > 0 ? 1 : 0.35, transition:'opacity 240ms ease'}}>
-            <NeonVisualizer freq={freq} playing={playing} accent="#EC4899" accent2="#60A5FA"/>
+            <NeonVisualizer freq={freq} playing={playing}/>
           </div>
           {/* Countdown overlay during the first 30s of playback — disappears as
               the voice takes over from the music intro at t=30s */}
           {showCountdown && (
             <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none'}}>
               <div style={{
-                fontSize:'clamp(120px, 22vw, 320px)', fontWeight:900, color:'rgba(255,255,255,0.92)',
-                textShadow:'0 0 30px rgba(0,0,0,0.85), 6px 6px 0 rgba(0,0,0,0.5)',
+                fontSize:'clamp(120px, 22vw, 320px)', fontWeight:900, color:'var(--fg-0)',
+                textShadow:`0 0 30px ${NEWS_HALO}, 6px 6px 0 color-mix(in oklab, var(--bg-0) 50%, transparent)`,
                 fontFamily:'"Arial Black", Impact, Helvetica, sans-serif', lineHeight:1,
                 letterSpacing:'-0.04em',
               }}>{countdownValue}</div>
@@ -261,10 +262,10 @@ function NewsSection() {
           )}
           {/* Title overlay */}
           <div style={{position:'absolute', top:18, left:22, right:22, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, pointerEvents:'none'}}>
-            <div>
-              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase'}}>{t('news.nowPlaying')}</div>
-              <div style={{fontSize:26, fontWeight:800, color:'#fff', marginTop:2, textShadow:'0 0 18px rgba(0,0,0,0.7)', maxWidth: '70%'}}>{title || '—'}</div>
-              <div style={{fontSize:13, color:'rgba(255,255,255,0.78)', marginTop:4, textShadow:'0 0 12px rgba(0,0,0,0.6)'}}>{fmtDate(ep?.published_at, uiLang)} · {audioLang.toUpperCase()}</div>
+            <div className="media-copy capped">
+              <div style={{fontSize:11, letterSpacing:'0.3em', color:'var(--pink-text)', textTransform:'uppercase', textShadow:`0 0 2px ${NEWS_HALO}, 0 1px 6px ${NEWS_HALO}`}}>{t('news.nowPlaying')}</div>
+              <div className="media-title" style={{fontSize:26, fontWeight:800, color:'var(--fg-0)', marginTop:2, textShadow:`0 0 2px ${NEWS_HALO}, 0 0 18px ${NEWS_HALO}`}}>{title || '—'}</div>
+              <div style={{fontSize:13, color:'var(--fg-1)', marginTop:4, textShadow:`0 0 2px ${NEWS_HALO}, 0 0 12px ${NEWS_HALO}`}}>{fmtDate(ep?.published_at, uiLang)} · {audioLang.toUpperCase()}</div>
             </div>
           </div>
           {/* Center play button overlay */}
@@ -273,29 +274,29 @@ function NewsSection() {
             title={playing ? 'Pause' : 'Play'}
             style={{
               position:'absolute', top:'50%', left:'50%', transform:'translate(-50%, -50%)',
-              width: 78, height: 78, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.85)',
-              background: playing ? 'rgba(236,72,153,0.85)' : 'rgba(0,0,0,0.45)',
-              color: '#fff', fontSize: 30, cursor: 'pointer',
+              width: 78, height: 78, borderRadius: '50%', border: '2px solid rgb(var(--ov-rgb) / 0.7)',
+              background: playing ? 'rgb(var(--pink-rgb) / 0.85)' : 'color-mix(in oklab, var(--bg-0) 55%, transparent)',
+              color: playing ? 'var(--on-accent)' : 'var(--fg-0)', fontSize: 30, cursor: 'pointer',
               backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-              boxShadow: '0 0 30px rgba(236,72,153,0.5)',
+              boxShadow: '0 0 30px rgb(var(--pink-rgb) / 0.5)',
               display:'flex', alignItems:'center', justifyContent:'center',
             }}>
             {playing ? '⏸' : '▶'}
           </button>
         </div>
 
-        <div style={{padding:'16px 24px 20px', background:'rgba(0,0,0,0.5)', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-          <div onClick={onSeek} style={{height:6, borderRadius:3, background:'rgba(255,255,255,0.08)', cursor:'pointer', overflow:'hidden', marginBottom:12}}>
-            <div style={{height:'100%', width:(progress * 100) + '%', background:'linear-gradient(90deg, #EC4899, #60A5FA)', boxShadow:'0 0 12px rgba(236,72,153,0.6)', transition:'width 120ms linear'}}/>
+        <div style={{padding:'16px 24px 20px', background:'color-mix(in oklab, var(--bg-0) 60%, transparent)', borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
+          <div onClick={onSeek} style={{height:6, borderRadius:3, background:'rgb(var(--ov-rgb) / 0.08)', cursor:'pointer', overflow:'hidden', marginBottom:12}}>
+            <div style={{height:'100%', width:(progress * 100) + '%', background:'linear-gradient(90deg, var(--pink), var(--info))', boxShadow:'0 0 12px rgb(var(--pink-rgb) / 0.6)', transition:'width 120ms linear'}}/>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:14, flexWrap:'wrap'}}>
-            <div className="num tiny" style={{color:'rgba(255,255,255,0.7)', minWidth:100, fontFamily:'JetBrains Mono'}}>
-              {fmtMMSS(elapsed)} <span style={{opacity:0.5}}>/ {fmtMMSS(dur)}</span>
+            <div className="num tiny" style={{color:'var(--fg-1)', minWidth:100, fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums'}}>
+              {fmtMMSS(elapsed)} <span style={{color:'var(--fg-2)'}}>/ {fmtMMSS(dur)}</span>
             </div>
-            <div style={{flex:1, color:'rgba(255,255,255,0.7)', fontSize:13}}>{summary}</div>
+            <div style={{flex:1, color:'var(--fg-2)', fontSize:13}}>{summary}</div>
             <div style={{display:'flex', alignItems:'center', gap:8}}>
               <span className="muted tiny">{t('s.vol', 'VOL')}</span>
-              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:110, accentColor:'#EC4899'}}/>
+              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:110, accentColor:'var(--pink)'}}/>
             </div>
           </div>
         </div>
@@ -324,10 +325,10 @@ function NewsSection() {
                 const epLabel = (uiLang === 'es' ? 'Episodio ' : 'Episode ') + epNum;
                 return (
                   <tr key={e.slug} className="swap-row clickable" onClick={() => pickEpisode(i)}
-                      style={{background: isActive ? 'rgba(236,72,153,0.08)' : undefined}}>
+                      style={{background: isActive ? 'rgb(var(--pink-rgb) / 0.08)' : undefined}}>
                     <td style={{paddingLeft:20}}>
                       {isActive && playing
-                        ? <span style={{color:'#EC4899', fontSize:14}}>♪</span>
+                        ? <span style={{color:'var(--pink)', fontSize:14}}>♪</span>
                         : <span className="muted tiny">{i + 1}</span>}
                     </td>
                     <td>
@@ -337,8 +338,8 @@ function NewsSection() {
                       )}
                     </td>
                     <td>
-                      <div style={{fontSize:9, letterSpacing:'0.22em', color:'#EC4899', textTransform:'uppercase', fontWeight:700, marginBottom:2}}>{epLabel}</div>
-                      <div style={{fontWeight: isActive ? 700 : 500, color: isActive ? '#fff' : 'var(--fg-1)'}}>{epTitle}</div>
+                      <div style={{fontSize:9, letterSpacing:'0.22em', color:'var(--pink-text)', textTransform:'uppercase', fontWeight:700, marginBottom:2}}>{epLabel}</div>
+                      <div style={{fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--fg-0)' : 'var(--fg-1)'}}>{epTitle}</div>
                     </td>
                     <td className="muted tiny">{fmtDate(e.published_at, uiLang)}</td>
                     <td style={{textAlign:'right', paddingRight:20}} className="num tiny muted">
@@ -354,5 +355,7 @@ function NewsSection() {
     </div>
   );
 }
+
+const NEWS_HALO = 'color-mix(in oklab, var(--bg-0) 75%, transparent)';
 
 Object.assign(window, { NewsSection });

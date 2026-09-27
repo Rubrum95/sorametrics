@@ -16,7 +16,7 @@ function AccountCell({ addr, size = 22 }) {
   return (
     <div style={{display:'flex', alignItems:'center', gap:8, minWidth: 0}}
          title={addr ? addr + (name ? ' · ' + name : '') : undefined}>
-      <div style={{width:size,height:size,borderRadius:'50%',background:'linear-gradient(135deg,#7B5B90,#4A3566)',flexShrink:0}}/>
+      <div style={{width:size,height:size,borderRadius:'50%',background:'var(--grad-avatar)',flexShrink:0}}/>
       <div style={{flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25}}>
         {name && (
           <div style={{display:'flex', alignItems:'center', gap:4}}>
@@ -60,22 +60,22 @@ function TokenLogo({ sym, logo, size = 24 }) {
            style={{
              width: size, height: size, borderRadius: '50%',
              flexShrink: 0, objectFit: 'cover',
-             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-             background: 'rgba(255,255,255,0.04)',
+             boxShadow: '0 2px 8px rgb(var(--shade-rgb) / .25)',
+             background: 'rgb(var(--ov-rgb) / .04)',
            }}
            onError={(e) => { e.currentTarget.style.display = 'none'; }}
       />
     );
   }
-  const tk = TOKENS[sym] || { grad: 'linear-gradient(135deg,#555,#333)' };
+  const tk = TOKENS[sym] || { grad: 'var(--grad-avatar)', ink: 'var(--fg-0)' };
   return (
     <div className="swap-tok-logo-round" style={{
       width: size, height: size, borderRadius: '50%',
       background: tk.grad,
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: Math.round(size * 0.42), fontWeight: 800, color: '#fff',
+      fontSize: Math.round(size * 0.42), fontWeight: 800, color: tk.ink || 'var(--on-tok)',
       flexShrink: 0,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+      boxShadow: '0 2px 8px rgb(var(--shade-rgb) / .25)',
     }}>{sym ? sym[0] : '?'}</div>
   );
 }
@@ -226,7 +226,7 @@ function SwapsSection({ tweaks }) {
             <button className={'swap-dropdown-btn' + (filter ? ' has-filter' : '')}
                     onClick={() => setDropdownOpen(o => !o)}>
               {filter ? <><TokenLogo sym={filter} size={18}/> <span>{t('s.filter', 'Filter:')} {filter}</span></>
-                      : <><span style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#FFD166,#E5243B)',display:'inline-block'}}/> <span>{t('s.allTokens', 'All Tokens')}</span></>}
+                      : <><span style={{width:18,height:18,borderRadius:'50%',background:'var(--grad-brand)',display:'inline-block'}}/> <span>{t('s.allTokens', 'All Tokens')}</span></>}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2 4 3 3 3-3"/></svg>
             </button>
             {dropdownOpen && (
@@ -240,7 +240,7 @@ function SwapsSection({ tweaks }) {
                   onChange={e => setDropdownSearch(e.target.value)}
                   style={{width:'100%', padding:'8px 10px', border:'1px solid var(--border-color)', borderRadius:6, background:'var(--bg-card)', color:'var(--fg-0)', marginBottom:6, fontSize:13, outline:'none'}}/>
                 <div className="swap-dd-item" onClick={() => { setFilter(null); setDropdownOpen(false); setDropdownSearch(''); setPage(1); }}>
-                  <span style={{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#FFD166,#E5243B)',display:'inline-block'}}/>
+                  <span style={{width:18,height:18,borderRadius:'50%',background:'var(--grad-brand)',display:'inline-block'}}/>
                   <span>{t('s.allTokens2', '🌟 All Tokens')}</span>
                 </div>
                 {tokenList

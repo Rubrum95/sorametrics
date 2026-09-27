@@ -910,15 +910,15 @@ function TinyTokLogo({ sym, logo, size = 18 }) {
   const src = logo || (sym && window.TOKEN_LOGOS && window.TOKEN_LOGOS[sym]) || null;
   if (src) {
     return <img src={src} alt={sym || ''}
-      style={{width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', background:'rgba(255,255,255,0.04)'}}
+      style={{width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', background:'rgb(var(--ov-rgb) / .04)'}}
       onError={e => { e.currentTarget.style.display = 'none'; }}/>;
   }
   return (
     <span style={{
       width: size, height: size, borderRadius: '50%',
-      background: 'linear-gradient(135deg,#7B5B90,#4A3566)',
+      background: 'var(--grad-avatar)',
       display:'inline-flex', alignItems:'center', justifyContent:'center',
-      fontSize: Math.round(size * 0.5), fontWeight: 700, color:'#fff', flexShrink: 0,
+      fontSize: Math.round(size * 0.5), fontWeight: 700, color:'var(--fg-0)', flexShrink: 0,
     }}>{sym ? sym[0] : '?'}</span>
   );
 }
@@ -945,7 +945,7 @@ function HashChip({ hash }) {
           onClick={(ev) => ev.stopPropagation()}>
       <code className="num" title={hash}
             style={{fontSize: 10, padding:'2px 6px', borderRadius: 4,
-                    background:'rgba(255,255,255,0.02)', border:'1px solid var(--border)',
+                    background:'rgb(var(--ov-rgb) / .02)', border:'1px solid var(--border)',
                     color:'var(--fg-1)'}}>{short}</code>
       <button onClick={onCopy} title={t('s.copyHash2', 'Copiar hash')}
               style={{width: 22, height: 22, padding: 0, background:'transparent',
@@ -1013,8 +1013,8 @@ function WalletHistoryTable({ kind, rows }) {
             detail = (
               <div style={{display:'flex', flexDirection:'column', gap: 4, alignItems:'flex-start'}}>
                 <div style={{display:'flex', alignItems:'center', gap: 8, flexWrap:'wrap'}}>
-                  <span style={{fontFamily:'JetBrains Mono', fontSize: 12}}>
-                    <span style={{color:'#EC4899'}}>{r.section}</span>
+                  <span style={{fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', fontSize: 12}}>
+                    <span style={{color:'var(--pink)'}}>{r.section}</span>
                     <span style={{color:'var(--fg-3)'}}>::</span>
                     <span>{r.method}</span>
                   </span>
@@ -1443,13 +1443,13 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
   const breakdown = numericTokens.map(t => ({
     sym: t.sym,
     pct: totalUsd > 0 ? t.usdValue / totalUsd : 0,
-    color: TOKEN_COLOR[t.sym] || '#94A3B8',
+    color: TOKEN_COLOR[t.sym] || 'var(--fg-2)',
     amt: t.amount,
     usd: t.usdValue,
     logo: t.logo,
   }));
   // Fallback placeholder when prod returns empty tokens (e.g. unused address).
-  if (!breakdown.length) breakdown.push({ sym: '—', pct: 1, color: '#4A3566', amt: 0, usd: 0, logo: null });
+  if (!breakdown.length) breakdown.push({ sym: '—', pct: 1, color: 'var(--fg-3)', amt: 0, usd: 0, logo: null });
 
   // Is this wallet already in the user's persistent store?
   const storedHere = !!(
@@ -1540,7 +1540,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
     <Modal open={open} onClose={onClose} width={WALLET_MODAL_WIDTH} label={wallet.alias} z={12000}>
       <div className="sm-modal-head">
         <div style={{display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0}}>
-          <div className="sm-avatar" style={{background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}>{wallet.alias[0]}</div>
+          <div className="sm-avatar" style={{background:'var(--grad-avatar)', color:'var(--fg-0)'}}>{wallet.alias[0]}</div>
           <div style={{minWidth:0, flex:1}}>
             <h3 style={{margin:0, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
               {identity?.display || wallet.alias}
@@ -1711,7 +1711,7 @@ function WalletDetailsModal({ wallet, open, onClose, onRemove }) {
               </button>
             )}
             <div style={{flex:1}}/>
-            <button className="btn primary" onClick={onClose}>{t('common.close', 'Cerrar')}</button>
+            <button className="btn" onClick={onClose}>{t('common.close', 'Cerrar')}</button>
           </>
         ) : (
           <div className="sm-confirm-row">

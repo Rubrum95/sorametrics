@@ -15,14 +15,14 @@ const COMING_SOON = () => (
   <div style={{
     margin: '28px auto', maxWidth: 560,
     padding: '36px 24px', textAlign: 'center',
-    background: 'rgba(96,165,250,0.05)',
-    border: '1px solid rgba(96,165,250,0.2)',
+    background: 'rgb(var(--info-rgb) / .05)',
+    border: '1px solid rgb(var(--info-rgb) / .2)',
     borderRadius: 14,
   }}>
     <div style={{fontSize: 42, marginBottom: 14, opacity: 0.7}}>🔮</div>
     <div style={{fontSize: 20, fontWeight: 700, marginBottom: 8}}>Polkamarkt</div>
     <div style={{
-      fontSize: 14, fontWeight: 600, color: '#60A5FA',
+      fontSize: 14, fontWeight: 600, color: 'var(--info)',
       letterSpacing: '0.15em', textTransform: 'uppercase',
     }}>Soooon</div>
   </div>
@@ -58,8 +58,8 @@ function ProbBar({ m }) {
     : `YES ${yesPct.toFixed(1)}% · NO ${(100 - yesPct).toFixed(1)}% (${basis === 'implied' ? 'market-implied' : 'by collateral'})`;
   return (
     <div title={title}
-         style={{position:'relative', height:6, borderRadius:3, overflow:'hidden', background:'#EF4444', minWidth: 60}}>
-      <div style={{position:'absolute', inset:0, width: yesPct + '%', background:'#10B981'}}/>
+         style={{position:'relative', height:6, borderRadius:3, overflow:'hidden', background:'var(--err)', minWidth: 60}}>
+      <div style={{position:'absolute', inset:0, width: yesPct + '%', background:'var(--ok)'}}/>
     </div>
   );
 }
@@ -83,7 +83,7 @@ function StatusChip({ status, resolution }) {
 function MechBadge({ mechanism }) {
   if (!mechanism) return null;
   const dpm = mechanism === 'DynamicPariMutuel';
-  return <span className="tag" style={{fontSize:9, marginLeft:6, opacity:0.75}}
+  return <span className="tag" style={{fontSize:9, marginLeft:6}}
     title={dpm ? 'Dynamic Pari-Mutuel (4.8.8)' : 'Migrated legacy market'}>{dpm ? 'DPM' : 'Legacy'}</span>;
 }
 
@@ -164,7 +164,7 @@ function BuybackCard({ tt }) {
     <div className="card" style={{marginTop: 16}}>
       <div className="card-header">
         <div className="card-title">
-          <span className="dot" style={{background:'#F59E0B'}}/> {tt('predict.buyback.title', 'XOR buyback pool')}
+          <span className="dot" style={{background:'var(--amber)'}}/> {tt('predict.buyback.title', 'XOR buyback pool')}
         </div>
         <span className="tag" style={{fontSize: 10}}>{tt('predict.buyback.tag', 'permissionless sweep')}</span>
       </div>
@@ -197,7 +197,7 @@ function BuybackCard({ tt }) {
                       <td style={{paddingLeft: 12}} className="tiny muted" title={fmt.fullDate(h.ts)}>{fmt.ago(h.ts)}</td>
                       <td className="num tiny muted">#{h.block.toLocaleString()}</td>
                       <td style={{textAlign:'right'}} className="num">{fmtNative(h.kusdSpent)}</td>
-                      <td style={{textAlign:'right', paddingRight: 12, color:'#F59E0B', fontWeight:600}} className="num">{fmtNative(h.xorBurned)}</td>
+                      <td style={{textAlign:'right', paddingRight: 12, color:'var(--amber)', fontWeight:600}} className="num">{fmtNative(h.xorBurned)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -326,7 +326,7 @@ function PolkamarktSection() {
               {!loading && tabData.map(m => (
                 <tr key={m.market_id} className="swap-row clickable"
                     onClick={() => openDrill({ type: 'polkamarkt', title: '#' + m.market_id + ' · ' + (m.question || 'Untitled'), ...m })}>
-                  <td style={{paddingLeft: 16, fontWeight: 700, color: 'var(--accent)'}} className="num">#{m.market_id}</td>
+                  <td style={{paddingLeft: 16, fontWeight: 700, color: 'var(--accent-text)'}} className="num">#{m.market_id}</td>
                   <td style={{maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                     {m.question || <span className="muted tiny">{t('s.condition', '(condition #')}{m.condition_id})</span>}
                   </td>
@@ -394,7 +394,7 @@ function PolkamarktPositions({ addr, title }) {
             {positions.map(p => (
               <tr key={p.market_id}>
                 <td style={{paddingLeft: 16, maxWidth: 320, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                  <span style={{color:'var(--accent)', fontWeight:700}}>#{p.market_id}</span>{' '}
+                  <span style={{color:'var(--accent-text)', fontWeight:700}}>#{p.market_id}</span>{' '}
                   <span className="muted tiny">{p.question || t('s.untitled', '(untitled)')}</span>
                 </td>
                 <td style={{textAlign:'right'}} className="num">{fmtNative(p.yes_shares, 2)}</td>
@@ -464,7 +464,7 @@ function PolkamarktDrill({ market }) {
     <div className="drill-head-wrap">
       <div className="drill-head">
         <div className="drill-title" style={{fontSize: 15, lineHeight: 1.4}}>
-          <span style={{color:'var(--accent)', fontWeight:800}}>#{m.market_id}</span> {m.question || ('Condition #' + (m.condition_id ?? '?'))}
+          <span style={{color:'var(--accent-text)', fontWeight:800}}>#{m.market_id}</span> {m.question || ('Condition #' + (m.condition_id ?? '?'))}
         </div>
         <div style={{marginTop: 8}}><StatusChip status={m.status} resolution={m.resolution}/></div>
       </div>
@@ -472,11 +472,11 @@ function PolkamarktDrill({ market }) {
       {/* Outcome probability + basis + share counts below */}
       <div className="drill-section">
         <div style={{display:'flex', justifyContent:'space-between', fontSize:12, fontWeight:700, marginBottom:6}}>
-          <span style={{color:'#10B981'}}>{t('predict.yes', 'YES')} {probYes.toFixed(1)}%</span>
-          <span style={{color:'#EF4444'}}>{t('predict.no', 'NO')} {(100 - probYes).toFixed(1)}%</span>
+          <span style={{color:'var(--ok)'}}>{t('predict.yes', 'YES')} {probYes.toFixed(1)}%</span>
+          <span style={{color:'var(--err)'}}>{t('predict.no', 'NO')} {(100 - probYes).toFixed(1)}%</span>
         </div>
-        <div style={{position:'relative', height:10, borderRadius:5, overflow:'hidden', background:'#EF4444'}}>
-          <div style={{position:'absolute', inset:0, width: probYes + '%', background:'#10B981'}}/>
+        <div style={{position:'relative', height:10, borderRadius:5, overflow:'hidden', background:'var(--err)'}}>
+          <div style={{position:'absolute', inset:0, width: probYes + '%', background:'var(--ok)'}}/>
         </div>
         <div className="muted tiny" style={{marginTop:6}}>
           {probBasis === 'resolved'
@@ -559,7 +559,7 @@ function PolkamarktDrill({ market }) {
                 {trades.map(tr => (
                   <tr key={tr.id}>
                     <td style={{paddingLeft: 8}} className="tiny muted" title={fmt.fullDate(Number(tr.ts))}>{fmt.ago(Number(tr.ts))}</td>
-                    <td className="tiny"><span style={{fontWeight:700, color: tr.side === 'Buy' ? '#10B981' : '#EF4444'}}>{tr.side}</span> <span style={{color: tr.outcome === 'Yes' ? '#10B981' : '#EF4444'}}>{tr.outcome}</span></td>
+                    <td className="tiny"><span style={{fontWeight:700, color: tr.side === 'Buy' ? 'var(--ok)' : 'var(--err)'}}>{tr.side}</span> <span style={{color: tr.outcome === 'Yes' ? 'var(--ok)' : 'var(--err)'}}>{tr.outcome}</span></td>
                     <td style={{textAlign:'right'}} className="num">{fmtNative(tr.collateral)}</td>
                     <td style={{textAlign:'right', paddingRight: 8}} className="num">{fmtNative(tr.shares)}</td>
                   </tr>
@@ -584,7 +584,7 @@ function PolkamarktDrill({ market }) {
         <div className="drill-section">
           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6}}>
             {t('predict.drill.positions', 'Positions & P&L')}
-            <span style={{textTransform:'none', marginLeft:8, opacity:0.7}}>· {basisLabel}</span>
+            <span style={{textTransform:'none', marginLeft:8, color:'var(--fg-3)'}}>· {basisLabel}</span>
           </div>
           <div className="swaps-table-wrap">
             <table className="swaps-table">
@@ -607,7 +607,7 @@ function PolkamarktDrill({ market }) {
                     <td style={{textAlign:'right'}} className="num">{fmtNative(p.no_shares)}</td>
                     <td style={{textAlign:'right'}} className="num">{fmtNative(p.paid)}</td>
                     <td style={{textAlign:'right'}} className="num">{p.value != null ? fmtNative(p.value) : '—'}</td>
-                    <td style={{textAlign:'right', paddingRight: 8, fontWeight:600, color: p.pnl == null ? 'inherit' : (neg ? '#EF4444' : '#10B981')}} className="num">{p.pnl != null ? fmtSigned(p.pnl) : '—'}</td>
+                    <td style={{textAlign:'right', paddingRight: 8, fontWeight:600, color: p.pnl == null ? 'inherit' : (neg ? 'var(--err)' : 'var(--ok)')}} className="num">{p.pnl != null ? fmtSigned(p.pnl) : '—'}</td>
                   </tr>
                 )})}
               </tbody>

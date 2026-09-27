@@ -302,8 +302,20 @@ function StudioProvider({ children, section, setSection }) {
 /* ==========================================================================
    Visualizer canvas
    ========================================================================== */
-function NeonVisualizer({ freq, playing, accent = '#EC4899', accent2 = '#60A5FA' }) {
+function NeonVisualizer({ freq, playing, accent = '--pink', accent2 = '--info' }) {
   const canvasRef = useRef(null);
+  const [themeTick, setThemeTick] = useState(0);
+  useEffect(() => {
+    const onTheme = () => setThemeTick(n => n + 1);
+    window.addEventListener('sm-theme', onTheme);
+    return () => window.removeEventListener('sm-theme', onTheme);
+  }, []);
+  const palette = useMemo(() => {
+    const root = getComputedStyle(document.documentElement);
+    const read = v => (v.startsWith('--') ? root.getPropertyValue(v).trim() : v);
+    const grid = root.getPropertyValue('--accent-rgb').trim().split(/\s+/).join(',');
+    return { a1: read(accent), a2: read(accent2), grid: `rgba(${grid},0.35)` };
+  }, [accent, accent2, themeTick]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -329,7 +341,7 @@ function NeonVisualizer({ freq, playing, accent = '#EC4899', accent2 = '#60A5FA'
     ctx.save();
     ctx.globalAlpha = 0.25;
     const horizon = H * 0.72;
-    ctx.strokeStyle = 'rgba(155,27,48,0.35)';
+    ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     for (let i = 0; i < 12; i++) {
       const y = horizon + (H - horizon) * (i / 12);
@@ -344,7 +356,7 @@ function NeonVisualizer({ freq, playing, accent = '#EC4899', accent2 = '#60A5FA'
     if (!freq) {
       ctx.save();
       ctx.globalAlpha = 0.3;
-      ctx.strokeStyle = accent2;
+      ctx.strokeStyle = palette.a2;
       ctx.lineWidth = 2 * (window.devicePixelRatio || 1);
       ctx.beginPath();
       for (let x = 0; x < W; x++) {
@@ -369,18 +381,18 @@ function NeonVisualizer({ freq, playing, accent = '#EC4899', accent2 = '#60A5FA'
         Math.floor((halfBars + i) * barW),
       ];
       const grad = ctx.createLinearGradient(0, horizon, 0, horizon - barH);
-      grad.addColorStop(0, accent);
-      grad.addColorStop(1, accent2);
+      grad.addColorStop(0, palette.a1);
+      grad.addColorStop(1, palette.a2);
       ctx.fillStyle = grad;
       ctx.shadowBlur = 18 * (playing ? 1 : 0.3);
-      ctx.shadowColor = accent;
+      ctx.shadowColor = palette.a1;
       for (const x of positions) ctx.fillRect(x + 1, horizon - barH, barW - 2, barH);
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 0.25;
       for (const x of positions) ctx.fillRect(x + 1, horizon, barW - 2, barH * 0.35);
       ctx.globalAlpha = 1;
     }
-  }, [freq, playing, accent, accent2]);
+  }, [freq, playing, palette]);
 
   return <canvas ref={canvasRef} style={{width:'100%', height:'100%', display:'block'}}/>;
 }
@@ -422,47 +434,47 @@ function MusicStudioSection() {
     <div>
       <PageHeader title={t('nav.studio')} sub={t('s.listenOnChainVisualizeOff', 'Listen on-chain. Visualize off-chain.')}>
         <span className="tag" style={{display:'flex', alignItems:'center', gap:6}}>
-          <span className="live-dot" style={{width:6, height:6, background: playing ? '#10B981' : '#6B7280'}}/>
+          <span className="live-dot" style={{width:6, height:6, background: playing ? 'var(--ok)' : 'var(--fg-3)'}}/>
           {playing ? t('s.playing', 'Playing') : t('s.paused', 'Paused')} · {tracks.length} tracks
         </span>
       </PageHeader>
 
       <div style={{
         position:'relative', borderRadius: 18, overflow:'hidden',
-        border: '1px solid rgba(236,72,153,0.25)',
-        boxShadow: `0 0 ${40 + energy * 80}px rgba(236,72,153,${0.18 + energy * 0.4}), 0 0 ${20 + energy * 40}px rgba(96,165,250,${0.12 + energy * 0.25}) inset`,
+        border: '1px solid rgb(var(--pink-rgb) / 0.25)',
+        boxShadow: `0 0 ${40 + energy * 80}px rgb(var(--pink-rgb) / ${0.18 + energy * 0.4}), 0 0 ${20 + energy * 40}px rgb(var(--info-rgb) / ${0.12 + energy * 0.25}) inset`,
         transition: 'box-shadow 80ms linear',
-        background: 'radial-gradient(120% 80% at 50% 100%, rgba(236,72,153,0.18), transparent 60%), linear-gradient(180deg, #0a0a14, #0e0816 40%, #06030c)',
+        background: 'radial-gradient(120% 80% at 50% 100%, rgb(var(--pink-rgb) / 0.18), transparent 60%), linear-gradient(180deg, var(--bg-1), var(--bg-2) 40%, var(--bg-0))',
       }}>
         <div style={{height: 340, position:'relative', overflow:'hidden'}}>
           {track?.cover && (
             <>
               {/* Blurred copy fills the wide player as ambient backdrop (no hard crop). */}
-              <img src={track.cover} alt="" aria-hidden="true"
+              <img src={track.cover} alt="" aria-hidden="true" className="stage-ambient"
                    style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', zIndex:0,
-                           filter:'blur(40px) saturate(1.15)', opacity:0.5,
+                           filter:'blur(40px) saturate(1.15)',
                            transform:`scale(${1.2 + energy * 0.05})`, transition:'transform 120ms linear'}}/>
+              <div className="stage-frost" aria-hidden="true"/>
               {/* The WHOLE cover, uncropped (object-fit: contain), centered. */}
               <img src={track.cover} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
                    style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'contain', zIndex:1,
                            transform:`scale(${1 + energy * 0.04})`, transition:'transform 120ms linear',
-                           filter:'drop-shadow(0 10px 34px rgba(0,0,0,0.55))'}}/>
+                           filter:'drop-shadow(0 10px 34px rgb(var(--shade-rgb) / 0.45))'}}/>
             </>
           )}
           {/* Scrim: darken only top (title) + bottom (controls), keep the art bright. */}
-          <div style={{position:'absolute', inset:0, zIndex:2, pointerEvents:'none',
-                       background:'linear-gradient(180deg, rgba(6,3,12,0.58) 0%, rgba(6,3,12,0.04) 26%, rgba(6,3,12,0.04) 64%, rgba(6,3,12,0.78) 100%)'}}/>
+          <div className="stage-scrim"/>
           {/* Frequency bars dance in front of the artwork (transparent canvas). */}
           <div style={{position:'absolute', inset:0, zIndex:3}}>
-            <NeonVisualizer freq={freq} playing={playing} accent="#EC4899" accent2="#60A5FA"/>
+            <NeonVisualizer freq={freq} playing={playing}/>
           </div>
           <div style={{position:'absolute', top:18, left:22, right:22, zIndex:4, display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, pointerEvents:'none'}}>
-            <div style={{minWidth:0}}>
-              <div style={{fontSize:11, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase', textShadow:'0 1px 6px rgba(0,0,0,0.7)'}}>{t('news.nowPlaying', 'Now playing')}</div>
-              <div style={{fontSize:26, fontWeight:800, color:'#fff', marginTop:2, textShadow:'0 2px 20px rgba(0,0,0,0.75), 0 0 24px rgba(236,72,153,0.5)'}}>{track?.title || '—'}</div>
-              <div style={{fontSize:14, color:'rgba(255,255,255,0.85)', marginTop:2, textShadow:'0 1px 8px rgba(0,0,0,0.75)'}}>{track?.artist || ''}</div>
+            <div className="media-copy">
+              <div style={{fontSize:11, letterSpacing:'0.3em', color:'var(--pink-text)', textTransform:'uppercase', textShadow:`0 1px 6px ${STUDIO_HALO}`}}>{t('news.nowPlaying', 'Now playing')}</div>
+              <div style={{fontSize:26, fontWeight:800, color:'var(--fg-0)', marginTop:2, textShadow:`0 2px 20px ${STUDIO_HALO}, 0 0 24px rgb(var(--pink-rgb) / 0.35)`}}>{track?.title || '—'}</div>
+              <div style={{fontSize:14, color:'var(--fg-1)', marginTop:2, textShadow:`0 1px 8px ${STUDIO_HALO}`}}>{track?.artist || ''}</div>
             </div>
-            <div style={{fontFamily:'JetBrains Mono', fontSize:11, color:'rgba(255,255,255,0.55)', textAlign:'right', lineHeight:1.5, textShadow:'0 1px 6px rgba(0,0,0,0.75)'}}>
+            <div className="media-copy end" style={{fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', fontSize:11, color:'var(--fg-2)', textAlign:'right', lineHeight:1.5, textShadow:`0 1px 6px ${STUDIO_HALO}`}}>
               <div>FFT 256</div>
               <div>48 kHz · stereo</div>
               <div>{freq ? freq.length + ' bins' : 'idle'}</div>
@@ -470,9 +482,9 @@ function MusicStudioSection() {
           </div>
         </div>
 
-        <div style={{padding:'18px 24px 20px', background:'rgba(0,0,0,0.45)', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-          <div onClick={onSeekTrack} style={{height:6, borderRadius:3, background:'rgba(255,255,255,0.08)', cursor:'pointer', overflow:'hidden', marginBottom:14}}>
-            <div style={{height:'100%', width: (progress * 100) + '%', background:'linear-gradient(90deg, #EC4899, #60A5FA)', boxShadow:'0 0 12px rgba(236,72,153,0.6)', transition:'width 120ms linear'}}/>
+        <div style={{padding:'18px 24px 20px', background:'color-mix(in oklab, var(--bg-0) 55%, transparent)', borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
+          <div onClick={onSeekTrack} style={{height:6, borderRadius:3, background:'rgb(var(--ov-rgb) / 0.08)', cursor:'pointer', overflow:'hidden', marginBottom:14}}>
+            <div style={{height:'100%', width: (progress * 100) + '%', background:'linear-gradient(90deg, var(--pink), var(--info))', boxShadow:'0 0 12px rgb(var(--pink-rgb) / 0.6)', transition:'width 120ms linear'}}/>
           </div>
           <div style={{display:'flex', alignItems:'center', gap:16, flexWrap:'wrap'}}>
             <div style={{display:'flex', alignItems:'center', gap:10}}>
@@ -482,12 +494,12 @@ function MusicStudioSection() {
                 title={shuffle ? 'Shuffle: on' : 'Shuffle: off'}
                 aria-pressed={shuffle}
                 style={{...btnStyle,
-                  color: shuffle ? '#EC4899' : 'rgba(255,255,255,0.55)',
-                  borderColor: shuffle ? 'rgba(236,72,153,0.5)' : 'rgba(255,255,255,0.12)',
-                  boxShadow: shuffle ? '0 0 12px rgba(236,72,153,0.4)' : 'none',
+                  color: shuffle ? 'var(--pink)' : 'var(--fg-3)',
+                  borderColor: shuffle ? 'rgb(var(--pink-rgb) / 0.5)' : 'rgb(var(--ov-rgb) / 0.12)',
+                  boxShadow: shuffle ? '0 0 12px rgb(var(--pink-rgb) / 0.4)' : 'none',
                 }}>🔀</button>
               <button onClick={prev} title={t('music.prev', 'Previous')} style={btnStyle}>⏮</button>
-              <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...btnStyle, width:52, height:52, fontSize:22, background:'linear-gradient(135deg, #EC4899, #9B1B30)', color:'#fff', boxShadow:'0 0 24px rgba(236,72,153,0.5)'}}>
+              <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...btnStyle, width:52, height:52, fontSize:22, background:'linear-gradient(135deg, var(--pink), var(--accent))', color:'var(--on-accent)', boxShadow:'0 0 24px rgb(var(--pink-rgb) / 0.5)'}}>
                 {playing ? '⏸' : '▶'}
               </button>
               <button onClick={next} title={t('common.next', 'Next')} style={btnStyle}>⏭</button>
@@ -497,19 +509,19 @@ function MusicStudioSection() {
                 title={t('s.repeat', 'Repeat') + ': ' + repeat}
                 aria-pressed={repeat !== 'off'}
                 style={{...btnStyle,
-                  color: repeat === 'off' ? 'rgba(255,255,255,0.55)' : '#EC4899',
-                  borderColor: repeat === 'off' ? 'rgba(255,255,255,0.12)' : 'rgba(236,72,153,0.5)',
-                  boxShadow: repeat === 'off' ? 'none' : '0 0 12px rgba(236,72,153,0.4)',
+                  color: repeat === 'off' ? 'var(--fg-3)' : 'var(--pink)',
+                  borderColor: repeat === 'off' ? 'rgb(var(--ov-rgb) / 0.12)' : 'rgb(var(--pink-rgb) / 0.5)',
+                  boxShadow: repeat === 'off' ? 'none' : '0 0 12px rgb(var(--pink-rgb) / 0.4)',
                 }}>{repeat === 'one' ? '🔂' : '🔁'}</button>
             </div>
-            <div className="num tiny" style={{color:'rgba(255,255,255,0.65)', minWidth:100}}>
-              {fmtMMSS(elapsed)} <span style={{opacity:0.5}}>/ {fmtMMSS(dur)}</span>
+            <div className="num tiny" style={{color:'var(--fg-1)', minWidth:100}}>
+              {fmtMMSS(elapsed)} <span style={{color:'var(--fg-2)'}}>/ {fmtMMSS(dur)}</span>
             </div>
             <div style={{flex:1}}/>
             <div style={{display:'flex', alignItems:'center', gap:8}}>
               <span className="muted tiny">{t('s.vol', 'VOL')}</span>
-              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:120, accentColor:'#EC4899'}}/>
-              <span className="num tiny" style={{width:32, textAlign:'right', color:'rgba(255,255,255,0.65)'}}>{Math.round(volume * 100)}</span>
+              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} style={{width:120, accentColor:'var(--pink)'}}/>
+              <span className="num tiny" style={{width:32, textAlign:'right', color:'var(--fg-2)'}}>{Math.round(volume * 100)}</span>
             </div>
           </div>
         </div>
@@ -539,18 +551,18 @@ function MusicStudioSection() {
               {filtered.map(tr => {
                 const isActive = tr.originalIdx === idx;
                 return (
-                  <tr key={tr.originalIdx} className="swap-row clickable" onClick={() => selectIdx(tr.originalIdx)} style={{background: isActive ? 'rgba(236,72,153,0.08)' : undefined}}>
+                  <tr key={tr.originalIdx} className="swap-row clickable" onClick={() => selectIdx(tr.originalIdx)} style={{background: isActive ? 'rgb(var(--pink-rgb) / 0.08)' : undefined}}>
                     <td style={{paddingLeft:20}}>
                       {isActive && playing
-                        ? <span style={{color:'#EC4899', fontSize:14}}>♪</span>
+                        ? <span style={{color:'var(--pink)', fontSize:14}}>♪</span>
                         : <span className="muted tiny">{tr.originalIdx + 1}</span>}
                     </td>
-                    <td style={{fontWeight: isActive ? 700 : 500, color: isActive ? '#fff' : 'var(--fg-1)'}}>
+                    <td style={{fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--fg-0)' : 'var(--fg-1)'}}>
                       <div style={{display:'flex', alignItems:'center', gap:11, minWidth:0}}>
                         {tr.cover
                           ? <img src={tr.cover} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
-                                 style={{width:36, height:36, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgba(255,255,255,0.1)'}}/>
-                          : <span style={{width:36, height:36, borderRadius:8, flexShrink:0, background:'rgba(255,255,255,0.05)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:15, color:'rgba(255,255,255,0.3)'}}>♪</span>}
+                                 style={{width:36, height:36, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgb(var(--ov-rgb) / 0.1)'}}/>
+                          : <span style={{width:36, height:36, borderRadius:8, flexShrink:0, background:'rgb(var(--ov-rgb) / 0.05)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:15, color:'var(--fg-3)'}}>♪</span>}
                         <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{tr.title}</span>
                       </div>
                     </td>
@@ -567,7 +579,7 @@ function MusicStudioSection() {
                             navigator.clipboard?.writeText(u.toString());
                           } catch {}
                         }}
-                        style={{background:'transparent', border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.6)', borderRadius:6, cursor:'pointer', fontSize:12, lineHeight:1, padding:'4px 6px'}}>🔗</button>
+                        style={{background:'transparent', border:'1px solid rgb(var(--ov-rgb) / 0.12)', color:'var(--fg-2)', borderRadius:6, cursor:'pointer', fontSize:12, lineHeight:1, padding:'4px 6px'}}>🔗</button>
                     </td>
                   </tr>
                 );
@@ -598,46 +610,46 @@ function StudioMiniPlayer() {
     <div style={{
       position:'fixed', top:16, right:16, zIndex:800,
       width: 320,
-      background:'linear-gradient(135deg, rgba(22,8,24,0.95), rgba(12,6,20,0.95))',
-      border:'1px solid rgba(236,72,153,0.35)',
+      background:'linear-gradient(135deg, color-mix(in oklab, var(--bg-2) 95%, transparent), color-mix(in oklab, var(--bg-1) 95%, transparent))',
+      border:'1px solid rgb(var(--pink-rgb) / 0.35)',
       borderRadius:14,
-      boxShadow:'0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(236,72,153,0.18)',
-      color:'#fff',
+      boxShadow:'0 20px 60px rgb(var(--shade-rgb) / 0.4), 0 0 40px rgb(var(--pink-rgb) / 0.18)',
+      color:'var(--fg-0)',
       backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)',
       WebkitBackdropFilter:'blur(8px)',
     }}>
-      <div style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderBottom:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
         {track?.cover && (
           <img src={track.cover} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }}
-               style={{width:40, height:40, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgba(255,255,255,0.12)'}}/>
+               style={{width:40, height:40, borderRadius:8, objectFit:'cover', flexShrink:0, border:'1px solid rgb(var(--ov-rgb) / 0.12)'}}/>
         )}
         <button
           onClick={() => setSection?.('studio')}
           title={t('s.openStudio', 'Open Studio')}
           style={{flex:1, textAlign:'left', background:'transparent', border:0, color:'inherit', cursor:'pointer', padding:0, minWidth:0}}>
-          <div style={{fontSize:10, letterSpacing:'0.3em', color:'#EC4899', textTransform:'uppercase'}}>{t('nav.studio', 'Studio')}</div>
+          <div style={{fontSize:10, letterSpacing:'0.3em', color:'var(--pink-text)', textTransform:'uppercase'}}>{t('nav.studio', 'Studio')}</div>
           <div style={{fontSize:13, fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{track?.title || '—'}</div>
-          <div style={{fontSize:11, color:'rgba(255,255,255,0.6)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{track?.artist || ''}</div>
+          <div style={{fontSize:11, color:'var(--fg-2)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{track?.artist || ''}</div>
         </button>
         <button
           onClick={stop}
           title={t('s.stopAndHide', 'Stop and hide')}
-          style={{background:'transparent', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.8)', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:14, lineHeight:1}}>
+          style={{background:'transparent', border:'1px solid rgb(var(--ov-rgb) / 0.15)', color:'var(--fg-1)', width:26, height:26, borderRadius:6, cursor:'pointer', fontSize:14, lineHeight:1}}>
           ×
         </button>
       </div>
-      <div onClick={onSeek} style={{height:4, background:'rgba(255,255,255,0.08)', cursor:'pointer', overflow:'hidden'}}>
-        <div style={{height:'100%', width:(progress*100)+'%', background:'linear-gradient(90deg, #EC4899, #60A5FA)', transition:'width 120ms linear'}}/>
+      <div onClick={onSeek} style={{height:4, background:'rgb(var(--ov-rgb) / 0.08)', cursor:'pointer', overflow:'hidden'}}>
+        <div style={{height:'100%', width:(progress*100)+'%', background:'linear-gradient(90deg, var(--pink), var(--info))', transition:'width 120ms linear'}}/>
       </div>
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', gap:8}}>
         <div style={{display:'flex', gap:6}}>
           <button onClick={prev} title={t('music.prev', 'Previous')} style={miniBtn}>⏮</button>
-          <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...miniBtn, width:34, height:34, background:'linear-gradient(135deg, #EC4899, #9B1B30)', color:'#fff'}}>
+          <button onClick={toggle} title={playing ? 'Pause' : 'Play'} style={{...miniBtn, width:34, height:34, background:'linear-gradient(135deg, var(--pink), var(--accent))', color:'var(--on-accent)'}}>
             {playing ? '⏸' : '▶'}
           </button>
           <button onClick={next} title={t('common.next', 'Next')} style={miniBtn}>⏭</button>
         </div>
-        <div className="num tiny" style={{color:'rgba(255,255,255,0.6)', fontFamily:'JetBrains Mono'}}>
+        <div className="num tiny" style={{color:'var(--fg-2)', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums'}}>
           {fmtMMSS(elapsed)} / {fmtMMSS(dur)}
         </div>
       </div>
@@ -645,19 +657,20 @@ function StudioMiniPlayer() {
   );
 }
 
+const STUDIO_HALO = 'color-mix(in oklab, var(--bg-0) 75%, transparent)';
 const btnStyle = {
   width: 40, height: 40, borderRadius: '50%',
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.04)',
-  color: 'rgba(255,255,255,0.9)',
+  border: '1px solid rgb(var(--ov-rgb) / 0.12)',
+  background: 'rgb(var(--ov-rgb) / 0.04)',
+  color: 'var(--fg-1)',
   fontSize: 16, cursor: 'pointer',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 };
 const miniBtn = {
   width: 28, height: 28, borderRadius: '50%',
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.04)',
-  color: 'rgba(255,255,255,0.85)',
+  border: '1px solid rgb(var(--ov-rgb) / 0.12)',
+  background: 'rgb(var(--ov-rgb) / 0.04)',
+  color: 'var(--fg-1)',
   fontSize: 12, cursor: 'pointer',
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 };

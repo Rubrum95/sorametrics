@@ -1,4 +1,4 @@
-/* global React, useT, fmt, PageHeader, TokenLogo, TinyTokLogo, useDrill */
+/* global React, useT, fmt, PageHeader, TokenLogo, TinyTokLogo, useDrill, TOKENS */
 // Intelligence — real-data insight dashboard. Each widget is self-contained:
 // it fetches its own inputs, computes a severity (ok / warn / alert), and
 // renders a card with the signal and the raw numbers behind it.
@@ -13,12 +13,12 @@ const { useState, useEffect, useMemo, useRef } = React;
 
 // ---------- shared primitives ----------
 function Severity({ level }) {
-  const map = { ok:'#10B981', warn:'#F59E0B', alert:'#EF4444', none:'#6B7280' };
+  const map = { ok:'var(--ok)', warn:'var(--warn)', alert:'var(--err)', none:'var(--fg-3)' };
   return <span style={{display:'inline-block', width:8, height:8, borderRadius:'50%', background: map[level] || map.none}}/>;
 }
 
 function WidgetCard({ title, severity = 'none', tag, children }) {
-  const borderColor = { ok:'rgba(16,185,129,0.25)', warn:'rgba(245,158,11,0.3)', alert:'rgba(239,68,68,0.35)', none:'rgba(255,255,255,0.08)' };
+  const borderColor = { ok:'rgb(var(--ok-rgb) / 0.25)', warn:'color-mix(in srgb, var(--warn) 30%, transparent)', alert:'rgb(var(--err-rgb) / 0.35)', none:'rgb(var(--ov-rgb) / 0.08)' };
   return (
     <div className="card" style={{borderColor: borderColor[severity]}}>
       <div className="card-header">
@@ -79,14 +79,14 @@ function PegMonitor() {
               <div key={s.symbol} style={{display:'grid', gridTemplateColumns:'14px 80px 1fr 90px 120px', alignItems:'center', gap:10}}>
                 <Severity level={rowSev}/>
                 <div style={{fontWeight:700}}>{s.symbol}</div>
-                <div style={{position:'relative', height:6, background:'rgba(255,255,255,0.06)', borderRadius:3}}>
-                  <div style={{position:'absolute', left:'50%', top:-3, width:1, height:12, background:'rgba(255,255,255,0.3)'}}/>
+                <div style={{position:'relative', height:6, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:3}}>
+                  <div style={{position:'absolute', left:'50%', top:-3, width:1, height:12, background:'rgb(var(--ov-rgb) / 0.3)'}}/>
                   <div style={{
                     position:'absolute',
                     left: devPct >= 0 ? '50%' : (50 - Math.min(abs, 10) * 5) + '%',
                     width: Math.min(abs, 10) * 5 + '%',
                     top: 0, bottom: 0,
-                    background: rowSev === 'alert' ? '#EF4444' : rowSev === 'warn' ? '#F59E0B' : '#10B981',
+                    background: rowSev === 'alert' ? 'var(--err)' : rowSev === 'warn' ? 'var(--warn)' : 'var(--ok)',
                     borderRadius: 3,
                   }}/>
                 </div>
@@ -160,11 +160,11 @@ function ConcentrationRisk() {
           <div key={r.sym} style={{display:'grid', gridTemplateColumns:'14px 60px 1fr 80px 80px', alignItems:'center', gap:10, padding:'6px 0'}}>
             <Severity level={rowSev}/>
             <div style={{fontWeight:700}}>{r.sym}</div>
-            <div style={{position:'relative', height:6, background:'rgba(255,255,255,0.06)', borderRadius:3}}>
+            <div style={{position:'relative', height:6, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:3}}>
               <div style={{
                 position:'absolute', left:0, top:0, bottom:0,
                 width: r.top10Pct + '%',
-                background: rowSev === 'alert' ? '#EF4444' : rowSev === 'warn' ? '#F59E0B' : '#10B981',
+                background: rowSev === 'alert' ? 'var(--err)' : rowSev === 'warn' ? 'var(--warn)' : 'var(--ok)',
                 borderRadius: 3,
               }}/>
             </div>
@@ -270,7 +270,7 @@ function WhaleActivity() {
   // Total = in + out. Share of in = in / total. Bar fill = share_of_in × 100.
   const total = agg ? (agg.inUsd + agg.outUsd) : 0;
   const markerPct = total > 0 ? (agg.inUsd / total) * 100 : 50;
-  const netColor = agg && agg.net >= 0 ? '#10B981' : '#EF4444';
+  const netColor = agg && agg.net >= 0 ? 'var(--ok)' : 'var(--err)';
   const tag = agg
     ? ((agg.net >= 0 ? '+' : '−') + '$' + Math.abs(agg.net).toLocaleString(undefined, { maximumFractionDigits: 0 }))
     : '…';
@@ -304,12 +304,12 @@ function WhaleActivity() {
           {/* Horizontal red-green bar with marker. Same visual language as
               PegMonitor: left half red (outflow), right half green (inflow),
               dark marker line at the current ratio. */}
-          <div style={{position:'relative', height:10, borderRadius:5, overflow:'hidden', marginBottom:6, background:'linear-gradient(90deg,#EF4444 0%,#EF4444 50%,#10B981 50%,#10B981 100%)'}}>
+          <div style={{position:'relative', height:10, borderRadius:5, overflow:'hidden', marginBottom:6, background:'linear-gradient(90deg,var(--err) 0%,var(--err) 50%,var(--ok) 50%,var(--ok) 100%)'}}>
             <div style={{
               position:'absolute', top:-2, bottom:-2,
               left: `calc(${markerPct}% - 2px)`,
               width: 4, background:'var(--fg-0)',
-              borderRadius: 2, boxShadow:'0 0 4px rgba(0,0,0,0.6)',
+              borderRadius: 2, boxShadow:'0 0 4px rgb(var(--shade-rgb) / 0.5)',
             }}/>
           </div>
           <div style={{display:'flex', justifyContent:'space-between', fontSize:11, marginBottom:14}}>
@@ -325,14 +325,14 @@ function WhaleActivity() {
           </div>
 
           {/* Top inflow / outflow tokens */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'8px 10px', background:'rgba(255,255,255,0.03)', borderRadius:8}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'8px 10px', background:'rgb(var(--ov-rgb) / 0.03)', borderRadius:8}}>
             <div>
               <div className="muted tiny">{tt('intel.bflow.topIn', 'Top inflow')}</div>
               {agg.topIn ? (
                 <div style={{display:'flex', alignItems:'center', gap:6, marginTop:3}}>
                   <TinyTokLogo sym={agg.topIn.sym}/>
                   <span style={{fontWeight:700}}>{agg.topIn.sym}</span>
-                  <span className="num tiny" style={{color:'#10B981', marginLeft:'auto'}}>
+                  <span className="num tiny" style={{color:'var(--ok)', marginLeft:'auto'}}>
                     ${agg.topIn.usd.toLocaleString(undefined, {maximumFractionDigits:0})}
                   </span>
                 </div>
@@ -344,14 +344,14 @@ function WhaleActivity() {
                 <div style={{display:'flex', alignItems:'center', gap:6, marginTop:3}}>
                   <TinyTokLogo sym={agg.topOut.sym}/>
                   <span style={{fontWeight:700}}>{agg.topOut.sym}</span>
-                  <span className="num tiny" style={{color:'#EF4444', marginLeft:'auto'}}>
+                  <span className="num tiny" style={{color:'var(--err)', marginLeft:'auto'}}>
                     ${agg.topOut.usd.toLocaleString(undefined, {maximumFractionDigits:0})}
                   </span>
                 </div>
               ) : <div className="muted tiny">—</div>}
             </div>
           </div>
-          <div className="muted tiny" style={{textAlign:'center', marginTop:8, fontSize:10, opacity:0.55}}>
+          <div className="muted tiny" style={{textAlign:'center', marginTop:8, fontSize:10}}>
             {agg.totalTxs} {tt('intel.bflow.txs', 'bridge tx')}
           </div>
         </>
@@ -488,18 +488,18 @@ function BridgeNetFlow() {
                 alignItems:'center',
                 fontSize:12,
                 padding:'6px 8px',
-                background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                background: i % 2 === 0 ? 'rgb(var(--ov-rgb) / 0.02)' : 'transparent',
                 borderRadius: 4,
                 cursor: 'pointer',
                 transition: 'background 0.12s ease',
               }}
               title={tt('intel.bridges.openDrill', 'Click to open details')}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(155,27,48,0.10)'}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'}>
+              onMouseEnter={e => e.currentTarget.style.background = 'rgb(var(--accent-rgb) / 0.10)'}
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'rgb(var(--ov-rgb) / 0.02)' : 'transparent'}>
               <div className="muted tiny" title={fmt.fullDate(r.ts)}>{fmt.ago(r.ts)}</div>
               <span style={{
                 fontWeight:700, fontSize:14, textAlign:'center',
-                color: r.dir === 'in' ? '#10B981' : '#EF4444',
+                color: r.dir === 'in' ? 'var(--ok)' : 'var(--err)',
               }}>
                 {r.dir === 'in' ? '↓' : '↑'}
               </span>
@@ -512,14 +512,14 @@ function BridgeNetFlow() {
               </div>
               <div className="num" style={{
                 textAlign:'right', fontWeight:700,
-                color: r.usd > 100_000 ? '#EF4444' : r.usd > 20_000 ? '#F59E0B' : 'var(--fg-0)',
+                color: r.usd > 100_000 ? 'var(--err)' : r.usd > 20_000 ? 'var(--warn)' : 'var(--fg-0)',
               }}>
                 ${r.usd.toLocaleString(undefined, {maximumFractionDigits:0})}
               </div>
             </div>
           ))}
           {rows.length > 40 && (
-            <div className="muted tiny" style={{textAlign:'center', marginTop:6, opacity:0.6}}>
+            <div className="muted tiny" style={{textAlign:'center', marginTop:6}}>
               {tt('intel.bridges.more', '+') + (rows.length - 40) + ' ' + tt('intel.bridges.moreSfx', 'more')}
             </div>
           )}
@@ -567,11 +567,7 @@ function BridgeNetFlow() {
 //   isLive        — true → only show estimated bucket portion (no event data)
 function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
   const t = useT();
-  const colorOf = sym =>
-    sym === 'XOR'  ? '#E3232C' :
-    sym === 'VAL'  ? '#FBC02D' :
-    sym === 'KUSD' ? '#FFA726' :
-                     '#9C27B0';
+  const colorOf = sym => TOKENS[sym]?.color || 'var(--lilac)';
   const fmt = (n, unit) => {
     if (!Number.isFinite(n) || n <= 0) return '— ' + unit;
     if (n < 0.0001) return n.toExponential(2) + ' ' + unit;
@@ -585,7 +581,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
         <div key={row.sym} style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'4px 0'}}>
           <TinyTokLogo sym={row.sym}/>
           <span style={{fontWeight:700, fontSize:12}}>{row.sym}</span>
-          <div style={{position:'relative', height:5, background:'rgba(255,255,255,0.06)', borderRadius:3, overflow:'hidden'}}>
+          <div style={{position:'relative', height:5, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:3, overflow:'hidden'}}>
             <div style={{
               position:'absolute', inset:0,
               width: Math.min(100, row.pct) + '%',
@@ -602,7 +598,7 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
         </div>
       ))}
       {/* Referrer row — split into paid + redirected when we have real data */}
-      <div style={{padding:'6px 0 0 0', marginTop:4, borderTop:'1px solid rgba(255,255,255,0.06)', opacity:0.85}}>
+      <div style={{padding:'6px 0 0 0', marginTop:4, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
         <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0'}}>
           <span style={{fontSize:14, textAlign:'center'}}>👥</span>
           <span style={{fontWeight:700, fontSize:12}}>{t('s.referrer', 'Referrer')}</span>
@@ -611,8 +607,8 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
               ? tt('intel.fees.refLiveBucket', 'reserved 11.76% (split paid/redirected unknown until remint)')
               : tt('intel.fees.refSplit', 'paid to referrers · redirected to KUSD when no-referrer')}
           </div>
-          <span className="num" style={{textAlign:'right', fontWeight:700, fontSize:12, opacity:0.6}}>—</span>
-          <span className="num tiny" style={{textAlign:'right', fontWeight:600, fontSize:11, opacity:0.85}}>
+          <span className="num" style={{textAlign:'right', fontWeight:700, fontSize:12, color:'var(--fg-2)'}}>—</span>
+          <span className="num tiny" style={{textAlign:'right', fontWeight:600, fontSize:11}}>
             {refRow.isLive
               ? (refRow.redirectedXor || 0).toFixed(4) + ' XOR'
               : ((refRow.paidXor || 0) + (refRow.redirectedXor || 0)).toFixed(4) + ' XOR'}
@@ -620,29 +616,29 @@ function BurnRows({ rows, refRow, sourceLabel, totalUsd, tt }) {
         </div>
         {/* Detailed split — only when we have real (non-live) data */}
         {!refRow.isLive && (
-          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, opacity:0.7}}>
+          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
             <span></span>
             <span></span>
-            <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refPaid', 'paid to referrer')} <span style={{opacity:0.7, fontStyle:'italic'}}>· {tt('intel.fees.notBurned', 'not burned')}</span></span>
+            <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refPaid', 'paid to referrer')} <span style={{fontStyle:'italic'}}>· {tt('intel.fees.notBurned', 'not burned')}</span></span>
             <span></span>
             <span className="num tiny" style={{textAlign:'right'}}>{(refRow.paidXor || 0).toFixed(4)} XOR</span>
           </div>
         )}
         {!refRow.isLive && (
-          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, opacity:0.7}}>
+          <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:10, color:'var(--fg-2)'}}>
             <span></span>
             <span></span>
-            <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refRedirected', 'redirected to KUSD bucket')} <span style={{opacity:0.7, fontStyle:'italic'}}>· {tt('intel.fees.willBurn', 'will be burned')}</span></span>
+            <span style={{paddingLeft:4}}>↳ {tt('intel.fees.refRedirected', 'redirected to KUSD bucket')} <span style={{fontStyle:'italic'}}>· {tt('intel.fees.willBurn', 'will be burned')}</span></span>
             <span></span>
             <span className="num tiny" style={{textAlign:'right'}}>{(refRow.redirectedXor || 0).toFixed(4)} XOR</span>
           </div>
         )}
       </div>
       {/* Source label + total USD */}
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, paddingTop:6, borderTop:'1px solid rgba(255,255,255,0.06)', fontSize:10}}>
-        <span className="muted tiny" style={{opacity:0.7}}>{sourceLabel}</span>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, paddingTop:6, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)', fontSize:10}}>
+        <span className="muted tiny">{sourceLabel}</span>
         {totalUsd > 0 && (
-          <span className="num" style={{fontWeight:700, color:'#F59E0B'}}>
+          <span className="num" style={{fontWeight:700, color:'var(--amber)'}}>
             ≈ ${totalUsd.toFixed(2)} {tt('intel.fees.burnedTotal', 'burned')}
           </span>
         )}
@@ -786,7 +782,7 @@ function FeeWeekly() {
                   {c.fee != null && xorPrice > 0 ? '≈ $' + (c.fee * xorPrice).toFixed(2) : '—'}
                 </div>
                 {c.lenBytes > 0 && (
-                  <div className="muted tiny" style={{fontSize:9, opacity:0.55, marginTop:2}}>
+                  <div className="muted tiny" style={{fontSize:9, marginTop:2}}>
                     {c.lenBytes} {tt('intel.fees.bytes', 'bytes')}
                   </div>
                 )}
@@ -797,16 +793,16 @@ function FeeWeekly() {
           {/* Two composing multipliers. Sublabels removed by user request;
               the numeric value + top label is enough once you know the
               model (see chat explanation). */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'10px', background:'rgba(96,165,250,0.06)', border:'1px solid rgba(96,165,250,0.15)', borderRadius:8, marginBottom:10}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'10px', background:'rgb(var(--info-rgb) / 0.06)', border:'1px solid rgb(var(--info-rgb) / 0.15)', borderRadius:8, marginBottom:10}}>
             <div>
               <div className="muted tiny">{tt('intel.fees.multGov', 'Governance multiplier')}</div>
-              <div className="num" style={{fontSize:17, fontWeight:700, color:'#60A5FA'}}>
+              <div className="num" style={{fontSize:17, fontWeight:700, color:'var(--info)'}}>
                 {cfg.xorFeeMultiplier.toFixed(2)}×
               </div>
             </div>
             <div>
               <div className="muted tiny">{tt('intel.fees.multCong', 'Congestion multiplier')}</div>
-              <div className="num" style={{fontSize:17, fontWeight:700, color: cfg.nextFeeMultiplier > 1.1 ? '#F59E0B' : '#10B981'}}>
+              <div className="num" style={{fontSize:17, fontWeight:700, color: cfg.nextFeeMultiplier > 1.1 ? 'var(--warn)' : 'var(--ok)'}}>
                 {cfg.nextFeeMultiplier.toFixed(3)}×
               </div>
             </div>
@@ -835,7 +831,7 @@ function FeeWeekly() {
               started (process restart resets the count). All amounts are
               REAL on-chain values (never extrapolations except for 'live'
               which shows the in-flight cycle's accumulators). */}
-          <div style={{padding:'10px 12px', background:'rgba(155,27,48,0.06)', border:'1px solid rgba(155,27,48,0.2)', borderRadius:8, marginBottom:10}}>
+          <div style={{padding:'10px 12px', background:'rgb(var(--ov-rgb) / 0.03)', border:'1px solid var(--border)', borderRadius:8, marginBottom:10}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, gap:8, flexWrap:'wrap'}}>
               <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'0.06em'}}>
                 {tt('intel.fees.burnFromFees', 'Burn from network fees')}
@@ -843,7 +839,7 @@ function FeeWeekly() {
               {/* Timeframe selector — Live shows in-flight cycle from on-chain
                   accumulators; everything else aggregates real burn events
                   recorded by the indexer since process start. */}
-              <div style={{display:'inline-flex', gap:0, padding:2, borderRadius:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)'}}>
+              <div style={{display:'inline-flex', gap:0, padding:2, borderRadius:6, background:'rgb(var(--ov-rgb) / 0.04)', border:'1px solid rgb(var(--ov-rgb) / 0.08)'}}>
                 {[
                   ['1h',   '1h'],
                   ['4h',   '4h'],
@@ -861,7 +857,7 @@ function FeeWeekly() {
                       borderRadius: 4,
                       cursor: 'pointer',
                       color: burnTf === k ? 'var(--fg-0)' : 'var(--fg-2)',
-                      background: burnTf === k ? 'rgba(155,27,48,0.4)' : 'transparent',
+                      background: burnTf === k ? 'rgb(var(--ov-rgb) / 0.12)' : 'transparent',
                       transition: 'all 0.12s ease',
                     }}>
                     {label}
@@ -871,7 +867,7 @@ function FeeWeekly() {
             </div>
 
             {/* Header */}
-            <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:9, opacity:0.55, textTransform:'uppercase', letterSpacing:'0.05em'}}>
+            <div style={{display:'grid', gridTemplateColumns:'24px 60px 1fr 75px 110px', gap:8, alignItems:'center', padding:'2px 0', fontSize:9, color:'var(--fg-2)', textTransform:'uppercase', letterSpacing:'0.05em'}}>
               <span></span>
               <span></span>
               <span></span>
@@ -938,9 +934,9 @@ function FeeWeekly() {
           </div>
 
           {weekly && weekly.ratio != null && (
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', background:'rgba(255,255,255,0.03)', borderRadius:6, fontSize:12}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 10px', background:'rgb(var(--ov-rgb) / 0.03)', borderRadius:6, fontSize:12}}>
               <span className="muted tiny">{tt('intel.fees.weekly', 'Fee volume · 7d vs prev')}</span>
-              <span className="num" style={{fontWeight:700, color:'#60A5FA'}}>
+              <span className="num" style={{fontWeight:700, color:'var(--info)'}}>
                 {weekly.ratio >= 1 ? '↑' : '↓'} {Math.abs((weekly.ratio - 1) * 100).toFixed(0)}% · ${Math.round(weekly.last7).toLocaleString()}
               </span>
             </div>
@@ -995,7 +991,7 @@ function FeeTpsAnomalies() {
       <div style={{fontWeight:600}}>{label}</div>
       <div className="num tiny">{value}{unit || ''}</div>
       <div className="muted tiny">baseline {base}{unit || ''}</div>
-      <div className="num" style={{fontWeight:700, color: Math.abs(ratio - 1) > 0.5 ? '#F59E0B' : '#10B981'}}>×{ratio.toFixed(2)}</div>
+      <div className="num" style={{fontWeight:700, color: Math.abs(ratio - 1) > 0.5 ? 'var(--warn)' : 'var(--ok)'}}>×{ratio.toFixed(2)}</div>
     </div>
   );
 
@@ -1007,7 +1003,7 @@ function FeeTpsAnomalies() {
           {row('Tx/day', tx24.toLocaleString(), Math.round(tx7 / 7).toLocaleString(), tpsRatio, '')}
           {row('Volume/day', '$' + vol24.toFixed(0), '$' + Math.round(vol7 / 7).toLocaleString(), volRatio, '')}
           {fees && fees.length > 0 && (
-            <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+            <div style={{marginTop:10, paddingTop:10, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
               <div className="muted tiny" style={{marginBottom:6}}>
                 {t('s.feeSplit', 'Fee split ·')} {totalFeeXor.toFixed(2)} XOR · ${totalFeeUsd.toFixed(0)}
               </div>
@@ -1017,8 +1013,8 @@ function FeeTpsAnomalies() {
                   return (
                     <div key={f.type} style={{display:'grid', gridTemplateColumns:'90px 1fr 60px', gap:8, alignItems:'center', fontSize:11}}>
                       <span>{f.type}</span>
-                      <div style={{position:'relative', height:4, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden'}}>
-                        <div style={{position:'absolute', inset:0, width: pct + '%', background:'linear-gradient(90deg,#60A5FA,#EC4899)', borderRadius:2}}/>
+                      <div style={{position:'relative', height:4, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:2, overflow:'hidden'}}>
+                        <div style={{position:'absolute', inset:0, width: pct + '%', background:'linear-gradient(90deg,var(--info),var(--pink))', borderRadius:2}}/>
                       </div>
                       <span className="num tiny muted" style={{textAlign:'right'}}>{pct.toFixed(1)}%</span>
                     </div>
@@ -1135,8 +1131,8 @@ function GovernancePulse() {
             { label:t('s.scheduled', 'Scheduled'),   value: data.scheduledCalls, alert: data.scheduledCalls > 0 },
             { label:t('gov.preimages.title', 'Preimages'),   value: data.preimages },
           ].map(s => (
-            <div key={s.label} style={{padding:'8px 6px', background:'rgba(255,255,255,0.03)', borderRadius:8, border: s.alert ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(255,255,255,0.04)'}}>
-              <div className="num" style={{fontSize:22, fontWeight:800, color: s.alert ? '#F59E0B' : 'var(--fg-0)'}}>{s.value}</div>
+            <div key={s.label} style={{padding:'8px 6px', background:'rgb(var(--ov-rgb) / 0.03)', borderRadius:8, border: s.alert ? '1px solid color-mix(in srgb, var(--warn) 30%, transparent)' : '1px solid rgb(var(--ov-rgb) / 0.04)'}}>
+              <div className="num" style={{fontSize:22, fontWeight:800, color: s.alert ? 'var(--warn)' : 'var(--fg-0)'}}>{s.value}</div>
               <div className="muted tiny" style={{marginTop:2}}>{s.label}</div>
             </div>
           ))}
@@ -1248,7 +1244,7 @@ function CrossDexArb() {
           <span style={{fontWeight:700}}>{s.sym}</span>
           <span className="muted tiny">{s.sym}/{s.low.target}: ${s.low.price.toPrecision(4)}</span>
           <span className="muted tiny">{s.sym}/{s.high.target}: ${s.high.price.toPrecision(4)}</span>
-          <span className="num" style={{textAlign:'right', fontWeight:700, color: s.spreadPct > 2 ? '#F59E0B' : 'var(--fg-0)'}}>+{s.spreadPct.toFixed(2)}%</span>
+          <span className="num" style={{textAlign:'right', fontWeight:700, color: s.spreadPct > 2 ? 'var(--warn)' : 'var(--fg-0)'}}>+{s.spreadPct.toFixed(2)}%</span>
         </div>
       ))}
     </WidgetCard>

@@ -46,13 +46,32 @@ function KpiGrid({ items }) {
   );
 }
 
-function MiniSpark({ data, color = '#9B1B30', w = 72, h = 26 }) {
+function MiniSpark({ data, color = 'var(--accent)', w = 72, h = 26 }) {
   if (!data) return null;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h}>
-      <path d={sparkPath(data, w, h, 2)} stroke={color} strokeWidth="1.4" fill="none"/>
+      <path d={sparkPath(data, w, h, 2)} style={{stroke: color}} strokeWidth="1.4" fill="none"/>
     </svg>
   );
+}
+
+function routesCssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function routesCssRgba(name, alpha) {
+  const [r, g, b] = routesCssVar(name).split(/[\s,/]+/).filter(Boolean);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function useRoutesThemeTick() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const onTheme = () => setTick(n => n + 1);
+    window.addEventListener('sm-theme', onTheme);
+    return () => window.removeEventListener('sm-theme', onTheme);
+  }, []);
+  return tick;
 }
 
 // Renders a round token badge. When `logo` URL/base64 is given (from
@@ -68,7 +87,7 @@ function TokenBadge({ sym, logo, size = 22 }) {
         style={{
           width: size, height: size, borderRadius: '50%',
           flexShrink: 0, objectFit: 'cover',
-          background: 'rgba(255,255,255,0.04)',
+          background: 'rgb(var(--ov-rgb) / 0.04)',
         }}
         onError={(e) => { e.currentTarget.style.display = 'none'; }}
       />
@@ -77,7 +96,7 @@ function TokenBadge({ sym, logo, size = 22 }) {
   const t = TOKENS[sym] || {};
   return (
     <span className="token-dot"
-      style={{width: size, height: size, background: t.grad || 'linear-gradient(135deg,#64748B,#334155)'}}>
+      style={{width: size, height: size, background: t.grad || 'var(--grad-avatar)', color: t.grad ? undefined : 'var(--fg-0)'}}>
       {sym ? sym[0] : '?'}
     </span>
   );
@@ -411,7 +430,7 @@ function BridgesSection({ tweaks }) {
           <KpiGrid items={[
             { label:t('s.bridgeVol24h', 'Bridge Vol · 24h'), value: net ? fmt.usd(Number(net.bridgeVolume)) : '—', sub: t('s.acrossNNetworks', 'across {n} networks').replace('{n}', networks.size) },
             { label:t('s.assetsBridged', 'Assets Bridged'),   value: String(uniqueAssets), sub: t('s.uniqueAssets', 'unique assets') },
-            { label:t('s.pendingNow', 'Pending Now'),      value: String(pending), valStyle:{color:'#F5B041'}, sub: t('s.awaitingConfirmations', 'awaiting confirmations') },
+            { label:t('s.pendingNow', 'Pending Now'),      value: String(pending), valStyle:{color:'var(--warn)'}, sub: t('s.awaitingConfirmations', 'awaiting confirmations') },
             { label:t('s.networks', 'Networks'),         value: networks.size > 0 ? [...networks].slice(0,3).join(', ') : '—', valStyle:{fontSize: 18}, sub: t('s.activeCounterparties', 'active counterparties') },
           ]}/>
         );
@@ -530,7 +549,7 @@ function BridgesSection({ tweaks }) {
                             e.stopPropagation();
                             window.openWalletDetails?.(soraAddr);
                           }}
-                          style={{cursor:'pointer', color:'var(--accent)', textDecoration:'underline dotted', textUnderlineOffset:3}}>
+                          style={{cursor:'pointer', color:'var(--accent-text)', textDecoration:'underline dotted', textUnderlineOffset:3}}>
                           {fmt.addr(soraAddr, 6, 4)}
                         </span>
                       );
@@ -649,9 +668,9 @@ function OrderBookSection({ tweaks }) {
 
       <KpiGrid items={[
         { label:t('s.fillsRecent', 'Fills (recent)'), value: String(fills.length) },
-        { label:t('s.spread', 'Spread'),         value: spread != null ? spread.toFixed(1) : '—', unit: spread != null ? 'bps' : '', valStyle:{color:'#F5B041'} },
+        { label:t('s.spread', 'Spread'),         value: spread != null ? spread.toFixed(1) : '—', unit: spread != null ? 'bps' : '', valStyle:{color:'var(--amber)'} },
         { label:t('s.midPrice', 'Mid price'),      value: mid != null ? mid.toFixed(6) : '—', unit: mid != null ? quote : '', sub: t('s.avgLastBuyLastSell', 'avg(last buy, last sell)') },
-        { label:t('s.lastFill', 'Last Fill'),      value: fills[0] ? fills[0].side.toUpperCase() : '—', valStyle:{color: fills[0]?.side === 'buy' ? '#10B981' : '#EF4444'}, sub: fills[0] ? fmt.ago(fills[0].ts) : '' },
+        { label:t('s.lastFill', 'Last Fill'),      value: fills[0] ? fills[0].side.toUpperCase() : '—', valStyle:{color: fills[0]?.side === 'buy' ? 'var(--ok)' : 'var(--err)'}, sub: fills[0] ? fmt.ago(fills[0].ts) : '' },
       ]}/>
 
       {/* Honest disclosure: SORA has no public orderbook-snapshot endpoint, so
@@ -788,10 +807,10 @@ function OrderBookSection({ tweaks }) {
 // XST appears only as a TARGET in XSTUSD/XST pools. Sending base=XST to the
 // backend returns an empty result, which is why the DEX-1 filter looked broken.
 const DEX_BASES = [
-  { base: 'XOR',    dex: 0, color: '#E5243B' },
-  { base: 'XSTUSD', dex: 1, color: '#F5B041' },
-  { base: 'KUSD',   dex: 2, color: '#60A5FA' },
-  { base: 'VXOR',   dex: 3, color: '#7B5B90' },
+  { base: 'XOR',    dex: 0, color: 'var(--accent)' },
+  { base: 'XSTUSD', dex: 1, color: 'var(--amber)' },
+  { base: 'KUSD',   dex: 2, color: 'var(--info)' },
+  { base: 'VXOR',   dex: 3, color: 'var(--lilac)' },
 ];
 
 function PoolsSection({ tweaks }) {
@@ -926,7 +945,7 @@ function PoolsSection({ tweaks }) {
                       <div>{fmt.num(p.targetReserve, 2)} <b>{p.target?.symbol}</b></div>
                     </div>
                   </td>
-                  <td data-label={t('col.total', 'Total')} style={{textAlign:'right', fontWeight: 700, color: '#6EE7B7'}} className="num">
+                  <td data-label={t('col.total', 'Total')} style={{textAlign:'right', fontWeight: 700, color: 'var(--ok)'}} className="num">
                     {fmt.usd(p.totalUsd)}
                   </td>
                   <td data-label={t('s.providers', 'Providers')} style={{textAlign:'center'}}>
@@ -1155,7 +1174,7 @@ function PoolProvidersModal({ base, target, onClose }) {
                     <td className="num">{i + 1}</td>
                     <td><span className="num tiny"><AddrOrName addr={p.address || p.wallet} prefix={8} suffix={6}/></span></td>
                     <td style={{textAlign:'right'}} className="num">{fmt.num(bal, 4)}</td>
-                    <td style={{textAlign:'right', color:'#FBB040', fontWeight: 700}} className="num">{share.toFixed(2)}%</td>
+                    <td style={{textAlign:'right', color:'var(--amber)', fontWeight: 700}} className="num">{share.toFixed(2)}%</td>
                   </tr>
                   );
                 })}
@@ -1218,7 +1237,7 @@ function PoolActivityModal({ base, target, onClose }) {
                         if (!w) return <span className="muted">—</span>;
                         return (
                           <span className="num tiny"
-                            style={{cursor:'pointer', color:'var(--accent)', textDecoration:'underline dotted'}}
+                            style={{cursor:'pointer', color:'var(--accent-text)', textDecoration:'underline dotted'}}
                             onClick={() => window.openWalletDetails?.(w)}>{fmt.addr(w, 6, 4)}</span>
                         );
                       })()}
@@ -1495,8 +1514,8 @@ function TokensSection({ tweaks }) {
       <KpiGrid items={[
         { label:t('s.totalTokens', 'Total Tokens'),   value: String(tokens.length), sub: t('s.registered', 'registered') },
         { label:t('s.volume24h', 'Volume · 24H'),   value: fmt.usd(vol24h), sub: t('s.networkWide', 'network-wide') },
-        { label:t('s.topGainer', 'Top Gainer'),     value: gainer.sym, logoSym: gainer.sym !== '—' ? gainer.sym : null, valStyle:{color: '#6EE7B7'}, sub: '+' + gainer.change.toFixed(1) + '% · ' + tfLabel },
-        { label:t('s.topLoser', 'Top Loser'),      value: loser.sym,  logoSym: loser.sym  !== '—' ? loser.sym  : null, valStyle:{color: '#FCA5A5'}, sub: loser.change.toFixed(1) + '% · ' + tfLabel },
+        { label:t('s.topGainer', 'Top Gainer'),     value: gainer.sym, logoSym: gainer.sym !== '—' ? gainer.sym : null, valStyle:{color: 'var(--ok)'}, sub: '+' + gainer.change.toFixed(1) + '% · ' + tfLabel },
+        { label:t('s.topLoser', 'Top Loser'),      value: loser.sym,  logoSym: loser.sym  !== '—' ? loser.sym  : null, valStyle:{color: 'var(--err)'}, sub: loser.change.toFixed(1) + '% · ' + tfLabel },
       ]}/>
 
       {visible.length === 0 && !loading && (
@@ -1507,7 +1526,7 @@ function TokensSection({ tweaks }) {
 
       <div className="token-grid">
         {visible.map(tk => {
-          const tkCfg = TOKENS[tk.sym] || { grad: 'linear-gradient(135deg, #7B5B90, #4A3566)' };
+          const tkCfg = TOKENS[tk.sym] || { grad: 'var(--grad-avatar)' };
           return (
             <div
               key={tk.sym}
@@ -1534,7 +1553,7 @@ function TokensSection({ tweaks }) {
               </div>
               <div style={{margin: '10px 0'}}>
                 <svg viewBox="0 0 120 36" width="100%" height="36">
-                  <path d={sparkPath(tk.spark, 120, 36, 2)} stroke={tk.change >= 0 ? '#10B981' : '#EF4444'} strokeWidth="1.6" fill="none"/>
+                  <path d={sparkPath(tk.spark, 120, 36, 2)} style={{stroke: tk.change >= 0 ? 'var(--ok)' : 'var(--err)'}} strokeWidth="1.6" fill="none"/>
                 </svg>
               </div>
               <div className="token-card-foot">
@@ -1586,6 +1605,7 @@ function TokenChartModal({ token, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [res, setRes] = useState('1h');
+  const themeTick = useRoutesThemeTick();
 
   // Backend expects resolution in minutes (integer). Map UI labels → minutes.
   const RES_MIN = { '5m': 5, '15m': 15, '1h': 60, '4h': 240, '1d': 1440 };
@@ -1615,29 +1635,34 @@ function TokenChartModal({ token, onClose }) {
     };
     const labels = candles.map(c => new Date(toMs(c.time || c.t || c.timestamp)).toLocaleString());
     const values = candles.map(c => Number(c.close ?? c.value ?? c.price) || 0);
+    const tickColor = routesCssVar('--fg-3');
+    const gridColor = routesCssRgba('--ov-rgb', 0.04);
     chartRef.current = new window.Chart(canvasRef.current.getContext('2d'), {
       type: 'line',
       data: { labels, datasets: [{
         label: token.sym, data: values,
-        borderColor: '#9B1B30', backgroundColor: 'rgba(155,27,48,0.1)',
+        borderColor: routesCssVar('--accent'), backgroundColor: routesCssRgba('--accent-rgb', 0.1),
         fill: true, tension: 0.25, pointRadius: 0, borderWidth: 2,
       }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: { x: { ticks: { maxTicksLimit: 8 } } },
+        scales: {
+          x: { ticks: { color: tickColor, maxTicksLimit: 8 }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor }, grid: { color: gridColor } },
+        },
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [data, token.sym]);
+  }, [data, token.sym, themeTick]);
 
   return (
     <div
       onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      style={{position:'fixed', inset:0, background:'rgb(var(--shade-rgb) / 0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div
         onClick={e => e.stopPropagation()}
-        style={{background:'#121218', color:'var(--fg-0)', borderRadius:12, maxWidth:900, width:'100%', maxHeight:'90vh', overflow:'auto', padding:22, border:'1px solid var(--border)'}}>
+        style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:900, width:'100%', maxHeight:'90vh', overflow:'auto', padding:22, border:'1px solid var(--border)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, gap:10, flexWrap:'wrap'}}>
           <div>
             <h3 style={{margin:0, fontSize:18}}>{token.sym} · <span className="muted">{token.name}</span></h3>
@@ -1649,7 +1674,7 @@ function TokenChartModal({ token, onClose }) {
                 key={r}
                 onClick={() => setRes(r)}
                 className={'pill' + (res === r ? ' active' : '')}
-                style={{padding:'4px 10px', border:'1px solid var(--border-color)', borderRadius:6, background: res === r ? 'var(--accent)' : 'transparent', color: res === r ? '#fff' : 'var(--fg-0)', cursor:'pointer', fontSize:12}}>
+                style={{padding:'4px 10px', border:'1px solid var(--border-color)', borderRadius:6, background: res === r ? 'var(--accent-fill)' : 'transparent', color: res === r ? 'var(--on-accent)' : 'var(--fg-0)', cursor:'pointer', fontSize:12}}>
                 {r}
               </button>
             ))}
@@ -1804,7 +1829,7 @@ function HoldersSection({ tweaks }) {
                   position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:50,
                   background:'var(--bg-card)', border:'1px solid var(--border-color)',
                   borderRadius:10, padding:6, minWidth:170,
-                  boxShadow:'0 8px 24px rgba(0,0,0,0.45)',
+                  boxShadow:'0 8px 24px rgb(var(--shade-rgb) / 0.45)',
                   display:'grid', gridTemplateColumns:'1fr 1fr', gap:4
                 }}>
                   {EXTRA_ASSETS.map(a => (
@@ -1814,9 +1839,9 @@ function HoldersSection({ tweaks }) {
                          style={{
                            cursor:'pointer', padding:'6px 10px', borderRadius:6,
                            display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600,
-                           background: asset === a.sym ? 'var(--accent-soft, rgba(16,185,129,0.15))' : 'transparent'
+                           background: asset === a.sym ? 'rgb(var(--accent-rgb) / 0.15)' : 'transparent'
                          }}
-                         onMouseEnter={e => { if (asset !== a.sym) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                         onMouseEnter={e => { if (asset !== a.sym) e.currentTarget.style.background = 'rgb(var(--ov-rgb) / 0.05)'; }}
                          onMouseLeave={e => { if (asset !== a.sym) e.currentTarget.style.background = 'transparent'; }}>
                       <TokenBadge sym={a.sym} size={16}/>
                       <span>{a.sym}</span>
@@ -1868,7 +1893,7 @@ function HoldersSection({ tweaks }) {
                   </td>
                   <td data-label={t('col.account')}>
                     <div style={{display:'flex', alignItems:'center', gap: 10, minWidth:0}}>
-                      <div style={{width:28, height:28, borderRadius:'50%', background: h.rank <= 5 ? 'linear-gradient(135deg,#9B1B30,#4A3566)' : 'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink: 0}}/>
+                      <div style={{width:28, height:28, borderRadius:'50%', background: 'var(--grad-avatar)', flexShrink: 0}}/>
                       <div className="num tiny" style={{overflow:'hidden', textOverflow:'ellipsis', wordBreak:'break-all'}}>{fmt.addr(h.addr, 8, 6)}</div>
                     </div>
                   </td>
@@ -2117,7 +2142,7 @@ function StakingSection({ tweaks }) {
                         }}
                         title={t('s.clickToSort', 'Click para ordenar')}>
                         {h.label}
-                        {sortKey === h.k && <span style={{marginLeft: 4, opacity: 0.7}}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                        {sortKey === h.k && <span style={{marginLeft: 4}}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
                       </th>
                     ))}
                   </tr>
@@ -2128,14 +2153,14 @@ function StakingSection({ tweaks }) {
                       <td style={{paddingLeft: 20}}><span className={'rank-chip ' + (v.rank <= 3 ? 'top3' : '')}>{v.rank}</span></td>
                       <td>
                         <div style={{display:'flex', alignItems:'center', gap: 10}}>
-                          <div style={{width:26, height:26, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}/>
+                          <div style={{width:26, height:26, borderRadius:6, background:'var(--grad-avatar)'}}/>
                           <WalletLink addr={v.address} style={{fontWeight:700, color:'var(--fg-0)'}}>{v.name}</WalletLink>
                         </div>
                       </td>
                       <td style={{textAlign:'right'}} className="num"><strong>{fmt.num(v.total, 0)} XOR</strong></td>
                       <td style={{textAlign:'right'}} className="num">{fmt.num(v.own, 0)}</td>
                       <td style={{textAlign:'right'}} className="num">{v.nominators}</td>
-                      <td style={{textAlign:'right'}} className="num"><span style={{color: v.commission > 5 ? '#F5B041' : '#6EE7B7', fontWeight:700}}>{v.commission}%</span></td>
+                      <td style={{textAlign:'right'}} className="num"><span style={{color: v.commission > 5 ? 'var(--warn)' : 'var(--ok)', fontWeight:700}}>{v.commission}%</span></td>
                       <td style={{textAlign:'right'}} className="num">{v.points.toLocaleString()}</td>
                       <td style={{paddingRight:20}}>
                         <span className={'val-status ' + v.status}>
@@ -2259,9 +2284,9 @@ function StakingSection({ tweaks }) {
         };
         const valUsdN = (n) => (rd?.valPrice ? n * rd.valPrice : 0);
         const xorUsdN = (n) => (rd?.xorPrice ? n * rd.xorPrice : 0);
-        const GREEN = '#6EE7B7';
-        const BLUE = '#7DD3FC';
-        const ORANGE = '#F5B041';
+        const GREEN = 'var(--ok)';
+        const BLUE = 'var(--info)';
+        const ORANGE = 'var(--warn)';
 
         // Inline USD pill (sorametrics pattern: small green number after the main value).
         const InlineUsd = ({ usd }) => (
@@ -2273,26 +2298,26 @@ function StakingSection({ tweaks }) {
         // VAL token logo: real VAL from registry → fallback to gradient yellow VAL.
         const ValLogo = ({ size = 22 }) => {
           const src = (window.TOKEN_LOGOS && window.TOKEN_LOGOS.VAL) || null;
-          if (src) return <img src={src} alt="VAL" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}/>;
-          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#FBC02D,#F57F17)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'#fff', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}>V</div>;
+          if (src) return <img src={src} alt="VAL" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgb(var(--shade-rgb) / .25)'}}/>;
+          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#FBC02D,#F57F17)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'var(--on-tok)', flexShrink:0, boxShadow:'0 1px 4px rgb(var(--shade-rgb) / .25)'}}>V</div>;
         };
         const XorLogo = ({ size = 22 }) => {
           const src = (window.TOKEN_LOGOS && window.TOKEN_LOGOS.XOR) || null;
-          if (src) return <img src={src} alt="XOR" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}/>;
-          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#E3232C,#8B0000)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'#fff', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,.25)'}}>X</div>;
+          if (src) return <img src={src} alt="XOR" style={{width:size, height:size, borderRadius:'50%', flexShrink:0, boxShadow:'0 1px 4px rgb(var(--shade-rgb) / .25)'}}/>;
+          return <div style={{width:size, height:size, borderRadius:'50%', background:'linear-gradient(135deg,#E3232C,#8B0000)', display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:Math.round(size*0.42), fontWeight:800, color:'var(--on-tok)', flexShrink:0, boxShadow:'0 1px 4px rgb(var(--shade-rgb) / .25)'}}>X</div>;
         };
 
         // Sparkline SVG inline — compact 100×24, no library.
         const Spark = ({ points, color = GREEN, w = 100, h = 24 }) => {
           if (!points || points.length < 2) {
-            return <svg width={w} height={h} style={{display:'block'}}><line x1={0} y1={h/2} x2={w} y2={h/2} stroke="var(--border-color)" strokeDasharray="2,3"/></svg>;
+            return <svg width={w} height={h} style={{display:'block'}}><line x1={0} y1={h/2} x2={w} y2={h/2} style={{stroke: 'var(--border-color)'}} strokeDasharray="2,3"/></svg>;
           }
           const vals = points.map(p => Number(p) || 0);
           const max = Math.max(...vals), min = Math.min(...vals);
           const range = max - min || 1;
           const step = w / (vals.length - 1);
           const pts = vals.map((v, i) => `${(i*step).toFixed(1)},${(h - ((v-min)/range)*(h-2) - 1).toFixed(1)}`).join(' ');
-          return <svg width={w} height={h} style={{display:'block'}}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"/></svg>;
+          return <svg width={w} height={h} style={{display:'block'}}><polyline points={pts} fill="none" style={{stroke: color}} strokeWidth="1.5"/></svg>;
         };
 
         const sparkXor = (ld?.history || []).map(h => toVal(h.xorToVal));
@@ -2351,7 +2376,7 @@ function StakingSection({ tweaks }) {
             padding:'4px 10px', fontSize:11, fontWeight: active ? 700 : 500,
             border:'none', borderRadius:5, cursor:'pointer',
             color: active ? 'var(--fg-0)' : 'var(--fg-2)',
-            background: active ? 'rgba(110,231,183,0.18)' : 'transparent',
+            background: active ? 'rgb(var(--ok-rgb) / 0.18)' : 'transparent',
             transition:'all 0.12s ease',
           }}>{label}</button>
         );
@@ -2364,13 +2389,13 @@ function StakingSection({ tweaks }) {
             {/* ── ROW 1: LIVE PIPELINE + REWARDS DISTRIBUTED (side-by-side desktop, stack mobile) ── */}
             <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:14, marginTop:18}}>
               {/* LIVE pipeline card */}
-              <div className="card" style={{borderColor:'rgba(110,231,183,0.25)'}}>
+              <div className="card" style={{borderColor:'rgb(var(--ok-rgb) / 0.25)'}}>
                 <div className="card-header">
                   <div className="card-title" style={{display:'flex', alignItems:'center', gap:8}}>
                     <span style={{display:'inline-block', width:8, height:8, borderRadius:'50%', background: GREEN, boxShadow:`0 0 8px ${GREEN}`}}/>
                     <span>{t('staking.rewards.live.title')}</span>
                   </div>
-                  <span className="tag" style={{background:'rgba(110,231,183,0.15)', color: GREEN, fontWeight:700}}>● {t('staking.rewards.live.live')} · {ldAge != null ? ldAge + 's' : '…'}</span>
+                  <span className="tag" style={{background:'rgb(var(--ok-rgb) / 0.15)', color: GREEN, fontWeight:700}}>● {t('staking.rewards.live.live')} · {ldAge != null ? ldAge + 's' : '…'}</span>
                 </div>
                 <div className="card-body" style={{padding:'14px 16px'}}>
                   {/* XOR pending swap row */}
@@ -2386,7 +2411,7 @@ function StakingSection({ tweaks }) {
                     <Spark points={sparkXor} color={GREEN}/>
                   </div>
                   {/* VAL bucket row */}
-                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
                     <ValLogo size={22}/>
                     <div>
                       <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2}}>{t('staking.rewards.live.eraBucket')}{ld?.valStakingEraReward ? ` · era ${ld.valStakingEraReward.era}` : ''}</div>
@@ -2402,7 +2427,7 @@ function StakingSection({ tweaks }) {
                     <Spark points={sparkBucket} color={BLUE}/>
                   </div>
                   {/* Next remint row */}
-                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+                  <div style={{display:'grid', gridTemplateColumns:'24px 1fr auto', gap:10, alignItems:'center', padding:'8px 0', borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)'}}>
                     <span style={{fontSize:16, textAlign:'center', color: ORANGE}}>⟳</span>
                     <div>
                       <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2}}>{t('staking.rewards.live.nextRemint')}</div>
@@ -2422,7 +2447,7 @@ function StakingSection({ tweaks }) {
                     <ValLogo size={18}/>
                     <span>{t('staking.rewards.timeframe.title')}</span>
                   </div>
-                  <div style={{display:'inline-flex', gap:0, padding:2, borderRadius:6, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', flexWrap:'wrap'}}>
+                  <div style={{display:'inline-flex', gap:0, padding:2, borderRadius:6, background:'rgb(var(--ov-rgb) / 0.04)', border:'1px solid rgb(var(--ov-rgb) / 0.08)', flexWrap:'wrap'}}>
                     {TF_OPTS.map(([label, k]) => <PillBtn key={k} k={k} label={label} active={tfKey === k}/>)}
                   </div>
                 </div>
@@ -2441,7 +2466,7 @@ function StakingSection({ tweaks }) {
                       <div className="muted tiny" style={{marginTop:2}}>{tfData.validator_count} {t('s.validators2', 'validators ·')} {tfData.destination_count} recipients</div>
                     </div>
                   </div>
-                  <div style={{marginTop:14, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:18, fontSize:11}}>
+                  <div style={{marginTop:14, paddingTop:12, borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:18, fontSize:11}}>
                     <div>
                       <div className="muted tiny">{t('s.currentEraBucket', 'Bucket era actual')}</div>
                       <div className="num" style={{fontWeight:700, color:'var(--fg-0)'}}>{fmtValN(toVal(rd?.valBucketCurrentEra), 4)} VAL<InlineUsd usd={valUsdN(toVal(rd?.valBucketCurrentEra))}/></div>
@@ -2488,17 +2513,17 @@ function StakingSection({ tweaks }) {
                       <span style={{display:'inline-flex', alignItems:'center', gap:8, fontSize:11}}>
                         <button onClick={toggleDir} title={t('staking.rewards.tt.valXorFlip')} style={{
                           display:'inline-flex', alignItems:'center', gap:3, border:'none', borderRadius:5,
-                          padding:'2px 5px', cursor:'pointer', background:'rgba(255,255,255,0.04)', color:'var(--fg-2)',
+                          padding:'2px 5px', cursor:'pointer', background:'rgb(var(--ov-rgb) / 0.04)', color:'var(--fg-2)',
                         }}>
                           {inv ? <><XorLogo size={12}/><span>→</span><ValLogo size={12}/></>
                                : <><ValLogo size={12}/><span>→</span><XorLogo size={12}/></>}
                           <span style={{fontSize:9, opacity:0.6, marginLeft:1}}>⇄</span>
                         </button>
-                        <span style={{display:'inline-flex', gap:2, background:'rgba(255,255,255,0.04)', borderRadius:6, padding:2}}>
+                        <span style={{display:'inline-flex', gap:2, background:'rgb(var(--ov-rgb) / 0.04)', borderRadius:6, padding:2}}>
                           {[['24h','h24'],['7d','d7'],['30d','d30']].map(([lbl,k]) => (
                             <button key={k} onClick={() => setWin(k)} style={{
                               padding:'2px 8px', fontSize:10, fontWeight: WK===k?700:500, border:'none', borderRadius:4, cursor:'pointer',
-                              color: WK===k?'var(--fg-0)':'var(--fg-2)', background: WK===k?'rgba(110,231,183,0.18)':'transparent',
+                              color: WK===k?'var(--fg-0)':'var(--fg-2)', background: WK===k?'rgb(var(--ok-rgb) / 0.18)':'transparent',
                             }}>{lbl}</button>
                           ))}
                         </span>
@@ -2558,7 +2583,7 @@ function StakingSection({ tweaks }) {
                         const net = ownOutXor - claimCostXor;
                         const ratio = net / claimCostXor;
                         claimPct = ratio * 100;
-                        claimColor = ratio < 0 ? '#EF4444' : ratio < 0.03 ? '#F5B041' : GREEN;
+                        claimColor = ratio < 0 ? 'var(--err)' : ratio < 0.03 ? 'var(--warn)' : GREEN;
                         claimTitle = t('s.claimTip', '{eras} era(s) pendiente(s) × {fee} = {cost} XOR coste · validador cobra {out} XOR ({val} VAL) · neto {net} XOR')
                           .replace('{eras}', pendingEras).replace('{fee}', PAYOUT_FEE_XOR).replace('{cost}', claimCostXor.toFixed(4)).replace('{out}', ownOutXor.toFixed(4)).replace('{val}', ownOutVal.toFixed(2)).replace('{net}', (net >= 0 ? '+' : '') + net.toFixed(4));
                       }
@@ -2574,7 +2599,7 @@ function StakingSection({ tweaks }) {
                       if (pendingEras > 0 && claimCostXor > 0 && rd?.valToXorRate) {
                         netXorXV = ownOutXorDirect - claimCostXor;
                         const ratioXV = netXorXV / claimCostXor;
-                        claimColorXV = ratioXV < 0 ? '#EF4444' : ratioXV < 0.03 ? '#F5B041' : GREEN;
+                        claimColorXV = ratioXV < 0 ? 'var(--err)' : ratioXV < 0.03 ? 'var(--warn)' : GREEN;
                         claimTitleXV = t('s.claimTipXV', '{eras} era(s) × {fee} = {cost} XOR coste · cobra {out} XOR ({val} VAL × {rate} XOR/VAL directo del DEX) · neto {net} XOR')
                           .replace('{eras}', pendingEras).replace('{fee}', PAYOUT_FEE_XOR).replace('{cost}', claimCostXor.toFixed(4)).replace('{out}', ownOutXorDirect.toFixed(4)).replace('{val}', ownOutVal.toFixed(2)).replace('{rate}', rd.valToXorRate.toExponential(3)).replace('{net}', (netXorXV >= 0 ? '+' : '') + netXorXV.toFixed(4));
                       }
@@ -2584,13 +2609,13 @@ function StakingSection({ tweaks }) {
                         <tr key={v.address} className="swap-row">
                           <td style={{paddingLeft:20}}>
                             <div style={{display:'flex', alignItems:'center', gap:10}}>
-                              <div style={{width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
+                              <div style={{width:24, height:24, borderRadius:6, background:'var(--grad-avatar)', flexShrink:0}}/>
                               <div style={{minWidth:0}}>
                                 <div style={{fontWeight:700, color:'var(--fg-0)', fontSize:13, whiteSpace:'nowrap'}}><WalletLink addr={v.address}>{displayName}</WalletLink></div>
                               </div>
                             </div>
                           </td>
-                          <td style={{textAlign:'right'}} className="num"><span style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}%</span></td>
+                          <td style={{textAlign:'right'}} className="num"><span style={{color: v.commission > 0.5 ? 'var(--err)' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}%</span></td>
                           <td style={{textAlign:'right'}} className="num">{outVal > 0 ? <span style={{display:'inline-flex', alignItems:'center', gap:4, justifyContent:'flex-end'}}><strong>{fmt.num(outVal, 4)}</strong> <ValLogo size={12}/><InlineUsd usd={valUsdN(outVal)}/></span> : <span style={{color:'var(--fg-2)'}}>0</span>}</td>
                           <td style={{textAlign:'right'}} className="num">{pendingEras > 0 ? <span style={{color:'var(--fg-1)', fontWeight:700}}>{pendingEras}</span> : <span style={{color:'var(--fg-2)'}}>0</span>}</td>
                           <td style={{textAlign:'center', cursor: claimPct != null ? 'help' : 'default'}} title={claimTitle}>
@@ -2613,7 +2638,7 @@ function StakingSection({ tweaks }) {
                           <td style={{textAlign:'right'}} className="num">
                             {recVal > 0 ? (
                               <div style={{display:'inline-flex', alignItems:'center', gap:6, justifyContent:'flex-end'}}>
-                                <div style={{width:42, height:4, background:'rgba(255,255,255,0.06)', borderRadius:2, overflow:'hidden'}}>
+                                <div style={{width:42, height:4, background:'rgb(var(--ov-rgb) / 0.06)', borderRadius:2, overflow:'hidden'}}>
                                   <div style={{width: recBarPct + '%', height:'100%', background: BLUE}}/>
                                 </div>
                                 <strong>{fmt.num(recVal, 4)}</strong>
@@ -2660,7 +2685,7 @@ function StakingSection({ tweaks }) {
               return (
                 <div className="card" style={{marginTop:14}}>
                   <div className="card-header">
-                    <div className="card-title"><span className="dot" style={{background:'#FBC02D'}}/> ★ {t('staking.rewards.smart.title')}</div>
+                    <div className="card-title"><span className="dot" style={{background:'var(--amber)'}}/> ★ {t('staking.rewards.smart.title')}</div>
                   </div>
                   <div className="card-body" style={{padding:'14px 0 0 0'}}>
                     {/* BEST FOR NOMINATORS */}
@@ -2674,16 +2699,16 @@ function StakingSection({ tweaks }) {
                       ) : bestNominate.map((v, i) => {
                         const displayName = dispName(v.address);
                         return (
-                          <div key={v.address} style={{display:'flex', flexWrap:'wrap', alignItems:'center', gap:10, padding:'8px 0', borderBottom: i < bestNominate.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'}}>
+                          <div key={v.address} style={{display:'flex', flexWrap:'wrap', alignItems:'center', gap:10, padding:'8px 0', borderBottom: i < bestNominate.length - 1 ? '1px solid rgb(var(--ov-rgb) / 0.04)' : 'none'}}>
                             {/* Identity block — always together */}
                             <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0, flex:'1 1 200px'}}>
                               <span className={'rank-chip ' + (i < 3 ? 'top3' : '')} style={{fontSize:10, flexShrink:0}}>{i + 1}</span>
-                              <div style={{width:22, height:22, borderRadius:5, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
+                              <div style={{width:22, height:22, borderRadius:5, background:'var(--grad-avatar)', flexShrink:0}}/>
                               <WalletLink addr={v.address} style={{fontSize:12, fontWeight:600, color:'var(--fg-0)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', minWidth:0}}>{displayName}</WalletLink>
                             </div>
                             {/* Metrics — wrap to next line on mobile */}
                             <div style={{display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', justifyContent:'flex-end', flex:'0 0 auto'}}>
-                              <span className="num tiny" style={{color: v.commission > 0.5 ? '#EF4444' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}{t('s.comm', '% comm')}</span>
+                              <span className="num tiny" style={{color: v.commission > 0.5 ? 'var(--err)' : v.commission > 0.1 ? ORANGE : GREEN, fontWeight:700}}>{(v.commission * 100).toFixed(0)}{t('s.comm', '% comm')}</span>
                               <span className="num" style={{fontSize:11, color:'var(--fg-2)'}}>{v.yieldPerXorEra > 0.0001 ? v.yieldPerXorEra.toFixed(6) : v.yieldPerXorEra.toExponential(2)} <span style={{opacity:0.7}}>VAL/XOR/era</span></span>
                               <span className="num" style={{fontSize:13, fontWeight:700, color: v.aprPct > 5 ? GREEN : 'var(--fg-0)'}}>{v.aprPct.toFixed(2)}% <span style={{fontSize:10, color:'var(--fg-2)'}}>APR</span></span>
                             </div>
@@ -2693,7 +2718,7 @@ function StakingSection({ tweaks }) {
                     </div>
 
                     {/* NETWORK HEALTH */}
-                    <div style={{borderTop:'1px solid rgba(255,255,255,0.06)', padding:'14px 20px 16px 20px'}}>
+                    <div style={{borderTop:'1px solid rgb(var(--ov-rgb) / 0.06)', padding:'14px 20px 16px 20px'}}>
                       <div style={{fontWeight:700, fontSize:13, color:'var(--fg-0)', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
                         <span style={{color: BLUE}}>◆</span> {t('staking.rewards.smart.health')}
                       </div>
@@ -2984,7 +3009,7 @@ function GovSection({ tweaks }) {
                 <tr key={i}>
                   <td style={{paddingLeft:20}}>
                     <div style={{display:'flex', alignItems:'center', gap:10}}>
-                      <div style={{width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink:0}}/>
+                      <div style={{width:28, height:28, borderRadius:'50%', background:'var(--grad-avatar)', flexShrink:0}}/>
                       <div style={{minWidth:0}}>
                         <div style={{fontWeight:700, whiteSpace:'nowrap'}}><WalletLink addr={c.addr}>{c.name}</WalletLink></div>
                         <div className="muted tiny num" style={{whiteSpace:'nowrap'}}><WalletLink addr={c.addr}>{fmt.addr(c.addr, 6, 4)}</WalletLink></div>
@@ -3007,7 +3032,7 @@ function GovSection({ tweaks }) {
             <div style={{padding: 12}}>
               {elections.candidates.map((c, i) => (
                 <div key={i} className="elec-row">
-                  <div style={{width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#9B1B30,#4A3566)'}}/>
+                  <div style={{width:24, height:24, borderRadius:6, background:'var(--grad-avatar)'}}/>
                   <div style={{flex:1, minWidth:0}}>
                     <div style={{fontWeight:700, fontSize:13}}><WalletLink addr={c.addr}>{c.name}</WalletLink></div>
                     <div className="muted tiny">{t('gov.elections.bond', 'Fianza')} · {c.bond} XOR</div>
@@ -3023,12 +3048,12 @@ function GovSection({ tweaks }) {
             <div style={{padding: 12}}>
               {elections.runnersUp.map((r, i) => (
                 <div key={i} className="elec-row">
-                  <div style={{width: 24, height: 24, borderRadius: 6, background:'linear-gradient(135deg,#7B5B90,#4A3566)'}}/>
+                  <div style={{width: 24, height: 24, borderRadius: 6, background:'var(--grad-avatar)'}}/>
                   <div style={{flex:1, fontWeight:700, fontSize: 13}}><WalletLink addr={r.addr}>{r.name}</WalletLink></div>
                   <div className="num muted">{fmt.num(r.votes, 1)}</div>
                 </div>
               ))}
-              <div style={{marginTop: 16, padding: 12, background:'rgba(255,255,255,0.02)', borderRadius:8, fontSize: 12, color:'var(--fg-2)'}}>
+              <div style={{marginTop: 16, padding: 12, background:'rgb(var(--ov-rgb) / 0.02)', borderRadius:8, fontSize: 12, color:'var(--fg-2)'}}>
                 <strong>{elections.filled} / {elections.seats}</strong> {t('gov.elections.seatsCovered', 'asientos cubiertos · siguiente votación en')} <strong>3 {t('gov.elections.eras', 'eras')}</strong>.
               </div>
             </div>
@@ -3073,7 +3098,7 @@ function GovSection({ tweaks }) {
                 <div key={r.id} className="motion-card">
                   <div style={{display:'flex', alignItems:'center', gap:12, marginBottom: 8}}>
                     <span className="motion-id">#{r.id}</span>
-                    {r.threshold && <span className="tag" style={{background:'rgba(99,102,241,0.15)',color:'#818CF8'}}>{r.threshold}</span>}
+                    {r.threshold && <span className="tag" style={{background:'rgb(var(--lilac-rgb) / 0.15)',color:'var(--lilac)'}}>{r.threshold}</span>}
                     <span className="tag">{t('gov.democracy.endsIn', 'Termina en')} {r.ends}</span>
                     <span className="muted tiny" style={{marginLeft:'auto'}}>{t('gov.democracy.turnout', 'Participación')} · {r.turnoutLabel}</span>
                   </div>
@@ -3083,8 +3108,8 @@ function GovSection({ tweaks }) {
                     {r.nay > 0 && <div className="vote-nay" style={{flex: r.nay, whiteSpace:'nowrap', overflow:'hidden'}}>✗ {r.nay}%</div>}
                   </div>
                   <div style={{display:'flex', gap:16, marginTop:5, fontSize:11}}>
-                    <span style={{color:'#4ADE80'}}>{t('s.aye', '✓ AYE ·')} {r.ayesLabel}</span>
-                    {r.nay > 0 && <span style={{color:'#F87171'}}>{t('s.nay', '✗ NAY ·')} {r.naysLabel}</span>}
+                    <span style={{color:'var(--ok)'}}>{t('s.aye', '✓ AYE ·')} {r.ayesLabel}</span>
+                    {r.nay > 0 && <span style={{color:'var(--err)'}}>{t('s.nay', '✗ NAY ·')} {r.naysLabel}</span>}
                   </div>
                 </div>
               ))}
@@ -3106,7 +3131,7 @@ function GovSection({ tweaks }) {
                 )}
                 {democracy.proposals.map(p => (
                   <tr key={p.id}>
-                    <td style={{paddingLeft:20, fontWeight:700, color:'var(--accent)'}} className="num">{p.id}</td>
+                    <td style={{paddingLeft:20, fontWeight:700, color:'var(--accent-text)'}} className="num">{p.id}</td>
                     <td>{p.title}</td>
                     <td style={{textAlign:'right'}} className="num">{p.seconds}</td>
                     <td style={{textAlign:'right', paddingRight:20}} className="num">{p.deposit} XOR</td>
@@ -3134,7 +3159,7 @@ function GovSection({ tweaks }) {
                   <tr key={i}>
                     <td style={{paddingLeft:20}}>
                       <div style={{display:'flex', alignItems:'center', gap:10, padding:'4px 0'}}>
-                        <div style={{width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)'}}/>
+                        <div style={{width:28, height:28, borderRadius:'50%', background:'var(--grad-avatar)'}}/>
                         <div>
                           <div style={{fontWeight:700}}><WalletLink addr={m.addr}>{m.name}</WalletLink></div>
                           <div className="muted tiny num"><WalletLink addr={m.addr}>{fmt.addr(m.addr, 6, 4)}</WalletLink></div>
@@ -3315,7 +3340,7 @@ function PreimagesPanel() {
             {pagedItems.map(p => {
               const short = p.hash.slice(0, 10) + '…' + p.hash.slice(-6);
               const depLabel = p.depositor ? (data.identities?.[p.depositor] || fmt.addr(p.depositor, 6, 4)) : '—';
-              const statusColor = p.status === 'Requested' ? '#10b981' : 'var(--fg-2)';
+              const statusColor = p.status === 'Requested' ? 'var(--ok)' : 'var(--fg-2)';
               const decoded = decodes[p.hash];
               const link = links[p.hash];
               const first = firstSeen[p.hash];
@@ -3327,7 +3352,7 @@ function PreimagesPanel() {
                   <td data-label={t('predict.drill.action', 'Action')}>
                     {decoded === undefined && <span className="muted tiny">…</span>}
                     {decoded === null && <span className="muted tiny">—</span>}
-                    {decoded && <span style={{fontWeight:600}}>{decoded.section}.<span style={{color:'var(--accent)'}}>{decoded.method}</span></span>}
+                    {decoded && <span style={{fontWeight:600}}>{decoded.section}.<span style={{color:'var(--accent-text)'}}>{decoded.method}</span></span>}
                   </td>
                   <td data-label={t('drill.status', 'Status')}><span style={{color: statusColor, fontWeight:600}}>{p.status}</span></td>
                   <td data-label={t('gov.preimages.size', 'Tamaño')} style={{textAlign:'right'}} className="num">{p.len ?? '—'}</td>
@@ -3352,7 +3377,7 @@ function PreimagesPanel() {
                     {link === 'none' && <span className="muted tiny">—</span>}
                     {link && link !== 'none' && (
                       <span
-                        style={{cursor:'pointer', color:'var(--accent)', textDecoration:'underline dotted'}}
+                        style={{cursor:'pointer', color:'var(--accent-text)', textDecoration:'underline dotted'}}
                         onClick={() => setRefModal({ id: link.refId })}
                         title={t('s.openReferendumDetails', 'Abrir detalle del referendum')}>
                         Ref #{link.refId}
@@ -3436,7 +3461,7 @@ function ReferendumDetailModal({ refId, onClose }) {
   const total = ayes + nays || 1;
 
   return ReactDOM.createPortal((
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgb(var(--shade-rgb) / 0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:880, width:'100%', maxHeight:'92vh', overflow:'auto', padding:22, border:'1px solid var(--border-color)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, gap:10, flexWrap:'wrap'}}>
           <div>
@@ -3456,7 +3481,7 @@ function ReferendumDetailModal({ refId, onClose }) {
               style={{
                 padding:'8px 14px', background:'transparent', border:'none',
                 color: tab === k ? 'var(--fg-0)' : 'var(--fg-2)',
-                borderBottom: tab === k ? '2px solid var(--accent, #10b981)' : '2px solid transparent',
+                borderBottom: tab === k ? '2px solid var(--accent)' : '2px solid transparent',
                 cursor:'pointer', fontSize:14,
               }}>
               {k === 'overview' ? t('drill.overview', 'Overview') : k === 'timeline' ? t('s.timeline', 'Timeline') : t('s.proposalPreimage', 'Proposal Preimage')}
@@ -3468,7 +3493,7 @@ function ReferendumDetailModal({ refId, onClose }) {
           <div>
             {!ref ? <div className="muted" style={{padding:20, textAlign:'center'}}>{t('preimage.history.loading', 'Cargando...')}</div> : (
               <div>
-                <div style={{background:'rgba(255,255,255,0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:14, marginBottom:12}}>
+                <div style={{background:'rgb(var(--ov-rgb) / 0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:14, marginBottom:12}}>
                   <div style={{display:'grid', gridTemplateColumns:'max-content 1fr', gap:'6px 16px', fontSize:13}}>
                     <div className="muted">{t('drill.status', 'Status')}</div><div>{ref.status}</div>
                     <div className="muted">{t('gov.democracy.endsIn', 'Ends in')}</div><div>{ref.timeRemaining || '—'}</div>
@@ -3500,7 +3525,7 @@ function ReferendumDetailModal({ refId, onClose }) {
                 <div style={{position:'relative', paddingLeft:20}}>
                   <div style={{position:'absolute', top:4, bottom:4, left:6, width:2, background:'var(--border-color)'}}/>
                   {events.map((e, i) => {
-                    const color = e.event.endsWith('.Noted') ? '#10b981' : e.event.endsWith('.Requested') ? '#f59e0b' : '#ef4444';
+                    const color = e.event.endsWith('.Noted') ? 'var(--ok)' : e.event.endsWith('.Requested') ? 'var(--warn)' : 'var(--err)';
                     return (
                       <div key={i} style={{position:'relative', paddingBottom:14}}>
                         <div style={{position:'absolute', left:-20, top:4, width:14, height:14, borderRadius:'50%', background:color}}/>
@@ -3523,20 +3548,20 @@ function ReferendumDetailModal({ refId, onClose }) {
           <div>
             {!preimage ? <div className="muted" style={{padding:20, textAlign:'center'}}>{t('preimage.decode.decoding')}</div> : (
               <div>
-                <div style={{background:'rgba(255,255,255,0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:14, marginBottom:12}}>
+                <div style={{background:'rgb(var(--ov-rgb) / 0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:14, marginBottom:12}}>
                   <div style={{display:'grid', gridTemplateColumns:'max-content 1fr', gap:'6px 16px', fontSize:13}}>
                     <div className="muted">Hash</div><div className="num tiny" style={{wordBreak:'break-all'}}>{preimage.hash}</div>
                     <div className="muted">Bytes len</div><div>{preimage.len || '—'}</div>
                     {preimage.decoded && <>
                       <div className="muted">{t('s.module', 'Module')}</div><div>{preimage.decoded.section}</div>
-                      <div className="muted">{t('gov.scheduler.call', 'Call')}</div><div style={{color:'var(--accent)', fontWeight:600}}>{preimage.decoded.method}</div>
+                      <div className="muted">{t('gov.scheduler.call', 'Call')}</div><div style={{color:'var(--accent-text)', fontWeight:600}}>{preimage.decoded.method}</div>
                     </>}
                   </div>
                 </div>
                 {preimage.decoded?.args && (
                   <>
                     <div className="muted tiny" style={{marginBottom:6}}>{t('s.parameters', 'Parameters')}</div>
-                    <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'50vh', fontSize:12}}><JsonWithAddrs value={preimage.decoded.args}/></pre>
+                    <pre style={{margin:0, padding:12, background:'var(--bg-3)', borderRadius:8, overflow:'auto', maxHeight:'50vh', fontSize:12}}><JsonWithAddrs value={preimage.decoded.args}/></pre>
                   </>
                 )}
                 {!preimage.decoded && (
@@ -3693,15 +3718,15 @@ function HumanDecodeView({ decoded, pretty }) {
     const decompressed = pretty?.decompressedBytes;
     const integrityOk = pretty?.integrity === 'match';
     return (
-      <div style={{padding:16, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.25)', borderRadius:10}}>
-        <div style={{fontSize:15, fontWeight:700, marginBottom:10, color:'#10b981'}}>
+      <div style={{padding:16, background:'rgb(var(--ok-rgb) / 0.06)', border:'1px solid rgb(var(--ok-rgb) / 0.25)', borderRadius:10}}>
+        <div style={{fontSize:15, fontWeight:700, marginBottom:10, color:'var(--ok)'}}>
           {t('preimage.decode.upgradeTitle')}
         </div>
         {current && target ? (
           <div style={{fontSize:14, marginBottom:12}}>
             specVersion <strong style={{color:'var(--fg-2)'}}>{current.specVersion}</strong>
             <span style={{margin:'0 8px', color:'var(--fg-3)'}}>→</span>
-            <strong style={{color:'#10b981'}}>{target.specVersion}</strong>
+            <strong style={{color:'var(--ok)'}}>{target.specVersion}</strong>
             {target.implVersion !== undefined && <span className="muted tiny" style={{marginLeft:8}}>· impl {target.implVersion}</span>}
           </div>
         ) : (
@@ -3715,10 +3740,10 @@ function HumanDecodeView({ decoded, pretty }) {
           {decompressed != null && (<>
             <div className="muted">{t('preimage.decode.decompressed')}</div><div>{formatBytes(decompressed)} <span className="muted tiny">({decompressed.toLocaleString()} B)</span></div>
           </>)}
-          <div className="muted">{t('preimage.decode.magicZstd')}</div><div style={{color:'#10b981'}}>{t('preimage.decode.magicOk')} <span className="num tiny">52bc537646db8e05</span></div>
+          <div className="muted">{t('preimage.decode.magicZstd')}</div><div style={{color:'var(--ok)'}}>{t('preimage.decode.magicOk')} <span className="num tiny">52bc537646db8e05</span></div>
           {pretty?.wasmMagicOk != null && (<>
             <div className="muted">{t('preimage.decode.magicWasm')}</div>
-            <div style={{color: pretty.wasmMagicOk ? '#10b981' : '#ef4444'}}>
+            <div style={{color: pretty.wasmMagicOk ? 'var(--ok)' : 'var(--err)'}}>
               {pretty.wasmMagicOk
                 ? <>{t('preimage.decode.magicOk')} <span className="num tiny">0061736d01000000</span></>
                 : t('preimage.decode.magicFail')}
@@ -3726,7 +3751,7 @@ function HumanDecodeView({ decoded, pretty }) {
           </>)}
           {pretty?.integrity && (<>
             <div className="muted">{t('preimage.decode.integrity')}</div>
-            <div style={{color: integrityOk ? '#10b981' : '#ef4444'}}>
+            <div style={{color: integrityOk ? 'var(--ok)' : 'var(--err)'}}>
               {integrityOk ? t('preimage.decode.integrityMatch') : t('preimage.decode.integrityMismatch')}
             </div>
           </>)}
@@ -3790,7 +3815,7 @@ function GenericArgsView({ decoded }) {
       return (
         <WalletLink addr={v} name={display}>
           {display
-            ? <strong style={{color:'var(--accent)'}}>{display}</strong>
+            ? <strong style={{color:'var(--accent-text)'}}>{display}</strong>
             : <span className="num tiny">{fmt.addr(v, 6, 4)}</span>}
         </WalletLink>
       );
@@ -3823,13 +3848,13 @@ function GenericArgsView({ decoded }) {
     // still readable without falling off the cliff of JSON.stringify on the
     // whole args tree.
     if (v && typeof v === 'object') {
-      return <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.25)', borderRadius:6, fontSize:12, maxHeight:240, overflow:'auto'}}><JsonWithAddrs value={v}/></pre>;
+      return <pre style={{margin:0, padding:8, background:'var(--bg-4)', borderRadius:6, fontSize:12, maxHeight:240, overflow:'auto'}}><JsonWithAddrs value={v}/></pre>;
     }
     return <span style={{wordBreak:'break-all'}}>{String(v)}</span>;
   };
 
   return (
-    <div style={{display:'grid', gridTemplateColumns:'auto 1fr', gap:'10px 14px', fontSize:13, padding:12, background:'rgba(0,0,0,0.2)', borderRadius:8}}>
+    <div style={{display:'grid', gridTemplateColumns:'auto 1fr', gap:'10px 14px', fontSize:13, padding:12, background:'var(--bg-3)', borderRadius:8}}>
       {entries.map(([k, v]) => (
         <React.Fragment key={k}>
           <div className="muted" style={{fontWeight:600}}>{k}</div>
@@ -3914,7 +3939,7 @@ function PreimageDecodeModal({ hash, len, onClose }) {
   // Portal to body so backdrop-filter / overflow:hidden on ancestor .card
   // cannot clip or re-anchor the position:fixed modal.
   return ReactDOM.createPortal((
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{position:'fixed', inset:0, background:'rgb(var(--shade-rgb) / 0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:760, width:'100%', maxHeight:'90vh', overflow:'auto', padding:22, border:'1px solid var(--border-color)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, gap:10, flexWrap:'wrap'}}>
           <div>
@@ -3925,8 +3950,8 @@ function PreimageDecodeModal({ hash, len, onClose }) {
         </div>
         {loading && <div style={{padding:30, textAlign:'center', color:'var(--fg-2)'}}>{len > 1_000_000 ? t('preimage.decode.decodingLarge') : t('preimage.decode.decoding')}</div>}
         {!loading && fetchErr && (
-          <div style={{padding:14, border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, background:'rgba(239,68,68,0.08)'}}>
-            <div style={{color:'#ef4444', fontWeight:700, marginBottom:6}}>{t('s.error', 'Error:')} {fetchErr}</div>
+          <div style={{padding:14, border:'1px solid rgb(var(--err-rgb) / 0.3)', borderRadius:8, background:'rgb(var(--err-rgb) / 0.08)'}}>
+            <div style={{color:'var(--err)', fontWeight:700, marginBottom:6}}>{t('s.error', 'Error:')} {fetchErr}</div>
             {is429 && (
               <div style={{color:'var(--fg-2)', fontSize:12, marginBottom:10}}>
                 {t('preimage.decode.rateLimitHint')}
@@ -3941,7 +3966,7 @@ function PreimageDecodeModal({ hash, len, onClose }) {
               <div style={{fontWeight:700, fontSize:18}}>
                 <span style={{color:'var(--fg-2)'}}>{data.decoded.section}</span>
                 <span style={{color:'var(--fg-3)'}}>.</span>
-                <span style={{color:'var(--accent, #10b981)'}}>{data.decoded.method}</span>
+                <span style={{color:'var(--accent-text)'}}>{data.decoded.method}</span>
               </div>
               <button className="btn" onClick={() => setPretty(p => !p)}
                 title={pretty ? t('preimage.decode.viewJsonTip') : t('preimage.decode.viewHumanTip')}
@@ -3990,7 +4015,7 @@ function PreimageDecodeModal({ hash, len, onClose }) {
             {pretty ? (
               <HumanDecodeView decoded={data.decoded} pretty={prettyData} />
             ) : (
-              <pre style={{margin:0, padding:12, background:'rgba(0,0,0,0.3)', borderRadius:8, overflow:'auto', maxHeight:'60vh', fontSize:12, lineHeight:1.5}}><JsonWithAddrs value={truncatedArgs}/></pre>
+              <pre style={{margin:0, padding:12, background:'var(--bg-3)', borderRadius:8, overflow:'auto', maxHeight:'60vh', fontSize:12, lineHeight:1.5}}><JsonWithAddrs value={truncatedArgs}/></pre>
             )}
           </div>
         )}
@@ -4055,7 +4080,7 @@ function PreimageHistoryModal({ hash, onClose }) {
   // Portal to body so backdrop-filter / overflow:hidden on ancestor .card
   // cannot clip or re-anchor the position:fixed modal.
   return ReactDOM.createPortal((
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+    <div onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }} style={{position:'fixed', inset:0, background:'rgb(var(--shade-rgb) / 0.6)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:12, maxWidth:880, width:'100%', maxHeight:'90vh', overflow:'auto', padding:22, border:'1px solid var(--border-color)'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, gap:10, flexWrap:'wrap'}}>
           <div>
@@ -4065,13 +4090,13 @@ function PreimageHistoryModal({ hash, onClose }) {
           <button className="btn" onClick={onClose}>{t('common.close', 'Close')}</button>
         </div>
 
-        <div style={{background:'rgba(255,255,255,0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:'12px 14px', marginBottom:14}}>
+        <div style={{background:'rgb(var(--ov-rgb) / 0.03)', border:'1px solid var(--border-color)', borderRadius:8, padding:'12px 14px', marginBottom:14}}>
           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:6}}>{t('preimage.history.summary')}</div>
           {firstNoted
-            ? <div style={{margin:'3px 0'}}><span style={{color:'#10b981'}}>● {t('preimage.history.noted')}</span> · block {firstNoted.block} · {firstNoted.timestamp ? new Date(firstNoted.timestamp).toLocaleString() : '—'}</div>
+            ? <div style={{margin:'3px 0'}}><span style={{color:'var(--ok)'}}>● {t('preimage.history.noted')}</span> · block {firstNoted.block} · {firstNoted.timestamp ? new Date(firstNoted.timestamp).toLocaleString() : '—'}</div>
             : <div className="muted tiny" style={{margin:'3px 0'}}>● {t('preimage.history.noNoted')}</div>}
-          {firstReq && <div style={{margin:'3px 0'}}><span style={{color:'#f59e0b'}}>● {t('preimage.history.requested')}</span> · block {firstReq.block} · {firstReq.timestamp ? new Date(firstReq.timestamp).toLocaleString() : '—'}</div>}
-          {lastCleared && <div style={{margin:'3px 0'}}><span style={{color:'#ef4444'}}>● {t('preimage.history.cleared')}</span> · block {lastCleared.block} · {lastCleared.timestamp ? new Date(lastCleared.timestamp).toLocaleString() : '—'}</div>}
+          {firstReq && <div style={{margin:'3px 0'}}><span style={{color:'var(--warn)'}}>● {t('preimage.history.requested')}</span> · block {firstReq.block} · {firstReq.timestamp ? new Date(firstReq.timestamp).toLocaleString() : '—'}</div>}
+          {lastCleared && <div style={{margin:'3px 0'}}><span style={{color:'var(--err)'}}>● {t('preimage.history.cleared')}</span> · block {lastCleared.block} · {lastCleared.timestamp ? new Date(lastCleared.timestamp).toLocaleString() : '—'}</div>}
           {indexer.backfillCursor && !firstNoted && (
             <div className="muted tiny" style={{marginTop:8, paddingTop:8, borderTop:'1px solid var(--border-color)'}}>
               ℹ️ {t('preimage.history.indexerWorking').replace('{cursor}', String(indexer.backfillCursor))}
@@ -4084,7 +4109,7 @@ function PreimageHistoryModal({ hash, onClose }) {
           : (
             <div style={{display:'flex', flexDirection:'column', gap:8}}>
               {events.map((e, i) => {
-                const color = e.event.endsWith('.Noted') ? '#10b981' : e.event.endsWith('.Requested') ? '#f59e0b' : '#ef4444';
+                const color = e.event.endsWith('.Noted') ? 'var(--ok)' : e.event.endsWith('.Requested') ? 'var(--warn)' : 'var(--err)';
                 const reason = e.reason ? reasonLabel[e.reason] || e.reason : '';
                 return (
                   <div key={i} style={{display:'flex', gap:12, padding:'10px 12px', border:'1px solid var(--border-color)', borderRadius:8, alignItems:'center', flexWrap:'wrap'}}>
@@ -4105,7 +4130,7 @@ function PreimageHistoryModal({ hash, onClose }) {
             {usedSlow ? (
               t('preimage.history.rpcScanUsed')
             ) : indexer.backfillComplete ? (
-              <span style={{color:'#10b981'}}>{t('preimage.history.dbComplete')}</span>
+              <span style={{color:'var(--ok)'}}>{t('preimage.history.dbComplete')}</span>
             ) : (
               <>{t('preimage.history.dbSource')} <span className="muted tiny">· {t('preimage.history.dbBackfilling')}</span></>
             )}
@@ -4160,8 +4185,8 @@ function SchedulerAgendaPanel() {
         <span className="tag">{entries.length} {t('gov.scheduler.scheduled', 'programadas')}{loading ? ' · ' + t('common.loading', 'cargando') : ''}</span>
       </div>
       {alerts > 0 && (
-        <div style={{margin:'0 14px 12px', background:'rgba(239,68,68,0.12)', border:'1px solid #ef4444', borderRadius:8, padding:'10px 12px', fontSize:13}}>
-          <strong style={{color:'#ef4444'}}>⚠ {alerts} alerta{alerts > 1 ? 's' : ''}:</strong> {t('gov.scheduler.alertWillFail', 'hay ejecuciones programadas que fallarán porque los bytes de la preimagen no están on-chain.')}
+        <div style={{margin:'0 14px 12px', background:'rgb(var(--err-rgb) / 0.12)', border:'1px solid var(--err)', borderRadius:8, padding:'10px 12px', fontSize:13}}>
+          <strong style={{color:'var(--err)'}}>⚠ {alerts} alerta{alerts > 1 ? 's' : ''}:</strong> {t('gov.scheduler.alertWillFail', 'hay ejecuciones programadas que fallarán porque los bytes de la preimagen no están on-chain.')}
         </div>
       )}
       <div className="swaps-table-wrap">
@@ -4187,8 +4212,8 @@ function SchedulerAgendaPanel() {
                   : <span className="muted">?</span>;
               let preimageLabel;
               if (e.lookupHash) {
-                if (e.preimage?.bytesAvailable) preimageLabel = <span style={{color:'#10b981'}}>{t('s.available', '✓ disponible (')}{e.preimage.len} bytes)</span>;
-                else if (e.preimage) preimageLabel = <span><span style={{color:'#ef4444', fontWeight:700}}>{t('s.missing', '✗ FALTA')}</span> <span className="muted tiny">(status: {e.preimage.status || '-'})</span></span>;
+                if (e.preimage?.bytesAvailable) preimageLabel = <span style={{color:'var(--ok)'}}>{t('s.available', '✓ disponible (')}{e.preimage.len} bytes)</span>;
+                else if (e.preimage) preimageLabel = <span><span style={{color:'var(--err)', fontWeight:700}}>{t('s.missing', '✗ FALTA')}</span> <span className="muted tiny">(status: {e.preimage.status || '-'})</span></span>;
                 else preimageLabel = <span className="muted">?</span>;
               } else {
                 preimageLabel = <span className="muted">n/a (inline)</span>;
@@ -4197,7 +4222,7 @@ function SchedulerAgendaPanel() {
                 ? Object.keys(e.origin)[0] + (e.origin[Object.keys(e.origin)[0]]?.root !== undefined ? '.root' : '')
                 : String(e.origin || '-');
               return (
-                <tr key={i} style={e.alert ? {background:'rgba(239,68,68,0.08)'} : undefined}>
+                <tr key={i} style={e.alert ? {background:'rgb(var(--err-rgb) / 0.08)'} : undefined}>
                   <td style={{paddingLeft:20}} className="num">{e.block}</td>
                   <td>{fmtCountdown(e.secondsRemaining)}</td>
                   <td>{callLabel}</td>
@@ -4410,7 +4435,7 @@ function BalanceSection({ tweaks }) {
               const totalUsd = toks.reduce((s, t) => s + (Number(t.usdValue) || 0), 0);
               return (
                 <div key={w.id || i} className="wallet-list-card clickable" onClick={() => setDetailWallet(w)}>
-                  <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', display:'grid', placeItems:'center', fontWeight:800}}>{w.alias[0]}</div>
+                  <div style={{width: 36, height: 36, borderRadius: 8, background:'var(--grad-avatar)', display:'grid', placeItems:'center', fontWeight:800}}>{w.alias[0]}</div>
                   <div style={{flex:1, minWidth: 0}}>
                     <div style={{fontWeight: 700}}>{w.alias}</div>
                     <div className="muted tiny num">{fmt.addr(w.addr, 8, 6)}</div>
@@ -4444,7 +4469,7 @@ function BalanceSection({ tweaks }) {
                      style={{cursor:'pointer'}}
                      onClick={() => setDetailWallet(w)}
                      title={t('s.openWalletDetails', 'Abrir detalle de la wallet')}>
-                  <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#7B5B90,#4A3566)', display:'grid', placeItems:'center', fontWeight:800}}>👁</div>
+                  <div style={{width: 36, height: 36, borderRadius: 8, background:'var(--grad-avatar)', display:'grid', placeItems:'center', fontWeight:800}}>👁</div>
                   <div style={{flex:1, minWidth: 0}}>
                     <div style={{fontWeight: 700}}>{w.alias}</div>
                     <div className="muted tiny num">{fmt.addr(w.addr, 8, 6)}</div>
@@ -4485,6 +4510,7 @@ function PegHistoryChart({ stables }) {
     try { const raw = localStorage.getItem('sm.pegHistory'); if (raw) return JSON.parse(raw).slice(-120); } catch {}
     return [];
   });
+  const themeTick = useRoutesThemeTick();
 
   // Append each new stables snapshot to history + persist.
   useEffect(() => {
@@ -4504,7 +4530,9 @@ function PegHistoryChart({ stables }) {
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
     const labels = history.map(p => new Date(p.t).toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'}));
     const syms = ['KUSD', 'XSTUSD', 'TBCD'];
-    const colors = { KUSD: '#60A5FA', XSTUSD: '#F5B041', TBCD: '#10B981' };
+    const colors = { KUSD: routesCssVar('--info'), XSTUSD: routesCssVar('--amber'), TBCD: routesCssVar('--ok') };
+    const tickColor = routesCssVar('--fg-3');
+    const gridColor = routesCssRgba('--ov-rgb', 0.04);
     const datasets = syms.map(sym => ({
       label: sym,
       data: history.map(p => p[sym] || null),
@@ -4522,20 +4550,20 @@ function PegHistoryChart({ stables }) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { labels: { color: '#C8A0B8' } },
+          legend: { labels: { color: routesCssVar('--fg-2') } },
           tooltip: { mode: 'index', intersect: false },
         },
         scales: {
-          x: { ticks: { color: '#94A3B8', maxTicksLimit: 6 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          x: { ticks: { color: tickColor, maxTicksLimit: 6 }, grid: { color: gridColor } },
           y: {
-            ticks: { color: '#94A3B8', callback: v => '$' + Number(v).toFixed(2) },
-            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: tickColor, callback: v => '$' + Number(v).toFixed(2) },
+            grid: { color: gridColor },
           },
         },
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [history]);
+  }, [history, themeTick]);
 
   return (
     <div className="card" style={{marginBottom: 18}}>
@@ -4699,8 +4727,8 @@ function AggregatedHistory({ kind, wallets, watched }) {
       );
     }
     return (
-      <span style={{fontFamily:'JetBrains Mono', fontSize:12}}>
-        <span style={{color:'#EC4899'}}>{r.section}</span>
+      <span style={{fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', fontSize:12}}>
+        <span style={{color:'var(--pink)'}}>{r.section}</span>
         <span style={{color:'var(--fg-3)'}}>::</span>
         <span>{r.method}</span>
         {(r.success === 1 || r.success === true)
@@ -4789,7 +4817,7 @@ function AggregatedHistory({ kind, wallets, watched }) {
                     title={t('s.openWalletDetails2', 'Open wallet details')}>
                     <div style={{fontWeight:700, fontSize:12, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{r.__walletAlias}</div>
                     <div className="muted tiny num" style={{textDecoration:'underline dotted', marginTop:2, whiteSpace:'nowrap'}}>
-                      <span style={{marginRight:6, padding:'1px 5px', borderRadius:4, background: r.__walletKind === 'mis' ? 'rgba(16,185,129,0.15)' : 'rgba(96,165,250,0.15)', color: r.__walletKind === 'mis' ? '#10B981' : '#60A5FA', fontSize:10, fontWeight:700}}>
+                      <span style={{marginRight:6, padding:'1px 5px', borderRadius:4, background: r.__walletKind === 'mis' ? 'rgb(var(--ok-rgb) / 0.15)' : 'rgb(var(--info-rgb) / 0.15)', color: r.__walletKind === 'mis' ? 'var(--ok)' : 'var(--info)', fontSize:10, fontWeight:700}}>
                         {r.__walletKind === 'mis' ? t('badge.mine') : t('badge.watched')}
                       </span>
                       {fmt.addr(r.__walletAddr, 5, 4)}

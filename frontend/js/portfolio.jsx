@@ -52,7 +52,7 @@ function Donut({ slices }) {
   const total = slices.reduce((s, x) => s + x.value, 0) || 1;
   return (
     <svg className="donut-svg" viewBox="0 0 180 180">
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={R - r}/>
+      <circle cx={cx} cy={cy} r={R} fill="none" style={{ stroke: 'rgb(var(--ov-rgb) / .05)' }} strokeWidth={R - r}/>
       {slices.map((s, i) => {
         const frac = s.value / total;
         if (!Number.isFinite(frac) || frac <= 0) return null;
@@ -65,10 +65,10 @@ function Donut({ slices }) {
         const x3 = cx + r * Math.cos(endA),   y3 = cy + r * Math.sin(endA);
         const x4 = cx + r * Math.cos(startA), y4 = cy + r * Math.sin(startA);
         const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r} ${r} 0 ${large} 0 ${x4} ${y4} Z`;
-        return <path key={i} d={d} fill={s.color} opacity="0.92" stroke="#111" strokeWidth="0.6"/>;
+        return <path key={i} d={d} style={{ fill: s.color, stroke: 'var(--bg-1)' }} opacity="0.92" strokeWidth="0.6"/>;
       })}
-      <text x={cx} y={cy-4} textAnchor="middle" fill="#e5e7eb" fontSize="10" fontFamily="Inter" letterSpacing="1.5" fontWeight="700">{t('s.netWorth', 'NET WORTH')}</text>
-      <text x={cx} y={cy+14} textAnchor="middle" fill="#fff" fontSize="15" fontFamily="JetBrains Mono" fontWeight="800">
+      <text x={cx} y={cy-4} textAnchor="middle" style={{ fill: 'var(--fg-1)' }} fontSize="10" fontFamily="Sora, system-ui, sans-serif" letterSpacing="1.5" fontWeight="700">{t('s.netWorth', 'NET WORTH')}</text>
+      <text x={cx} y={cy+14} textAnchor="middle" style={{ fill: 'var(--fg-0)' }} fontSize="15" fontFamily="Sora, system-ui, sans-serif" fontWeight="800">
         {fmt.usd(total)}
       </text>
     </svg>
@@ -82,7 +82,7 @@ function MiniSpark({ data, color, w = 64, h = 24 }) {
   }
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h}>
-      <path d={sparkPath(data, w, h, 2)} stroke={color} strokeWidth="1.4" fill="none"/>
+      <path d={sparkPath(data, w, h, 2)} style={{ stroke: color }} strokeWidth="1.4" fill="none"/>
     </svg>
   );
 }
@@ -282,10 +282,10 @@ function PortfolioSection({ tweaks }) {
     }).sort((a, b) => b.total - a.total);
   }, [wallets, lpSummary]);
 
-  const palette = ['#E5243B','#F5B041','#EC4899','#8B7FD9','#60A5FA','#10B981','#FDE68A','#7B5B90','#94A3B8'];
-  const slices = holdings.slice(0, 8).map((h, i) => ({ value: h.usdValue, color: palette[i] || '#94A3B8' }));
+  const palette = ['var(--lilac)','var(--info)','var(--turquoise)','var(--amber)','var(--pink)','var(--accent-2)','var(--ok)','var(--accent)','var(--fg-2)'];
+  const slices = holdings.slice(0, 8).map((h, i) => ({ value: h.usdValue, color: palette[i] || 'var(--fg-2)' }));
   const rest = holdings.slice(8).reduce((s, h) => s + h.usdValue, 0);
-  if (rest > 0) slices.push({ value: rest, color: '#4A3566' });
+  if (rest > 0) slices.push({ value: rest, color: 'var(--fg-3)' });
 
   const [addOpen, setAddOpen] = useState(false);
   // Collapse the per-wallet cards by default, regardless of how many the user
@@ -402,7 +402,7 @@ function PortfolioSection({ tweaks }) {
                 {walletsExpanded
                   ? t('portfolio.hideWallets', 'Ocultar wallets')
                   : t('portfolio.showWallets', 'Mostrar wallets')}
-                <span style={{marginLeft:8, opacity:0.7}}>· {walletTotals.length}</span>
+                <span style={{marginLeft:8}}>· {walletTotals.length}</span>
               </div>
               <span style={{fontSize:18, lineHeight:1, color:'var(--fg-1)', transition:'transform 180ms', transform: walletsExpanded ? 'rotate(180deg)' : 'none', fontWeight:700}}>▾</span>
             </div>
@@ -450,16 +450,16 @@ function PortfolioSection({ tweaks }) {
               <Donut slices={slices}/>
               <div className="donut-legend">
                 {holdings.slice(0, 8).map((h, i) => (
-                  <div key={h.sym} className="lg-row" style={{ ['--c']: palette[i] || '#94A3B8' }}>
-                    <span className="lg-dot" style={{background: palette[i] || '#94A3B8'}}/>
+                  <div key={h.sym} className="lg-row" style={{ ['--c']: palette[i] || 'var(--fg-2)' }}>
+                    <span className="lg-dot" style={{background: palette[i] || 'var(--fg-2)'}}/>
                     <span className="lg-sym">{h.sym}</span>
                     <span className="lg-val">{fmtCur(h.usdValue)}</span>
                     <span className="lg-pct">{tokensNet > 0 ? (h.usdValue / tokensNet * 100).toFixed(1) : '0'}%</span>
                   </div>
                 ))}
                 {rest > 0 && (
-                  <div className="lg-row" style={{ ['--c']: '#4A3566' }}>
-                    <span className="lg-dot" style={{background:'#4A3566'}}/>
+                  <div className="lg-row" style={{ ['--c']: 'var(--fg-3)' }}>
+                    <span className="lg-dot" style={{background:'var(--fg-3)'}}/>
                     <span className="lg-sym">{t('s.others', 'Others')}</span>
                     <span className="lg-val">{fmtCur(rest)}</span>
                     <span className="lg-pct">{tokensNet > 0 ? (rest / tokensNet * 100).toFixed(1) : '0'}%</span>
@@ -483,7 +483,7 @@ function PortfolioSection({ tweaks }) {
               style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--fg-2)', cursor:'pointer', userSelect:'none'}}
               title={t('portfolio.hideLowTip', 'Oculta tokens con valor <= $0.05 de la tabla. No afecta al total ni al gráfico.')}>
               <input type="checkbox" checked={hideLow} onChange={e => setHideLow(e.target.checked)}
-                     style={{cursor:'pointer', accentColor:'var(--accent, #E5243B)'}}/>
+                     style={{cursor:'pointer', accentColor:'var(--accent)'}}/>
               {t('portfolio.hideLow', 'Ocultar saldos bajos')} <span className="muted tiny">(≤$0.05)</span>
             </label>
             <label style={{display:'inline-flex', alignItems:'center', gap:6, fontSize:12, color:'var(--fg-2)'}} title={t('portfolio.realTip')}>
@@ -543,12 +543,12 @@ function PortfolioSection({ tweaks }) {
                       {h.illiquid && <div><span className="tag warn" title={t('liq.tip')}>{t('liq.tag')}</span></div>}
                     </td>
                     <td className="num" style={{textAlign:'right'}}>
-                      <span style={{color: change >= 0 ? '#6EE7B7' : '#FCA5A5', fontWeight: 700}}>
+                      <span style={{color: change >= 0 ? 'var(--ok)' : 'var(--err)', fontWeight: 700}}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                       </span>
                     </td>
                     <td style={{textAlign:'right'}}>
-                      <MiniSpark data={h.sparkline} color={change >= 0 ? '#10B981' : '#EF4444'}/>
+                      <MiniSpark data={h.sparkline} color={change >= 0 ? 'var(--ok)' : 'var(--err)'}/>
                     </td>
                     <td className="num" style={{textAlign:'right', fontWeight: 700, color: 'var(--fg-0)'}}>
                       {fmtCur(h.usdValue)}

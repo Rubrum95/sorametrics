@@ -2,17 +2,28 @@
 <html lang="en" data-theme="dark" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="theme-color" content="#0c131e">
+<script>
+  (function () {
+    var mode = 'auto';
+    try { var saved = localStorage.getItem('sm.theme'); if (saved === 'light' || saved === 'dark') mode = saved; } catch (e) {}
+    var light = mode === 'light' || (mode === 'auto' && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    var root = document.documentElement;
+    root.setAttribute('data-theme', light ? 'light' : 'dark');
+    root.setAttribute('data-theme-mode', mode);
+    if (light) document.querySelector('meta[name="theme-color"]').setAttribute('content', '#edf1f5');
+  })();
+</script>
 <meta name="google" content="notranslate">
 <title>SoraMetrics — SORA v2</title>
 <meta name="description" content="Real-time SORA v2 on-chain analytics: swaps, transfers, bridges, pools, staking, governance and burns.">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=dev">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#9B1B30">
 </head>
 <body>
   <div class="bg-layer">
@@ -32,7 +43,7 @@
       "chartType": "area",
       "motion": "full",
       "liveSpeed": 1,
-      "accent": "plum"
+      "accent": "coral"
     }/*EDITMODE-END*/;
   </script>
 

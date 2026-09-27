@@ -73,6 +73,15 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
   1 clear), drives transparency, blur and saturation, like the iOS 27 slider; it is 1. Reduced
   transparency / no backdrop-filter → opaque surfaces; prefers-contrast → 0.3. No layout change
   (checked at 1024/1440/1920), language and network menus stay on top, `--fg-3` lifted for contrast.
+- frontend: sora.org-inspired palette with working dark and light modes (`docs/design/palette-nexus.md`).
+  Dark is navy (#0c131e / #101824) with turquoise, lilac and amber light; light is pearl/paper with white
+  frosted glass; coral (#ff5946 / #d55e49) is an accent only. Every colour is a token (overlay/shadow
+  bases `--ov-rgb` / `--shade-rgb`, status, brand gradients); ~1 500 hard-coded colours in CSS and JSX
+  were converted. The theme follows the system by default; a topbar toggle cycles Auto → Light → Dark
+  (`localStorage['sm.theme']`), applied by an inline script before first paint; charts redraw on the
+  `sm-theme` event. The Tweaks theme option, which never had any CSS behind it, now works.
+- frontend: Sora is the only UI font (tabular numerals for figures); JetBrains Mono stays for JSON, kbd
+  and hashes; Inter is no longer loaded.
 - frontend: the topbar stays one row from 769 px up. The search placeholder wrapped into 2–5 lines
   below 1280 px (bar 59–118 px tall) and the chips overflowed at 780 px; the label now ellipsizes and
   the block/era chips hide at ≤ 900 px (iPad portrait).

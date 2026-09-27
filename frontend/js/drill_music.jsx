@@ -33,17 +33,17 @@ function DrillProvider({ children }) {
    ========================================================================= */
 
 const TYPE_META = {
-  swap:     { badge: 'SWAP',       color: '#EC4899' },
-  transfer: { badge: 'TRANSFER',   color: '#60A5FA' },
-  block:    { badge: 'BLOCK',      color: '#9B1B30' },
-  order:    { badge: 'ORDER',      color: '#F5B041' },
-  burn:     { badge: 'BURN',       color: '#E5243B' },
-  extrinsic:{ badge: 'EXTRINSIC',  color: '#8B5CF6' },
-  lp:       { badge: 'LP STAKE',   color: '#10B981' },
-  holder:   { badge: 'HOLDER',     color: '#FBB040' },
-  validator:{ badge: 'VALIDATOR',  color: '#7B5B90' },
-  bridge:   { badge: 'BRIDGE',     color: '#06B6D4' },
-  feed:     { badge: 'EVENT',      color: '#9B1B30' },
+  swap:     { badge: 'SWAP',       color: 'var(--pink)' },
+  transfer: { badge: 'TRANSFER',   color: 'var(--info)' },
+  block:    { badge: 'BLOCK',      color: 'var(--accent-text)' },
+  order:    { badge: 'ORDER',      color: 'var(--amber)' },
+  burn:     { badge: 'BURN',       color: 'var(--accent-text)' },
+  extrinsic:{ badge: 'EXTRINSIC',  color: 'var(--lilac)' },
+  lp:       { badge: 'LP STAKE',   color: 'var(--ok)' },
+  holder:   { badge: 'HOLDER',     color: 'var(--amber)' },
+  validator:{ badge: 'VALIDATOR',  color: 'var(--lilac)' },
+  bridge:   { badge: 'BRIDGE',     color: 'var(--accent-2)' },
+  feed:     { badge: 'EVENT',      color: 'var(--accent-text)' },
 };
 
 function Copy({ text, short = false }) {
@@ -77,7 +77,7 @@ function Addr({ addr }) {
   const open = walletOpener(addr, name);
   return (
     <div className="drill-addr">
-      <div style={{width:24, height:24, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink:0}}/>
+      <div style={{width:24, height:24, borderRadius:'50%', background:'var(--grad-avatar)', flexShrink:0}}/>
       <div
         className={open ? 'clickable' : undefined}
         style={{flex:1, minWidth:0, cursor: open ? 'pointer' : undefined}}
@@ -312,8 +312,8 @@ function BlockDetail({ r }) {
                     <tr onClick={() => toggleExt(e.index)} style={{cursor:'pointer'}}>
                       <td style={{textAlign:'center', color:'var(--fg-3)'}}>{open ? '▼' : '▶'}</td>
                       <td className="num tiny">{e.index}</td>
-                      <td style={{fontFamily:'JetBrains Mono', fontSize:11}}>
-                        <span style={{color:'#EC4899'}}>{e.section}</span>
+                      <td style={{fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', fontSize:11}}>
+                        <span style={{color:'var(--pink)'}}>{e.section}</span>
                         <span style={{color:'var(--fg-3)'}}>::</span>
                         <span>{e.method}</span>
                       </td>
@@ -323,11 +323,11 @@ function BlockDetail({ r }) {
                     </tr>
                     {open && (
                       <tr>
-                        <td colSpan={6} style={{padding:'6px 12px', background:'rgba(0,0,0,0.25)'}}>
+                        <td colSpan={6} style={{padding:'6px 12px', background:'rgb(var(--shade-rgb) / 0.2)'}}>
                           {Array.isArray(e.args) && e.args.length > 0 && (
                             <>
                               <div className="muted tiny" style={{margin:'4px 0 2px', fontWeight:700}}>Args</div>
-                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:180, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={e.args}/></pre>
+                              <pre style={{margin:0, padding:8, background:'var(--bg-3)', borderRadius:6, overflow:'auto', maxHeight:180, fontSize:11, fontFamily: 'var(--font-mono)'}}><JsonWithAddrs value={e.args}/></pre>
                             </>
                           )}
                           <div className="muted tiny" style={{margin:'8px 0 2px', fontWeight:700}}>{t('s.events', 'Events (')}{evs.length})</div>
@@ -350,11 +350,11 @@ function BlockDetail({ r }) {
                                   return (
                                     <div key={k} style={{
                                       margin:'4px 0 8px', padding:'8px 10px',
-                                      background:'rgba(220,38,38,0.12)',
-                                      border:'1px solid rgba(220,38,38,0.4)',
+                                      background:'rgb(var(--err-rgb) / 0.12)',
+                                      border:'1px solid rgb(var(--err-rgb) / 0.4)',
                                       borderRadius:6, fontSize:11
                                     }}>
-                                      <div style={{fontWeight:700, color:'#fca5a5', fontFamily:'JetBrains Mono'}}>
+                                      <div style={{fontWeight:700, color:'var(--err)', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums'}}>
                                         ✗ {label}
                                         <span className="muted tiny" style={{marginLeft:8, fontWeight:400}}>in {ev.section}.{ev.method}</span>
                                       </div>
@@ -373,7 +373,7 @@ function BlockDetail({ r }) {
                                 error decoding (the red badge above) is
                                 surfaced as a clarification.
                               */}
-                              <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={evs}/></pre>
+                              <pre style={{margin:0, padding:8, background:'var(--bg-3)', borderRadius:6, overflow:'auto', maxHeight:260, fontSize:11, fontFamily: 'var(--font-mono)'}}><JsonWithAddrs value={evs}/></pre>
                             </>
                           )}
                         </td>
@@ -394,7 +394,7 @@ function BlockDetail({ r }) {
       {inherent.length > 0 && (
         <div className="drill-section">
           <div className="drill-sec-title">{t('s.inherentEvents', 'Inherent events (')}{inherent.length})</div>
-          <pre style={{margin:0, padding:8, background:'rgba(0,0,0,0.4)', borderRadius:6, overflow:'auto', maxHeight:240, fontSize:11, fontFamily:'JetBrains Mono'}}><JsonWithAddrs value={inherent}/></pre>
+          <pre style={{margin:0, padding:8, background:'var(--bg-3)', borderRadius:6, overflow:'auto', maxHeight:240, fontSize:11, fontFamily: 'var(--font-mono)'}}><JsonWithAddrs value={inherent}/></pre>
         </div>
       )}
       {data && exts.length === 0 && inherent.length === 0 && (
@@ -454,7 +454,7 @@ function BurnDetail({ r }) {
     <>
       <div className="drill-section">
         <div className="drill-sec-title">{t('chip.burn', 'Burn')}</div>
-        <div style={{fontSize: 36, fontWeight: 800, color: '#E5243B', fontFamily:'JetBrains Mono', letterSpacing: '-0.02em'}}>
+        <div style={{fontSize: 36, fontWeight: 800, color: 'var(--accent-text)', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em'}}>
           {amt > 0 ? fmt.num(amt, 2) + ' ' + sym : '—'}
         </div>
         {usd > 0 && <div style={{color:'var(--fg-2)', fontSize: 13, marginTop: 4}}>≈ ${fmt.num(usd, 2)}</div>}
@@ -518,7 +518,7 @@ function ExtrinsicDetail({ r }) {
     catch { return null; }
   }, [eventsJsonRaw]);
   const events = decodedEvents && Array.isArray(decodedEvents)
-    ? decodedEvents.map(e => ({ pallet: e.s || e.section, name: e.m || e.method, data: e.d || e.data, color: '#EC4899' }))
+    ? decodedEvents.map(e => ({ pallet: e.s || e.section, name: e.m || e.method, data: e.d || e.data, color: 'var(--pink)' }))
     : (r.events || []);
   const hash = live?.hash || r.hash;
   const signer = live?.signer || r.caller || r.signer;
@@ -567,8 +567,8 @@ function ExtrinsicDetail({ r }) {
           <span className="num" style={{fontWeight: 600}}>#{block ? Number(block).toLocaleString('es-ES') : '—'}</span>
         </Field>
         <Field label="Pallet">
-          <span style={{fontFamily:'JetBrains Mono', fontSize: 14, fontWeight: 700}}>
-            <span style={{color:'#EC4899'}}>{section || '—'}</span>
+          <span style={{fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums', fontSize: 14, fontWeight: 700}}>
+            <span style={{color:'var(--pink)'}}>{section || '—'}</span>
             <span style={{color:'var(--fg-3)'}}> :: </span>
             <span style={{color:'var(--fg-0)'}}>{method || '—'}</span>
           </span>
@@ -585,7 +585,7 @@ function ExtrinsicDetail({ r }) {
           <span className="num tiny">{timeStr || '—'}</span>
         </Field>
         <Field label={t('s.usdValueAtTxTime', 'Valor USD (al momento de TX)')}>
-          <span className="num" style={{fontWeight:700, color:'#6EE7B7'}}>
+          <span className="num" style={{fontWeight:700, color:'var(--ok)'}}>
             {usd != null ? '$' + Number(usd.usd_value).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (extrinsicId ? t('s.loading2', 'cargando…') : '—')}
           </span>
           {usd?.source && <span className="muted tiny" style={{marginLeft:6}}>({usd.source})</span>}
@@ -734,7 +734,7 @@ function HolderDetail({ r }) {
                   const x3 = cx + r_*Math.cos(eA), y3 = cy + r_*Math.sin(eA);
                   const x4 = cx + r_*Math.cos(sA), y4 = cy + r_*Math.sin(sA);
                   const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r_} ${r_} 0 ${large} 0 ${x4} ${y4} Z`;
-                  return <path key={b.sym + i} d={d} fill={TOKENS[b.sym]?.color || '#64748B'}/>;
+                  return <path key={b.sym + i} d={d} style={{fill: TOKENS[b.sym]?.color || 'var(--fg-3)'}}/>;
                 });
               })()}
             </svg>
@@ -792,7 +792,7 @@ function ValidatorDetail({ r }) {
       <div className="drill-section">
         <div className="drill-sec-title">{t('staking.rewards.perValidator.validator', 'Validator')}</div>
         <div style={{display:'flex', alignItems:'center', gap: 12}}>
-          <div style={{width: 36, height: 36, borderRadius: 8, background:'linear-gradient(135deg,#9B1B30,#4A3566)', flexShrink: 0}}/>
+          <div style={{width: 36, height: 36, borderRadius: 8, background:'var(--grad-avatar)', flexShrink: 0}}/>
           <div>
             <div style={{fontWeight: 800, fontSize: 16}}><WalletLink addr={r.address} name={r.name}>{r.name || (r.address ? fmt.addr(r.address, 8, 6) : '—')}</WalletLink></div>
             {r.rank && <div className="muted tiny">{t('s.rank', 'Rank #')}{r.rank}</div>}
@@ -812,7 +812,7 @@ function ValidatorDetail({ r }) {
           <Field label={t('s.nominators', 'Nominators')} mono>{noms} · {fmt.num(other, 0)} XOR</Field>
           {total > 0 && (
             <div className="drill-fill-bar" style={{marginTop: 6}}>
-              <div className="drill-fill-fill" style={{width: (own / total * 100) + '%', background:'linear-gradient(90deg,#9B1B30,#7B5B90)'}}/>
+              <div className="drill-fill-fill" style={{width: (own / total * 100) + '%', background:'var(--grad-brand)'}}/>
             </div>
           )}
         </div>
@@ -838,7 +838,7 @@ function ValidatorDetail({ r }) {
         {recent && recent.length > 0 && (
           <div style={{display:'flex', flexWrap:'wrap', gap: 6}}>
             {recent.map(b => (
-              <code key={b.hash || b.number} className="mono tiny" style={{padding:'3px 7px', background:'rgba(155,27,48,0.08)', border:'1px solid rgba(155,27,48,0.25)', borderRadius: 4, color: 'var(--accent)'}}>
+              <code key={b.hash || b.number} className="mono tiny" style={{padding:'3px 7px', background:'rgb(var(--accent-rgb) / 0.08)', border:'1px solid rgb(var(--accent-rgb) / 0.25)', borderRadius: 4, color: 'var(--accent-text)'}}>
                 #{Number(b.number).toLocaleString()}
               </code>
             ))}
@@ -930,7 +930,7 @@ function BridgeDetail({ r }) {
           <span className="route-arr">→</span>
           <span className={'chain-tag c-' + (r.to || '').toLowerCase()}>{r.to}</span>
         </div>
-        <div style={{marginTop: 14, fontSize: 28, fontWeight: 800, color:'var(--fg-0)', fontFamily:'JetBrains Mono'}}>{fmt.num(r.amt, 2)} {r.sym}</div>
+        <div style={{marginTop: 14, fontSize: 28, fontWeight: 800, color:'var(--fg-0)', fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums'}}>{fmt.num(r.amt, 2)} {r.sym}</div>
         {r.usd > 0 && <div className="muted tiny" style={{marginTop:4}}>≈ ${fmt.num(r.usd, 2)}</div>}
       </div>
 
@@ -1190,7 +1190,7 @@ function MusicPlayer() {
         title={t('s.musicPlayer', 'Music player')}
         aria-label={t('s.musicPlayer', 'Music player')}
       >
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{stroke: 'var(--on-accent)'}}>
           <path d="M9 18V5l12-2v13"/>
           <circle cx="6" cy="18" r="3"/>
           <circle cx="18" cy="16" r="3"/>
@@ -1217,7 +1217,7 @@ function MusicPlayer() {
                 const played = (i / waveform.length) <= progress;
                 return (
                   <rect key={i} x={x} y={16 - bh/2} width={260/waveform.length * 0.7} height={bh}
-                        fill={played ? '#9B1B30' : 'rgba(255,255,255,0.18)'} rx="1"/>
+                        style={{fill: played ? 'var(--accent)' : 'rgb(var(--ov-rgb) / 0.18)'}} rx="1"/>
                 );
               })}
             </svg>

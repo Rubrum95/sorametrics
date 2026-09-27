@@ -195,15 +195,21 @@ function areaPath(values, w, h, pad = 4) {
   return { line, area };
 }
 
-// Token palette for burn + portfolio
+// Token identity colours (data) for burn + portfolio; `color` resolves per theme.
+function tokenIdentity(entry, colorDark, colorLight) {
+  return Object.defineProperty(entry, 'color', {
+    enumerable: true,
+    get: () => (document.documentElement.getAttribute('data-theme') === 'light' ? colorLight : colorDark),
+  });
+}
 const TOKENS = {
-  XOR:   { color: '#E5243B', dark: '#7B1D24', glow: 'rgba(229,36,59,0.4)',  name: 'XOR',  grad: 'linear-gradient(135deg, #FF4E3C, #E5243B, #B91C30)' },
-  VAL:   { color: '#F5B041', dark: '#8B6428', glow: 'rgba(245,176,65,0.4)', name: 'VAL',  grad: 'linear-gradient(135deg, #FFD166, #F5B041, #D4902E)' },
-  PSWAP: { color: '#EC4899', dark: '#831843', glow: 'rgba(236,72,153,0.4)', name: 'PSWAP',grad: 'linear-gradient(135deg, #F9A8D4, #EC4899, #BE185D)' },
-  TBCD:  { color: '#10B981', dark: '#064E3B', glow: 'rgba(16,185,129,0.4)', name: 'TBCD', grad: 'linear-gradient(135deg, #34D399, #10B981, #047857)' },
-  KUSD:  { color: '#60A5FA', dark: '#1E3A8A', glow: 'rgba(96,165,250,0.4)', name: 'KUSD', grad: 'linear-gradient(135deg, #93C5FD, #60A5FA, #2563EB)' },
-  ETH:   { color: '#8B7FD9', dark: '#3B3A6B', glow: 'rgba(139,127,217,0.4)',name: 'ETH',  grad: 'linear-gradient(135deg, #A6A1E3, #8B7FD9, #6258B8)' },
-  DAI:   { color: '#FBB040', dark: '#7C5A20', glow: 'rgba(251,176,64,0.4)', name: 'DAI',  grad: 'linear-gradient(135deg, #FCD34D, #FBB040, #D97706)' },
+  XOR:   tokenIdentity({ dark: '#7B1D24', glow: 'rgba(229,36,59,0.4)',  name: 'XOR',  grad: 'linear-gradient(135deg, #FF4E3C, #E5243B, #B91C30)' }, '#E5243B', '#E5243B'),
+  VAL:   tokenIdentity({ dark: '#8B6428', glow: 'rgba(245,176,65,0.4)', name: 'VAL',  grad: 'linear-gradient(135deg, #FFD166, #F5B041, #D4902E)' }, '#F5B041', '#A96E12'),
+  PSWAP: tokenIdentity({ dark: '#831843', glow: 'rgba(236,72,153,0.4)', name: 'PSWAP',grad: 'linear-gradient(135deg, #F9A8D4, #EC4899, #BE185D)' }, '#EC4899', '#C93A82'),
+  TBCD:  tokenIdentity({ dark: '#064E3B', glow: 'rgba(16,185,129,0.4)', name: 'TBCD', grad: 'linear-gradient(135deg, #34D399, #10B981, #047857)' }, '#10B981', '#0C8A60'),
+  KUSD:  tokenIdentity({ dark: '#1E3A8A', glow: 'rgba(96,165,250,0.4)', name: 'KUSD', grad: 'linear-gradient(135deg, #93C5FD, #60A5FA, #2563EB)' }, '#60A5FA', '#2B6CB0'),
+  ETH:   tokenIdentity({ dark: '#3B3A6B', glow: 'rgba(139,127,217,0.4)',name: 'ETH',  grad: 'linear-gradient(135deg, #A6A1E3, #8B7FD9, #6258B8)' }, '#8B7FD9', '#6A5CC4'),
+  DAI:   tokenIdentity({ dark: '#7C5A20', glow: 'rgba(251,176,64,0.4)', name: 'DAI',  grad: 'linear-gradient(135deg, #FCD34D, #FBB040, #D97706)' }, '#FBB040', '#AD6D10'),
 };
 
 // ---- Icons (inline SVG)

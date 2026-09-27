@@ -138,7 +138,7 @@ function makeFeedItemFromBlock(b, prevFinalized) {
   };
 }
 
-function Sparkline({ data, w = 70, h = 28, color = '#E5243B' }) {
+function Sparkline({ data, w = 70, h = 28, color = 'var(--accent)' }) {
   const path = sparkPath(data, w, h, 2);
   const last = data[data.length-1];
   const first = data[0];
@@ -146,7 +146,7 @@ function Sparkline({ data, w = 70, h = 28, color = '#E5243B' }) {
   const t = useT();
  return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="sparkline">
-      <path d={path} stroke={up ? '#10B981' : '#EF4444'} strokeWidth="1.5" fill="none"/>
+      <path d={path} style={{ stroke: up ? 'var(--ok)' : 'var(--err)' }} strokeWidth="1.5" fill="none"/>
     </svg>
   );
 }
@@ -280,7 +280,7 @@ function FullExplorerModal({ open, onClose, initialBlock }) {
   };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.72)', backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgb(var(--shade-rgb) / .72)', backdropFilter:'blur(6px)', WebkitBackdropFilter:'blur(6px)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()} style={{background:'var(--bg-card)', color:'var(--fg-0)', borderRadius:14, maxWidth:920, width:'100%', maxHeight:'88vh', overflow:'auto', border:'1px solid var(--border-strong)'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid var(--border)'}}>
           <div>
@@ -612,7 +612,7 @@ function PulseSection({ tweaks }) {
               ) : trending.slice(0, 6).map((tk, i) => {
                 const sym = tk.symbol;
                 const vol = Number(tk.volume) || 0;
-                const fallback = TOKENS[sym] || { grad: 'linear-gradient(135deg,#7B5B90,#4A3566)', name: sym };
+                const fallback = TOKENS[sym] || { grad: 'var(--grad-avatar)', name: sym };
                 return (
                   <div key={sym + i} className="holder-row" style={{ gridTemplateColumns: '32px 1fr 80px 80px' }}>
                     <TokenLogo sym={sym} logo={tk.logo} size={24}/>
@@ -653,7 +653,7 @@ function PulseSection({ tweaks }) {
                         <div className="fill" style={{ width: r.bar + '%' }}/>
                       </div>
                     )}
-                    <span className="num" style={{ color: r.ok ? '#6EE7B7' : '#FCA5A5', fontWeight: 700 }}>{r.v}</span>
+                    <span className="num" style={{ color: r.ok ? 'var(--ok)' : 'var(--err)', fontWeight: 700 }}>{r.v}</span>
                   </div>
                 ));
               })()}

@@ -82,6 +82,11 @@ function Sidebar({ section, setSection }) {
     setSection(id);
     document.body.classList.remove('drawer-open');
   };
+  const navRef = React.useRef(null);
+  React.useEffect(() => {
+    const el = navRef.current && navRef.current.querySelector('.nav-item.active');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [section]);
   return (
     <>
       {/* Backdrop: tappable overlay that closes the drawer. Only renders in
@@ -100,7 +105,7 @@ function Sidebar({ section, setSection }) {
           </div>
         </div>
 
-        <div className="nav">
+        <div className="nav" ref={navRef}>
           {NAV_GROUPS.map(g => (
             <React.Fragment key={g.titleKey}>
               <div className="nav-section-title">{t(g.titleKey)}</div>
@@ -150,8 +155,8 @@ function RpcSourcePill() {
   }
   if (!src.connected) {
     return (
-      <div className="live-pill" style={{color: '#FCA5A5'}} title={t('s.wsDisconnected', 'WS disconnected')}>
-        <span className="live-dot" style={{background:'#EF4444'}}/> {t('s.disconnected', 'Disconnected')}
+      <div className="live-pill" style={{color: 'var(--err)', background: 'rgb(var(--err-rgb) / .12)', borderColor: 'rgb(var(--err-rgb) / .3)'}} title={t('s.wsDisconnected', 'WS disconnected')}>
+        <span className="live-dot" style={{background:'var(--err)', boxShadow:'0 0 8px var(--err)'}}/> {t('s.disconnected', 'Disconnected')}
       </div>
     );
   }
@@ -164,14 +169,56 @@ function RpcSourcePill() {
   }
   // Fallback: rotated to a public node by WsProvider after the primary went down.
   return (
-    <div className="live-pill" style={{color:'#FBBF24'}} title={src.active}>
-      <span className="live-dot" style={{background:'#F59E0B'}}/>
+    <div className="live-pill" style={{color:'var(--warn)', background: 'rgb(var(--warn-rgb) / .12)', borderColor: 'rgb(var(--warn-rgb) / .3)'}} title={src.active}>
+      <span className="live-dot" style={{background:'var(--warn)', boxShadow:'0 0 8px var(--warn)'}}/>
       {t('s.fallback', 'Fallback ·')} {src.label}
     </div>
   );
 }
 
-function Topbar({ block }) {
+const THEME_NEXT = { auto: 'light', light: 'dark', dark: 'auto' };
+
+function ThemeIcon({ mode }) {
+  const common = { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
+  if (mode === 'light') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4"/>
+        <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>
+      </svg>
+    );
+  }
+  if (mode === 'dark') {
+    return (
+      <svg {...common}>
+        <path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.8 6.8 0 0 0 10.7 10.7z"/>
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="8.5"/>
+      <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}
+
+function ThemeToggle({ mode, onChange }) {
+  const t = useT();
+  const labels = { auto: t('theme.auto'), light: t('theme.light'), dark: t('theme.dark') };
+  const current = THEME_NEXT[mode] ? mode : 'auto';
+  const next = THEME_NEXT[current];
+  const shown = current === 'auto' ? labels.auto + ' (' + t('theme.autoHint') + ')' : labels[current];
+  const tip = t('theme.tip').replace('{mode}', shown).replace('{next}', labels[next]);
+  return (
+    <button type="button" className="theme-toggle" onClick={() => onChange(next)} title={tip} aria-label={tip}>
+      <ThemeIcon mode={current}/>
+      <span className="theme-label">{labels[current]}</span>
+    </button>
+  );
+}
+
+function Topbar({ block, themeMode, onThemeMode }) {
 
   const t = useT();
   const search = useSearch();
@@ -241,6 +288,7 @@ function Topbar({ block }) {
         <span className="val hide-mobile">{t('agents.chip', 'Agents')}</span>
       </a>
       <LangPicker/>
+      {onThemeMode && <ThemeToggle mode={themeMode} onChange={onThemeMode}/>}
       <NetworkSwitcher/>
     </div>
   );
@@ -262,41 +310,40 @@ function NetworkSwitcher() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
   const itemStyle = { display:'flex', alignItems:'center', gap:10, padding:'8px 10px',
-                      borderRadius:8, color:'#fafafa', textDecoration:'none', fontSize:13, cursor:'pointer' };
-  const chipStyle = (grad) => ({ width:22, height:22, borderRadius:6, display:'grid', placeItems:'center',
-                                 color:'white', fontWeight:900, fontSize:11, background:grad });
+                      borderRadius:8, color:'var(--fg-0)', textDecoration:'none', fontSize:13, cursor:'pointer' };
+  const chipStyle = (grad, fg = 'var(--on-accent)') => ({ width:22, height:22, borderRadius:6, display:'grid', placeItems:'center',
+                                 color:fg, fontWeight:900, fontSize:11, background:grad });
   return (
     <div ref={ref} style={{ position:'relative' }}>
-      <button onClick={() => setOpen(o => !o)} aria-haspopup="true" aria-expanded={open}
+      <button className="net-switch" onClick={() => setOpen(o => !o)} aria-haspopup="true" aria-expanded={open}
         style={{
           display:'inline-flex', alignItems:'center', gap:8,
           padding:'6px 12px 6px 8px', borderRadius:999,
-          background:'rgba(229,36,59,0.16)', border:'1px solid rgba(229,36,59,0.34)',
-          color:'#FCD7D5', fontSize:12, fontWeight:600, letterSpacing:'0.04em',
+          color:'var(--fg-0)', fontSize:12, fontWeight:600, letterSpacing:'0.04em',
           cursor:'pointer',
         }}>
-        <span style={chipStyle('linear-gradient(135deg,#FF4E3C,#E5243B,#9B1B30)')}>v2</span>
-        <span>SORA v2</span>
+        <span style={chipStyle('var(--grad-cta)')}>v2</span>
+        <span className="net-label">SORA v2</span>
         <span style={{ opacity:0.6 }}>▾</span>
       </button>
       {open && (
         <div role="menu" style={{
           position:'absolute', top:'calc(100% + 8px)', right:0, minWidth:200,
-          background:'rgba(20,20,28,0.96)', border:'1px solid rgba(255,255,255,0.10)',
-          borderRadius:12, padding:8, boxShadow:'0 30px 60px -24px rgba(0,0,0,0.7)',
+          background:'rgb(var(--glass-rgb) / .94)', border:'1px solid var(--border)',
+          borderRadius:12, padding:8, boxShadow:'0 30px 60px -24px rgb(var(--shade-rgb) / calc(.7 * var(--shade-k)))',
           zIndex:50, backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)',
         }}>
           <div style={{ ...itemStyle, opacity:0.7, cursor:'default' }} aria-current="page">
-            <span style={chipStyle('linear-gradient(135deg,#FF4E3C,#E5243B,#9B1B30)')}>v2</span>
+            <span style={chipStyle('var(--grad-cta)')}>v2</span>
             <span>SORA v2</span>
-            <span style={{ marginLeft:'auto', color:'#10B981' }}>•</span>
+            <span style={{ marginLeft:'auto', color:'var(--ok)' }}>•</span>
           </div>
           <a href="/minamoto" style={itemStyle}>
-            <span style={chipStyle('linear-gradient(135deg,#7B2D5B,#7B5B90,#C8A0B8)')}>源</span>
+            <span style={chipStyle('var(--grad-avatar)', 'var(--fg-0)')}>源</span>
             <span>Minamoto</span>
           </a>
           <a href="/" style={itemStyle}>
-            <span style={chipStyle('#262634')}>↩</span>
+            <span style={chipStyle('var(--bg-4)', 'var(--fg-0)')}>↩</span>
             <span>{t('s.networks', 'Networks')}</span>
           </a>
         </div>

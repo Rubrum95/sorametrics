@@ -127,12 +127,12 @@ function PredictionBlockCard() {
         {tip && (
           <div style={{
             display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:16,
-            padding:'8px 10px', background:'rgba(96,165,250,0.06)',
-            border:'1px solid rgba(96,165,250,0.15)', borderRadius:8,
+            padding:'8px 10px', background:'rgb(var(--info-rgb) / 0.06)',
+            border:'1px solid rgb(var(--info-rgb) / 0.15)', borderRadius:8,
           }}>
             <div>
               <div className="muted tiny">{t('tools.currentBlock', 'Bloque actual')}</div>
-              <div className="num" style={{fontSize: 16, fontWeight: 700, color:'#60A5FA'}}>#{tip.block.toLocaleString()}</div>
+              <div className="num" style={{fontSize: 16, fontWeight: 700, color:'var(--info)'}}>#{tip.block.toLocaleString()}</div>
             </div>
             <div>
               <div className="muted tiny">{t('tools.blockTime', 'Block time')}</div>
@@ -151,7 +151,7 @@ function PredictionBlockCard() {
             obviously buttons. */}
         <div style={{
           display:'inline-flex', gap:0, marginBottom:16,
-          padding:3, borderRadius:10, background:'rgba(255,255,255,0.04)',
+          padding:3, borderRadius:10, background:'rgb(var(--ov-rgb) / 0.04)',
           border:'1px solid var(--border-color)',
         }}>
           {[
@@ -170,8 +170,8 @@ function PredictionBlockCard() {
                   border: 'none',
                   borderRadius: 7,
                   cursor: 'pointer',
-                  color: isActive ? 'var(--fg-0)' : 'var(--fg-2)',
-                  background: isActive ? 'linear-gradient(135deg, #9B1B30, #7B5B90)' : 'transparent',
+                  color: isActive ? 'var(--on-accent)' : 'var(--fg-2)',
+                  background: isActive ? 'var(--grad-cta)' : 'transparent',
                   transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
                 }}>
@@ -194,7 +194,7 @@ function PredictionBlockCard() {
                 onChange={e => setBlockInput(e.target.value)}
                 style={{
                   flex:1, padding:'10px 12px', fontSize:16, fontWeight:700,
-                  fontFamily:'JetBrains Mono, monospace',
+                  fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums',
                   border:'1px solid var(--border-color)', borderRadius:8,
                   background:'var(--bg-card)', color:'var(--fg-0)',
                   outline:'none',
@@ -217,7 +217,7 @@ function PredictionBlockCard() {
                 onChange={e => setTimeInput(e.target.value)}
                 style={{
                   flex:1, padding:'10px 12px', fontSize:15, fontWeight:700,
-                  fontFamily:'JetBrains Mono, monospace',
+                  fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums',
                   border:'1px solid var(--border-color)', borderRadius:8,
                   background:'var(--bg-card)', color:'var(--fg-0)',
                   outline:'none',
@@ -231,12 +231,12 @@ function PredictionBlockCard() {
         )}
 
         {/* Output */}
-        {result?.error && <div className="muted tiny" style={{color:'#F59E0B'}}>{result.error}</div>}
+        {result?.error && <div className="muted tiny" style={{color:'var(--warn)'}}>{result.error}</div>}
         {result && !result.error && (
           <div style={{
             padding:'14px 16px', borderRadius:10,
-            background: result.msDelta >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
-            border: '1px solid ' + (result.msDelta >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'),
+            background: result.msDelta >= 0 ? 'rgb(var(--ok-rgb) / 0.08)' : 'color-mix(in oklab, var(--warn) 8%, transparent)',
+            border: '1px solid ' + (result.msDelta >= 0 ? 'rgb(var(--ok-rgb) / 0.25)' : 'color-mix(in oklab, var(--warn) 25%, transparent)'),
           }}>
             <div className="muted tiny" style={{marginBottom:8}}>{t('tools.result', 'Resultado')}</div>
             {mode === 'block2time' ? (
@@ -252,7 +252,7 @@ function PredictionBlockCard() {
               </>
             ) : (
               <>
-                <div className="num" style={{fontSize:22, fontWeight:700, marginBottom:4, color:'#60A5FA'}}>
+                <div className="num" style={{fontSize:22, fontWeight:700, marginBottom:4, color:'var(--info)'}}>
                   #{result.block.toLocaleString()}
                 </div>
                 <div className="muted" style={{fontSize:13}}>
@@ -266,7 +266,7 @@ function PredictionBlockCard() {
         )}
 
         {/* Caveat */}
-        <div className="muted tiny" style={{marginTop:14, fontSize:10, lineHeight:1.5, opacity:0.6}}>
+        <div className="muted tiny" style={{marginTop:14, fontSize:10, lineHeight:1.5}}>
           {t('tools.caveat', 'Estimación basada en block time de 6s. La producción real de bloques puede variar ±5% por congestión o problemas de validadores.')}
         </div>
       </div>
@@ -315,12 +315,12 @@ function fmtUsdPrice(x) {
 // with a colored-initial circle underneath as the 404 / missing fallback.
 function CmpLogo({ sym, size = 20 }) {
   const src = (typeof window !== 'undefined' && window.TOKEN_LOGOS) ? window.TOKEN_LOGOS[sym] : null;
-  const color = cmpTok(sym).color || '#64748B';
+  const color = cmpTok(sym).color || 'var(--fg-3)';
   return (
     <span style={{position:'relative', width:size, height:size, flexShrink:0, display:'inline-block', verticalAlign:'middle'}}>
       <span style={{position:'absolute', inset:0, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:Math.round(size*0.46), fontWeight:800, color:'#fff', letterSpacing:-0.5,
-                    background:`linear-gradient(135deg, ${color}, ${color}88)`}}>{sym ? sym[0] : '?'}</span>
+                    fontSize:Math.round(size*0.46), fontWeight:800, color:'var(--on-tok)', letterSpacing:-0.5,
+                    background:`linear-gradient(135deg, ${color}, color-mix(in oklab, ${color} 53%, transparent))`}}>{sym ? sym[0] : '?'}</span>
       {src && <img src={src} alt={sym} onError={e => { e.currentTarget.style.display = 'none'; }}
                    style={{position:'absolute', inset:0, width:size, height:size, borderRadius:'50%', objectFit:'cover', background:'var(--bg-card)'}}/>}
     </span>
@@ -353,7 +353,6 @@ function TokenCompareCard() {
   const gid = 'cmp' + a + b;                 // stable, unique gradient id per pair
 
   const idA = cmpTok(a).id, idB = cmpTok(b).id;
-  const colA = cmpTok(a).color || '#10B981', colB = cmpTok(b).color || '#60A5FA';
   const apiWin = COMPARE_WINDOWS.find(([lbl]) => lbl === win)?.[1] || '30d';
 
   useEffect(() => {
@@ -410,21 +409,22 @@ function TokenCompareCard() {
 
   const hp = hover != null && ratio[hover] ? ratio[hover] : null;
   const up = stats && stats.changePct >= 0;
-  const lineColor = up ? '#34D399' : '#F87171';
+  const lineColor = up ? 'var(--ok)' : 'var(--err)';
   const curRatio = hp ? hp.r : (stats ? stats.last : null);
 
-  const TokenSelect = ({ value, onChange, exclude, accent }) => (
+  const TokenSelect = ({ value, onChange, exclude }) => (
     <div style={{position:'relative', display:'inline-flex', alignItems:'center'}}>
       <span style={{position:'absolute', left:9, pointerEvents:'none', display:'inline-flex'}}><CmpLogo sym={value} size={20}/></span>
       <select value={value} onChange={e => onChange(e.target.value)} style={{
-        padding:'8px 12px 8px 36px', fontSize:14, fontWeight:800, fontFamily:'JetBrains Mono, monospace',
-        border:`1px solid ${accent}55`, borderRadius:10, background:'var(--bg-card)',
-        color:'var(--fg-0)', outline:'none', cursor:'pointer', appearance:'none', boxShadow:`0 0 0 0 ${accent}`,
+        padding:'8px 30px 8px 36px', fontSize:14, fontWeight:800, fontFamily: 'var(--font-sans)', fontVariantNumeric: 'tabular-nums',
+        border:'1px solid var(--border-color)', borderRadius:10, background:'var(--bg-card)', backgroundClip:'padding-box',
+        color:'var(--fg-0)', outline:'none', cursor:'pointer', appearance:'none',
       }}>
         {COMPARE_TOKENS.filter(tk => tk.sym !== exclude).map(tk => (
           <option key={tk.sym} value={tk.sym}>{tk.sym}</option>
         ))}
       </select>
+      <span aria-hidden="true" style={{position:'absolute', right:11, pointerEvents:'none', color:'var(--fg-2)', fontSize:10}}>▼</span>
     </div>
   );
 
@@ -437,19 +437,20 @@ function TokenCompareCard() {
       <div style={{padding:'16px 20px'}}>
         {/* Token selectors + swap + window pills */}
         <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:16}}>
-          <TokenSelect value={a} onChange={setA} exclude={b} accent={colA}/>
+          <TokenSelect value={a} onChange={setA} exclude={b}/>
           <button onClick={() => { setA(b); setB(a); }} title={t('tools.compare.swap', 'Invertir')} style={{
             border:'1px solid var(--border-color)', borderRadius:9, padding:'8px 11px', cursor:'pointer',
-            background:'rgba(255,255,255,0.04)', color:'var(--fg-1)', fontSize:15, lineHeight:1, transition:'transform .15s',
+            background:'rgb(var(--ov-rgb) / 0.04)', color:'var(--fg-1)', fontSize:15, lineHeight:1, transition:'transform .15s',
           }} onMouseEnter={e=>e.currentTarget.style.transform='rotate(180deg)'} onMouseLeave={e=>e.currentTarget.style.transform=''}>⇄</button>
-          <TokenSelect value={b} onChange={setB} exclude={a} accent={colB}/>
+          <TokenSelect value={b} onChange={setB} exclude={a}/>
           <div style={{flex:1}}/>
-          <div style={{display:'inline-flex', gap:2, background:'rgba(255,255,255,0.04)', borderRadius:9, padding:3}}>
+          <div style={{display:'inline-flex', gap:2, background:'rgb(var(--ov-rgb) / 0.04)', borderRadius:9, padding:3}}>
             {COMPARE_WINDOWS.map(([lbl]) => (
               <button key={lbl} onClick={() => setWin(lbl)} style={{
                 padding:'5px 11px', fontSize:11, fontWeight: win===lbl?800:600, border:'none', borderRadius:6,
-                cursor:'pointer', color: win===lbl?'#0b0b10':'var(--fg-2)', transition:'all .15s',
-                background: win===lbl?lineColor:'transparent',
+                cursor:'pointer', color: win===lbl?'var(--fg-0)':'var(--fg-2)', transition:'all .15s',
+                background: win===lbl?'var(--g-ctl-hi)':'transparent',
+                boxShadow: win===lbl?'var(--g-lens), 0 0 0 1px rgb(var(--shade-rgb) / calc(.35 * var(--shade-k)))':'none',
               }}>{lbl}</button>
             ))}
           </div>
@@ -463,7 +464,7 @@ function TokenCompareCard() {
                 <CmpLogo sym={a} size={15}/> 1 {a} {t('tools.compare.equals','=')}
               </div>
               <div style={{display:'flex', alignItems:'baseline', gap:8}}>
-                <span className="num" style={{fontSize:30, fontWeight:800, color: lineColor, lineHeight:1}}>{fmtRatio(curRatio)}</span>
+                <span className="num" style={{fontSize:30, fontWeight:800, color:'var(--fg-0)', lineHeight:1}}>{fmtRatio(curRatio)}</span>
                 <span style={{display:'inline-flex', alignItems:'center', gap:4, fontWeight:800, fontSize:15, color:'var(--fg-1)'}}><CmpLogo sym={b} size={16}/> {b}</span>
               </div>
               <div className="muted tiny" style={{marginTop:5}}>{t('tools.compare.inverse','inverso')}: 1 {b} = <span className="num" style={{fontWeight:700, color:'var(--fg-1)'}}>{fmtRatio(curRatio ? 1/curRatio : null)}</span> {a}</div>
@@ -472,8 +473,8 @@ function TokenCompareCard() {
             {!hp && (
               <span style={{
                 display:'inline-flex', alignItems:'center', gap:4, padding:'5px 11px', borderRadius:20, fontWeight:800, fontSize:13,
-                color: up ? '#34D399' : '#F87171', background: up ? 'rgba(52,211,153,0.13)' : 'rgba(248,113,113,0.13)',
-              }}>{up ? '▲' : '▼'} {Math.abs(stats.changePct).toFixed(2)}% <span style={{fontWeight:500, opacity:0.7}}>· {win}</span></span>
+                color: lineColor, background: up ? 'rgb(var(--ok-rgb) / 0.13)' : 'rgb(var(--err-rgb) / 0.13)',
+              }}>{up ? '▲' : '▼'} {Math.abs(stats.changePct).toFixed(2)}% <span style={{fontWeight:500}}>· {win}</span></span>
             )}
             {hp && <div className="muted tiny" style={{textAlign:'right'}}>{new Date(hp.t * 1000).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'2-digit'})}<br/>{new Date(hp.t * 1000).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</div>}
           </div>
@@ -496,7 +497,7 @@ function TokenCompareCard() {
         {/* Chart */}
         <div style={{position:'relative', width:'100%'}}>
           {loading && <div className="muted tiny" style={{padding:'80px 0', textAlign:'center'}}>{t('tools.compare.loading', 'Cargando histórico…')}</div>}
-          {!loading && idA === idB && <div className="muted tiny" style={{padding:'80px 0', textAlign:'center', color:'#F59E0B'}}>{t('tools.compare.same', 'Elige dos tokens distintos.')}</div>}
+          {!loading && idA === idB && <div className="muted tiny" style={{padding:'80px 0', textAlign:'center', color:'var(--warn)'}}>{t('tools.compare.same', 'Elige dos tokens distintos.')}</div>}
           {!loading && idA !== idB && ratio.length < 2 && <div className="muted tiny" style={{padding:'80px 0', textAlign:'center'}}>{t('tools.compare.nodata', 'Sin histórico solapado para este par.')}</div>}
           {!loading && ratio.length >= 2 && stats && paths && (
             <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%', height:'auto', display:'block', cursor:'crosshair'}}
@@ -508,9 +509,9 @@ function TokenCompareCard() {
                  onMouseLeave={() => setHover(null)}>
               <defs>
                 <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={lineColor} stopOpacity="0.26"/>
-                  <stop offset="60%" stopColor={lineColor} stopOpacity="0.06"/>
-                  <stop offset="100%" stopColor={lineColor} stopOpacity="0"/>
+                  <stop offset="0%" style={{stopColor: lineColor}} stopOpacity="0.26"/>
+                  <stop offset="60%" style={{stopColor: lineColor}} stopOpacity="0.06"/>
+                  <stop offset="100%" style={{stopColor: lineColor}} stopOpacity="0"/>
                 </linearGradient>
                 <filter id={gid+'g'} x="-5%" y="-40%" width="110%" height="180%">
                   <feGaussianBlur stdDeviation="2.2"/>
@@ -520,40 +521,40 @@ function TokenCompareCard() {
               {Array.from({length:5}, (_,i) => {
                 const val = stats.min + (stats.max - stats.min) * (i/4), y = yAt(val), edge = i===0 || i===4;
                 return <g key={'p'+i}>
-                  <line x1={PADL} x2={plotR} y1={y} y2={y} stroke="var(--fg-1)" strokeOpacity={edge?0.13:0.045} strokeWidth="1" strokeDasharray={edge?'none':'2 6'} vectorEffect="non-scaling-stroke"/>
-                  <text x={plotR+6} y={y+3} fontSize="10" fill="var(--fg-2)" opacity="0.65" className="num">{fmtRatio(val)}</text>
+                  <line x1={PADL} x2={plotR} y1={y} y2={y} style={{stroke: 'var(--fg-1)'}} strokeOpacity={edge?0.13:0.045} strokeWidth="1" strokeDasharray={edge?'none':'2 6'} vectorEffect="non-scaling-stroke"/>
+                  <text x={plotR+6} y={y+3} fontSize="10" style={{fill: 'var(--fg-2)'}} className="num">{fmtRatio(val)}</text>
                 </g>;
               })}
               {/* time axis — 5 date ticks along the bottom */}
               {Array.from({length:5}, (_,i) => {
                 const idx = Math.round((i/4) * (ratio.length-1)), x = xAt(idx), dt = new Date(ratio[idx].t*1000);
                 const lbl = (win==='1y' || win==='all') ? dt.toLocaleDateString(undefined,{month:'short',year:'2-digit'}) : dt.toLocaleDateString(undefined,{day:'2-digit',month:'short'});
-                return <text key={'t'+i} x={x} y={H-8} fontSize="10" fill="var(--fg-2)" opacity="0.6" textAnchor={i===0?'start':i===4?'end':'middle'}>{lbl}</text>;
+                return <text key={'t'+i} x={x} y={H-8} fontSize="10" style={{fill: 'var(--fg-2)'}} textAnchor={i===0?'start':i===4?'end':'middle'}>{lbl}</text>;
               })}
               {/* area + soft glow underlay (scales) + crisp thin line on top */}
               <path d={paths.area} fill={`url(#${gid})`}/>
-              <path d={paths.line} fill="none" stroke={lineColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${gid}g)`} opacity="0.45"/>
-              <path d={paths.line} fill="none" stroke={lineColor} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+              <path d={paths.line} fill="none" style={{stroke: lineColor}} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${gid}g)`} opacity="0.45"/>
+              <path d={paths.line} fill="none" style={{stroke: lineColor}} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
               {/* min & max dots */}
-              <circle cx={xAt(stats.iMax)} cy={yAt(stats.max)} r="2.6" fill={lineColor} stroke="var(--bg-card)" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
-              <circle cx={xAt(stats.iMin)} cy={yAt(stats.min)} r="2.6" fill={lineColor} stroke="var(--bg-card)" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+              <circle cx={xAt(stats.iMax)} cy={yAt(stats.max)} r="2.6" style={{fill: lineColor, stroke: 'var(--bg-card)'}} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+              <circle cx={xAt(stats.iMin)} cy={yAt(stats.min)} r="2.6" style={{fill: lineColor, stroke: 'var(--bg-card)'}} strokeWidth="1" vectorEffect="non-scaling-stroke"/>
               {/* hover crosshair (both axes) + value pill on the price axis */}
               {hp && (() => {
                 const x = xAt(hover), y = yAt(hp.r);
                 return <g>
-                  <line x1={x} y1={PADT} x2={x} y2={plotB} stroke="var(--fg-1)" strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.4" vectorEffect="non-scaling-stroke"/>
-                  <line x1={PADL} y1={y} x2={plotR} y2={y} stroke={lineColor} strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.45" vectorEffect="non-scaling-stroke"/>
-                  <circle cx={x} cy={y} r="6" fill={lineColor} opacity="0.16"/>
-                  <circle cx={x} cy={y} r="3" fill={lineColor} stroke="var(--bg-card)" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
-                  <rect x={plotR+2} y={y-8} width={PADR-4} height="16" rx="3" fill={lineColor}/>
-                  <text x={plotR+PADR/2} y={y+3.5} fontSize="9.5" fill="#0b0b10" fontWeight="700" textAnchor="middle" className="num">{fmtRatio(hp.r)}</text>
+                  <line x1={x} y1={PADT} x2={x} y2={plotB} style={{stroke: 'var(--fg-1)'}} strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.4" vectorEffect="non-scaling-stroke"/>
+                  <line x1={PADL} y1={y} x2={plotR} y2={y} style={{stroke: lineColor}} strokeWidth="1" strokeDasharray="3 3" strokeOpacity="0.45" vectorEffect="non-scaling-stroke"/>
+                  <circle cx={x} cy={y} r="6" style={{fill: lineColor}} opacity="0.16"/>
+                  <circle cx={x} cy={y} r="3" style={{fill: lineColor, stroke: 'var(--bg-card)'}} strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                  <rect x={plotR+2} y={y-8} width={PADR-4} height="16" rx="3" style={{fill: lineColor}}/>
+                  <text x={plotR+PADR/2} y={y+3.5} fontSize="9.5" style={{fill: 'var(--bg-2)'}} fontWeight="700" textAnchor="middle" className="num">{fmtRatio(hp.r)}</text>
                 </g>;
               })()}
             </svg>
           )}
         </div>
 
-        <div className="muted tiny" style={{marginTop:14, fontSize:10, lineHeight:1.5, opacity:0.55}}>
+        <div className="muted tiny" style={{marginTop:14, fontSize:10, lineHeight:1.5}}>
           {t('tools.compare.caveat', 'Ratio = precio {a} ÷ precio {b} por hora, del histórico real de precios (price_history). Sin estimaciones.').replace('{a}', a).replace('{b}', b)}
         </div>
       </div>

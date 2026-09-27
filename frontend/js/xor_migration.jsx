@@ -60,7 +60,7 @@ const { useState, useEffect, useMemo } = React;
   function Kpi({ label, value, sub }) {
     return (
       <div className="card" style={{ position: 'relative', padding: '20px 22px' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: '#9B1B30', opacity: 0.55 }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'var(--accent)', opacity: 0.55 }} />
         <div style={{ color: 'var(--fg-2)', fontSize: 11, fontWeight: 600, letterSpacing: '0.10em', textTransform: 'uppercase' }}>{label}</div>
         <div className="num" style={{ color: 'var(--fg-0)', fontSize: 26, fontWeight: 800, marginTop: 8, letterSpacing: '-0.02em' }}>{value}</div>
         {sub && <div style={{ color: 'var(--fg-3)', fontSize: 12, marginTop: 4 }}>{sub}</div>}
@@ -95,7 +95,7 @@ const { useState, useEffect, useMemo } = React;
           {list.error && <div style={{ color: 'var(--err)', padding: 12 }}>{list.error.message}</div>}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
+              <tr style={{ background: 'rgb(var(--ov-rgb) / .02)', borderBottom: '1px solid var(--border)' }}>
                 <th style={th()}>{t('xormig.when') || t('predict.drill.when', 'When')}</th>
                 <th style={th()}>XOR</th>
                 <th style={th()}>{t('xormig.v2Block')   || t('xormig.v2Block', 'v2 block')}</th>
@@ -115,7 +115,7 @@ const { useState, useEffect, useMemo } = React;
               {items.map(r => (
                 <tr key={r.mn_tx_hash} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={td()}><span style={{ color: 'var(--fg-2)', fontSize: 12 }}>{relative(r.created_at)}</span></td>
-                  <td style={td()}><span className="num" style={{ color: '#10B981', fontWeight: 700 }}>{fmtXor(r.claimed_amount)}</span></td>
+                  <td style={td()}><span className="num" style={{ color: 'var(--ok)', fontWeight: 700 }}>{fmtXor(r.claimed_amount)}</span></td>
                   {/* v2 side (this network) — primary highlighted */}
                   <td style={td()}>
                     {r.v2_block != null
@@ -161,11 +161,11 @@ const { useState, useEffect, useMemo } = React;
     return { padding: '10px 14px', verticalAlign: 'top' };
   }
   function linkPrimary() {
-    return { color: 'var(--fg-0)', textDecoration: 'none', borderBottom: '1px dotted rgba(255,255,255,0.20)' };
+    return { color: 'var(--fg-0)', textDecoration: 'none', borderBottom: '1px dotted rgb(var(--ov-rgb) / .20)' };
   }
   function linkOther() {
     // Plum/amethyst hint that the destination is the OTHER network (Minamoto).
-    return { color: '#C8A0B8', textDecoration: 'none', borderBottom: '1px dotted rgba(200,160,184,0.40)' };
+    return { color: 'var(--lilac-text)', textDecoration: 'none', borderBottom: '1px dotted rgb(var(--lilac-rgb) / .40)' };
   }
 
   window.XorMigrationSection = XorMigrationSection;

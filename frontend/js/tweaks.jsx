@@ -14,11 +14,13 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
   );
 
   const accents = [
-    { id: 'ember', grad: 'linear-gradient(135deg, #FF4E3C, #E5243B, #B91C30)' },
-    { id: 'plum',  grad: 'linear-gradient(135deg, #B862C9, #7B5B90, #4A3566)' },
-    { id: 'violet',grad: 'linear-gradient(135deg, #EC4899, #8B5CF6, #4C1D95)' },
-    { id: 'amber', grad: 'linear-gradient(135deg, #F59E0B, #EF4444, #7F1D1D)' },
+    { id: 'coral', grad: 'var(--grad-coral)' },
+    { id: 'lilac', grad: 'linear-gradient(135deg, var(--lilac), var(--pink))' },
+    { id: 'teal',  grad: 'linear-gradient(135deg, var(--turquoise), var(--accent-2))' },
+    { id: 'amber', grad: 'linear-gradient(135deg, var(--amber), var(--warn))' },
   ];
+  // Pre-palette ids: ember/plum were the old defaults, violet became lilac.
+  const accentNow = ({ ember: 'coral', plum: 'coral', violet: 'lilac' })[tweaks.accent] || tweaks.accent || 'coral';
 
   return (
     <div className="tweaks-panel open">
@@ -83,7 +85,7 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
         <div className="tweaks-swatches">
           {accents.map(a => (
             <button key={a.id}
-              className={'tweaks-sw' + (tweaks.accent === a.id ? ' active' : '')}
+              className={'tweaks-sw' + (accentNow === a.id ? ' active' : '')}
               style={{ background: a.grad }}
               onClick={() => setTweak('accent', a.id)}
               title={a.id}
@@ -92,13 +94,13 @@ function TweaksPanel({ tweaks, setTweak, open, onClose }) {
         </div>
       </div>
 
-      {/* Theme — dark / light / auto (prefers-color-scheme). Persists via tweaks.theme. */}
+      {/* Theme — same state as the topbar switch (localStorage 'sm.theme'). */}
       <div className="tweaks-group">
         <label>{t('s.theme', 'Theme')}</label>
         <div className="tweaks-opts">
-          {opt('theme', 'dark')}
-          {opt('theme', 'light')}
-          {opt('theme', 'auto')}
+          {opt('theme', 'auto', t('theme.auto'))}
+          {opt('theme', 'light', t('theme.light'))}
+          {opt('theme', 'dark', t('theme.dark'))}
         </div>
       </div>
 

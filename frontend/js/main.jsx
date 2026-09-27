@@ -26,8 +26,32 @@ const SECTION_COMPONENTS = {
   xormig: 'XorMigrationSection',
 };
 
+const THEME_MODES = ['auto', 'light', 'dark'];
+
+function readThemeMode() {
+  try {
+    const saved = localStorage.getItem('sm.theme');
+    if (THEME_MODES.includes(saved)) return saved;
+  } catch (_) {}
+  return 'auto';
+}
+
+function lightSchemeQuery() {
+  return window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+}
+
+function resolveTheme(mode) {
+  if (mode === 'light' || mode === 'dark') return mode;
+  const q = lightSchemeQuery();
+  return q && q.matches ? 'light' : 'dark';
+}
+
 function App() {
   const [tweaks, setTweaks] = useState(() => ({ ...(window.__TWEAKS__ || {}) }));
+  const [themeMode, setThemeModeState] = useState(readThemeMode);
+  const setThemeMode = useCallback((mode) => {
+    if (THEME_MODES.includes(mode)) setThemeModeState(mode);
+  }, []);
   // Deep-link section: read ?tab=X from the URL so shareable links land on
   // the right tab without manual sidebar clicks.
   const [section, setSection] = useState(() => {
@@ -63,22 +87,25 @@ function App() {
     document.documentElement.setAttribute('data-accent',  tweaks.accent);
   }, [tweaks.density, tweaks.motion, tweaks.accent]);
 
-  // Theme toggle — dark | light | auto. "auto" follows prefers-color-scheme.
+  // Theme: auto | light | dark, stored in localStorage 'sm.theme'. The inline
+  // script in index.html applies it before first paint; this keeps it in sync.
   useEffect(() => {
+    const root = document.documentElement;
     const apply = () => {
-      let theme = tweaks.theme || 'dark';
-      if (theme === 'auto') {
-        theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      }
-      document.documentElement.setAttribute('data-theme', theme);
+      root.setAttribute('data-theme', resolveTheme(themeMode));
+      root.setAttribute('data-theme-mode', themeMode);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      const bg = getComputedStyle(root).getPropertyValue('--bg-0').trim();
+      if (meta && bg) meta.setAttribute('content', bg);
+      window.dispatchEvent(new Event('sm-theme'));
     };
     apply();
-    if (tweaks.theme === 'auto' && window.matchMedia) {
-      const mq = window.matchMedia('(prefers-color-scheme: light)');
-      mq.addEventListener?.('change', apply);
-      return () => mq.removeEventListener?.('change', apply);
-    }
-  }, [tweaks.theme]);
+    try { localStorage.setItem('sm.theme', themeMode); } catch (_) {}
+    const q = themeMode === 'auto' ? lightSchemeQuery() : null;
+    if (!q) return;
+    q.addEventListener('change', apply);
+    return () => q.removeEventListener('change', apply);
+  }, [themeMode]);
 
   // Peg-watcher — poll /stats/stablecoins every 60s and fire a window-level
   // CustomEvent("peg-alert") when any stablecoin deviates beyond the
@@ -133,6 +160,7 @@ function App() {
   }, [tweaks.liveSpeed]);
 
   const setTweak = useCallback((k, v) => {
+    if (k === 'theme') { setThemeMode(v); return; }
     setTweaks(prev => {
       const next = { ...prev, [k]: v };
       try {
@@ -141,7 +169,7 @@ function App() {
       if (k === 'section') setSection(v);
       return next;
     });
-  }, []);
+  }, [setThemeMode]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -180,10 +208,10 @@ function App() {
         <Petals count={tweaks.motion === 'none' ? 0 : (tweaks.motion === 'subtle' ? 8 : 16)}/>
         <Sidebar section={section} setSection={navTo}/>
         <main className="main">
-          <Topbar block={block}/>
+          <Topbar block={block} themeMode={themeMode} onThemeMode={setThemeMode}/>
           {content}
         </main>
-        <TweaksPanel tweaks={tweaks} setTweak={setTweak} open={editOpen} onClose={() => setEditOpen(false)}/>
+        <TweaksPanel tweaks={{ ...tweaks, theme: themeMode }} setTweak={setTweak} open={editOpen} onClose={() => setEditOpen(false)}/>
       </div>
     </StudioProvider>
     </GlobalSearchProvider>

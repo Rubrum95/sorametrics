@@ -25,10 +25,10 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
   const dist = feeFlow?.distribution || {};
   const hasLive = ['xorBurn', 'valStaking', 'valBurn', 'referrer'].some(k => Number(dist[k]) > 0);
   const flowDefs = [
-    { key: 'xorBurn',    label: t('s.xorBurn', 'XOR Burn'),       color: '#E5243B', kind: 'burn' },
-    { key: 'valStaking', label: t('s.valStaking', '→ VAL · Staking'), color: '#7DD3FC', kind: 'node' },
-    { key: 'referrer',   label: t('s.referrer', 'Referrer'),        color: '#8B7FD9', kind: 'node' },
-    { key: 'valBurn',    label: t('s.valBurn', 'VAL Burn'),         color: '#F5B041', kind: 'burn' },
+    { key: 'xorBurn',    label: t('s.xorBurn', 'XOR Burn'),       color: 'var(--accent)', kind: 'burn' },
+    { key: 'valStaking', label: t('s.valStaking', '→ VAL · Staking'), color: 'var(--accent-2)', kind: 'node' },
+    { key: 'referrer',   label: t('s.referrer', 'Referrer'),        color: 'var(--lilac)', kind: 'node' },
+    { key: 'valBurn',    label: t('s.valBurn', 'VAL Burn'),         color: 'var(--amber)', kind: 'burn' },
   ];
   const flows = flowDefs
     .map(f => ({ ...f, v: hasLive ? (Number(dist[f.key]) || 0) : 0 }))
@@ -51,41 +51,41 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
       <svg className="fee-flow-svg" viewBox="0 0 600 280" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="ff-in" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#E5243B" stopOpacity="0.15"/>
-            <stop offset="100%" stopColor="#E5243B" stopOpacity="0.85"/>
+            <stop offset="0%" style={{ stopColor: 'var(--accent)' }} stopOpacity="0.12"/>
+            <stop offset="100%" style={{ stopColor: 'var(--accent)' }} stopOpacity="0.5"/>
           </linearGradient>
           <radialGradient id="ff-split">
-            <stop offset="0%" stopColor="#FFD166"/>
-            <stop offset="55%" stopColor="#E5243B"/>
-            <stop offset="100%" stopColor="#8B0000" stopOpacity="0"/>
+            <stop offset="0%" style={{ stopColor: 'var(--amber)' }} stopOpacity="0.8"/>
+            <stop offset="55%" style={{ stopColor: 'var(--accent)' }} stopOpacity="0.3"/>
+            <stop offset="100%" style={{ stopColor: 'var(--accent)' }} stopOpacity="0"/>
           </radialGradient>
           {flows.map(f => (
             <linearGradient key={f.key} id={`ff-${f.key}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={f.color} stopOpacity="0.55"/>
-              <stop offset="100%" stopColor={f.color} stopOpacity={f.kind === 'burn' ? '0.05' : '0.85'}/>
+              <stop offset="0%" style={{ stopColor: f.color }} stopOpacity={f.kind === 'burn' ? '0.8' : '0.55'}/>
+              <stop offset="100%" style={{ stopColor: f.color }} stopOpacity={f.kind === 'burn' ? '0.95' : '0.85'}/>
             </linearGradient>
           ))}
         </defs>
 
         {/* Source node */}
-        <rect x="14" y={SPLIT_Y - 24} width="150" height="48" rx="10" fill="rgba(255,255,255,0.035)" stroke="rgba(255,255,255,0.12)"/>
+        <rect x="14" y={SPLIT_Y - 24} width="150" height="48" rx="10" style={{ fill: 'rgb(var(--ov-rgb) / .035)', stroke: 'rgb(var(--ov-rgb) / .12)' }}/>
         <text x="28" y={SPLIT_Y - 4} className="flow-label">{t('s.xorFeesIn', 'XOR fees in')}</text>
         <text x="28" y={SPLIT_Y + 15} className="flow-sub">{totalLabel}</text>
 
         {/* Inflow band + particles */}
         <path id="ff-inflow" d={`M164 ${SPLIT_Y} L ${SPLIT_X} ${SPLIT_Y}`} stroke="url(#ff-in)" strokeWidth="10" fill="none" strokeLinecap="round"/>
         {animate && [0, 1, 2].map(i => (
-          <circle key={i} r="3.2" fill="#FF6B5A">
+          <circle key={i} r="3.2" style={{ fill: 'var(--accent)' }}>
             <animateMotion dur={`${1.6 / speed}s`} begin={`${i * 0.5}s`} repeatCount="indefinite"
               path={`M164 ${SPLIT_Y} L ${SPLIT_X} ${SPLIT_Y}`}/>
           </circle>
         ))}
 
         {/* Split core */}
-        <circle cx={SPLIT_X} cy={SPLIT_Y} r="22" fill="url(#ff-split)">
-          {animate && <animate attributeName="r" values="20;25;20" dur={`${2.4 / speed}s`} repeatCount="indefinite"/>}
+        <circle cx={SPLIT_X} cy={SPLIT_Y} r="16" fill="url(#ff-split)">
+          {animate && <animate attributeName="r" values="15;18;15" dur={`${2.4 / speed}s`} repeatCount="indefinite"/>}
         </circle>
-        <circle cx={SPLIT_X} cy={SPLIT_Y} r="9" fill="#FFE08A">
+        <circle cx={SPLIT_X} cy={SPLIT_Y} r="9" style={{ fill: 'var(--amber)' }}>
           {animate && <animate attributeName="opacity" values="0.65;1;0.65" dur={`${1.3 / speed}s`} repeatCount="indefinite"/>}
         </circle>
 
@@ -101,17 +101,17 @@ function Furnace({ token, liveSpeed, motion, feeFlow }) {
             <g key={f.key}>
               <path d={d} stroke={`url(#ff-${f.key})`} strokeWidth={sw} fill="none" strokeLinecap="round" opacity="0.9"/>
               {animate && Array.from({ length: nParticles }).map((_, p) => (
-                <circle key={p} r={f.kind === 'burn' ? 2.6 : 3} fill={f.color}>
+                <circle key={p} r={f.kind === 'burn' ? 2.6 : 3} style={{ fill: f.color }}>
                   <animateMotion dur={`${pdur}s`} begin={`${p * (pdur / nParticles)}s`} repeatCount="indefinite" path={d}/>
                   {f.kind === 'burn' && <animate attributeName="opacity" values="1;1;0" dur={`${pdur}s`} begin={`${p * (pdur / nParticles)}s`} repeatCount="indefinite"/>}
                 </circle>
               ))}
               {/* Destination marker: ring for staking/referrer, spark for burn */}
               {f.kind === 'node'
-                ? <circle cx={DEST_X} cy={destY} r="5" fill="none" stroke={f.color} strokeWidth="2"/>
-                : <circle cx={DEST_X} cy={destY} r="4" fill={f.color}>{animate && <animate attributeName="opacity" values="1;0.3;1" dur={`${1.1 / speed}s`} repeatCount="indefinite"/>}</circle>}
+                ? <circle cx={DEST_X} cy={destY} r="5" fill="none" style={{ stroke: f.color }} strokeWidth="2"/>
+                : <circle cx={DEST_X} cy={destY} r="4" style={{ fill: f.color }}>{animate && <animate attributeName="opacity" values="1;0.65;1" dur={`${1.1 / speed}s`} repeatCount="indefinite"/>}</circle>}
               <text x={DEST_X + 14} y={destY - 2} className="flow-label">{f.label}</text>
-              <text x={DEST_X + 14} y={destY + 14} className="flow-sub" style={{ fill: f.color }}>{pct.toFixed(1)}%</text>
+              <text x={DEST_X + 14} y={destY + 14} className="flow-sub" style={{ fill: 'var(--fg-1)' }}>{pct.toFixed(1)}%</text>
             </g>
           );
         })}
@@ -142,8 +142,8 @@ function BurnChart({ token, type, series }) {
       <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id="burnArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={tk.color} stopOpacity="0.45"/>
-            <stop offset="100%" stopColor={tk.color} stopOpacity="0"/>
+            <stop offset="0%" style={{ stopColor: tk.color }} stopOpacity="0.08"/>
+            <stop offset="100%" style={{ stopColor: tk.color }} stopOpacity="0"/>
           </linearGradient>
         </defs>
         <g className="chart-grid">
@@ -157,7 +157,7 @@ function BurnChart({ token, type, series }) {
           {type === 'bars' && data.map((v, i) => {
             const x = pad + (i / (data.length - 1)) * (W - pad * 2);
             const h = ((v - data[0]) / (data[data.length-1] - data[0])) * (H - pad * 2);
-            return <rect key={i} x={x-2} y={H - pad - h} width="4" height={h} fill={tk.color} opacity="0.8"/>;
+            return <rect key={i} x={x-2} y={H - pad - h} width="4" height={h} style={{ fill: tk.color }} opacity="0.55"/>;
           })}
         </g>
       </svg>
@@ -329,7 +329,7 @@ function BurnSection({ tweaks }) {
             <div className="mi"><span>24h</span> <strong>+{fmt.num(d24, 2)}</strong></div>
             <div className="mi"><span>7d</span>  <strong>+{fmt.num(d7, 2)}</strong></div>
             <div className="mi"><span>30d</span> <strong>+{fmt.num(d30, 2)}</strong></div>
-            <div className="mi"><span>{t('s.24hUsd', '24h usd')}</span> <strong style={{color: '#10B981'}}>{fmt.usd(usd24)}</strong></div>
+            <div className="mi"><span>{t('s.24hUsd', '24h usd')}</span> <strong style={{color: 'var(--ok)'}}>{fmt.usd(usd24)}</strong></div>
           </div>
 
           <Furnace token={token} liveSpeed={tweaks.liveSpeed} motion={tweaks.motion} feeFlow={feeFlow}/>
@@ -364,19 +364,19 @@ function BurnSection({ tweaks }) {
                       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:12}}>
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('burn.referral.paid')}</div>
-                          <div className="num" style={{fontSize:20, fontWeight:700, color:'#8B7FD9'}}>{fmt.num(paid, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
+                          <div className="num" style={{fontSize:20, fontWeight:700, color:'var(--lilac)'}}>{fmt.num(paid, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
                           <div className="muted tiny" style={{fontSize:10}}>{t('burn.referral.paidSub')}</div>
                         </div>
                         <div>
                           <div className="muted tiny" style={{textTransform:'uppercase', letterSpacing:'.05em', marginBottom:3}}>{t('burn.referral.redirected')}</div>
-                          <div className="num" style={{fontSize:20, fontWeight:700, color:'#E5243B'}}>{fmt.num(redirected, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
+                          <div className="num" style={{fontSize:20, fontWeight:700, color:'var(--accent-text)'}}>{fmt.num(redirected, 4)} <span style={{fontSize:11, color:'var(--fg-2)'}}>XOR</span></div>
                           <div className="muted tiny" style={{fontSize:10}}>{t('burn.referral.redirectedSub')}</div>
                         </div>
                       </div>
                       {totalRef > 0 && (
-                        <div style={{height:6, borderRadius:3, overflow:'hidden', display:'flex', background:'rgba(255,255,255,0.06)'}}>
-                          <div style={{width: paidPct + '%', background:'#8B7FD9'}}/>
-                          <div style={{width: (100 - paidPct) + '%', background:'#E5243B'}}/>
+                        <div style={{height:6, borderRadius:3, overflow:'hidden', display:'flex', background:'rgb(var(--ov-rgb) / .06)'}}>
+                          <div style={{width: paidPct + '%', background:'var(--lilac)'}}/>
+                          <div style={{width: (100 - paidPct) + '%', background:'var(--accent)'}}/>
                         </div>
                       )}
                       <div className="muted tiny" style={{marginTop:8, fontSize:10}}>{t('burn.referral.note')}</div>
@@ -450,12 +450,12 @@ function BurnSection({ tweaks }) {
                     .filter(([, v]) => typeof v === 'number' && v > 0)
                     .sort((a, b) => b[1] - a[1]);
                   const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
-                  const palette = { xorBurn:'#E5243B', valStaking:'#7DD3FC', valBurn:'#F5B041', referrer:'#8B7FD9', kusdBuyback:'#60A5FA', unallocated:'#6B7280' };
+                  const palette = { xorBurn:'var(--accent)', valStaking:'var(--accent-2)', valBurn:'var(--amber)', referrer:'var(--lilac)', kusdBuyback:'var(--info)', unallocated:'var(--fg-3)' };
                   const label   = { xorBurn:t('s.xorBurn', 'XOR burn'), valStaking:t('s.valStaking', '→ VAL · staking'), valBurn:t('s.valBurn', 'VAL burn'), referrer:t('s.referrer', 'Referrer'), kusdBuyback:t('s.kusdBuyback', 'KUSD buy-back'), unallocated:t('s.unallocated', 'Unallocated') };
                   if (entries.length === 0) return <div className="muted tiny">{t('s.noFeeFlowData', 'Sin datos de fee flow.')}</div>;
                   return entries.map(([k, v]) => {
                     const pct = (v / total) * 100;
-                    const color = palette[k] || '#94A3B8';
+                    const color = palette[k] || 'var(--fg-2)';
                     const name = label[k] || k;
                     return (
                       <div key={k} className="holder-row">

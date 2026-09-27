@@ -7,11 +7,12 @@ const PALLETS = [
   'assets', 'vestedRewards',
 ];
 
+const palletTone = (hue) => 'color-mix(in oklab, ' + hue + ' 65%, var(--fg-1))';
 const PALLET_COLORS = {
-  currencies: '#60A5FA', liquidityProxy: '#EC4899', orderBook: '#F59E0B',
-  bridgeProxy: '#10B981', referrals: '#8B5CF6', staking: '#E5243B',
-  democracy: '#FBB040', council: '#A062B0', technicalCommittee: '#7B5B90',
-  utility: '#64748B', assets: '#06B6D4', vestedRewards: '#14B8A6',
+  currencies: palletTone('#60A5FA'), liquidityProxy: palletTone('#EC4899'), orderBook: palletTone('#F59E0B'),
+  bridgeProxy: palletTone('#10B981'), referrals: palletTone('#8B5CF6'), staking: palletTone('#E5243B'),
+  democracy: palletTone('#FBB040'), council: palletTone('#A062B0'), technicalCommittee: palletTone('#7B5B90'),
+  utility: 'var(--fg-3)', assets: palletTone('#06B6D4'), vestedRewards: palletTone('#14B8A6'),
 };
 
 // Real args and events of one extrinsic, loaded when its row is expanded.
@@ -49,7 +50,7 @@ function ExtRealDetail({ e }) {
           {list.map((ev, i) => {
             const pallet = ev.s || ev.section;
             return (
-              <div key={i} className="ext-event-chip" style={{['--ec']: PALLET_COLORS[pallet] || '#64748B'}}>
+              <div key={i} className="ext-event-chip" style={{['--ec']: PALLET_COLORS[pallet] || 'var(--fg-3)'}}>
                 <span className="ec-dot"/>
                 <span className="ec-pallet">{pallet}</span>
                 <span className="ec-sep">·</span>
@@ -341,7 +342,7 @@ function ExtrinsicsSection({ tweaks }) {
         </div>
         <div className="stat-card">
           <span className="stat-label">{t('s.successRate24h', 'Success Rate · 24h')}</span>
-          <span className="stat-value num" style={{color: '#6EE7B7'}}>{stats.successRate}%</span>
+          <span className="stat-value num" style={{color: 'var(--ok)'}}>{stats.successRate}%</span>
           <span className="stat-sub">{stats.failed.toLocaleString()} {t('s.failed24h', 'failed · 24h')}</span>
         </div>
         <div className="stat-card">
@@ -362,20 +363,20 @@ function ExtrinsicsSection({ tweaks }) {
             <button className={'swap-dropdown-btn' + (palletFilter ? ' has-filter' : '')}
                     onClick={() => setPalletOpen(o => !o)}>
               <span style={{width: 8, height: 8, borderRadius: '50%',
-                background: palletFilter ? PALLET_COLORS[palletFilter] : 'linear-gradient(135deg,#9B1B30,#7B5B90)'}}/>
+                background: palletFilter ? PALLET_COLORS[palletFilter] : 'var(--grad-brand)'}}/>
               <span>{palletFilter || t('s.allPallets', 'All Pallets')}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2 4 3 3 3-3"/></svg>
             </button>
             {palletOpen && (
               <div className="swap-dropdown-content">
                 <div className="swap-dd-item" onClick={() => { setPalletFilter(null); setPalletOpen(false); setPage(1); }}>
-                  <span style={{width:8,height:8,borderRadius:'50%',background:'linear-gradient(135deg,#9B1B30,#7B5B90)'}}/>
+                  <span style={{width:8,height:8,borderRadius:'50%',background:'var(--grad-brand)'}}/>
                   <span>{t('s.allPallets2', '🌟 All Pallets')}</span>
                 </div>
                 {palletList.map(p => (
                   <div key={p} className={'swap-dd-item' + (palletFilter === p ? ' active' : '')}
                        onClick={() => { setPalletFilter(p); setPalletOpen(false); setPage(1); }}>
-                    <span style={{width:8, height:8, borderRadius:'50%', background: PALLET_COLORS[p] || '#64748B'}}/>
+                    <span style={{width:8, height:8, borderRadius:'50%', background: PALLET_COLORS[p] || 'var(--fg-3)'}}/>
                     <span>{p}</span>
                   </div>
                 ))}
@@ -402,7 +403,7 @@ function ExtrinsicsSection({ tweaks }) {
           )}
 
           {blockFilter && (
-            <span className="tag" style={{display:'inline-flex', alignItems:'center', gap:6, background:'var(--accent-bg, #9B1B3022)', color:'var(--accent, #F5B041)', borderColor:'var(--accent, #F5B041)'}}>
+            <span className="tag" style={{display:'inline-flex', alignItems:'center', gap:6, background:'rgb(var(--accent-rgb) / .13)', color:'var(--accent-text)', borderColor:'var(--accent)'}}>
               {t('s.block', 'Block #')}{Number(blockFilter).toLocaleString()}
               <button className="btn" onClick={() => { setBlockFilter(''); setHashHighlight(''); setPage(1); }} style={{padding:'0 6px', marginLeft:4}} title={t('s.removeBlockFilter', 'Quitar filtro de bloque')}>✕</button>
             </span>
@@ -456,7 +457,7 @@ function ExtrinsicsSection({ tweaks }) {
                 return (
                 <React.Fragment key={e.id}>
                   <tr className={'ext-row' + (expanded === e.id ? ' open' : '')}
-                      style={isHighlighted ? { background: 'rgba(160,98,176,0.10)', boxShadow: 'inset 3px 0 0 #A062B0' } : null}
+                      style={isHighlighted ? { background: 'rgb(var(--lilac-rgb) / .10)', boxShadow: 'inset 3px 0 0 var(--lilac)' } : null}
                       onClick={() => setExpanded(expanded === e.id ? null : e.id)}>
                     <td data-label={t('col.time')} style={{paddingLeft: 20}} title={fmt.fullDate(e.ts)}>
                       <div style={{fontSize: 12, fontWeight: 700, color: 'var(--fg-0)'}}>{fmt.ago(e.ts)}</div>
@@ -480,7 +481,7 @@ function ExtrinsicsSection({ tweaks }) {
                     </td>
                     <td data-label={t('col.caller')}>
                       <div style={{display:'flex', alignItems:'center', gap:8, minWidth: 0}}>
-                        <div style={{width:20, height:20, borderRadius:'50%', background:'linear-gradient(135deg,#7B5B90,#4A3566)', flexShrink: 0}}/>
+                        <div style={{width:20, height:20, borderRadius:'50%', background:'var(--grad-avatar)', flexShrink: 0}}/>
                         <AddrStack addr={e.caller}/>
                       </div>
                     </td>
@@ -490,7 +491,7 @@ function ExtrinsicsSection({ tweaks }) {
                         // that IS this extrinsic's fee. Loading → "…". Multiple fees
                         // in the block or not indexed → "—" (drawer shows detail).
                         if (!e.signed) return <div className="muted tiny" title={t('ext.feeUnsigned', 'Extrinsic no firmado · sin coste')}>—</div>;
-                        if (blockFees === undefined) return <div className="muted tiny num" style={{opacity:0.5}}>…</div>;
+                        if (blockFees === undefined) return <div className="tiny num" style={{color:'var(--fg-3)'}}>…</div>;
                         const bf = blockFees[e.block];
                         if (bf && bf.rows === 1 && bf.totalXor > 0) {
                           const xp = (window.TOKEN_PRICES && window.TOKEN_PRICES.XOR) || 0;
@@ -517,8 +518,8 @@ function ExtrinsicsSection({ tweaks }) {
                         <div className="ext-detail">
                           {!e.ok && (
                             <div className="ext-fail-banner">
-                              <span style={{fontWeight:700, color:'#FCA5A5'}}>{t('s.failed2', 'Failed:')}</span>
-                              <span style={{color:'#FCA5A5', marginLeft: 8}}>{e.failReason}</span>
+                              <span style={{fontWeight:700, color:'var(--err)'}}>{t('s.failed2', 'Failed:')}</span>
+                              <span style={{color:'var(--err)', marginLeft: 8}}>{e.failReason}</span>
                             </div>
                           )}
                           <ExtRealDetail e={e}/>
