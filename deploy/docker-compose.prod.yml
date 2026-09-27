@@ -4,7 +4,7 @@
 # Memory settings sized for the 48 GB host shared with two validators.
 services:
   postgres:
-    image: timescale/timescaledb:latest-pg14
+    image: timescale/timescaledb:2.19.3-pg14
     container_name: sorametrics-v33-postgres
     restart: unless-stopped
     environment:
