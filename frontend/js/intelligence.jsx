@@ -12,6 +12,18 @@
 const { useState, useEffect, useMemo, useRef } = React;
 
 // ---------- shared primitives ----------
+async function getJson(url, tries = 4) {
+  for (let attempt = 1; ; attempt++) {
+    let r = null;
+    try { r = await fetch(url); } catch (_) {}
+    if (r && r.ok) return r.json();
+    const status = r ? r.status : 'network';
+    if ((r && ![429, 502, 503, 504].includes(r.status)) || attempt >= tries) throw status;
+    const wait = (Number(r?.headers.get('retry-after')) || 2 * attempt) * 1000;
+    await new Promise(done => setTimeout(done, Math.min(wait, 15000)));
+  }
+}
+
 function Severity({ level }) {
   const map = { ok:'var(--ok)', warn:'var(--warn)', alert:'var(--err)', none:'var(--fg-3)' };
   return <span style={{display:'inline-block', width:8, height:8, borderRadius:'50%', background: map[level] || map.none}}/>;
@@ -42,13 +54,15 @@ function PegMonitor() {
   const t = useT();
   const STABLE_TARGETS = { KUSD: 1, XSTUSD: 1, DAI: 1 };
   const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    const pull = () => fetch('/stats/stablecoins').then(r => r.ok ? r.json() : null).then(j => {
+    const pull = () => getJson('/stats/stablecoins').then(j => {
       if (cancelled) return;
       const arr = Array.isArray(j) ? j : [];
       setData(arr.filter(s => STABLE_TARGETS[s.symbol] != null));
-    }).catch(() => {});
+      setFailed(false);
+    }).catch(() => { if (!cancelled) setFailed(true); });
     pull();
     const id = setInterval(pull, 60_000);
     return () => { cancelled = true; clearInterval(id); };
@@ -65,7 +79,8 @@ function PegMonitor() {
       title={t('s.pegMonitor', 'Peg Monitor')}
       severity={severity}
       tag={worst ? (worst.dev > 0.02 ? worst.symbol + ' DEPEG ' + (worst.dev * 100).toFixed(1) + '%' : t('s.withinRange', 'within range')) : '…'}>
-      {!data && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!data && !failed && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!data && failed && <div className="muted tiny">—</div>}
       {data && data.length === 0 && <div className="muted tiny">{t('s.noStablecoinsMonitored', 'Sin stablecoins monitorizados.')}</div>}
       {data && data.length > 0 && (
         <div style={{display:'grid', gap:10}}>
@@ -205,8 +220,7 @@ function WhaleActivity() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch('/stats/bridge-flow?window=' + tf + '&min_usd=1000000000000')
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    getJson('/stats/bridge-flow?window=' + tf + '&min_usd=1000000000000')
       .then(j => {
         if (cancelled) return;
         const top = side => side?.top ? { sym: side.top.symbol, usd: side.top.usd } : null;
@@ -344,8 +358,7 @@ function BridgeNetFlow() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch('/stats/bridge-flow?window=' + tf + '&min_usd=' + MIN_USD)
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    getJson('/stats/bridge-flow?window=' + tf + '&min_usd=' + MIN_USD)
       .then(j => {
         if (cancelled) return;
         setRows((j.moves || []).map((b, i) => {
@@ -616,12 +629,12 @@ function FeeWeekly() {
   // cycle just fired — see useEffect below).
   const pullAll = React.useCallback(async () => {
     const [feeCfg, overview, trend] = await Promise.all([
-      fetch('/stats/fee-config').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/stats/overview').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/stats/fees/trend?timeframe=30d').then(r => r.ok ? r.json() : null).catch(() => null),
+      getJson('/stats/fee-config').catch(() => null),
+      getJson('/stats/overview').catch(() => null),
+      getJson('/stats/fees/trend?timeframe=30d').catch(() => null),
     ]);
     if (feeCfg) setCfg(feeCfg);
-    fetch('/tokens?timeframe=24h&limit=50').then(r => r.ok ? r.json() : null).then(j => {
+    getJson('/tokens?timeframe=24h&limit=50').then(j => {
       const arr = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : [];
       const pick = (sym) => Number(arr.find(tok => tok.symbol === sym)?.price) || 0;
       setPrices({
@@ -659,8 +672,7 @@ function FeeWeekly() {
 
     let cancelled = false;
     setBurnLoading(true);
-    const pull = () => fetch('/stats/fee-burns-live?window=' + encodeURIComponent(burnTf))
-      .then(r => r.ok ? r.json() : null)
+    const pull = () => getJson('/stats/fee-burns-live?window=' + encodeURIComponent(burnTf))
       .then(j => { if (!cancelled && j && !j.error) { setBurnData(j); setBurnLoading(false); } })
       .catch(() => { if (!cancelled) setBurnLoading(false); });
     pull();
@@ -901,13 +913,15 @@ function FeeTpsAnomalies() {
   const t = useT();
   const [net, setNet] = useState(null);
   const [fees, setFees] = useState(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch('/stats/network').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/stats/fees').then(r => r.ok ? r.json() : null).catch(() => null),
+      getJson('/stats/network').catch(() => null),
+      getJson('/stats/fees').catch(() => null),
     ]).then(([n, f]) => {
       if (cancelled) return;
+      if (!n) { setFailed(true); return; }
       setNet(n);
       setFees(Array.isArray(f) ? f : []);
     });
@@ -940,7 +954,8 @@ function FeeTpsAnomalies() {
 
   return (
     <WidgetCard title={t('s.feeTpsAnomalies24hVs', 'Fee / TPS Anomalies · 24h vs 7d')} severity={severity} tag={net ? 'live' : '…'}>
-      {!net && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!net && !failed && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
+      {!net && failed && <div className="muted tiny">—</div>}
       {net && (
         <>
           {row(t('intel.fee.swapsDay', 'Swaps/day'), tx24.toLocaleString(), Math.round(tx7 / 7).toLocaleString(), tpsRatio, '')}
@@ -980,7 +995,7 @@ function ValidatorHealth() {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetch('/network/health').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(j => {
+    getJson('/network/health').then(j => {
       if (cancelled) return;
       const vs = j.validators || [];
       const silent = vs.filter(v => v.silent).map(v => ({
@@ -1027,9 +1042,9 @@ function GovernancePulse() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      fetch('/governance/democracy').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/governance/scheduler/agenda').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/governance/preimages').then(r => r.ok ? r.json() : null).catch(() => null),
+      getJson('/governance/democracy').catch(() => null),
+      getJson('/governance/scheduler/agenda').catch(() => null),
+      getJson('/governance/preimages').catch(() => null),
     ]).then(([dem, sch, pre]) => {
       if (cancelled) return;
       // Backend field is `referendums` (plural with 's'), not `referenda`.
@@ -1037,13 +1052,13 @@ function GovernancePulse() {
       // referendums existed. Also surface `totalReferendums` (historical
       // count, currently ~781) as a secondary stat.
       setData({
-        referendums: Array.isArray(dem?.referendums) ? dem.referendums.length : 0,
+        referendums: dem ? (Array.isArray(dem.referendums) ? dem.referendums.length : 0) : null,
         totalReferendums: Number(dem?.totalReferendums) || 0,
-        proposals: Array.isArray(dem?.proposals) ? dem.proposals.length : 0,
-        scheduledCalls: Array.isArray(sch?.entries) ? sch.entries.length
-          : Array.isArray(sch?.agenda) ? sch.agenda.length
-          : (Array.isArray(sch) ? sch.length : 0),
-        preimages: Array.isArray(pre?.preimages) ? pre.preimages.length : 0,
+        proposals: dem ? (Array.isArray(dem.proposals) ? dem.proposals.length : 0) : null,
+        scheduledCalls: sch ? (Array.isArray(sch.entries) ? sch.entries.length
+          : Array.isArray(sch.agenda) ? sch.agenda.length
+          : (Array.isArray(sch) ? sch.length : 0)) : null,
+        preimages: pre ? (Array.isArray(pre.preimages) ? pre.preimages.length : 0) : null,
       });
     });
     return () => { cancelled = true; };
@@ -1052,7 +1067,7 @@ function GovernancePulse() {
   const severity = !data ? 'none' : data.scheduledCalls > 0 ? 'warn' : 'ok';
 
   return (
-    <WidgetCard title={t('s.governancePulse', 'Governance Pulse')} severity={severity} tag={data ? (data.scheduledCalls + ' scheduled') : '…'}>
+    <WidgetCard title={t('s.governancePulse', 'Governance Pulse')} severity={severity} tag={data ? ((data.scheduledCalls ?? '—') + ' scheduled') : '…'}>
       {!data && <div className="muted tiny">{t('staking.rewards.perValidator.loading', 'Cargando…')}</div>}
       {data && (
         <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, textAlign:'center'}}>
@@ -1065,7 +1080,7 @@ function GovernancePulse() {
             { label:t('gov.preimages.title', 'Preimages'),   value: data.preimages },
           ].map(s => (
             <div key={s.label} style={{padding:'8px 6px', background:'rgb(var(--ov-rgb) / 0.03)', borderRadius:8, border: s.alert ? '1px solid color-mix(in srgb, var(--warn) 30%, transparent)' : '1px solid rgb(var(--ov-rgb) / 0.04)'}}>
-              <div className="num" style={{fontSize:22, fontWeight:800, color: s.alert ? 'var(--warn)' : 'var(--fg-0)'}}>{s.value}</div>
+              <div className="num" style={{fontSize:22, fontWeight:800, color: s.alert ? 'var(--warn)' : 'var(--fg-0)'}}>{s.value ?? '—'}</div>
               <div className="muted tiny" style={{marginTop:2}}>{s.label}</div>
             </div>
           ))}
@@ -1097,13 +1112,11 @@ function NewListings() {
     let cancelled = false;
     try { localStorage.removeItem('sm.intel.knownTokens'); } catch (_) {}
     (async () => {
-      const r = await fetch('/history/global/extrinsics?section=assets&method=register&limit=25');
-      if (!r.ok) throw r.status;
-      const j = await r.json();
+      const j = await getJson('/history/global/extrinsics?section=assets&method=register&limit=25');
       const cutoff = Date.now() - 86_400_000;
       const recent = (j.data || []).filter(x => Number(x.success) === 1 && apiTimeMs(x.time) >= cutoff);
       const details = await Promise.all(recent.map(x =>
-        fetch('/history/extrinsic/' + x.block + '/' + x.extrinsic_index).then(d => d.ok ? d.json() : null).catch(() => null)));
+        getJson('/history/extrinsic/' + x.block + '/' + x.extrinsic_index).catch(() => null)));
       if (cancelled) return;
       setResult(recent.map((x, i) => {
         let a = {};
@@ -1143,7 +1156,7 @@ function CrossDexArb() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const get = page => fetch('/pools?page=' + page + '&limit=100').then(r => r.ok ? r.json() : Promise.reject(r.status));
+      const get = page => getJson('/pools?page=' + page + '&limit=100');
       const first = await get(1);
       const rest = await Promise.all(Array.from({ length: Math.max(0, (first.totalPages || 1) - 1) }, (_, i) => get(i + 2)));
       if (cancelled) return;

@@ -5,6 +5,13 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-27
+- frontend (Intelligence): every card retries transient failures (429, 502, 503, 504, network)
+  up to four times, honouring `Retry-After`; a card that still fails shows "—" instead of staying on
+  "Loading…" or showing invented zeros (Governance Pulse showed 0 referendums, 0 proposals and
+  0 preimages; Fee / TPS stayed on "Loading…"). During an API restart every card used to fail until
+  the page was reloaded.
+- deploy: `health-check-v33.sh` sets `PATH` (cron's lacks `/usr/local/bin`, so `pm2` was not found,
+  every process was reported as down and none could be restarted).
 - API: `/wallet/info` is computed in the background on the long-timeout router (as `/holders`): one
   pass per table instead of ten, in one transaction with a 300 s statement timeout and no parallel
   workers (parallel aggregates failed on the database container's 64 MB `/dev/shm`). New covering

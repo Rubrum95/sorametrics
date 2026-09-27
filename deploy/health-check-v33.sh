@@ -3,6 +3,8 @@
 # /root/health-check-sorametrics.sh, extended to the ingests).
 # Cron: */15 * * * * /root/sorametrics-v33/deploy/health-check-v33.sh >> /var/log/health-check-v33.log 2>&1
 
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
 API_URL="${API_URL:-http://127.0.0.1:3311}"
 APPS="sorametrics-v33-api sorametrics-v33-ingest-substrate sorametrics-v33-ingest-iroha"
 
