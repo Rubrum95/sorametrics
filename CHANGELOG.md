@@ -73,6 +73,9 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
   1 clear), drives transparency, blur and saturation, like the iOS 27 slider; it is 1. Reduced
   transparency / no backdrop-filter → opaque surfaces; prefers-contrast → 0.3. No layout change
   (checked at 1024/1440/1920), language and network menus stay on top, `--fg-3` lifted for contrast.
+- frontend: the topbar stays one row from 769 px up. The search placeholder wrapped into 2–5 lines
+  below 1280 px (bar 59–118 px tall) and the chips overflowed at 780 px; the label now ellipsizes and
+  the block/era chips hide at ≤ 900 px (iPad portrait).
 - frontend i18n: KPI captions (network-wide, registered, all-time, cumulative, settled, paginated),
   the identity source tooltips, the block drill title and the Portfolio history tabs were literal
   English or Spanish; the order book KPI no longer shows an API path as its caption.

@@ -224,7 +224,7 @@ function Topbar({ block }) {
            aria-label={t('common.search')}
            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') search.open(); }}>
         <I.search style={{width:14,height:14}}/>
-        {t('common.search')}
+        <span className="search-label">{t('common.search')}</span>
         <kbd>⌘K</kbd>
       </div>
       <div className="block-chip hide-mobile">
