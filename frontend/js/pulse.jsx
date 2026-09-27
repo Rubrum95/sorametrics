@@ -386,6 +386,7 @@ function PulseSection({ tweaks }) {
   const [statsOverview, setStatsOverview] = useState(null); // { pegs, network:{volume, users, txCount, ...}, trends }
   const [statsNetwork, setStatsNetwork] = useState(null);   // { stats24h, stats7d, tps }
   const [stakingNet, setStakingNet] = useState(null);       // { validatorCount, eraProgress, avgBlockTime, bestBlock, ... }
+  const [health, setHealth] = useState(null);
   const [trending, setTrending] = useState([]);             // [{ symbol, volume, logo }]
   const [range, setRange] = useTimeRange('24h');            // G7: shared pill — prod only exposes 24h + 7d here
 
@@ -408,6 +409,17 @@ function PulseSection({ tweaks }) {
     };
     pull();
     const id = setInterval(pull, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pull = () => fetch('/network/health')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (!cancelled) setHealth(j); })
+      .catch(() => { if (!cancelled) setHealth(null); });
+    pull();
+    const id = setInterval(pull, 15_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
@@ -633,27 +645,44 @@ function PulseSection({ tweaks }) {
             </div>
             <div className="card-body" style={{display:'grid', gap:10}}>
               {(() => {
-                // Derived from /staking/network + /stats/network
-                const vCount = Number(stakingNet?.validatorCount || 0);
-                const eraProgress = Number(stakingNet?.eraProgress || 0);
-                const finalityLag = stakingNet ? Number(stakingNet.bestBlock || 0) - Number(stakingNet.finalizedBlock || 0) : 0;
-                const tps = statsNetwork?.tps || (stakingNet ? (Number(statsNetwork?.stats24h?.txCount || 0) / 86400).toFixed(3) : '—');
+                const vs = health?.validators || [];
+                const silent = vs.filter(v => v.silent);
+                const age = health?.lastBlockAgeSecs;
+                const fill = health?.avgBlockTime1h ? Math.min(100, health.slotDuration / 1000 / health.avgBlockTime1h * 100) : null;
+                const lag = health ? health.bestBlock - health.finalizedBlock : null;
+                const eraProgress = Number(health?.eraProgress || 0);
+                const level = (v, okMax, warnMax) => v == null ? null : v <= okMax ? 'ok' : v <= warnMax ? 'warn' : 'err';
+                const tps = statsNetwork?.tps || (statsNetwork?.stats24h ? (Number(statsNetwork.stats24h.txCount || 0) / 86400).toFixed(3) : '—');
                 const rows = [
-                  { l: t('staking.tab.validators', 'Validadores'), v: stakingNet ? vCount + ' ' + t('s.activeLower', 'activos') : '—', ok: vCount > 0 },
-                  { l: 'Era',          v: stakingNet ? '#' + stakingNet.activeEra : '—', ok: !!stakingNet },
-                  { l: t('s.eraProgress', 'Era Progress'), v: stakingNet ? eraProgress.toFixed(0) + '%' : '—', ok: !!stakingNet, bar: eraProgress },
-                  { l: t('s.finalityLag', 'Finality Lag'), v: stakingNet ? finalityLag + ' ' + t('s.blocksUnit', 'blocks') : '—', ok: finalityLag <= 2 },
-                  { l: 'TPS',          v: tps, ok: true },
+                  { l: t('staking.tab.validators', 'Validadores'), v: health ? vs.length + ' ' + t('s.activeLower', 'activos') : '—', s: health ? (vs.length > 0 ? 'ok' : 'err') : null },
+                  { l: t('pulse.health.producing', 'Producing blocks'), v: health ? (vs.length - silent.length) + ' / ' + vs.length : '—', s: health ? (!silent.length ? 'ok' : silent.length * 3 >= vs.length ? 'err' : 'warn') : null, silent },
+                  { l: t('pulse.health.lastBlock', 'Last block'), v: age != null ? t('pulse.health.ago', '{n} s ago').replace('{n}', Math.round(age)) : '—', s: level(age, 18, 60) },
+                  { l: t('pulse.health.slots1h', 'Slots with a block · 1h'), v: fill != null ? fill.toFixed(0) + '%' : '—', s: fill == null ? null : fill >= 85 ? 'ok' : fill >= 70 ? 'warn' : 'err' },
+                  { l: t('s.finalityLag', 'Finality Lag'), v: lag != null ? lag + ' ' + t('s.blocksUnit', 'blocks') : '—', s: level(lag, 3, 10) },
+                  { l: 'Era', v: health ? '#' + health.era : '—', s: health ? 'ok' : null },
+                  { l: t('s.eraProgress', 'Era Progress'), v: health ? eraProgress.toFixed(0) + '%' : '—', s: health ? 'ok' : null, bar: health ? eraProgress : null },
+                  { l: 'TPS', v: tps, s: tps === '—' ? null : 'ok' },
                 ];
+                const color = { ok: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)' };
                 return rows.map((r, i) => (
-                  <div key={i} style={{display:'flex', alignItems:'center', gap: 10, fontSize: 13}}>
-                    <span style={{flex: 1, color: 'var(--fg-2)'}}>{r.l}</span>
-                    {r.bar != null && (
-                      <div className="holder-bar" style={{ width: 80 }}>
-                        <div className="fill" style={{ width: r.bar + '%' }}/>
+                  <div key={i}>
+                    <div style={{display:'flex', alignItems:'center', gap: 10, fontSize: 13}}>
+                      <span style={{flex: 1, color: 'var(--fg-2)'}}>{r.l}</span>
+                      {r.bar != null && (
+                        <div className="holder-bar" style={{ width: 80 }}>
+                          <div className="fill" style={{ width: r.bar + '%' }}/>
+                        </div>
+                      )}
+                      <span className="num" style={{ color: color[r.s] || 'var(--fg-2)', fontWeight: 700 }}>{r.v}</span>
+                    </div>
+                    {r.silent && r.silent.length > 0 && (
+                      <div className="tiny" style={{ marginTop: 4, color: 'var(--warn)', display: 'flex', flexWrap: 'wrap', gap: '2px 8px' }}>
+                        <span>{t('pulse.health.notProducing', 'Not producing')}:</span>
+                        {r.silent.map(v => (
+                          <span key={v.address}><WalletLink addr={v.address} name={v.name}>{v.name || fmt.addr(v.address, 6, 4)}</WalletLink>{' (' + v.blocksSession + ')'}</span>
+                        ))}
                       </div>
                     )}
-                    <span className="num" style={{ color: r.ok ? 'var(--ok)' : 'var(--err)', fontWeight: 700 }}>{r.v}</span>
                   </div>
                 ));
               })()}

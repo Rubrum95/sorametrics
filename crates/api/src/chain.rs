@@ -239,12 +239,21 @@ impl ChainClient {
         &self,
         keys: &[Vec<u8>],
     ) -> Result<Vec<Option<T>>, ChainError> {
+        self.fetch_many_at(keys, None).await
+    }
+
+    /// [`Self::fetch_many`] at a given block (`None` = best block).
+    pub async fn fetch_many_at<T: subxt::ext::codec::Decode>(
+        &self,
+        keys: &[Vec<u8>],
+        at: Option<subxt::utils::H256>,
+    ) -> Result<Vec<Option<T>>, ChainError> {
         if keys.is_empty() {
             return Ok(Vec::new());
         }
         let legacy = self.legacy_rpc().await?;
         let sets = legacy
-            .state_query_storage_at(keys.iter().map(Vec::as_slice), None)
+            .state_query_storage_at(keys.iter().map(Vec::as_slice), at)
             .await?;
         let mut by_key: std::collections::HashMap<Vec<u8>, Vec<u8>> =
             std::collections::HashMap::new();

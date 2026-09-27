@@ -94,6 +94,7 @@ const LIMITS: &[(&str, u32)] = &[
     ("/burns/supply-history/:p", 15),
     ("/burns/supply/:p", 20),
     ("/staking/rewards/live", 120),
+    ("/network/health", 120),
     ("/polkamarkt/buybacks", 30),
     ("/polkamarkt/market/:p", 30),
     ("/polkamarkt/markets", 30),

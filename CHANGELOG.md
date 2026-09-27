@@ -5,6 +5,21 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 ## Unreleased
 
 ### 2026-09-27
+- API: `GET /network/health` — best and finalized block, time since the last block (from its BABE
+  slot), mean block time over 1 h and 24 h, era and session progress in slots, and per validator the
+  blocks authored this era, last era and this session (`erasRewardPoints ÷ 20`,
+  `imOnline.authoredBlocks`), heartbeat, disabled flag and `silent` (authored implausibly few blocks
+  for the window's average, Poisson p < 0.001, once validators should have authored 8 each; a
+  heartbeat does not count as producing). Everything is read at the best block, so a finality stall
+  does not freeze it. Pinned metadata gains `ImOnline`.
+- API: `/staking/network` drops `currentInflation` (a fixed 0.0), `idealStakeRate`, `lastRewardEra`
+  and `lastRewardAmount`: the runtime sets `EraPayout = ()`, so staking mints no XOR (no era of the
+  84 kept has a validator reward). It gains `lastEraValReward`, the VAL bought back with fees for the
+  last era's payouts; `eraProgress` counts slots instead of whole sessions.
+- frontend: Pulse "Network Health" adds validators producing blocks (with links to the silent ones),
+  last block age, share of slots with a block in the last hour and slot-based era progress. Staking
+  "Network Info" replaces the inflation cells with era reward in VAL, staking ratio and block
+  production.
 - API: `/staking/network.avgBlockTime` is measured: seconds from the first block timestamped in the
   last 24 h until now, divided by the blocks produced since then up to the chain head, so a stalled
   chain raises it while it lasts (`null` with no block in the window). It was the runtime target

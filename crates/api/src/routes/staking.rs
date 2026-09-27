@@ -13,10 +13,16 @@
 //!   fallback), identity display, and `erasSincePayout` in days (1 dp)
 //!   from the ledger's claimed eras; `{ era, validatorCount,
 //!   validators, xorPrice }`. Cached 2 min.
-//! - `/staking/network`: era / session / block progress, issuance and
-//!   stake (`toFixed` strings), validator counts, min bonds, the last
-//!   era with a non-zero `erasValidatorReward`, unbonding period.
-//!   Cached 30 s.
+//! - `/staking/network`: era / session / slot progress, issuance and
+//!   stake (`toFixed` strings), validator counts, min bonds, the VAL
+//!   bought back for the last era's payouts
+//!   (`xorFee.valStakingEraReward(activeEra − 1)`; the runtime's
+//!   `EraPayout = ()` mints no XOR), unbonding period. Cached 30 s.
+//! - `/network/health`: best and finalized head, time since the best
+//!   block (its BABE slot), mean block time over 1 h / 24 h, era and
+//!   session progress in slots and, per validator, blocks this era, last
+//!   era and this session, heartbeat, disabled and `silent`, all read at
+//!   the best block. Cached 6 s.
 //! - `/staking/recent-blocks`: the last 15 blocks with the BABE author
 //!   (pre-runtime digest authority index → session validator), its
 //!   display name, extrinsic count, age in seconds and timestamp.
@@ -53,6 +59,7 @@ pub fn router() -> Router<AppState> {
         .route("/staking/validators", get(validators))
         .route("/staking/network", get(network))
         .route("/staking/recent-blocks", get(recent_blocks))
+        .route("/network/health", get(health))
 }
 
 const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
@@ -60,6 +67,13 @@ const WALLET_TTL: Duration = Duration::from_secs(15 * 60);
 const VALIDATORS_TTL: Duration = Duration::from_secs(2 * 60);
 const NETWORK_TTL: Duration = Duration::from_secs(30);
 const RECENT_BLOCKS_TTL: Duration = Duration::from_secs(6);
+const HEALTH_TTL: Duration = Duration::from_secs(6);
+/// Blocks each validator should have authored on average in a window
+/// before that window is used to judge block production.
+const SILENT_MIN_EXPECTED: f64 = 8.0;
+/// A validator is silent when authoring as few blocks as it did, given
+/// the window's average, is less likely than this (Poisson).
+const SILENT_P: f64 = 0.001;
 const RECENT_BLOCKS: u32 = 15;
 
 fn planck_to_f64(raw: u128) -> f64 {
@@ -116,7 +130,6 @@ struct EraConsts {
     epoch_duration: u64,
     expected_block_time: u64,
     bonding_duration: u32,
-    history_depth: u32,
 }
 
 fn era_consts(client: &OnlineClient<SubstrateConfig>) -> Result<EraConsts, ApiError> {
@@ -133,9 +146,6 @@ fn era_consts(client: &OnlineClient<SubstrateConfig>) -> Result<EraConsts, ApiEr
             .map_err(ChainErr)?,
         bonding_duration: c
             .at(&sora::constants().staking().bonding_duration())
-            .map_err(ChainErr)?,
-        history_depth: c
-            .at(&sora::constants().staking().history_depth())
             .map_err(ChainErr)?,
     })
 }
@@ -580,14 +590,8 @@ struct NetworkResponse {
     min_nominator_bond: String,
     #[serde(rename = "minValidatorBond")]
     min_validator_bond: String,
-    #[serde(rename = "lastRewardEra")]
-    last_reward_era: Option<u32>,
-    #[serde(rename = "lastRewardAmount")]
-    last_reward_amount: Option<String>,
-    #[serde(rename = "idealStakeRate")]
-    ideal_stake_rate: Option<f64>,
-    #[serde(rename = "currentInflation")]
-    current_inflation: f64,
+    #[serde(rename = "lastEraValReward")]
+    last_era_val_reward: Option<String>,
     #[serde(rename = "unbondingDays")]
     unbonding_days: f64,
     #[serde(rename = "unbondingEras")]
@@ -605,8 +609,11 @@ fn progress(
     epoch_duration: u64,
 ) -> (i64, f64, String) {
     let session_progress = i64::from(session) - i64::from(era_start_session);
+    let era_slots = f64::from(sessions_per_era) * epoch_duration.max(1) as f64;
     let era_progress = round_to(
-        session_progress as f64 / f64::from(sessions_per_era) * 100.0,
+        ((session_progress as f64 * epoch_duration as f64 + slots_into_epoch as f64) / era_slots
+            * 100.0)
+            .clamp(0.0, 100.0),
         1,
     );
     let epoch_progress = round_to(
@@ -673,6 +680,7 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             slot: u64,
             genesis_slot: u64,
             epoch_index: u64,
+            val_reward_prev: u128,
         }
         let raw = chain
             .with_client(|client| async move {
@@ -710,6 +718,10 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
                     slot: at.fetch(&s.babe().current_slot()).await?.map_or(0, |v| v.0),
                     genesis_slot: at.fetch(&s.babe().genesis_slot()).await?.map_or(0, |v| v.0),
                     epoch_index: at.fetch(&s.babe().epoch_index()).await?.unwrap_or(0),
+                    val_reward_prev: at
+                        .fetch(&s.xor_fee().val_staking_era_reward(era.saturating_sub(1)))
+                        .await?
+                        .unwrap_or(0),
                     active,
                 })
             })
@@ -748,25 +760,6 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
         let staking_ratio =
             (issuance_f > 0.0).then(|| format!("{:.4}", staked_f / issuance_f * 100.0));
 
-        // Last era with a non-zero validator reward within HistoryDepth.
-        let eras: Vec<u32> = (era.saturating_sub(consts.history_depth)..era)
-            .rev()
-            .collect();
-        let reward_keys: Vec<Vec<u8>> = eras
-            .iter()
-            .map(|e| {
-                key_bytes(
-                    &client,
-                    &sora::storage().staking().eras_validator_reward(*e),
-                )
-            })
-            .collect::<Result<_, _>>()?;
-        let rewards: Vec<Option<u128>> = chain.fetch_many(&reward_keys).await?;
-        let last = eras
-            .iter()
-            .zip(rewards)
-            .find_map(|(e, r)| r.filter(|v| *v > 0).map(|v| (*e, planck_fixed(v, 2))));
-
         let xor_price = xor_price(&state).await?;
         let total_stake_usd =
             (staked_f > 0.0 && xor_price > 0.0).then(|| format!("{:.2}", staked_f * xor_price));
@@ -800,10 +793,8 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             validator_target: raw.target,
             min_nominator_bond: planck_fixed(raw.min_nom, 4),
             min_validator_bond: planck_fixed(raw.min_val, 4),
-            last_reward_era: last.as_ref().map(|(e, _)| *e),
-            last_reward_amount: last.map(|(_, a)| a),
-            ideal_stake_rate: None,
-            current_inflation: 0.0,
+            last_era_val_reward: (raw.val_reward_prev > 0)
+                .then(|| planck_fixed(raw.val_reward_prev, 2)),
             unbonding_days,
             unbonding_eras: consts.bonding_duration,
             era_started_ago,
@@ -921,6 +912,313 @@ async fn recent_blocks(
     Ok(Json(v))
 }
 
+// ---------------------------------------------------------------------
+// /network/health
+// ---------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize)]
+struct ValidatorHealth {
+    address: String,
+    name: Option<String>,
+    #[serde(rename = "blocksEra")]
+    blocks_era: u32,
+    #[serde(rename = "blocksSession")]
+    blocks_session: u32,
+    #[serde(rename = "blocksPrevEra")]
+    blocks_prev_era: u32,
+    heartbeat: bool,
+    disabled: bool,
+    silent: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct HealthResponse {
+    #[serde(rename = "bestBlock")]
+    best_block: u32,
+    #[serde(rename = "finalizedBlock")]
+    finalized_block: u32,
+    #[serde(rename = "bestBlockTime")]
+    best_block_time: Option<u64>,
+    #[serde(rename = "lastBlockAgeSecs")]
+    last_block_age_secs: Option<f64>,
+    #[serde(rename = "slotDuration")]
+    slot_duration: u64,
+    #[serde(rename = "avgBlockTime1h")]
+    avg_block_time_1h: Option<f64>,
+    #[serde(rename = "avgBlockTime24h")]
+    avg_block_time_24h: Option<f64>,
+    era: u32,
+    #[serde(rename = "eraProgress")]
+    era_progress: f64,
+    session: u32,
+    #[serde(rename = "sessionPercent")]
+    session_percent: f64,
+    validators: Vec<ValidatorHealth>,
+}
+
+/// BABE slot of a block from its pre-runtime digest (primary, secondary
+/// plain and secondary VRF all carry `authority_index: u32, slot: u64`).
+fn babe_slot(logs: &[DigestItem]) -> Option<u64> {
+    logs.iter().find_map(|l| match l {
+        DigestItem::PreRuntime(id, data)
+            if id == b"BABE" && data.len() >= 13 && (1..=3).contains(&data[0]) =>
+        {
+            let mut slot = [0u8; 8];
+            slot.copy_from_slice(&data[5..13]);
+            Some(u64::from_le_bytes(slot))
+        }
+        _ => None,
+    })
+}
+
+/// `P(X <= k)` for `X ~ Poisson(lambda)`.
+fn poisson_cdf(k: u32, lambda: f64) -> f64 {
+    let mut term = (-lambda).exp();
+    let mut sum = term;
+    for i in 1..=k {
+        term *= lambda / f64::from(i);
+        sum += term;
+    }
+    sum.min(1.0)
+}
+
+/// Validators authoring implausibly few blocks (below `SILENT_P`) in the
+/// current session once its average reaches `SILENT_MIN_EXPECTED`;
+/// before that, in the current era; early in the era, those that were
+/// in the previous era's set, were implausibly low there and have not
+/// authored since. Heartbeats do not count: they prove the node is up,
+/// not that it authors blocks.
+fn silent_flags(
+    session_blocks: &[u32],
+    era_blocks: &[u32],
+    prev_era_blocks: &[u32],
+    in_prev_era: &[bool],
+) -> Vec<bool> {
+    let avg = |v: &[u32]| v.iter().map(|b| f64::from(*b)).sum::<f64>() / v.len().max(1) as f64;
+    let at = |v: &[u32], i: usize| v.get(i).copied().unwrap_or(0);
+    let low = |k: u32, lambda: f64| poisson_cdf(k, lambda) < SILENT_P;
+    let (session_avg, era_avg) = (avg(session_blocks), avg(era_blocks));
+    let prev_avg = avg(prev_era_blocks);
+    (0..session_blocks.len())
+        .map(|i| {
+            if session_avg >= SILENT_MIN_EXPECTED {
+                low(session_blocks[i], session_avg)
+            } else if era_avg >= SILENT_MIN_EXPECTED {
+                low(at(era_blocks, i), era_avg)
+            } else {
+                prev_avg >= SILENT_MIN_EXPECTED
+                    && in_prev_era.get(i).copied().unwrap_or(false)
+                    && low(at(prev_era_blocks, i), prev_avg)
+                    && at(era_blocks, i) == 0
+                    && session_blocks[i] == 0
+            }
+        })
+        .collect()
+}
+
+async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse>, ApiError> {
+    let mut v: HealthResponse = cached(&state, "network:health", HEALTH_TTL, || async {
+        let chain = state.chain.as_ref().ok_or(ApiError::NoChain)?;
+        let client = chain.client().await?;
+        let consts = era_consts(&client)?;
+        let legacy = chain.legacy_rpc().await?;
+        let best_hash = legacy
+            .chain_get_block_hash(None)
+            .await
+            .map_err(ChainErr)?
+            .ok_or_else(|| ApiError::Internal("node returned no best block".into()))?;
+        let header = legacy
+            .chain_get_header(Some(best_hash))
+            .await
+            .map_err(ChainErr)?;
+        let best = header.as_ref().map(|h| h.number).unwrap_or(0);
+        let best_block_time = header
+            .as_ref()
+            .and_then(|h| babe_slot(&h.digest.logs))
+            .map(|slot| slot.saturating_mul(consts.expected_block_time));
+        let finalized_hash = legacy.chain_get_finalized_head().await.map_err(ChainErr)?;
+        let finalized = client
+            .blocks()
+            .at(finalized_hash)
+            .await
+            .map_err(ChainErr)?
+            .number();
+
+        struct Raw {
+            era: u32,
+            era_start_session: u32,
+            session: u32,
+            set: Vec<AccountId32>,
+            points: Option<EraRewardPoints<AccountId32>>,
+            prev_points: Option<EraRewardPoints<AccountId32>>,
+            disabled: Vec<u32>,
+            slot: u64,
+            genesis_slot: u64,
+            epoch_index: u64,
+        }
+        let raw = chain
+            .with_client(move |client| async move {
+                let at = client.storage().at(best_hash);
+                let s = sora::storage();
+                let era = at
+                    .fetch(&s.staking().active_era())
+                    .await?
+                    .map(|a: ActiveEraInfo| a.index)
+                    .unwrap_or(0);
+                Ok(Raw {
+                    era,
+                    era_start_session: at
+                        .fetch(&s.staking().eras_start_session_index(era))
+                        .await?
+                        .unwrap_or(0),
+                    session: at.fetch(&s.session().current_index()).await?.unwrap_or(0),
+                    set: at
+                        .fetch(&s.session().validators())
+                        .await?
+                        .unwrap_or_default(),
+                    points: at.fetch(&s.staking().eras_reward_points(era)).await?,
+                    prev_points: at
+                        .fetch(&s.staking().eras_reward_points(era.saturating_sub(1)))
+                        .await?,
+                    disabled: at
+                        .fetch(&s.session().disabled_validators())
+                        .await?
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(i, _)| i)
+                        .collect(),
+                    slot: at.fetch(&s.babe().current_slot()).await?.map_or(0, |v| v.0),
+                    genesis_slot: at.fetch(&s.babe().genesis_slot()).await?.map_or(0, |v| v.0),
+                    epoch_index: at.fetch(&s.babe().epoch_index()).await?.unwrap_or(0),
+                })
+            })
+            .await?;
+
+        let authored_keys: Vec<Vec<u8>> = raw
+            .set
+            .iter()
+            .map(|v| {
+                key_bytes(
+                    &client,
+                    &sora::storage().im_online().authored_blocks(raw.session, v),
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        let heartbeat_keys: Vec<Vec<u8>> = (0..raw.set.len() as u32)
+            .map(|i| {
+                key_bytes(
+                    &client,
+                    &sora::storage()
+                        .im_online()
+                        .received_heartbeats(raw.session, i),
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        let prev_keys: Vec<Vec<u8>> = raw
+            .set
+            .iter()
+            .map(|v| {
+                key_bytes(
+                    &client,
+                    &sora::storage()
+                        .staking()
+                        .eras_stakers_overview(raw.era.saturating_sub(1), v),
+                )
+            })
+            .collect::<Result<_, _>>()?;
+        let at = Some(best_hash);
+        let authored: Vec<Option<u32>> = chain.fetch_many_at(&authored_keys, at).await?;
+        let heartbeats: Vec<Option<bool>> = chain.fetch_many_at(&heartbeat_keys, at).await?;
+        let prev_overviews: Vec<Option<PagedExposureMetadata<u128>>> =
+            chain.fetch_many_at(&prev_keys, at).await?;
+        let in_prev_era: Vec<bool> = prev_overviews.iter().map(Option::is_some).collect();
+
+        let blocks_by_validator = |points: Option<EraRewardPoints<AccountId32>>| {
+            let by: HashMap<[u8; 32], u32> = points
+                .map(|p| p.individual.into_iter().map(|(a, n)| (a.0, n)).collect())
+                .unwrap_or_default();
+            raw.set
+                .iter()
+                .map(|a| by.get(&a.0).copied().unwrap_or(0) / 20)
+                .collect::<Vec<u32>>()
+        };
+        let blocks_era = blocks_by_validator(raw.points);
+        let blocks_prev_era = blocks_by_validator(raw.prev_points);
+        let blocks_session: Vec<u32> = authored.into_iter().map(|b| b.unwrap_or(0)).collect();
+        let heartbeat: Vec<bool> = heartbeats.into_iter().map(|h| h.unwrap_or(false)).collect();
+        let silent = silent_flags(&blocks_session, &blocks_era, &blocks_prev_era, &in_prev_era);
+
+        let addresses: Vec<String> = raw.set.iter().map(|a| ss58_encode_sora(&a.0)).collect();
+        let names = display_names(&state, &addresses).await;
+        let validators = addresses
+            .into_iter()
+            .enumerate()
+            .map(|(i, address)| ValidatorHealth {
+                name: names.get(&address).cloned(),
+                address,
+                blocks_era: blocks_era[i],
+                blocks_session: blocks_session[i],
+                blocks_prev_era: blocks_prev_era[i],
+                heartbeat: heartbeat[i],
+                disabled: raw.disabled.contains(&(i as u32)),
+                silent: silent[i],
+            })
+            .collect();
+
+        let into_epoch = slots_into_epoch(
+            raw.slot,
+            raw.genesis_slot,
+            raw.epoch_index,
+            consts.epoch_duration,
+        );
+        let (_, era_progress, _) = progress(
+            raw.session,
+            raw.era_start_session,
+            consts.sessions_per_era,
+            into_epoch,
+            consts.epoch_duration,
+        );
+        let session_percent = round_to(
+            (into_epoch as f64 / consts.epoch_duration.max(1) as f64 * 100.0).min(100.0),
+            1,
+        );
+
+        let now = chrono::Utc::now();
+        let head = i64::from(best);
+        let avg_since = |hours: i64| {
+            let db = state.db.clone();
+            async move {
+                sorametrics_db::sm::first_block_since(&db, now - chrono::Duration::hours(hours))
+                    .await
+                    .map(|first| first.and_then(|f| mean_block_seconds(now, f, head)))
+            }
+        };
+        let avg_block_time_1h = avg_since(1).await?;
+        let avg_block_time_24h = avg_since(24).await?;
+
+        Ok(HealthResponse {
+            best_block: best,
+            finalized_block: finalized,
+            best_block_time,
+            last_block_age_secs: None,
+            slot_duration: consts.expected_block_time,
+            avg_block_time_1h,
+            avg_block_time_24h,
+            era: raw.era,
+            era_progress,
+            session: raw.session,
+            session_percent,
+            validators,
+        })
+    })
+    .await?;
+    let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
+    v.last_block_age_secs = v
+        .best_block_time
+        .map(|t| now_ms.saturating_sub(t) as f64 / 1000.0);
+    Ok(Json(v))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -936,7 +1234,7 @@ mod tests {
     fn progress_and_labels_match_node() {
         let (sp, ep, epoch) = progress(47027, 47024, 6, 222, 600);
         assert_eq!(sp, 3);
-        assert_eq!(ep, 50.0);
+        assert_eq!(ep, 56.2);
         assert_eq!(epoch, "37%");
         assert_eq!(progress(47027, 47024, 6, 700, 600).2, "100%");
     }
@@ -959,6 +1257,52 @@ mod tests {
         assert_eq!(epoch_label(3600.0), "1.0h");
         assert_eq!(epoch_label(600.0), "10min");
         assert_eq!(round_to(0.75 / 1e9 * 1e9 * 100.0 / 100.0 * 75.0, 2), 56.25);
+    }
+
+    #[test]
+    fn babe_slot_and_silent_validators() {
+        let mut data = vec![1u8];
+        data.extend_from_slice(&3u32.to_le_bytes());
+        data.extend_from_slice(&298_418_532u64.to_le_bytes());
+        data.extend_from_slice(&[0u8; 32]);
+        let logs = vec![DigestItem::PreRuntime(*b"BABE", data)];
+        assert_eq!(babe_slot(&logs), Some(298_418_532));
+        assert_eq!(babe_slot(&[DigestItem::Other(vec![1])]), None);
+
+        let yes = [true; 4];
+        let none = [0; 4];
+        assert_eq!(
+            silent_flags(&[3, 0, 2, 1], &[4, 0, 3, 2], &none, &yes),
+            vec![false; 4]
+        );
+        assert_eq!(
+            silent_flags(&[3, 0, 2, 1], &[4, 0, 3, 2], &[250, 0, 240, 1], &yes),
+            vec![false, true, false, false]
+        );
+        assert_eq!(
+            silent_flags(
+                &[3, 0, 2, 0],
+                &[4, 0, 3, 0],
+                &[250, 0, 240, 1],
+                &[true, false, true, true]
+            ),
+            vec![false, false, false, true]
+        );
+        assert_eq!(
+            silent_flags(&[3, 0, 2, 1], &[40, 0, 30, 20], &none, &yes),
+            vec![false, true, false, false]
+        );
+        assert_eq!(
+            silent_flags(&[20, 0, 12, 3], &[40, 0, 30, 20], &none, &yes),
+            vec![false, true, false, false]
+        );
+        assert_eq!(
+            silent_flags(&[30, 3, 25, 28], &[90, 60, 80, 85], &none, &yes),
+            vec![false, true, false, false]
+        );
+        assert!((poisson_cdf(0, 8.0) - (-8.0f64).exp()).abs() < 1e-12);
+        assert!(poisson_cdf(10, 20.0) > SILENT_P);
+        assert!(poisson_cdf(3, 20.0) < SILENT_P);
     }
 
     #[test]

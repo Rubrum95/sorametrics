@@ -1931,6 +1931,7 @@ function StakingSection({ tweaks }) {
   const [rawValidators, setRawValidators] = useState([]);
   const [stakingMeta, setStakingMeta] = useState(null); // { era, validatorCount }
   const [networkStats, setNetworkStats] = useState(null);
+  const [netHealth, setNetHealth] = useState(null);
   const [recentBlocks, setRecentBlocks] = useState([]);
   const [rewardsData, setRewardsData] = useState(null);
   const [liveData, setLiveData] = useState(null);
@@ -1968,9 +1969,14 @@ function StakingSection({ tweaks }) {
   useEffect(() => {
     if (tab !== 'network') return;
     let cancelled = false;
-    const pullNet = () => fetch('/staking/network').then(r => r.ok ? r.json() : null).then(j => {
-      if (!cancelled) setNetworkStats(j);
-    }).catch(() => {});
+    const pullNet = () => {
+      fetch('/staking/network').then(r => r.ok ? r.json() : null).then(j => {
+        if (!cancelled) setNetworkStats(j);
+      }).catch(() => {});
+      fetch('/network/health').then(r => r.ok ? r.json() : null).then(j => {
+        if (!cancelled) setNetHealth(j);
+      }).catch(() => {});
+    };
     const pullBlocks = () => fetch('/staking/recent-blocks?limit=20').then(r => r.ok ? r.json() : null).then(j => {
       if (!cancelled) setRecentBlocks(Array.isArray(j) ? j : (j?.blocks || j?.data || []));
     }).catch(() => {});
@@ -2195,9 +2201,9 @@ function StakingSection({ tweaks }) {
               ['Epoch Progress', ns.epochProgress != null ? ns.epochProgress : '—', ns.epochsPerEra ? (ns.epochsPerEra + ' epochs · ~' + (ns.epochDuration || '?') + ' each') : ''],
               ['Validators Target', ns.activeValidators != null ? (ns.activeValidators + ' active') : '—', ns.waitingValidators != null ? (ns.waitingValidators + ' waiting in queue') : ''],
               ['Min Nominator Bond', ns.minNominatorBond != null ? (fmt.num(Number(ns.minNominatorBond), 2) + ' XOR') : '—', 'hard floor'],
-              ['Last Reward Era', ns.lastRewardEra != null ? String(ns.lastRewardEra) : '—', ns.lastRewardAmount != null ? (fmt.num(Number(ns.lastRewardAmount), 0) + ' XOR distributed') : ''],
-              ['Ideal Stake Rate', ns.idealStakeRate != null ? (ns.idealStakeRate + '%') : '—', 'annual inflation model'],
-              ['Current Inflation', ns.currentInflation != null ? (ns.currentInflation + '%') : '—', 'this era annualised'],
+              ['Era reward', ns.lastEraValReward != null ? fmt.num(Number(ns.lastEraValReward), 2) + ' VAL' : '—', ns.era != null ? 'era ' + (ns.era - 1) + ' · VAL bought back with fees' : ''],
+              ['Staking ratio', ns.stakingRatio != null ? ns.stakingRatio + '%' : '—', 'of XOR supply staked'],
+              ['Block production', netHealth?.validators ? (netHealth.validators.length - netHealth.validators.filter(v => v.silent).length) + ' / ' + netHealth.validators.length : '—', netHealth?.validators ? (netHealth.validators.some(v => v.silent) ? 'not producing: ' + netHealth.validators.filter(v => v.silent).map(v => (v.name || fmt.addr(v.address, 6, 4)) + ' (' + v.blocksSession + ')').join(', ') : 'all validators producing') : ''],
               ['Unbonding Period', ns.unbondingDays != null ? (ns.unbondingDays + ' days') : '—', 'withdrawal lock'],
             ];
             return (

@@ -55,7 +55,7 @@ cd crates/substrate/metadata
 
 subxt metadata \
   --url wss://mof2.sora.org --version 15 \
-  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt,Preimage,Scheduler,Council,TechnicalCommittee,ElectionsPhragmen,Democracy,Utility,Technical" \
+  --pallets "System,Timestamp,Assets,Balances,Tokens,LiquidityProxy,XorFee,SubstrateBridgeApp,ParachainBridgeApp,JettonApp,BridgeMultisig,EthBridge,TransactionPayment,PoolXYK,Identity,OrderBook,Staking,Session,Babe,Denomination,Polkamarkt,Preimage,Scheduler,Council,TechnicalCommittee,ElectionsPhragmen,Democracy,Utility,Technical,ImOnline" \
   --format bytes \
   > sora-mainnet.scale
 ```
