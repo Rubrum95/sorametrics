@@ -149,7 +149,7 @@ ROUTES = [
     # --- staking ---
     dict(path=f"/wallet/staking/{ADDR}", mode="full"),
     dict(path="/staking/validators", mode="full", ignore=["erasSincePayout", "lastPayoutEra", "eraPoints", "prevEraPoints", "maxValidators", "eraPointsTotal", "prevEraPointsTotal"]),
-    dict(path="/staking/network", mode="full", ignore=["sessionIndex", "eraStart", "activeEra", "currentEra", "era"]),
+    dict(path="/staking/network", mode="full", ignore=["sessionIndex", "eraStart", "activeEra", "currentEra", "era", "avgBlockTime", "epochProgress"]),
     dict(path="/staking/recent-blocks", mode="structure"),
     dict(path="/staking/rewards", mode="full", ignore=["indexedTotalValReceived", "indexedPayoutCount", "indexedErasCovered", "lastClaimEra", "lastClaimTs", "networkTotals", "topDestinations", "valToXorRateWindows", "era", "avgRewardPointsPerEra", "erasProducedRecent", "valOutstanding", "ownOutstanding", "pendingErasCount", "yieldRateNominatorPerXorPerEra", "own", "total", "nominators"]),
     dict(path="/staking/rewards/live", mode="structure"),

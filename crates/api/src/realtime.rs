@@ -46,8 +46,9 @@ pub fn spawn(state: AppState, io: SocketIo) {
 // new-block-stats
 // ---------------------------------------------------------------------
 
-/// `{ block, finalized, avgTime }`; `avgTime` = mean of the last ten
-/// block intervals in seconds with 3 decimals, `null` until two blocks.
+/// `{ block, finalized, avgTime }`; `avgTime` = mean block interval over
+/// the last `BLOCK_TIMES_WINDOW` cursor advances in seconds with 3
+/// decimals, `null` until two observations.
 #[derive(Serialize)]
 struct BlockStats {
     block: i64,
@@ -59,8 +60,8 @@ struct BlockStats {
 async fn block_stats_loop(state: AppState, io: SocketIo) {
     let mut last_cursor: Option<i64> = None;
     let mut last_shown: Option<i64> = None;
-    let mut last_ts: Option<DateTime<Utc>> = None;
-    let mut intervals: VecDeque<i64> = VecDeque::with_capacity(BLOCK_TIMES_WINDOW + 1);
+    let mut samples: VecDeque<(i64, DateTime<Utc>)> =
+        VecDeque::with_capacity(BLOCK_TIMES_WINDOW + 2);
     let mut ticker = tokio::time::interval(Duration::from_millis(BLOCK_POLL_MS));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
@@ -76,13 +77,10 @@ async fn block_stats_loop(state: AppState, io: SocketIo) {
         // `avgTime` comes from the decoded (finalized) blocks.
         if last_cursor.is_none_or(|lc| cursor > lc) {
             if let Some(ts) = block_timestamp(&state, cursor).await {
-                if let (Some(prev), true) = (last_ts, last_cursor.is_some()) {
-                    intervals.push_back((ts - prev).num_milliseconds());
-                    while intervals.len() > BLOCK_TIMES_WINDOW {
-                        intervals.pop_front();
-                    }
+                samples.push_back((cursor, ts));
+                while samples.len() > BLOCK_TIMES_WINDOW + 1 {
+                    samples.pop_front();
                 }
-                last_ts = Some(ts);
             }
             last_cursor = Some(cursor);
         }
@@ -98,10 +96,7 @@ async fn block_stats_loop(state: AppState, io: SocketIo) {
             continue;
         }
         last_shown = Some(block);
-        let avg_time = (!intervals.is_empty()).then(|| {
-            let mean = intervals.iter().sum::<i64>() as f64 / intervals.len() as f64 / 1000.0;
-            format!("{mean:.3}")
-        });
+        let avg_time = mean_block_seconds(&samples).map(|mean| format!("{mean:.3}"));
         let finalized = finalized_number(&state).await;
         let payload = BlockStats {
             block,
@@ -112,6 +107,14 @@ async fn block_stats_loop(state: AppState, io: SocketIo) {
             debug!(error = %e, "realtime: new-block-stats emit failed");
         }
     }
+}
+
+/// Seconds per block between the oldest and newest `(height, time)`
+/// sample, so a cursor that advanced several blocks at once counts each.
+fn mean_block_seconds(samples: &VecDeque<(i64, DateTime<Utc>)>) -> Option<f64> {
+    let (h0, t0) = samples.front()?;
+    let (h1, t1) = samples.back()?;
+    (h1 > h0).then(|| (*t1 - *t0).num_milliseconds() as f64 / (h1 - h0) as f64 / 1000.0)
 }
 
 /// Best head number (`chain_getHeader`); `None` without a chain client or
@@ -515,5 +518,17 @@ mod tests {
         })
         .unwrap();
         assert_eq!(s, r#"{"block":5,"finalized":null,"avgTime":"6.012"}"#);
+    }
+
+    #[test]
+    fn block_mean_counts_skipped_heights() {
+        let at = |s: i64| DateTime::<Utc>::from_timestamp(1_790_000_000 + s, 0).unwrap();
+        let mut w = VecDeque::new();
+        assert_eq!(mean_block_seconds(&w), None);
+        w.push_back((100, at(0)));
+        assert_eq!(mean_block_seconds(&w), None);
+        w.push_back((101, at(6)));
+        w.push_back((103, at(24)));
+        assert_eq!(mean_block_seconds(&w), Some(8.0));
     }
 }

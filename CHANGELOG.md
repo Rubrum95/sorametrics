@@ -4,6 +4,21 @@ All notable changes to SoraMetrics v33. Dates are the day the work landed on the
 
 ## Unreleased
 
+### 2026-09-27
+- API: `/staking/network.avgBlockTime` is measured: seconds from the first block timestamped in the
+  last 24 h until now, divided by the blocks produced since then up to the chain head, so a stalled
+  chain raises it while it lasts (`null` with no block in the window). It was the runtime target
+  `babe.expectedBlockTime` (always 6.0); the real mean was 6.59 s. `expectedBlockTime` keeps the
+  target.
+- API: `/staking/network.epochProgress` counts BABE slots (`currentSlot` against the epoch's start
+  slot). It was `bestBlock % epochDuration`, which drifts because about 9 % of slots have no block:
+  85.3 % was shown while the epoch was 37.0 % through.
+- API: Socket.IO `new-block-stats.avgTime` divides by the blocks between the oldest and newest
+  sample, so an indexer cursor that advances several blocks at once no longer counts as one interval.
+- frontend: Pulse "Avg Block Time · 24H" shows the measured mean. The Tools block/date calculator
+  estimates with it, its ±1h / ±10m buttons move by the blocks that time really takes, its note no
+  longer claims 6 s ±5 %, and without a measured mean it says so instead of estimating.
+
 ### 2026-09-26
 - API: a swap is worth its cheaper priced leg (`sm.swap_usd`, 0 = unknown). Swap rows (history,
   Socket.IO, CSV, `/lookup/usd-value`) carry it in both `in.usd` and `out.usd`; network volume,

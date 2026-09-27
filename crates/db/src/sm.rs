@@ -248,6 +248,25 @@ pub async fn insert_bridge(pool: &PgPool, bridge: &V2Bridge) -> Result<UpsertOut
     })
 }
 
+/// Height and on-chain time of the first indexed block timestamped at or
+/// after `since`.
+pub async fn first_block_since(
+    pool: &PgPool,
+    since: chrono::DateTime<chrono::Utc>,
+) -> Result<Option<(i64, chrono::DateTime<chrono::Utc>)>, DbError> {
+    let row = sqlx::query!(
+        r#"
+        SELECT block_height, block_timestamp FROM sm.extrinsics
+        WHERE block_timestamp >= $1
+        ORDER BY block_timestamp LIMIT 1
+        "#,
+        since
+    )
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| (r.block_height, r.block_timestamp)))
+}
+
 /// Counts rows in a live table for testing / freshness checks.
 pub async fn count_swaps(pool: &PgPool) -> Result<i64, DbError> {
     let row = sqlx::query!("SELECT COUNT(*) AS c FROM sm.swaps")
@@ -1314,6 +1333,38 @@ mod tests {
             output_usd_value: None,
             timestamp: Timestamp::new(DateTime::from_timestamp(1_700_000_000, 0).unwrap()),
         }
+    }
+
+    #[sqlx::test(migrator = "MIGRATOR")]
+    async fn first_block_since_picks_the_earliest_block_in_the_window(pool: PgPool) {
+        let at = |s: i64| DateTime::from_timestamp(1_790_000_000 + s, 0).unwrap();
+        assert_eq!(first_block_since(&pool, at(0)).await.unwrap(), None);
+        for (h, idx, s) in [
+            (100_i64, 0_i32, 0_i64),
+            (101, 0, 6),
+            (101, 1, 6),
+            (102, 0, 18),
+        ] {
+            sqlx::query(
+                "INSERT INTO sm.extrinsics (block_height, extrinsic_index, block_timestamp, hash, section, method, signer, success) \
+                 VALUES ($1, $2, $3, '0x', 'timestamp', 'set', '', true)",
+            )
+            .bind(h)
+            .bind(idx)
+            .bind(at(s))
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        assert_eq!(
+            first_block_since(&pool, at(1)).await.unwrap(),
+            Some((101, at(6)))
+        );
+        assert_eq!(
+            first_block_since(&pool, at(-5)).await.unwrap(),
+            Some((100, at(0)))
+        );
+        assert_eq!(first_block_since(&pool, at(19)).await.unwrap(), None);
     }
 
     #[sqlx::test(migrator = "MIGRATOR")]

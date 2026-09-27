@@ -523,8 +523,8 @@ function PulseSection({ tweaks }) {
                 value={bucket ? Number(bucket.users || 0).toLocaleString() : '—'}
                 sub={statsNetwork ? Number((use7d ? statsNetwork.stats24h : statsNetwork.stats7d)?.users || 0).toLocaleString() + ' ' + (use7d ? '24H' : '7D') : 'unique signers'}/>
               <PulseStat
-                label={t('pulse.kpi.block')}
-                value={stakingNet ? (Number(stakingNet.avgBlockTime || 0)).toFixed(2) + 's' : '—'}
+                label={t('pulse.kpi.block') + ' · 24H'}
+                value={stakingNet?.avgBlockTime != null ? Number(stakingNet.avgBlockTime).toFixed(2) + 's' : '—'}
                 sub={stakingNet ? t('s.bestN', 'best #') + Number(stakingNet.bestBlock || 0).toLocaleString() : t('s.finality', 'Finality')}/>
             </>
           );

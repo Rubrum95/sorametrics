@@ -18,7 +18,7 @@ function useChainTip() {
         if (cancelled || !j) return;
         setTip({
           block: Number(j.bestBlock) || 0,
-          blockTimeMs: Number(j.expectedBlockTime) || 6000,
+          blockTimeMs: j.avgBlockTime > 0 ? Math.round(j.avgBlockTime * 1000) : null,
           ts: Date.now(),                  // when the backend response landed
         });
       })
@@ -65,8 +65,8 @@ function PredictionBlockCard() {
 
   // Seed block input once the chain tip arrives (default: tip + 1h worth of blocks).
   useEffect(() => {
-    if (tip && !blockInput) {
-      const blocksIn1h = Math.floor(3_600_000 / tip.blockTimeMs);
+    if (tip?.blockTimeMs && !blockInput) {
+      const blocksIn1h = Math.round(3_600_000 / tip.blockTimeMs);
       setBlockInput(String(tip.block + blocksIn1h));
     }
   }, [tip, blockInput]);
@@ -74,6 +74,7 @@ function PredictionBlockCard() {
   // Compute the conversion whenever inputs or tip change.
   const result = useMemo(() => {
     if (!tip) return null;
+    if (!tip.blockTimeMs) return { error: t('tools.noBlockTime', 'No measured block time for the last 24 h, so no estimate is shown.') };
     const bt = tip.blockTimeMs;
     if (mode === 'block2time') {
       const target = parseInt(blockInput, 10);
@@ -110,6 +111,8 @@ function PredictionBlockCard() {
     const ms = Date.parse(timeInput) + minutes * 60_000;
     if (Number.isFinite(ms)) setTimeInput(toLocalInput(new Date(ms)));
   };
+  const hourBlocks = tip?.blockTimeMs ? Math.round(3_600_000 / tip.blockTimeMs) : null;
+  const tenMinBlocks = tip?.blockTimeMs ? Math.round(600_000 / tip.blockTimeMs) : null;
   const bumpBlock = (n) => {
     const v = parseInt(blockInput, 10);
     if (Number.isFinite(v)) setBlockInput(String(Math.max(0, v + n)));
@@ -135,8 +138,8 @@ function PredictionBlockCard() {
               <div className="num" style={{fontSize: 16, fontWeight: 700, color:'var(--info)'}}>#{tip.block.toLocaleString()}</div>
             </div>
             <div>
-              <div className="muted tiny">{t('tools.blockTime', 'Block time')}</div>
-              <div className="num" style={{fontSize: 16, fontWeight: 700}}>{(tip.blockTimeMs / 1000).toFixed(1)}s</div>
+              <div className="muted tiny">{t('pulse.kpi.block') + ' · 24H'}</div>
+              <div className="num" style={{fontSize: 16, fontWeight: 700}}>{tip.blockTimeMs ? (tip.blockTimeMs / 1000).toFixed(2) + 's' : '—'}</div>
             </div>
             <div>
               <div className="muted tiny">{t('tools.now', 'Ahora')}</div>
@@ -199,10 +202,10 @@ function PredictionBlockCard() {
                   background:'var(--bg-card)', color:'var(--fg-0)',
                   outline:'none',
                 }}/>
-              <button className="btn" onClick={() => bumpBlock(-600)}  title={t('s.1h600Blocks', '-1h (−600 blocks)')}>-1h</button>
-              <button className="btn" onClick={() => bumpBlock(-100)}  title="-10min">-10m</button>
-              <button className="btn" onClick={() => bumpBlock( 100)}  title="+10min">+10m</button>
-              <button className="btn" onClick={() => bumpBlock( 600)}  title={t('s.1h600Blocks2', '+1h (+600 blocks)')}>+1h</button>
+              <button className="btn" disabled={!hourBlocks} onClick={() => bumpBlock(-hourBlocks)} title={hourBlocks ? '-1h (−' + hourBlocks + ' ' + t('tools.blocks', 'bloques') + ')' : '-1h'}>-1h</button>
+              <button className="btn" disabled={!tenMinBlocks} onClick={() => bumpBlock(-tenMinBlocks)} title={tenMinBlocks ? '-10min (−' + tenMinBlocks + ' ' + t('tools.blocks', 'bloques') + ')' : '-10min'}>-10m</button>
+              <button className="btn" disabled={!tenMinBlocks} onClick={() => bumpBlock(tenMinBlocks)} title={tenMinBlocks ? '+10min (+' + tenMinBlocks + ' ' + t('tools.blocks', 'bloques') + ')' : '+10min'}>+10m</button>
+              <button className="btn" disabled={!hourBlocks} onClick={() => bumpBlock(hourBlocks)} title={hourBlocks ? '+1h (+' + hourBlocks + ' ' + t('tools.blocks', 'bloques') + ')' : '+1h'}>+1h</button>
             </div>
           </div>
         ) : (
@@ -267,7 +270,7 @@ function PredictionBlockCard() {
 
         {/* Caveat */}
         <div className="muted tiny" style={{marginTop:14, fontSize:10, lineHeight:1.5}}>
-          {t('tools.caveat', 'Estimación basada en block time de 6s. La producción real de bloques puede variar ±5% por congestión o problemas de validadores.')}
+          {t('tools.caveat', 'Estimate based on the average block time measured over the last 24 h. Future blocks may come sooner or later (empty slots, validator issues).')}
         </div>
       </div>
     </div>

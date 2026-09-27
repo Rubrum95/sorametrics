@@ -558,7 +558,7 @@ struct NetworkResponse {
     #[serde(rename = "validatorCount")]
     validator_count: usize,
     #[serde(rename = "avgBlockTime")]
-    avg_block_time: f64,
+    avg_block_time: Option<f64>,
     era: u32,
     #[serde(rename = "totalStake")]
     total_stake: String,
@@ -601,21 +601,36 @@ fn progress(
     session: u32,
     era_start_session: u32,
     sessions_per_era: u32,
-    best: u32,
-    epoch_blocks: u64,
+    slots_into_epoch: u64,
+    epoch_duration: u64,
 ) -> (i64, f64, String) {
     let session_progress = i64::from(session) - i64::from(era_start_session);
     let era_progress = round_to(
         session_progress as f64 / f64::from(sessions_per_era) * 100.0,
         1,
     );
-    let blocks_into = if epoch_blocks > 0 {
-        u64::from(best) % epoch_blocks
-    } else {
-        0
-    };
-    let epoch_progress = round_to(blocks_into as f64 / epoch_blocks.max(1) as f64 * 100.0, 1);
+    let epoch_progress = round_to(
+        (slots_into_epoch as f64 / epoch_duration.max(1) as f64 * 100.0).min(100.0),
+        1,
+    );
     (session_progress, era_progress, format!("{epoch_progress}%"))
+}
+
+/// Slots elapsed in the current BABE epoch, which starts at
+/// `genesis_slot + epoch_index * epoch_duration`.
+fn slots_into_epoch(slot: u64, genesis_slot: u64, epoch_index: u64, epoch_duration: u64) -> u64 {
+    slot.saturating_sub(genesis_slot.saturating_add(epoch_index.saturating_mul(epoch_duration)))
+}
+
+/// Seconds per block from the first block of the window up to `now`, over
+/// the blocks produced up to the chain head, so a stalled chain raises it.
+fn mean_block_seconds(
+    now: chrono::DateTime<chrono::Utc>,
+    first: (i64, chrono::DateTime<chrono::Utc>),
+    head: i64,
+) -> Option<f64> {
+    let (height, ts) = first;
+    (head > height).then(|| (now - ts).num_milliseconds() as f64 / 1000.0 / (head - height) as f64)
 }
 
 fn epoch_label(epoch_seconds: f64) -> String {
@@ -640,7 +655,8 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             .await
             .map_err(ChainErr)?
             .number();
-        let now_ms = chrono::Utc::now().timestamp_millis();
+        let now = chrono::Utc::now();
+        let now_ms = now.timestamp_millis();
 
         struct Raw {
             active: Option<ActiveEraInfo>,
@@ -654,6 +670,9 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             era_start_session: Option<u32>,
             issuance: u128,
             era_stake: u128,
+            slot: u64,
+            genesis_slot: u64,
+            epoch_index: u64,
         }
         let raw = chain
             .with_client(|client| async move {
@@ -688,6 +707,9 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
                         .fetch(&s.staking().eras_total_stake(era))
                         .await?
                         .unwrap_or(0),
+                    slot: at.fetch(&s.babe().current_slot()).await?.map_or(0, |v| v.0),
+                    genesis_slot: at.fetch(&s.babe().genesis_slot()).await?.map_or(0, |v| v.0),
+                    epoch_index: at.fetch(&s.babe().epoch_index()).await?.unwrap_or(0),
                     active,
                 })
             })
@@ -707,9 +729,18 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             raw.session,
             raw.era_start_session.unwrap_or(0),
             consts.sessions_per_era,
-            best,
+            slots_into_epoch(
+                raw.slot,
+                raw.genesis_slot,
+                raw.epoch_index,
+                consts.epoch_duration,
+            ),
             consts.epoch_duration,
         );
+        let avg_block_time =
+            sorametrics_db::sm::first_block_since(&state.db, now - chrono::Duration::hours(24))
+                .await?
+                .and_then(|first| mean_block_seconds(now, first, i64::from(best)));
         let total_issuance = planck_fixed(raw.issuance, 2);
         let total_staked = planck_fixed(raw.era_stake, 2);
         let issuance_f: f64 = total_issuance.parse().unwrap_or(0.0);
@@ -757,7 +788,7 @@ async fn network(State(state): State<AppState>) -> Result<Json<NetworkResponse>,
             total_staked: total_staked.clone(),
             staking_ratio,
             validator_count: raw.set_len,
-            avg_block_time: consts.expected_block_time as f64 / 1000.0,
+            avg_block_time,
             era,
             total_stake: total_staked,
             total_stake_usd,
@@ -903,10 +934,28 @@ mod tests {
 
     #[test]
     fn progress_and_labels_match_node() {
-        let (sp, ep, epoch) = progress(47027, 47024, 6, 27_574_338, 600);
+        let (sp, ep, epoch) = progress(47027, 47024, 6, 222, 600);
         assert_eq!(sp, 3);
         assert_eq!(ep, 50.0);
-        assert_eq!(epoch, "23%");
+        assert_eq!(epoch, "37%");
+        assert_eq!(progress(47027, 47024, 6, 700, 600).2, "100%");
+    }
+
+    #[test]
+    fn epoch_slots_and_block_mean_follow_the_chain() {
+        assert_eq!(slots_into_epoch(298_418_532, 269_923_710, 47_491, 600), 222);
+        assert_eq!(slots_into_epoch(298_418_310, 269_923_710, 47_491, 600), 0);
+        assert_eq!(slots_into_epoch(100, 269_923_710, 47_491, 600), 0);
+        let at = |s: i64| chrono::DateTime::from_timestamp(1_790_000_000 + s, 0).unwrap();
+        assert_eq!(
+            mean_block_seconds(at(600), (1_000, at(0)), 1_100),
+            Some(6.0)
+        );
+        assert_eq!(
+            mean_block_seconds(at(36_600), (1_000, at(0)), 1_100),
+            Some(366.0)
+        );
+        assert_eq!(mean_block_seconds(at(600), (1_000, at(0)), 1_000), None);
         assert_eq!(epoch_label(3600.0), "1.0h");
         assert_eq!(epoch_label(600.0), "10min");
         assert_eq!(round_to(0.75 / 1e9 * 1e9 * 100.0 / 100.0 * 75.0, 2), 56.25);
