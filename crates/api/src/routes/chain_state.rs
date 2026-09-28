@@ -43,7 +43,7 @@ pub fn router() -> Router<AppState> {
 
 const XOR_ASSET_ID: &str = "0x0200000000000000000000000000000000000000000000000000000000000000";
 const POOLS_TTL: Duration = Duration::from_secs(60);
-const HOLDERS_TTL: Duration = Duration::from_secs(300);
+const HOLDERS_TTL: Duration = Duration::from_secs(1800);
 const HOLDERS_PAGE: usize = 25;
 /// How long a request waits for a fresh scan before answering 503
 /// (the Node blocked up to 60 s on its RPC timeout).
@@ -437,7 +437,7 @@ const HOT_WINDOW: Duration = Duration::from_secs(6 * 3600);
 /// At most this many assets per pre-warm walk.
 const HOT_CAP: usize = 20;
 
-/// Every `HOLDERS_PREWARM_SECS` (default 240 s, under the 5 min TTL; 0
+/// Every `HOLDERS_PREWARM_SECS` (default 1500 s, under the 30 min TTL; 0
 /// disables) re-scan, in ONE chain walk, every asset whose holders were
 /// requested in the last 6 h, so the request path only ever hits the
 /// cache. Server cost per cycle: one `tokens.accounts` walk (~58k
@@ -446,7 +446,7 @@ pub fn spawn_prewarm(state: AppState) {
     let secs: u64 = std::env::var("HOLDERS_PREWARM_SECS")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(240);
+        .unwrap_or(1500);
     if secs == 0 {
         tracing::info!("holders pre-warm disabled");
         return;

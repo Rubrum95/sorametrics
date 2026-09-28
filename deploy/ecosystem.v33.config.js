@@ -1,12 +1,12 @@
 // PM2 processes for SoraMetrics v33 on Rubrum-01. Binaries come from
 // `cargo build --release`; runtime configuration is read from `<cwd>/.env`
-// (deploy/env.rubrum.example). The two local validators are given as
+// (deploy/env.rubrum.example). With two local nodes they are given as
 // opposite primaries so an API scan never delays the ingest and each
 // process fails over to the other node (then mof2).
 const cwd = '/root/sorametrics-v33';
-// One local node today (Rubrum01). When a second one runs here, set NODE_B to
-// its RPC and the two processes get opposite primaries automatically.
-const NODE_A = 'ws://127.0.0.1:9944';
+// Dedicated non-validator RPC node (container sora-rpc-sm). The validators on
+// this host (:9944, :9945) must not serve SoraMetrics' RPC load.
+const NODE_A = 'ws://127.0.0.1:9947';
 const NODE_B = null;
 const ARCHIVE = 'wss://mof2.sora.org';
 const endpoints = (...urls) => urls.filter(Boolean).join(',');
@@ -27,7 +27,7 @@ module.exports = {
             ...common,
             name: 'sorametrics-v33-api',
             script: `${cwd}/target/release/sorametrics-api`,
-            max_memory_restart: '256M',
+            max_memory_restart: '512M',
             env: { ...common.env, API_BIND: '127.0.0.1:3311', WS_ENDPOINTS: endpoints(NODE_B, NODE_A, ARCHIVE) },
         },
         {
