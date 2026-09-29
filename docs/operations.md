@@ -14,8 +14,15 @@ Run them as separate supervised processes (PM2 or systemd) with the environment 
 ## Build
 
 ```bash
-SQLX_OFFLINE=true cargo build --release --workspace   # ~2 min from scratch
+SQLX_OFFLINE=true cargo build --release --locked -p sorametrics-api
+SQLX_OFFLINE=true cargo build --release --locked -p sorametrics-ingest -p sorametrics-ops
 ```
+
+Production binaries are built with exactly these two commands. Cargo unifies dependency features
+across the packages built together, and `--workspace` resolves some dependencies (hyper,
+tokio-util, sha2…) with other features, so a `--workspace` build does not reproduce the deployed
+binaries. After changing a shared crate (`core`, `db`, `substrate`, `telemetry`), rebuild every
+binary that uses it, not only the API.
 
 Release binaries: `sorametrics-api` 14.5 MB, `sorametrics-ingest` 10.0 MB, `sorametrics-ops`
 9.8 MB (2026-09-11). The substrate ingest holds about 36 MB RSS while streaming (debug build,
@@ -39,7 +46,7 @@ monitoring phase and documents the final switch.
 
 ## Deploy
 
-1. `cargo build --release --workspace` on the host (or ship the three binaries).
+1. Build on the host with the two commands of [Build](#build) (or ship the three binaries).
 2. Put the new binaries next to the running ones; the ingest applies pending migrations itself,
    the API only reads. Migrations are additive, so an older API keeps working during the swap.
 3. Restart the ingest first, then the API.

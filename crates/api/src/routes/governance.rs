@@ -17,6 +17,7 @@
 //! extrinsics indexed in `sm.extrinsics`.
 
 use crate::legacy::fmt_time_es;
+use crate::routes::chain_state::cached_or_scan;
 use crate::routes::identity::display_names;
 use crate::{error::ApiError, AppState};
 use axum::{
@@ -78,6 +79,10 @@ pub fn scan_router() -> Router<AppState> {
 }
 
 const PRETTY_TTL: Duration = Duration::from_secs(3600);
+/// Preimage list and scheduler agenda: chain walks shared by every open tab.
+const GOV_LIST_TTL: Duration = Duration::from_secs(30);
+/// A preimage's bytes never change for a given `(hash, len)`.
+const PREIMAGE_DETAIL_TTL: Duration = Duration::from_secs(3600);
 const EVENTS_SCAN_MAX_RANGE: u32 = 800;
 const EVENTS_SCAN_CONCURRENCY: usize = 30;
 const SUBSTRATE_ZSTD_MAGIC: [u8; 8] = [0x52, 0xbc, 0x53, 0x76, 0x46, 0xdb, 0x8e, 0x05];
@@ -341,8 +346,16 @@ async fn enumerate_status(
     Ok(())
 }
 
-async fn preimages(State(state): State<AppState>) -> Result<Json<PreimagesResponse>, ApiError> {
-    let client = client(&state).await?;
+async fn preimages(State(state): State<AppState>) -> Result<Json<Jv>, ApiError> {
+    cached_or_scan(&state, "gov:preimages", GOV_LIST_TTL, |st| async move {
+        scan_preimages(&st).await
+    })
+    .await
+    .map(Json)
+}
+
+async fn scan_preimages(state: &AppState) -> Result<Jv, ApiError> {
+    let client = client(state).await?;
     let mut seen = BTreeMap::new();
     enumerate_status(&client, "RequestStatusFor", &mut seen)
         .await
@@ -399,11 +412,12 @@ async fn preimages(State(state): State<AppState>) -> Result<Json<PreimagesRespon
         bt.cmp(&at).then(rank(&a.status).cmp(&rank(&b.status)))
     });
     let addrs: Vec<String> = addresses.into_iter().collect();
-    let identities = display_names(&state, &addrs).await;
-    Ok(Json(PreimagesResponse {
+    let identities = display_names(state, &addrs).await;
+    serde_json::to_value(PreimagesResponse {
         preimages: rows,
         identities,
-    }))
+    })
+    .map_err(|e| ApiError::Internal(e.to_string()))
 }
 
 // ---------------------------------------------------------------------
@@ -450,9 +464,17 @@ async fn head_number(state: &AppState) -> Result<u32, ApiError> {
         .unwrap_or(0))
 }
 
-async fn scheduler_agenda(State(state): State<AppState>) -> Result<Json<AgendaResponse>, ApiError> {
-    let client = client(&state).await?;
-    let tip = head_number(&state).await?;
+async fn scheduler_agenda(State(state): State<AppState>) -> Result<Json<Jv>, ApiError> {
+    cached_or_scan(&state, "gov:agenda", GOV_LIST_TTL, |st| async move {
+        scan_agenda(&st).await
+    })
+    .await
+    .map(Json)
+}
+
+async fn scan_agenda(state: &AppState) -> Result<Jv, ApiError> {
+    let client = client(state).await?;
+    let tip = head_number(state).await?;
     let at = client.storage().at_latest().await.map_err(chain_err)?;
     let addr = subxt::dynamic::storage("Scheduler", "Agenda", Vec::<DynValue>::new());
     let mut stream = at.iter(addr).await.map_err(chain_err)?;
@@ -555,7 +577,8 @@ async fn scheduler_agenda(State(state): State<AppState>) -> Result<Json<AgendaRe
         })
         .collect();
     entries.sort_by_key(|e| e.block);
-    Ok(Json(AgendaResponse { tip, entries }))
+    serde_json::to_value(AgendaResponse { tip, entries })
+        .map_err(|e| ApiError::Internal(e.to_string()))
 }
 
 // ---------------------------------------------------------------------
@@ -578,16 +601,22 @@ async fn preimage_detail(
     State(state): State<AppState>,
     Path(raw): Path<String>,
     Query(q): Query<LenQuery>,
-) -> Result<Json<PreimageDetail>, ApiError> {
+) -> Result<Json<Jv>, ApiError> {
     let hash = valid_hash(&raw).ok_or_else(|| ApiError::BadRequest("Invalid hash".into()))?;
     let len = q.len.unwrap_or(0);
-    let client = client(&state).await?;
-    let decoded = resolve_preimage(&client, &hash, len).await;
-    Ok(Json(PreimageDetail {
-        hash: raw,
-        len,
-        decoded,
-    }))
+    let key = format!("gov:preimage:{raw}:{len}");
+    cached_or_scan(&state, &key, PREIMAGE_DETAIL_TTL, move |st| async move {
+        let client = client(&st).await?;
+        let decoded = resolve_preimage(&client, &hash, len).await;
+        serde_json::to_value(PreimageDetail {
+            hash: raw,
+            len,
+            decoded,
+        })
+        .map_err(|e| ApiError::Internal(e.to_string()))
+    })
+    .await
+    .map(Json)
 }
 
 #[derive(Deserialize)]

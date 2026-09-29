@@ -19,6 +19,7 @@ macOS): a plain macOS `tar` adds `._*` AppleDouble files and `sqlx::migrate!` re
 cd /root/sorametrics-v33 && SQLX_OFFLINE=true nice -n 10 cargo build --release --workspace -j 6
 ```
 Done 2026-09-17 on the upgraded host (8 cores / 29 GB): 3 min 09 s, validator unaffected.
+Since 2026-09-29 the production binaries are built per package: see `docs/operations.md` (Build).
 Binaries: `target/release/sorametrics-{api,ingest,ops}`. glibc 2.34 (AlmaLinux 9.4): do not
 copy binaries built on Ubuntu.
 

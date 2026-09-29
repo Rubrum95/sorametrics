@@ -3228,6 +3228,7 @@ function PreimagesPanel() {
   const [decodes, setDecodes] = useState({}); // hash -> { section, method }
   const [links, setLinks] = useState({});     // hash -> { refId } | 'none'
   const [firstSeen, setFirstSeen] = useState({}); // hash -> { block, timestamp }
+  const inFlight = React.useRef({ decode: new Set(), links: new Set(), first: new Set() });
 
   useEffect(() => {
     let cancelled = false;
@@ -3267,39 +3268,46 @@ function PreimagesPanel() {
   // Enrich visible rows: fetch decode + linked-referendum + first-seen in parallel.
   // Fires once per hash per session; cheap fetches cached in state.
   useEffect(() => {
-    let cancelled = false;
-    const pending = items.filter(p => decodes[p.hash] === undefined).slice(0, 8);
+    inFlight.current.unmounted = false;
+    return () => { inFlight.current.unmounted = true; };
+  }, []);
+  useEffect(() => {
+    const fly = inFlight.current;
+    const gone = () => fly.unmounted;
+    const pending = items.filter(p => decodes[p.hash] === undefined && !fly.decode.has(p.hash)).slice(0, 8);
     pending.forEach(p => {
+      fly.decode.add(p.hash);
       fetch('/governance/preimage/' + encodeURIComponent(p.hash) + '?len=' + encodeURIComponent(p.len || 0))
         .then(r => r.ok ? r.json() : null)
-        .then(j => { if (!cancelled) setDecodes(d => ({ ...d, [p.hash]: j?.decoded ? { section: j.decoded.section, method: j.decoded.method } : null })); })
-        .catch(() => { if (!cancelled) setDecodes(d => ({ ...d, [p.hash]: null })); });
+        .then(j => { if (!gone()) setDecodes(d => ({ ...d, [p.hash]: j?.decoded ? { section: j.decoded.section, method: j.decoded.method } : null })); })
+        .catch(() => { if (!gone()) setDecodes(d => ({ ...d, [p.hash]: null })); });
     });
-    const pendingLinks = items.filter(p => links[p.hash] === undefined).slice(0, 8);
+    const pendingLinks = items.filter(p => links[p.hash] === undefined && !fly.links.has(p.hash)).slice(0, 8);
     pendingLinks.forEach(p => {
+      fly.links.add(p.hash);
       fetch('/governance/preimage/' + encodeURIComponent(p.hash) + '/referendums?limit=100')
         .then(r => r.ok ? r.json() : null)
         .then(j => {
-          if (cancelled) return;
+          if (gone()) return;
           const match = j?.matches?.[0];
           setLinks(l => ({ ...l, [p.hash]: match ? { refId: match.id, status: match.status } : 'none' }));
         })
-        .catch(() => { if (!cancelled) setLinks(l => ({ ...l, [p.hash]: 'none' })); });
+        .catch(() => { if (!gone()) setLinks(l => ({ ...l, [p.hash]: 'none' })); });
     });
     // Bigger batch for first-seen — needed so the chronological sort has enough
     // data to actually order the visible rows, not just the first 8.
-    const pendingFirst = items.filter(p => firstSeen[p.hash] === undefined).slice(0, 40);
+    const pendingFirst = items.filter(p => firstSeen[p.hash] === undefined && !fly.first.has(p.hash)).slice(0, 40);
     pendingFirst.forEach(p => {
+      fly.first.add(p.hash);
       fetch('/governance/preimage/' + encodeURIComponent(p.hash) + '/events-fast')
         .then(r => r.ok ? r.json() : null)
         .then(j => {
-          if (cancelled) return;
+          if (gone()) return;
           const first = (j?.events || [])[0];
           setFirstSeen(fs => ({ ...fs, [p.hash]: first ? { block: first.block, timestamp: first.timestamp } : null }));
         })
-        .catch(() => { if (!cancelled) setFirstSeen(fs => ({ ...fs, [p.hash]: null })); });
+        .catch(() => { if (!gone()) setFirstSeen(fs => ({ ...fs, [p.hash]: null })); });
     });
-    return () => { cancelled = true; };
   }, [items]);
 
   const fmtDeposit = (raw) => {
